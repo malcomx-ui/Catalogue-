@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
+import { supabase, mapCaseToRow, mapRowToCase } from '../../lib/supabase';
 
 const empty = {
   case_number: '',
@@ -211,16 +212,16 @@ export const NewCaseModal: React.FC = () => {
         client: form.client.trim(),
         clientName: form.client.trim(),
         case_type: form.case_type,
-        status: form.status,
-        date_of_instructions: form.date_of_instructions || null,
+        status: (form.status === 'closed' ? 'Archived' : form.status === 'dormant' ? 'Dormant' : form.status === 'pending' ? 'Pending' : 'Active') as any,
+        date_of_instructions: form.date_of_instructions || undefined,
         filingDate: form.date_of_instructions || new Date().toISOString().slice(0, 10),
-        court: form.court.trim(),
+        court: form.court.trim() || 'High Court of Uganda',
         district: form.district.trim(),
         subject_matter: form.subject_matter.trim(),
         briefSummary: form.subject_matter.trim(),
         notes: form.notes.trim(),
-        hearing_date: form.hearing_date || null,
-        nextHearingDate: form.hearing_date || null,
+        hearing_date: form.hearing_date || undefined,
+        nextHearingDate: form.hearing_date || undefined,
         target: form.target.trim(),
         file_location: form.file_location.trim(),
         year_of_closure: form.year_of_closure ? Number(form.year_of_closure) : null,
@@ -233,7 +234,19 @@ export const NewCaseModal: React.FC = () => {
         assistingAdvocates: assistingAdvocates,
       };
 
-      await addCase(payload);
+      // 1. Real asynchronous insert directly into Supabase 'cases' table
+      const row = mapCaseToRow(payload as any, true);
+      const { data, error: insertError } = await supabase
+        .from('cases')
+        .insert([row])
+        .select('*');
+
+      if (insertError) {
+        throw new Error(insertError.message || 'Failed to insert case into Supabase.');
+      }
+
+      const insertedRecord = (data && data.length > 0) ? mapRowToCase(data[0]) : payload;
+      await addCase(insertedRecord);
       setIsNewCaseModalOpen(false);
       setForm({
         ...empty,

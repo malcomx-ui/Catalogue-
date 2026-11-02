@@ -25,7 +25,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -548,26 +548,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let isMounted = true;
     async function loadCentralDatabase() {
-      // 1. Prioritize live Supabase PostgreSQL database if configured
+      // 1. Fetch live data from Supabase on load using .select('*')
       if (isSupabaseConfigured) {
         try {
-          const [sbCases, sbHearings, sbBranches, sbUsers] = await Promise.all([
-            SupabaseService.fetchCases(),
-            SupabaseService.fetchHearings(),
-            SupabaseService.fetchBranches(),
-            SupabaseService.fetchUsers(),
-          ]);
+          const { data, error } = await supabase
+            .from('cases')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-          if (isMounted && Array.isArray(sbCases)) {
-            setCases(sbCases);
-            if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
-            if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
-            if (Array.isArray(sbUsers) && sbUsers.length > 0) {
-              const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
-              if (nonDemo.length > 0) setAvailableUsers(nonDemo);
-            }
+          if (!error && Array.isArray(data) && isMounted) {
+            const liveCases = data.map(mapRowToCase);
+            setCases(liveCases);
             setIsServerConnected(true);
             setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+            // Also load supporting records from Supabase
+            const [sbHearings, sbBranches, sbUsers] = await Promise.all([
+              SupabaseService.fetchHearings(),
+              SupabaseService.fetchBranches(),
+              SupabaseService.fetchUsers(),
+            ]);
+            if (isMounted) {
+              if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
+              if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
+              if (Array.isArray(sbUsers) && sbUsers.length > 0) {
+                const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
+                if (nonDemo.length > 0) setAvailableUsers(nonDemo);
+              }
+            }
             return;
           }
         } catch (sbErr) {
@@ -1222,9 +1230,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       progressiveNotes: caseData.progressiveNotes || initialNotes,
     };
 
-    // 1. Permanently write to Supabase table 'cases' using insert
+    // 1. Permanently write to Supabase table 'cases' using insert (if not already persisted)
     let savedCase: CaseItem = newCase;
-    if (isSupabaseConfigured) {
+    if (caseData.id && !caseData.id.startsWith('case-')) {
+      savedCase = { ...newCase, id: caseData.id };
+    } else if (isSupabaseConfigured) {
       try {
         const persisted = await SupabaseService.insertCase(newCase);
         if (persisted) {

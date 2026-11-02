@@ -4,19 +4,18 @@ import { CaseItem, CourtHearing, PleadingDocument, Branch, User } from '../types
 export const DEFAULT_SUPABASE_URL = 'https://kidaxoubrzbvnrtuinff.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGF4b3Vicnpidm5ydHVpbmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1ODE0NjAsImV4cCI6MjEwOTE1NzQ2MH0.eDf8euIyXDj5CEzZbW3Dy8irKqGWC-0scvftzfwMS5g';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+export const supabaseUrl: string = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+export const supabaseAnonKey: string = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(
+export const isSupabaseConfigured: boolean = Boolean(
   supabaseUrl && 
   supabaseAnonKey && 
   supabaseUrl.startsWith('https://') && 
   !supabaseUrl.includes('placeholder')
 );
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+// Guaranteed non-null Supabase client
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 function parseDateForPostgres(d: any): string | null {
   if (!d) return null;
@@ -202,26 +201,26 @@ export const SupabaseService = {
    * Permanently inserts a new case using supabase.from('cases').insert(...)
    */
   async insertCase(caseItem: Partial<CaseItem>): Promise<CaseItem | null> {
-    if (!supabase) return null;
     const row = mapCaseToRow(caseItem, true);
     const { data, error } = await supabase
       .from('cases')
       .insert([row])
-      .select('*')
-      .single();
+      .select('*');
 
     if (error) {
       console.error('Supabase insertCase error:', error);
       throw error;
     }
-    return mapRowToCase(data);
+    if (data && data.length > 0) {
+      return mapRowToCase(data[0]);
+    }
+    return null;
   },
 
   /**
    * Permanently updates an existing case using supabase.from('cases').update(...)
    */
   async updateCase(id: string, updates: Partial<CaseItem>): Promise<CaseItem | null> {
-    if (!supabase) return null;
     const row = mapCaseToRow(updates, false);
     delete row.id;
 
@@ -229,21 +228,22 @@ export const SupabaseService = {
       .from('cases')
       .update(row)
       .eq('id', id)
-      .select('*')
-      .single();
+      .select('*');
 
     if (error) {
       console.error('Supabase updateCase error:', error);
       throw error;
     }
-    return mapRowToCase(data);
+    if (data && data.length > 0) {
+      return mapRowToCase(data[0]);
+    }
+    return null;
   },
 
   /**
    * Permanently deletes a case using supabase.from('cases').delete(...)
    */
   async deleteCase(id: string): Promise<boolean> {
-    if (!supabase) return false;
     const { error } = await supabase
       .from('cases')
       .delete()
