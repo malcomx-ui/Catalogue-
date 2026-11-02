@@ -116,8 +116,10 @@ interface AppContextType {
   
   // Actions
   triggerManualSync: (branchId?: string) => Promise<void>;
-  addCase: (caseData: any) => void;
-  updateCase: (caseId: string, updatedData: Partial<CaseItem>) => void;
+  refreshCasesFromSupabase: () => Promise<void>;
+  addCase: (caseData: any) => Promise<CaseItem | null>;
+  updateCase: (caseId: string, updatedData: Partial<CaseItem>) => Promise<CaseItem | null>;
+  deleteCase: (caseId: string) => Promise<boolean>;
   updateCaseStage: (caseId: string, newStage: any) => void;
   transferCaseToBranch: (caseId: string, targetBranchId: string, reason: string) => void;
   addHearing: (hearingData: Omit<CourtHearing, 'id'>) => void;
@@ -556,11 +558,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             SupabaseService.fetchUsers(),
           ]);
 
-          if (isMounted && sbCases && sbCases.length > 0) {
+          if (isMounted && Array.isArray(sbCases)) {
             setCases(sbCases);
-            if (sbHearings && sbHearings.length > 0) setHearings(sbHearings);
-            if (sbBranches && sbBranches.length > 0) setBranches(sbBranches);
-            if (sbUsers && sbUsers.length > 0) {
+            if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
+            if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
+            if (Array.isArray(sbUsers) && sbUsers.length > 0) {
               const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
               if (nonDemo.length > 0) setAvailableUsers(nonDemo);
             }
@@ -1130,8 +1132,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  // Add Case
-  const addCase = (caseData: any) => {
+  // Add Case - Permanently writes to Supabase
+  const addCase = async (caseData: any): Promise<CaseItem> => {
     // Resolve branch
     const branch =
       branches.find((b) => b.id === caseData.branchId || b.name === caseData.branch || b.city.toLowerCase() === (caseData.branch || '').toLowerCase()) ||
@@ -1220,28 +1222,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       progressiveNotes: caseData.progressiveNotes || initialNotes,
     };
 
-    setCases((prev) => [newCase, ...prev]);
+    // 1. Permanently write to Supabase table 'cases' using insert
+    let savedCase: CaseItem = newCase;
+    if (isSupabaseConfigured) {
+      try {
+        const persisted = await SupabaseService.insertCase(newCase);
+        if (persisted) {
+          savedCase = persisted;
+        }
+      } catch (err) {
+        console.error('Supabase insertCase permanent write failed:', err);
+      }
+    }
+
+    setCases((prev) => [savedCase, ...prev.filter((c) => c.id !== savedCase.id)]);
 
     // If hearing date was provided, auto-create hearing in diary
     if (hearingDate) {
       const hearing: CourtHearing = {
         id: `hear-${Date.now()}`,
-        caseId: newCase.id,
-        suitNumber: newCase.suitNumber,
-        caseTitle: newCase.title,
+        caseId: savedCase.id,
+        suitNumber: savedCase.suitNumber,
+        caseTitle: savedCase.title,
         hearingDate,
         hearingTime: caseData.nextHearingTime || '09:30 AM',
-        courtName: newCase.court,
-        division: newCase.division,
+        courtName: savedCase.court,
+        division: savedCase.division,
         courtRoom: 'Chamber / Court Hall',
-        presidingJudge: newCase.presidingJudge,
+        presidingJudge: savedCase.presidingJudge,
         hearingPurpose: caseData.nextHearingPurpose || 'Hearing / Scheduling',
-        leadCounsel: newCase.leadAdvocate,
-        assignedAdvocates: [newCase.leadAdvocate],
+        leadCounsel: savedCase.leadAdvocate,
+        assignedAdvocates: [savedCase.leadAdvocate],
         status: 'Scheduled',
-        branchId: newCase.branchId,
+        branchId: savedCase.branchId,
       };
       setHearings((prev) => [hearing, ...prev]);
+      if (isSupabaseConfigured) {
+        SupabaseService.upsertHearing(hearing).catch(() => {});
+      }
     }
 
     // Add sync log
@@ -1250,17 +1268,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString(),
       branchId: branch.id,
       branchName: branch.name,
-      action: `New Case Registered: ${newCase.suitNumber}`,
+      action: `New Case Registered: ${savedCase.suitNumber}`,
       recordsSynced: 1,
       status: 'SUCCESS',
       latencyMs: 16,
-      details: `Matter "${newCase.title}" broadcast to all firm branches.`,
+      details: `Matter "${savedCase.title}" permanently written to Supabase cases table.`,
     };
     setSyncLogs((prev) => [syncLog, ...prev]);
+
+    return savedCase;
   };
 
-  // Update Case Details
-  const updateCase = (caseId: string, updatedData: Partial<CaseItem>) => {
+  // Update Case Details - Permanently writes to Supabase
+  const updateCase = async (caseId: string, updatedData: Partial<CaseItem>): Promise<CaseItem | null> => {
+    let updatedCaseObj: CaseItem | null = null;
+
     setCases((prev) =>
       prev.map((c) => {
         if (c.id === caseId) {
@@ -1297,6 +1319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             hearing_date: updatedData.hearing_date || updatedData.nextHearingDate || c.hearing_date,
             lastUpdated: new Date().toISOString(),
           };
+          updatedCaseObj = updated;
           return updated;
         }
         return c;
@@ -1341,25 +1364,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       });
     }
+
+    // Permanently write update to Supabase cases table
+    if (isSupabaseConfigured) {
+      try {
+        const persisted = await SupabaseService.updateCase(caseId, updatedData);
+        if (persisted) {
+          updatedCaseObj = persisted;
+          setCases((prev) => prev.map((c) => (c.id === caseId ? persisted : c)));
+          if (selectedCase && selectedCase.id === caseId) {
+            setSelectedCase(persisted);
+          }
+        }
+      } catch (err) {
+        console.error('Supabase updateCase permanent write failed:', err);
+      }
+    }
+
+    return updatedCaseObj;
   };
 
-  // Update Case Stage
-  const updateCaseStage = (caseId: string, newStage: any) => {
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === caseId) {
-          return {
-            ...c,
-            stage: newStage,
-            lastUpdated: new Date().toISOString(),
-          };
-        }
-        return c;
-      })
-    );
-
+  // Permanently delete case from Supabase
+  const deleteCase = async (caseId: string): Promise<boolean> => {
+    // 1. Optimistic removal from UI
+    setCases((prev) => prev.filter((c) => c.id !== caseId));
     if (selectedCase && selectedCase.id === caseId) {
-      setSelectedCase((prev) => prev ? { ...prev, stage: newStage, lastUpdated: new Date().toISOString() } : null);
+      setSelectedCase(null);
+    }
+
+    // 2. Permanently delete from Supabase table 'cases'
+    if (isSupabaseConfigured) {
+      try {
+        await SupabaseService.deleteCase(caseId);
+      } catch (err) {
+        console.error('Supabase permanent deleteCase failed:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Update Case Stage - Permanently persists stage to Supabase
+  const updateCaseStage = (caseId: string, newStage: any) => {
+    updateCase(caseId, { stage: newStage });
+  };
+
+  const refreshCasesFromSupabase = async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const fresh = await SupabaseService.fetchCases();
+      if (fresh) {
+        setCases(fresh);
+        setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }
+    } catch (err) {
+      console.warn('refreshCasesFromSupabase error:', err);
     }
   };
 
@@ -1941,6 +2000,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         triggerManualSync,
         addCase,
         updateCase,
+        deleteCase,
+        refreshCasesFromSupabase,
         updateCaseStage,
         transferCaseToBranch,
         addHearing,

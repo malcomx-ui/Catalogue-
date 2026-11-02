@@ -18,6 +18,33 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+function parseDateForPostgres(d: any): string | null {
+  if (!d) return null;
+  const s = String(d).trim();
+  if (!s || s === 'undefined' || s === 'null') return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+function resolveBranchId(branchId?: string, branchName?: string): string {
+  if (branchId && ['ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg'].includes(branchId)) {
+    return branchId;
+  }
+  const clean = (branchName || branchId || '').toLowerCase();
+  if (clean.includes('fort') || clean.includes('portal')) return 'ftp-reg';
+  if (clean.includes('gulu')) return 'glu-reg';
+  if (clean.includes('jinja')) return 'jnj-reg';
+  if (clean.includes('kampala')) return 'kla-hq';
+  if (clean.includes('masaka')) return 'msk-reg';
+  if (clean.includes('masindi')) return 'msn-reg';
+  if (clean.includes('mbarara')) return 'mbr-reg';
+  return 'ftp-reg';
+}
+
 /**
  * Maps database row to frontend CaseItem
  */
@@ -39,6 +66,7 @@ export function mapRowToCase(row: any): CaseItem {
     assistingAdvocates: Array.isArray(row.assisting_advocates) ? row.assisting_advocates : [],
     parties: Array.isArray(row.parties) ? row.parties : [],
     clientName: row.client_name || '',
+    client: row.client_name || '',
     opposingFirm: row.opposing_firm || '',
     opposingCounsel: row.opposing_counsel || '',
     claimValueUGX: Number(row.claim_value_ugx) || 0,
@@ -53,7 +81,6 @@ export function mapRowToCase(row: any): CaseItem {
     briefSummary: row.brief_summary || '',
     notes: row.notes || '',
     file_location: row.file_location || 'Central Registry Safe',
-    client: row.client_name || '',
     case_number: row.case_number || row.suit_number || '',
     branch: row.branch_name || 'Fort Portal Office',
   };
@@ -62,38 +89,44 @@ export function mapRowToCase(row: any): CaseItem {
 /**
  * Maps frontend CaseItem to database row
  */
-export function mapCaseToRow(c: Partial<CaseItem>): any {
-  return {
-    id: c.id,
+export function mapCaseToRow(c: Partial<CaseItem>, isInsert = false): any {
+  const row: any = {
     case_number: c.suitNumber || (c as any).case_number || '',
     suit_number: c.suitNumber || (c as any).case_number || '',
     firm_ref_number: c.firmRefNumber || '',
     title: c.title || '',
-    client_name: c.clientName || (c as any).client_name || '',
-    court: c.court || '',
+    client_name: c.clientName || (c as any).client || '',
+    court: c.court || 'High Court of Uganda',
     division: c.division || 'High Court (Civil Division)',
     presiding_judge: c.presidingJudge || '',
     court_station: c.courtStation || '',
     stage: c.stage || 'Trial (Plaintiff Stage)',
     priority: c.priority || 'Standard',
-    branch_id: c.branchId || 'ftp-reg',
+    branch_id: resolveBranchId(c.branchId, c.branchName || (c as any).branch),
     branch_name: c.branchName || (c as any).branch || 'Fort Portal Office',
-    lead_advocate: c.leadAdvocate || '',
+    lead_advocate: c.leadAdvocate || (c as any).person_in_conduct || '',
     assisting_advocates: c.assistingAdvocates || [],
-    parties: c.parties || [],
+    parties: Array.isArray(c.parties) ? c.parties : [],
     opposing_firm: c.opposingFirm || '',
     opposing_counsel: c.opposingCounsel || '',
-    claim_value_ugx: c.claimValueUGX || 0,
-    filing_date: c.filingDate || null,
-    hearing_date: c.hearing_date || c.nextHearingDate || null,
-    next_hearing_date: c.nextHearingDate || null,
+    claim_value_ugx: Number(c.claimValueUGX) || 0,
+    filing_date: parseDateForPostgres(c.filingDate || (c as any).date_of_instructions) || new Date().toISOString().split('T')[0],
+    hearing_date: parseDateForPostgres(c.hearing_date || c.nextHearingDate),
+    next_hearing_date: parseDateForPostgres(c.nextHearingDate || c.hearing_date),
     next_hearing_purpose: c.nextHearingPurpose || '',
     status: c.status || 'Active',
-    brief_summary: c.briefSummary || '',
+    brief_summary: c.briefSummary || (c as any).subject_matter || '',
     notes: c.notes || '',
     file_location: c.file_location || 'Central Registry Safe',
     updated_at: new Date().toISOString(),
   };
+
+  // Only pass id if not inserting fresh or if it's already an existing non-temporary id
+  if (!isInsert && c.id && !c.id.startsWith('case-')) {
+    row.id = c.id;
+  }
+
+  return row;
 }
 
 /**
@@ -129,28 +162,35 @@ export function mapHearingToRow(h: Partial<CourtHearing>): any {
     case_id: h.caseId,
     suit_number: h.suitNumber,
     case_title: h.caseTitle,
-    hearing_date: h.hearingDate,
-    hearing_time: h.hearingTime,
-    court_name: h.courtName,
-    division: h.division,
-    court_room: h.courtRoom,
-    presiding_judge: h.presidingJudge,
-    hearing_purpose: h.hearingPurpose,
-    lead_counsel: h.leadCounsel,
-    assigned_advocates: h.assignedAdvocates,
-    status: h.status,
-    court_notes: h.courtNotes,
-    branch_id: h.branchId,
+    hearing_date: parseDateForPostgres(h.hearingDate) || new Date().toISOString().split('T')[0],
+    hearing_time: h.hearingTime || '09:30 AM',
+    court_name: h.courtName || 'High Court of Uganda',
+    division: h.division || 'High Court (Civil Division)',
+    court_room: h.courtRoom || '',
+    presiding_judge: h.presidingJudge || '',
+    hearing_purpose: h.hearingPurpose || 'Hearing',
+    lead_counsel: h.leadCounsel || '',
+    assigned_advocates: h.assignedAdvocates || [],
+    status: h.status || 'Scheduled',
+    court_notes: h.courtNotes || '',
+    branch_id: resolveBranchId(h.branchId),
   };
 }
 
 /**
- * Production Supabase Service
+ * Production Supabase Service with permanent PostgreSQL operations
  */
 export const SupabaseService = {
+  /**
+   * Fetches all cases permanently stored in Supabase 'cases' table.
+   */
   async fetchCases(): Promise<CaseItem[] | null> {
     if (!supabase) return null;
-    const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (error) {
       console.warn('Supabase fetchCases error:', error);
       return null;
@@ -158,22 +198,81 @@ export const SupabaseService = {
     return (data || []).map(mapRowToCase);
   },
 
-  async upsertCase(caseItem: CaseItem) {
+  /**
+   * Permanently inserts a new case using supabase.from('cases').insert(...)
+   */
+  async insertCase(caseItem: Partial<CaseItem>): Promise<CaseItem | null> {
     if (!supabase) return null;
-    const row = mapCaseToRow(caseItem);
-    const { data, error } = await supabase.from('cases').upsert([row]);
+    const row = mapCaseToRow(caseItem, true);
+    const { data, error } = await supabase
+      .from('cases')
+      .insert([row])
+      .select('*')
+      .single();
+
     if (error) {
-      console.warn('Supabase upsertCase error:', error);
+      console.error('Supabase insertCase error:', error);
       throw error;
     }
-    return data;
+    return mapRowToCase(data);
   },
 
-  async deleteCase(id: string) {
+  /**
+   * Permanently updates an existing case using supabase.from('cases').update(...)
+   */
+  async updateCase(id: string, updates: Partial<CaseItem>): Promise<CaseItem | null> {
     if (!supabase) return null;
-    const { error } = await supabase.from('cases').delete().eq('id', id);
-    if (error) throw error;
+    const row = mapCaseToRow(updates, false);
+    delete row.id;
+
+    const { data, error } = await supabase
+      .from('cases')
+      .update(row)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Supabase updateCase error:', error);
+      throw error;
+    }
+    return mapRowToCase(data);
+  },
+
+  /**
+   * Permanently deletes a case using supabase.from('cases').delete(...)
+   */
+  async deleteCase(id: string): Promise<boolean> {
+    if (!supabase) return false;
+    const { error } = await supabase
+      .from('cases')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Supabase deleteCase error:', error);
+      throw error;
+    }
     return true;
+  },
+
+  /**
+   * Upsert a case
+   */
+  async upsertCase(caseItem: CaseItem): Promise<CaseItem | null> {
+    if (!supabase) return null;
+    const row = mapCaseToRow(caseItem, false);
+    const { data, error } = await supabase
+      .from('cases')
+      .upsert([row])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Supabase upsertCase error:', error);
+      throw error;
+    }
+    return mapRowToCase(data);
   },
 
   async fetchHearings(): Promise<CourtHearing[] | null> {

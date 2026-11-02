@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   FileCheck,
   FileClock,
+  Trash2,
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
@@ -44,6 +45,7 @@ export const CaseDetailModal: React.FC = () => {
     selectedCase,
     setSelectedCase,
     updateCase,
+    deleteCase,
     updateCaseStage,
     transferCaseToBranch,
     branches,
@@ -213,7 +215,33 @@ export const CaseDetailModal: React.FC = () => {
     updateCaseStage(selectedCase.id, newStage);
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleDeleteCase = async () => {
+    if (!selectedCase) return;
+    const caseDisplay = selectedCase.case_number || selectedCase.suitNumber || selectedCase.title;
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete case "${caseDisplay}" from Supabase?\n\nThis will remove it from the database and cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const ok = await deleteCase(selectedCase.id);
+      if (ok) {
+        setSelectedCase(null);
+      } else {
+        alert('Could not delete case from Supabase. Please check your connection.');
+      }
+    } catch (err: any) {
+      alert(`Delete failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editForm.title.trim()) return;
 
@@ -229,37 +257,43 @@ export const CaseDetailModal: React.FC = () => {
       editForm.status === 'instructions' ? 'Instructions' :
       editForm.status === 'pending' ? 'Pending' : 'Active';
 
-    updateCase(selectedCase.id, {
-      title: editForm.title.trim(),
-      case_number: editForm.case_number.trim(),
-      suitNumber: editForm.case_number.trim(),
-      client: editForm.client.trim(),
-      clientName: editForm.client.trim(),
-      branch: editForm.branch,
-      case_type: editForm.case_type,
-      status: resolvedStatus as any,
-      date_of_instructions: editForm.date_of_instructions,
-      filingDate: editForm.date_of_instructions || selectedCase.filingDate,
-      hearing_date: editForm.hearing_date,
-      nextHearingDate: editForm.hearing_date,
-      court: editForm.court.trim(),
-      district: editForm.district.trim(),
-      person_in_conduct: combinedPersons,
-      persons_in_conduct: validPersons.length > 0 ? validPersons : [primaryLead],
-      leadAdvocate: primaryLead,
-      assistingAdvocates: assistingAdvocates,
-      file_location: editForm.file_location.trim(),
-      target: editForm.target.trim(),
-      subject_matter: editForm.subject_matter.trim(),
-      briefSummary: editForm.subject_matter.trim() || selectedCase.briefSummary,
-      notes: editForm.notes.trim(),
-      year_of_closure: editForm.year_of_closure ? Number(editForm.year_of_closure) : null,
-      billing_status: editForm.billing_status.trim(),
-      payment_status: editForm.payment_status.trim(),
-      verdict: editForm.verdict.trim(),
-    });
-
-    setIsEditing(false);
+    setIsSavingEdit(true);
+    try {
+      await updateCase(selectedCase.id, {
+        title: editForm.title.trim(),
+        case_number: editForm.case_number.trim(),
+        suitNumber: editForm.case_number.trim(),
+        client: editForm.client.trim(),
+        clientName: editForm.client.trim(),
+        branch: editForm.branch,
+        case_type: editForm.case_type,
+        status: resolvedStatus as any,
+        date_of_instructions: editForm.date_of_instructions,
+        filingDate: editForm.date_of_instructions || selectedCase.filingDate,
+        hearing_date: editForm.hearing_date,
+        nextHearingDate: editForm.hearing_date,
+        court: editForm.court.trim(),
+        district: editForm.district.trim(),
+        person_in_conduct: combinedPersons,
+        persons_in_conduct: validPersons.length > 0 ? validPersons : [primaryLead],
+        leadAdvocate: primaryLead,
+        assistingAdvocates: assistingAdvocates,
+        file_location: editForm.file_location.trim(),
+        target: editForm.target.trim(),
+        subject_matter: editForm.subject_matter.trim(),
+        briefSummary: editForm.subject_matter.trim() || selectedCase.briefSummary,
+        notes: editForm.notes.trim(),
+        year_of_closure: editForm.year_of_closure ? Number(editForm.year_of_closure) : null,
+        billing_status: editForm.billing_status.trim(),
+        payment_status: editForm.payment_status.trim(),
+        verdict: editForm.verdict.trim(),
+      });
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Update case error:', err);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   const handleTransferSubmit = (e: React.FormEvent) => {
@@ -410,6 +444,16 @@ export const CaseDetailModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDeleteCase}
+              disabled={isDeleting}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
+              title="Permanently delete case from Supabase"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+              <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+            </button>
             <button
               onClick={() => setIsEditing(!isEditing)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
@@ -767,21 +811,34 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Save Buttons */}
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setIsEditing(false)}
-                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                onClick={handleDeleteCase}
+                disabled={isDeleting}
+                className="px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
               >
-                Cancel
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isDeleting ? 'Deleting...' : 'Delete Case'}</span>
               </button>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2"
-              >
-                <Save className="w-4 h-4 text-amber-400" />
-                <span>Save changes</span>
-              </button>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Save className="w-4 h-4 text-amber-400" />
+                  <span>{isSavingEdit ? 'Saving to Supabase...' : 'Save changes'}</span>
+                </button>
+              </div>
             </div>
           </form>
         ) : (
