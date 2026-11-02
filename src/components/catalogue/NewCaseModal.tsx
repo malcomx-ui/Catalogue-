@@ -235,17 +235,17 @@ export const NewCaseModal: React.FC = () => {
       };
 
       // 1. Real asynchronous insert directly into Supabase 'cases' table
-      const row = mapCaseToRow(payload as any, true);
-      const { data, error: insertError } = await supabase
+      const newCaseObject = mapCaseToRow(payload as any, true);
+      const { data, error } = await supabase
         .from('cases')
-        .insert([row])
+        .insert([newCaseObject])
         .select('*');
 
-      if (insertError) {
-        throw new Error(insertError.message || 'Failed to insert case into Supabase.');
+      if (error) {
+        throw new Error(error.message || 'Failed to insert case into Supabase.');
       }
 
-      const insertedRecord = (data && data.length > 0) ? mapRowToCase(data[0]) : payload;
+      const insertedRecord = (data && data.length > 0) ? mapRowToCase(data[0]) : mapRowToCase(newCaseObject);
       await addCase(insertedRecord);
       setIsNewCaseModalOpen(false);
       setForm({

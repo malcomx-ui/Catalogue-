@@ -470,22 +470,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  // Cases state - clean catalogue starting with 0 demo cases
-  const [cases, setCases] = useState<CaseItem[]>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_CASES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const userCases = parsed.filter((c: any) => !isDemoCaseRecord(c));
-          if (userCases.length > 0) {
-            return userCases;
-          }
-        }
-      }
-    } catch (e) {}
-    return [];
-  });
+  // Cases state - clean catalogue loaded directly from Supabase (no mock data fallback)
+  const [cases, setCases] = useState<CaseItem[]>([]);
 
   // Hearings state - clean court appearances with 0 demo hearings
   const [hearings, setHearings] = useState<CourtHearing[]>(() => {
@@ -521,117 +507,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isServerConnected, setIsServerConnected] = useState<boolean>(true);
   const [isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen] = useState<boolean>(false);
 
-  // One-time cleanup for demo data to ensure client confidentiality
-  useEffect(() => {
-    try {
-      const alreadyCleaned = localStorage.getItem('mk_demo_cleared_v5');
-      if (!alreadyCleaned) {
-        // Purge any lingering demo cases
-        setCases((prev) => (prev || []).filter((c) => !isDemoCaseRecord(c)));
-        setHearings((prev) => (prev || []).filter((h) => !isDemoHearingRecord(h)));
-        setDocuments((prev) => (prev || []).filter((d) => !isDemoDocumentRecord(d)));
-        
-        // Clean demo lawyers
-        setAvailableUsers((prev) => {
-          const cleaned = (prev || []).filter(
-            (u) => !isDemoLawyerName(u.name) && !u.email?.endsWith('@mkadvocates.ug')
-          );
-          return cleaned.length > 0 ? cleaned : INITIAL_USERS;
-        });
-
-        localStorage.setItem('mk_demo_cleared_v5', 'true');
-      }
-    } catch (e) {}
-  }, []);
-
-  // Multi-Computer Sync: Load Central Database from Supabase or Server API on App Mount
+  // Initial Data Loader: Fetches live rows directly from Supabase tables (cases)
   useEffect(() => {
     let isMounted = true;
     async function loadCentralDatabase() {
-      // 1. Fetch live data from Supabase on load using .select('*')
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase
-            .from('cases')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-          if (!error && Array.isArray(data) && isMounted) {
-            const liveCases = data.map(mapRowToCase);
-            setCases(liveCases);
-            setIsServerConnected(true);
-            setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-
-            // Also load supporting records from Supabase
-            const [sbHearings, sbBranches, sbUsers] = await Promise.all([
-              SupabaseService.fetchHearings(),
-              SupabaseService.fetchBranches(),
-              SupabaseService.fetchUsers(),
-            ]);
-            if (isMounted) {
-              if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
-              if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
-              if (Array.isArray(sbUsers) && sbUsers.length > 0) {
-                const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
-                if (nonDemo.length > 0) setAvailableUsers(nonDemo);
-              }
-            }
-            return;
-          }
-        } catch (sbErr) {
-          console.warn('Supabase initial fetch fallback to local API:', sbErr);
-        }
-      }
-
-      // 2. Fallback to /api/database
+      // 1. Fetch live data from Supabase using .select('*')
       try {
-        const res = await fetch('/api/database');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data && isMounted) {
-            const db = json.data;
-            if (Array.isArray(db.cases)) {
-              const realCases = db.cases.filter((c: any) => !isDemoCaseRecord(c));
-              setCases(realCases);
-            }
-            if (Array.isArray(db.hearings)) {
-              setHearings(db.hearings.filter((h: any) => !isDemoHearingRecord(h)));
-            }
-            if (Array.isArray(db.documents)) {
-              setDocuments(db.documents.filter((d: any) => !isDemoDocumentRecord(d)));
-            }
-            if (Array.isArray(db.branches) && db.branches.length > 0) {
-              setBranches(db.branches);
-            }
-            if (Array.isArray(db.users) && db.users.length > 0) {
-              const nonDemo = db.users.filter((u: any) => !isDemoLawyerName(u.name) && !u.email?.endsWith('@mkadvocates.ug'));
-              if (nonDemo.length > 0) setAvailableUsers(nonDemo);
-            }
-            if (Array.isArray(db.roles) && db.roles.length > 0) {
-              setRoles(db.roles);
-            }
-            if (db.systemSettings && typeof db.systemSettings === 'object') {
-              setSystemSettings((prev) => ({
-                ...prev,
-                ...db.systemSettings,
-                firm: { ...prev.firm, ...(db.systemSettings.firm || {}) },
-                features: { ...prev.features, ...(db.systemSettings.features || {}) },
-                intakeFields: { ...prev.intakeFields, ...(db.systemSettings.intakeFields || {}) },
-                courtList: Array.isArray(db.systemSettings.courtList) && db.systemSettings.courtList.length > 0 ? db.systemSettings.courtList : prev.courtList,
-                practiceAreas: Array.isArray(db.systemSettings.practiceAreas) && db.systemSettings.practiceAreas.length > 0 ? db.systemSettings.practiceAreas : prev.practiceAreas,
-                customFields: Array.isArray(db.systemSettings.customFields) ? db.systemSettings.customFields : prev.customFields,
-              }));
-              try {
-                localStorage.setItem('mk_advocates_system_settings_v2', JSON.stringify(db.systemSettings));
-              } catch (e) {}
-            }
-            setIsServerConnected(true);
-            setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-          }
+        const { data, error } = await supabase.from('cases').select('*');
+        if (error) {
+          console.error('Error fetching cases from Supabase:', error);
+        } else if (isMounted) {
+          const liveCases = (data || []).map(mapRowToCase);
+          setCases(liveCases);
+          setIsServerConnected(true);
+          setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
       } catch (err) {
-        // Fallback gracefully to offline localStorage if backend is unreachable
-        setIsServerConnected(false);
+        console.error('Supabase query error:', err);
+      }
+
+      // 2. Fetch supporting hearings, branches, and staff accounts from Supabase
+      try {
+        const [sbHearings, sbBranches, sbUsers] = await Promise.all([
+          SupabaseService.fetchHearings(),
+          SupabaseService.fetchBranches(),
+          SupabaseService.fetchUsers(),
+        ]);
+        if (isMounted) {
+          if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
+          if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
+          if (Array.isArray(sbUsers) && sbUsers.length > 0) {
+            const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
+            if (nonDemo.length > 0) setAvailableUsers(nonDemo);
+          }
+        }
+      } catch (sbErr) {
+        console.warn('Supabase secondary records load error:', sbErr);
       }
     }
 
@@ -653,12 +564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
   const [printableCauseDate, setPrintableCauseDate] = useState<string | null>(null);
 
-  // Persistence
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(cases));
-    } catch (e) {}
-  }, [cases]);
+  // Local user & interface persistence
 
   useEffect(() => {
     try {
@@ -1420,11 +1326,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const refreshCasesFromSupabase = async () => {
-    if (!isSupabaseConfigured) return;
     try {
-      const fresh = await SupabaseService.fetchCases();
-      if (fresh) {
-        setCases(fresh);
+      const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('refreshCasesFromSupabase error:', error);
+      } else {
+        setCases((data || []).map(mapRowToCase));
         setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       }
     } catch (err) {

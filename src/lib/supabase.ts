@@ -48,9 +48,12 @@ function resolveBranchId(branchId?: string, branchName?: string): string {
  * Maps database row to frontend CaseItem
  */
 export function mapRowToCase(row: any): CaseItem {
+  if (!row) return {} as CaseItem;
   return {
+    ...row,
     id: row.id,
     suitNumber: row.suit_number || row.case_number || '',
+    case_number: row.case_number || row.suit_number || '',
     firmRefNumber: row.firm_ref_number || '',
     title: row.title || '',
     court: row.court || '',
@@ -62,6 +65,7 @@ export function mapRowToCase(row: any): CaseItem {
     branchId: row.branch_id || 'ftp-reg',
     branchName: row.branch_name || 'Fort Portal Office',
     leadAdvocate: row.lead_advocate || '',
+    person_in_conduct: row.lead_advocate || '',
     assistingAdvocates: Array.isArray(row.assisting_advocates) ? row.assisting_advocates : [],
     parties: Array.isArray(row.parties) ? row.parties : [],
     clientName: row.client_name || '',
@@ -71,7 +75,7 @@ export function mapRowToCase(row: any): CaseItem {
     claimValueUGX: Number(row.claim_value_ugx) || 0,
     filingDate: row.filing_date || '',
     hearing_date: row.hearing_date || '',
-    nextHearingDate: row.next_hearing_date || '',
+    nextHearingDate: row.next_hearing_date || row.hearing_date || '',
     nextHearingPurpose: row.next_hearing_purpose || '',
     syncedAcrossBranches: true,
     documentsCount: 0,
@@ -80,7 +84,6 @@ export function mapRowToCase(row: any): CaseItem {
     briefSummary: row.brief_summary || '',
     notes: row.notes || '',
     file_location: row.file_location || 'Central Registry Safe',
-    case_number: row.case_number || row.suit_number || '',
     branch: row.branch_name || 'Fort Portal Office',
   };
 }
