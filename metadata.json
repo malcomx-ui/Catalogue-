@@ -1,0 +1,8 @@
+{
+  "name": "MK Case Catalogue",
+  "description": "A centralized litigation management platform designed for MK Firm with all  branches to track, manage, and coordinate legal cases and documents in real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
