@@ -7,7 +7,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+
+function resolveServerPort(): number {
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const val = Number(process.argv[portArgIndex + 1]);
+    if (!isNaN(val) && val > 0) return val;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    return 3000;
+  }
+  return Number(process.env.PORT) || 3000;
+}
+
+const PORT = resolveServerPort();
 const DB_DIR = path.resolve(__dirname, 'server_data');
 const DB_FILE = path.resolve(DB_DIR, 'firm_database.json');
 

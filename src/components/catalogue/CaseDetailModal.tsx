@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { CaseStage, CASE_TYPES, CASE_STATUSES, UGANDA_DISTRICTS, FileMovementRecord, ProgressiveNote } from '../../types';
+import { CaseItem, CaseStage, CASE_TYPES, CASE_STATUSES, UGANDA_DISTRICTS, FileMovementRecord, ProgressiveNote } from '../../types';
 import {
   X,
   Calendar,
@@ -39,10 +39,11 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
+import { supabase, mapRowToCase } from '../../lib/supabase';
 
 export const CaseDetailModal: React.FC = () => {
   const {
-    selectedCase,
+    selectedCase: rawSelectedCase,
     setSelectedCase,
     updateCase,
     deleteCase,
@@ -74,6 +75,14 @@ export const CaseDetailModal: React.FC = () => {
   const [isTransferring, setIsTransferring] = useState(false);
   const [targetBranchId, setTargetBranchId] = useState('');
   const [transferReason, setTransferReason] = useState('');
+
+  // Delete & Edit submission state (declared unconditionally at top level)
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Live Supabase detail record & loading state
+  const [fetchedRecord, setFetchedRecord] = useState<any>(null);
+  const [isLoadingRecord, setIsLoadingRecord] = useState(false);
 
   // Physical file movement recording state
   const [isRecordingMovement, setIsRecordingMovement] = useState(false);
@@ -133,61 +142,140 @@ export const CaseDetailModal: React.FC = () => {
   const [docType, setDocType] = useState<any>('Affidavit');
   const [docSummary, setDocSummary] = useState('');
 
-  // Initialize edit form when selectedCase changes
+  // Fetch fresh case from Supabase on mount / rawSelectedCase change (by id or file_no/case_number)
   useEffect(() => {
-    if (selectedCase) {
+    if (!rawSelectedCase) {
+      setFetchedRecord(null);
+      return;
+    }
+
+    let isMounted = true;
+    const caseId = rawSelectedCase.id;
+    const fileNo = rawSelectedCase.case_number || rawSelectedCase.suitNumber || (rawSelectedCase as any).file_no;
+
+    async function fetchCaseDetail() {
+      setIsLoadingRecord(true);
+      try {
+        let data: any[] | null = null;
+        if (caseId) {
+          const res = await supabase.from('cases').select('*').eq('id', caseId).limit(1);
+          if (!res.error && res.data && res.data.length > 0) {
+            data = res.data;
+          }
+        }
+        if ((!data || data.length === 0) && fileNo) {
+          const res1 = await supabase.from('cases').select('*').eq('case_number', fileNo).limit(1);
+          if (!res1.error && res1.data && res1.data.length > 0) {
+            data = res1.data;
+          } else {
+            const res2 = await supabase.from('cases').select('*').eq('suit_number', fileNo).limit(1);
+            if (!res2.error && res2.data && res2.data.length > 0) {
+              data = res2.data;
+            }
+          }
+        }
+        if (data && data.length > 0 && isMounted) {
+          setFetchedRecord(mapRowToCase(data[0]));
+        }
+      } catch (err) {
+        console.warn('Error fetching case detail from Supabase:', err);
+      } finally {
+        if (isMounted) setIsLoadingRecord(false);
+      }
+    }
+
+    fetchCaseDetail();
+    return () => { isMounted = false; };
+  }, [rawSelectedCase?.id, rawSelectedCase?.case_number, rawSelectedCase?.suitNumber]);
+
+  // Combined active case record guaranteeing all Supabase and frontend fields are present
+  const activeCase: any = rawSelectedCase
+    ? {
+        ...rawSelectedCase,
+        ...(fetchedRecord || {}),
+        suitNumber: fetchedRecord?.suit_number || fetchedRecord?.case_number || rawSelectedCase.suitNumber || rawSelectedCase.case_number || '',
+        case_number: fetchedRecord?.case_number || fetchedRecord?.suit_number || rawSelectedCase.case_number || rawSelectedCase.suitNumber || '',
+        clientName: fetchedRecord?.client_name || rawSelectedCase.clientName || (rawSelectedCase as any).client || '',
+        client: fetchedRecord?.client_name || (rawSelectedCase as any).client || rawSelectedCase.clientName || '',
+        branchName: fetchedRecord?.branch_name || rawSelectedCase.branchName || (rawSelectedCase as any).branch || '',
+        branch: fetchedRecord?.branch_name || (rawSelectedCase as any).branch || rawSelectedCase.branchName || '',
+        leadAdvocate: fetchedRecord?.lead_advocate || rawSelectedCase.leadAdvocate || (rawSelectedCase as any).person_in_conduct || '',
+        courtStation: fetchedRecord?.court_station || rawSelectedCase.courtStation || (rawSelectedCase as any).district || '',
+        district: fetchedRecord?.court_station || (rawSelectedCase as any).district || rawSelectedCase.courtStation || '',
+        briefSummary: fetchedRecord?.brief_summary || rawSelectedCase.briefSummary || (rawSelectedCase as any).subject_matter || '',
+        subject_matter: fetchedRecord?.brief_summary || (rawSelectedCase as any).subject_matter || rawSelectedCase.briefSummary || '',
+        filingDate: fetchedRecord?.filing_date || rawSelectedCase.filingDate || (rawSelectedCase as any).date_of_instructions || '',
+        date_of_instructions: fetchedRecord?.filing_date || (rawSelectedCase as any).date_of_instructions || rawSelectedCase.filingDate || '',
+        hearing_date: fetchedRecord?.hearing_date || fetchedRecord?.next_hearing_date || (rawSelectedCase as any).hearing_date || rawSelectedCase.nextHearingDate || '',
+        nextHearingDate: fetchedRecord?.next_hearing_date || fetchedRecord?.hearing_date || rawSelectedCase.nextHearingDate || (rawSelectedCase as any).hearing_date || '',
+        file_location: fetchedRecord?.file_location || (rawSelectedCase as any).file_location || (rawSelectedCase as any).fileLocation || '',
+        progressiveNotes: rawSelectedCase.progressiveNotes || fetchedRecord?.progressiveNotes || [],
+        fileMovementHistory: rawSelectedCase.fileMovementHistory || fetchedRecord?.fileMovementHistory || [],
+        parties: rawSelectedCase.parties || fetchedRecord?.parties || [],
+      }
+    : null;
+
+  // Single authoritative reference for both Supabase fields and camelCase frontend props
+  const selectedCase: any = activeCase;
+
+  // Initialize edit form when activeCase changes
+  useEffect(() => {
+    if (activeCase) {
       let initialPersons: string[] = [];
-      if (selectedCase.persons_in_conduct && selectedCase.persons_in_conduct.length > 0) {
-        initialPersons = [...selectedCase.persons_in_conduct];
-      } else if (selectedCase.person_in_conduct) {
-        initialPersons = selectedCase.person_in_conduct.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
-      } else if (selectedCase.leadAdvocate) {
-        initialPersons = [selectedCase.leadAdvocate, ...(selectedCase.assistingAdvocates || [])].filter(Boolean);
+      if (activeCase.persons_in_conduct && activeCase.persons_in_conduct.length > 0) {
+        initialPersons = [...activeCase.persons_in_conduct];
+      } else if (activeCase.person_in_conduct) {
+        initialPersons = String(activeCase.person_in_conduct).split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean);
+      } else if (activeCase.lead_advocate || activeCase.leadAdvocate) {
+        const lead = activeCase.lead_advocate || activeCase.leadAdvocate;
+        const assisting = activeCase.assisting_advocates || activeCase.assistingAdvocates || [];
+        initialPersons = [lead, ...assisting].filter(Boolean);
       }
       if (initialPersons.length === 0) initialPersons = [''];
 
+      const rawStatus = activeCase.status || 'Active';
       const mappedStatus = 
-        selectedCase.status === 'Archived' ? 'closed' :
-        selectedCase.status === 'Dormant' ? 'dormant' :
-        selectedCase.status === 'Inactive' ? 'inactive' :
-        selectedCase.status === 'Instructions' ? 'instructions' :
-        selectedCase.status?.toLowerCase() || 'active';
+        rawStatus === 'Archived' ? 'closed' :
+        rawStatus === 'Dormant' ? 'dormant' :
+        rawStatus === 'Inactive' ? 'inactive' :
+        rawStatus === 'Instructions' ? 'instructions' :
+        rawStatus.toLowerCase();
 
       setEditForm({
-        title: selectedCase.title || '',
-        case_number: selectedCase.case_number || selectedCase.suitNumber || '',
-        client: selectedCase.client || selectedCase.clientName || selectedCase.parties?.[0]?.name || '',
-        branch: selectedCase.branch || selectedCase.branchName || '',
-        case_type: selectedCase.case_type || 'Civil',
+        title: activeCase.title || '',
+        case_number: activeCase.case_number || activeCase.suit_number || activeCase.suitNumber || activeCase.file_no || '',
+        client: activeCase.client_name || activeCase.clientName || activeCase.client || '',
+        branch: activeCase.branch_name || activeCase.branchName || activeCase.branch || '',
+        case_type: activeCase.case_type || activeCase.division || 'Civil',
         status: mappedStatus,
-        date_of_instructions: selectedCase.date_of_instructions || selectedCase.filingDate || '',
-        hearing_date: selectedCase.hearing_date || selectedCase.nextHearingDate || '',
-        court: selectedCase.court || '',
-        district: selectedCase.district || selectedCase.courtStation || '',
-        person_in_conduct: selectedCase.person_in_conduct || selectedCase.leadAdvocate || '',
+        date_of_instructions: activeCase.filing_date || activeCase.date_of_instructions || activeCase.filingDate || '',
+        hearing_date: activeCase.hearing_date || activeCase.next_hearing_date || activeCase.nextHearingDate || '',
+        court: activeCase.court || 'High Court of Uganda',
+        district: activeCase.court_station || activeCase.courtStation || activeCase.district || '',
+        person_in_conduct: activeCase.lead_advocate || activeCase.leadAdvocate || activeCase.person_in_conduct || '',
         persons_in_conduct: initialPersons,
-        file_location: selectedCase.file_location || '',
-        target: selectedCase.target || '',
-        subject_matter: selectedCase.subject_matter || selectedCase.briefSummary || '',
-        notes: selectedCase.notes || '',
-        year_of_closure: selectedCase.year_of_closure != null ? String(selectedCase.year_of_closure) : '',
-        billing_status: selectedCase.billing_status || '',
-        payment_status: selectedCase.payment_status || '',
-        verdict: selectedCase.verdict || '',
+        file_location: activeCase.file_location || activeCase.fileLocation || '',
+        target: activeCase.target || '',
+        subject_matter: activeCase.brief_summary || activeCase.briefSummary || activeCase.subject_matter || '',
+        notes: activeCase.notes || '',
+        year_of_closure: activeCase.year_of_closure != null ? String(activeCase.year_of_closure) : (activeCase.yearOfClosure != null ? String(activeCase.yearOfClosure) : ''),
+        billing_status: activeCase.billing_status || activeCase.billingStatus || '',
+        payment_status: activeCase.payment_status || activeCase.paymentStatus || '',
+        verdict: activeCase.verdict || '',
       });
-      setTargetBranchId(branches.find((b) => b.id !== selectedCase.branchId)?.id || branches[0]?.id || '');
-      setNewHearingJudge(selectedCase.presidingJudge || '');
-      setFromLoc(selectedCase.file_location || `${selectedCase.branchName || 'Kampala Central'} Registry Cabinet`);
+      setTargetBranchId(branches.find((b) => b.id !== (activeCase.branch_id || activeCase.branchId))?.id || branches[0]?.id || '');
+      setNewHearingJudge(activeCase.presiding_judge || activeCase.presidingJudge || '');
+      setFromLoc(activeCase.file_location || `${activeCase.branch_name || activeCase.branchName || 'Kampala Central'} Registry Cabinet`);
       setMovedBy(currentUser.name);
       setIsRecordingMovement(false);
       setIsAddingNote(false);
       setIsEditing(false);
     }
-  }, [selectedCase, branches, currentUser]);
+  }, [rawSelectedCase?.id, fetchedRecord?.id, branches, currentUser]);
 
-  if (!selectedCase) return null;
-
-  const currentBranchObj = branches.find((b) => b.name === editForm.branch || b.id === selectedCase.branchId) || branches[0];
+  const currentBranchObj = activeCase
+    ? branches.find((b) => b.name === editForm.branch || b.id === (activeCase.branch_id || activeCase.branchId)) || branches[0]
+    : branches[0];
 
   const handlePersonsChange = (newPersons: string[]) => {
     setEditForm((prev) => ({
@@ -197,8 +285,8 @@ export const CaseDetailModal: React.FC = () => {
     }));
   };
 
-  const caseDocs = documents.filter((d) => d.caseId === selectedCase.id);
-  const caseHearings = hearings.filter((h) => h.caseId === selectedCase.id);
+  const caseDocs = activeCase ? documents.filter((d) => d.caseId === activeCase.id) : [];
+  const caseHearings = activeCase ? hearings.filter((h) => h.caseId === activeCase.id) : [];
 
   const STAGES: CaseStage[] = [
     'Pleadings & Defense',
@@ -212,15 +300,12 @@ export const CaseDetailModal: React.FC = () => {
   ];
 
   const handleStageChange = (newStage: CaseStage) => {
-    updateCaseStage(selectedCase.id, newStage);
+    if (activeCase) updateCaseStage(activeCase.id, newStage);
   };
 
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
   const handleDeleteCase = async () => {
-    if (!selectedCase) return;
-    const caseDisplay = selectedCase.case_number || selectedCase.suitNumber || selectedCase.title;
+    if (!activeCase) return;
+    const caseDisplay = activeCase.case_number || activeCase.suit_number || activeCase.suitNumber || activeCase.file_no || activeCase.title;
     const confirmed = window.confirm(
       `Are you sure you want to permanently delete case "${caseDisplay}" from Supabase?\n\nThis will remove it from the database and cannot be undone.`
     );
@@ -228,9 +313,10 @@ export const CaseDetailModal: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      const ok = await deleteCase(selectedCase.id);
+      const ok = await deleteCase(activeCase.id);
       if (ok) {
         setSelectedCase(null);
+        setFetchedRecord(null);
       } else {
         alert('Could not delete case from Supabase. Please check your connection.');
       }
@@ -413,6 +499,11 @@ export const CaseDetailModal: React.FC = () => {
     setEditForm((prev) => ({ ...prev, [k]: v }));
   };
 
+  // If no case is selected (modal closed), return null so nothing renders and no null properties are accessed
+  if (!rawSelectedCase || !selectedCase) {
+    return null;
+  }
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
       <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
@@ -437,9 +528,14 @@ export const CaseDetailModal: React.FC = () => {
               )}
               <span className="text-slate-300">·</span>
               <span className="text-blue-700 font-medium">{selectedCase.branchName || selectedCase.branch}</span>
+              {isLoadingRecord && (
+                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium animate-pulse border border-blue-200">
+                  Syncing Supabase...
+                </span>
+              )}
             </div>
             <h2 className="text-lg font-bold text-slate-900 leading-snug">
-              {selectedCase.title}
+              {selectedCase.title || 'Untitled Matter'}
             </h2>
           </div>
 
@@ -1015,12 +1111,12 @@ export const CaseDetailModal: React.FC = () => {
                               ? selectedCase.persons_in_conduct
                               : (selectedCase.person_in_conduct || selectedCase.leadAdvocate || '')
                                   .split(/[,;\n]+/)
-                                  .map((s) => s.trim())
+                                  .map((s: string) => s.trim())
                                   .filter(Boolean);
                             if (persons.length === 0) {
                               return <span className="font-semibold text-slate-900">—</span>;
                             }
-                            return persons.map((p, idx) => (
+                            return persons.map((p: string, idx: number) => (
                               <span
                                 key={idx}
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${
@@ -1180,7 +1276,7 @@ export const CaseDetailModal: React.FC = () => {
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {selectedCase.progressiveNotes.slice(0, 3).map((note) => (
+                            {selectedCase.progressiveNotes.slice(0, 3).map((note: ProgressiveNote) => (
                               <div key={note.id} className="bg-slate-50/80 p-2.5 rounded border border-slate-100 space-y-1">
                                 <div className="flex items-center justify-between text-[11px]">
                                   <div className="flex items-center gap-1.5">
@@ -1393,8 +1489,8 @@ export const CaseDetailModal: React.FC = () => {
 
                   {/* Notes Feed */}
                   {(() => {
-                    const allNotes = selectedCase.progressiveNotes || [];
-                    const filtered = allNotes.filter((note) => {
+                    const allNotes: ProgressiveNote[] = selectedCase.progressiveNotes || [];
+                    const filtered = allNotes.filter((note: ProgressiveNote) => {
                       const matchesCategory = selectedNoteFilter === 'all' || note.category === selectedNoteFilter;
                       const matchesSearch =
                         !noteSearch.trim() ||
@@ -1434,7 +1530,7 @@ export const CaseDetailModal: React.FC = () => {
 
                     return (
                       <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                        {filtered.map((note) => {
+                        {filtered.map((note: ProgressiveNote) => {
                           const categoryStyles: Record<string, { bg: string; text: string; border: string; dot: string }> = {
                             'Court Milestone': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-500' },
                             'Client Communication': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200', dot: 'bg-purple-500' },
@@ -1693,7 +1789,7 @@ export const CaseDetailModal: React.FC = () => {
 
                   {/* Movement History Ledger Timeline */}
                   {(() => {
-                    const history = selectedCase.fileMovementHistory || [];
+                    const history: FileMovementRecord[] = selectedCase.fileMovementHistory || [];
                     if (history.length === 0) {
                       return (
                         <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg space-y-2">
@@ -1731,7 +1827,7 @@ export const CaseDetailModal: React.FC = () => {
                         </div>
 
                         <div className="relative pl-6 space-y-3.5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200">
-                          {history.map((record, idx) => {
+                          {history.map((record: FileMovementRecord, idx: number) => {
                             const statusColor =
                               record.status === 'At Registry'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
