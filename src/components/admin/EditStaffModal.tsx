@@ -19,7 +19,7 @@ interface EditStaffModalProps {
   user: User;
   roles: CustomRole[];
   branches: Branch[];
-  onSave: (updates: Partial<User>) => { success: boolean; error?: string };
+  onSave: (updates: Partial<User>) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
   onClose: () => void;
   onOpenWelcomePackage?: (updatedUser: User) => void;
 }
@@ -42,8 +42,9 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
   const [mustChangePassword, setMustChangePassword] = useState(user.mustChangePassword ?? false);
   const [error, setError] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -69,25 +70,32 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
       updates.password = password.trim();
     }
 
-    const result = onSave(updates);
-    if (result.success) {
-      setSavedSuccess(true);
-      setTimeout(() => {
-        if (onOpenWelcomePackage) {
-          const updatedUserObj: User = {
-            ...user,
-            ...updates,
-            name: name.trim(),
-            email: email.trim().toLowerCase(),
-            password: password.trim() || user.password,
-          };
-          onOpenWelcomePackage(updatedUserObj);
-        } else {
-          onClose();
-        }
-      }, 350);
-    } else {
-      setError(result.error || 'Failed to update staff user.');
+    setIsSaving(true);
+    try {
+      const result = await onSave(updates);
+      if (result.success) {
+        setSavedSuccess(true);
+        setTimeout(() => {
+          if (onOpenWelcomePackage) {
+            const updatedUserObj: User = {
+              ...user,
+              ...updates,
+              name: name.trim(),
+              email: email.trim().toLowerCase(),
+              password: password.trim() || user.password,
+            };
+            onOpenWelcomePackage(updatedUserObj);
+          } else {
+            onClose();
+          }
+        }, 350);
+      } else {
+        setError(result.error || 'Failed to update staff user in Supabase.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Database update failed.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -280,9 +288,17 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
 
             <button
               type="submit"
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+              disabled={isSaving}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
             >
-              Save Changes &amp; Sync
+              {isSaving ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <span>Saving to Supabase...</span>
+                </>
+              ) : (
+                <span>Save Changes &amp; Sync</span>
+              )}
             </button>
           </div>
         </form>

@@ -70,7 +70,7 @@ export const LoginScreen: React.FC = () => {
     }, 150);
   };
 
-  const handleSetPermanentPassword = (e: React.FormEvent) => {
+  const handleSetPermanentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -86,7 +86,7 @@ export const LoginScreen: React.FC = () => {
 
     if (targetUserToChangePass) {
       setIsLoading(true);
-      const updateRes = updateUserPassword(targetUserToChangePass.id, newPassword);
+      const updateRes = await updateUserPassword(targetUserToChangePass.id, newPassword);
       if (updateRes.success) {
         // Log in with new permanent password
         setTimeout(() => {

@@ -63,11 +63,12 @@ interface AppContextType {
   assignUserRole: (userId: string, roleId: string) => void;
   
   // User Management (Super Admin)
-  addUser: (userData: Partial<User>) => { success: boolean; error?: string; user?: User };
-  updateUser: (userId: string, updates: Partial<User>) => { success: boolean; error?: string };
-  updateUserPassword: (userId: string, newPass: string) => { success: boolean; error?: string };
-  toggleSuspendUser: (userId: string, reason?: string) => void;
-  deleteUser: (userId: string) => boolean;
+  addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
+  updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  updateUserPassword: (userId: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
+  toggleSuspendUser: (userId: string, reason?: string) => Promise<void>;
+  deleteUser: (userId: string) => Promise<boolean>;
+  refreshStaffFromSupabase: () => Promise<void>;
 
   // Central Server & Multi-Device Sync
   isServerConnected: boolean;
@@ -531,14 +532,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const [sbHearings, sbBranches, sbUsers] = await Promise.all([
           SupabaseService.fetchHearings(),
           SupabaseService.fetchBranches(),
-          SupabaseService.fetchUsers(),
+          SupabaseService.fetchStaff(),
         ]);
         if (isMounted) {
           if (Array.isArray(sbHearings) && sbHearings.length > 0) setHearings(sbHearings);
           if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
           if (Array.isArray(sbUsers) && sbUsers.length > 0) {
-            const nonDemo = sbUsers.filter((u: any) => !isDemoLawyerName(u.name));
-            if (nonDemo.length > 0) setAvailableUsers(nonDemo);
+            setAvailableUsers(sbUsers);
           }
         }
       } catch (sbErr) {
@@ -754,8 +754,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // Refresh Staff directly from Supabase database table
+  const refreshStaffFromSupabase = async () => {
+    try {
+      const liveStaff = await SupabaseService.fetchStaff();
+      if (Array.isArray(liveStaff) && liveStaff.length > 0) {
+        setAvailableUsers(liveStaff);
+      }
+    } catch (err) {
+      console.warn('Error refreshing staff from Supabase:', err);
+    }
+  };
+
   // User Management Methods (Super Admin: Add, Edit, Suspend, Delete)
-  const addUser = (userData: Partial<User>): { success: boolean; error?: string; user?: User } => {
+  const addUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string; user?: User }> => {
     if (!userPermissions.canManageUsers) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
@@ -788,16 +800,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isSuspended: false,
       password: initialPass,
       temporaryPassword: initialPass,
-      mustChangePassword: userData.mustChangePassword !== false, // Defaults to requiring password change on first login
+      mustChangePassword: userData.mustChangePassword !== false,
       advocateRollNo: userData.advocateRollNo?.trim() || undefined,
     };
 
+    // Optimistic UI update
     setAvailableUsers((prev) => [...prev, newUser]);
+
+    // Permanently write to Supabase
+    try {
+      await SupabaseService.insertStaff(newUser);
+      await refreshStaffFromSupabase();
+    } catch (err) {
+      console.error('Error inserting staff in Supabase:', err);
+    }
+
     return { success: true, user: newUser };
   };
 
   // Super Admin can edit/change user details including name, email, password, role, branch
-  const updateUser = (userId: string, updates: Partial<User>): { success: boolean; error?: string } => {
+  const updateUser = async (userId: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> => {
     if (!userPermissions.canManageUsers && !currentUser.isSuperAdmin) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
@@ -816,13 +838,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    const role = updates.roleId ? roles.find((r) => r.id === updates.roleId) : undefined;
+    const branch = updates.branchId ? branches.find((b) => b.id === updates.branchId) : undefined;
+    const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : target.password;
+
+    const mergedUpdates: Partial<User> = {
+      ...updates,
+      roleTitle: role ? role.name : (updates.roleTitle || target.roleTitle),
+      branchName: branch ? branch.name : (updates.branchName || target.branchName),
+      isSuperAdmin: role ? role.isSuperAdmin : target.isSuperAdmin,
+    };
+
+    // 1. Optimistic local state update
     setAvailableUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const role = updates.roleId ? roles.find((r) => r.id === updates.roleId) : undefined;
-          const branch = updates.branchId ? branches.find((b) => b.id === updates.branchId) : undefined;
-          const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : u.password;
-
           const updated: User = {
             ...u,
             name: updates.name !== undefined ? updates.name.trim() : u.name,
@@ -838,7 +868,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : u.advocateRollNo,
             isSuperAdmin: role ? role.isSuperAdmin : u.isSuperAdmin,
           };
-
           if (currentUser.id === userId) {
             setCurrentUser(updated);
           }
@@ -848,11 +877,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    return { success: true };
+    // 2. Perform real update query in Supabase (await supabase.from('staff').update({...}).eq('id', userId))
+    try {
+      const res = await SupabaseService.updateStaff(userId, mergedUpdates);
+      if (!res.success && res.error) {
+        console.warn('Supabase staff update warning:', res.error);
+      }
+      // 3. Refetch updated staff list from Supabase so edits persist on reload
+      await refreshStaffFromSupabase();
+      return { success: true };
+    } catch (err: any) {
+      console.error('Supabase staff update failed:', err);
+      await refreshStaffFromSupabase();
+      return { success: false, error: err?.message || 'Database update failed' };
+    }
   };
 
   // User password change (e.g., during mandatory first-time login or profile update)
-  const updateUserPassword = (userId: string, newPass: string): { success: boolean; error?: string } => {
+  const updateUserPassword = async (userId: string, newPass: string): Promise<{ success: boolean; error?: string }> => {
     if (!newPass || newPass.trim().length < 6) {
       return { success: false, error: 'Password must be at least 6 characters long.' };
     }
@@ -875,17 +917,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
+    try {
+      await SupabaseService.updateStaff(userId, {
+        password: newPass.trim(),
+        mustChangePassword: false,
+      });
+      await refreshStaffFromSupabase();
+    } catch (e) {}
+
     return { success: true };
   };
 
-  const toggleSuspendUser = (userId: string, reason?: string) => {
+  const toggleSuspendUser = async (userId: string, reason?: string) => {
     if (!userPermissions.canManageUsers) return;
     if (userId === currentUser.id) return; // Super admin cannot suspend own session
 
+    let willSuspend = false;
     setAvailableUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          const willSuspend = !u.isSuspended;
+          willSuspend = !u.isSuspended;
           return {
             ...u,
             isSuspended: willSuspend,
@@ -895,13 +946,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return u;
       })
     );
+
+    try {
+      await SupabaseService.updateStaff(userId, {
+        isSuspended: willSuspend,
+        suspendedReason: willSuspend ? (reason || 'Account suspended by Super Admin') : undefined,
+      });
+      await refreshStaffFromSupabase();
+    } catch (e) {}
   };
 
-  const deleteUser = (userId: string): boolean => {
+  // Real asynchronous staff delete query in Supabase (await supabase.from('staff').delete().eq('id', staffId))
+  const deleteUser = async (userId: string): Promise<boolean> => {
     if (!userPermissions.canManageUsers) return false;
     if (userId === currentUser.id) return false;
+
+    // 1. Optimistic removal from local state
     setAvailableUsers((prev) => prev.filter((u) => u.id !== userId));
-    return true;
+
+    // 2. Perform real asynchronous delete from Supabase database tables
+    try {
+      await SupabaseService.deleteStaff(userId);
+      // 3. Refetch updated staff list from Supabase so deleted item does not reappear upon refresh
+      await refreshStaffFromSupabase();
+      return true;
+    } catch (err) {
+      console.error('Supabase delete staff error:', err);
+      await refreshStaffFromSupabase();
+      return false;
+    }
   };
 
   // Branch Management Methods (Super Admin: Add, Update, Delete)
@@ -1919,6 +1992,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCase,
         deleteCase,
         refreshCasesFromSupabase,
+        refreshStaffFromSupabase,
         updateCaseStage,
         transferCaseToBranch,
         addHearing,

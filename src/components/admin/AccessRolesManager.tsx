@@ -121,11 +121,11 @@ export const AccessRolesManager: React.FC = () => {
     setRoleFormDesc('');
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserError(null);
 
-    const result = addUser({
+    const result = await addUser({
       name: userName.trim(),
       email: userEmail.trim(),
       password: userPassword.trim(),
@@ -531,13 +531,13 @@ export const AccessRolesManager: React.FC = () => {
 
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    if (window.confirm(`Permanently remove staff account for ${user.name}?`)) {
-                                      deleteUser(user.id);
+                                  onClick={async () => {
+                                    if (window.confirm(`Permanently remove staff account for ${user.name}? This will delete the record from Supabase.`)) {
+                                      await deleteUser(user.id);
                                     }
                                   }}
                                   className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg border border-transparent hover:border-red-200 transition-colors"
-                                  title="Delete user account"
+                                  title="Delete staff account from Supabase"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>

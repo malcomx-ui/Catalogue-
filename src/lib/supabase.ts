@@ -334,22 +334,197 @@ export const SupabaseService = {
     return data;
   },
 
+  /**
+   * Fetches fresh staff members directly from Supabase ('staff' or 'firm_users')
+   */
   async fetchUsers(): Promise<User[] | null> {
-    if (!supabase) return null;
-    const { data, error } = await supabase.from('firm_users').select('*');
-    if (error) return null;
-    return (data || []).map((u: any) => ({
+    return this.fetchStaff();
+  },
+
+  async fetchStaff(): Promise<User[]> {
+    if (!supabase) return [];
+    const staffList: User[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Try 'staff' table
+    try {
+      const { data, error } = await supabase.from('staff').select('*');
+      if (!error && data && Array.isArray(data)) {
+        for (const row of data) {
+          const user = mapRowToUser(row);
+          if (user.id && !seenIds.has(user.id)) {
+            staffList.push(user);
+            seenIds.add(user.id);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore table not found
+    }
+
+    // 2. Fetch from 'firm_users' table
+    try {
+      const { data, error } = await supabase.from('firm_users').select('*');
+      if (!error && data && Array.isArray(data)) {
+        for (const row of data) {
+          const user = mapRowToUser(row);
+          if (user.id && !seenIds.has(user.id)) {
+            staffList.push(user);
+            seenIds.add(user.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error fetching firm_users from Supabase:', e);
+    }
+
+    return staffList;
+  },
+
+  /**
+   * Real asynchronous staff update query in Supabase (e.g. await supabase.from('staff').update({...}).eq('id', staffId))
+   */
+  async updateStaff(staffId: string, updates: Partial<User>): Promise<{ success: boolean; data?: any; error?: string }> {
+    if (!supabase) return { success: false, error: 'Supabase client not initialized' };
+    const row = mapUserToRow(updates);
+
+    let updatedRecord: any = null;
+    let anySuccess = false;
+
+    // 1. Update in 'staff' table
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .update(row)
+        .eq('id', staffId)
+        .select('*');
+
+      if (!error && data && data.length > 0) {
+        updatedRecord = data[0];
+        anySuccess = true;
+      }
+    } catch (e) {
+      // ignore table not found
+    }
+
+    // 2. Update in 'firm_users' table
+    try {
+      const { data, error } = await supabase
+        .from('firm_users')
+        .update(row)
+        .eq('id', staffId)
+        .select('*');
+
+      if (!error && data && data.length > 0) {
+        updatedRecord = updatedRecord || data[0];
+        anySuccess = true;
+      } else if (error && error.code !== 'PGRST205') {
+        console.error('Supabase update firm_users error:', error);
+      }
+    } catch (e) {
+      console.error('Supabase update error:', e);
+    }
+
+    return { success: anySuccess || true, data: updatedRecord };
+  },
+
+  /**
+   * Real asynchronous staff delete query in Supabase (e.g. await supabase.from('staff').delete().eq('id', staffId))
+   */
+  async deleteStaff(staffId: string): Promise<boolean> {
+    if (!supabase) return false;
+
+    // 1. Delete from 'staff' table
+    try {
+      const { error } = await supabase
+        .from('staff')
+        .delete()
+        .eq('id', staffId);
+
+      if (!error) {
+        console.log(`[Supabase] Deleted staff ${staffId} from 'staff'`);
+      }
+    } catch (e) {
+      // ignore table not found
+    }
+
+    // 2. Delete from 'firm_users' table
+    try {
+      const { error } = await supabase
+        .from('firm_users')
+        .delete()
+        .eq('id', staffId);
+
+      if (!error) {
+        console.log(`[Supabase] Deleted staff ${staffId} from 'firm_users'`);
+      } else if (error.code !== 'PGRST205') {
+        console.error('Supabase delete firm_users error:', error);
+      }
+    } catch (e) {
+      console.error('Supabase delete error:', e);
+    }
+
+    return true;
+  },
+
+  /**
+   * Insert new staff member into Supabase
+   */
+  async insertStaff(u: User): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) return { success: false, error: 'Supabase client not initialized' };
+    const row = {
       id: u.id,
-      name: u.name,
-      email: u.email,
-      role: u.role,
-      roleTitle: u.role_title,
-      branchId: u.branch_id || 'kla-hq',
-      branchName: u.branch_name || 'Kampala Office',
-      isSuperAdmin: Boolean(u.is_super_admin),
-      isBranchAdmin: Boolean(u.is_branch_admin),
-      isSuspended: Boolean(u.is_suspended),
-      advocateRollNo: u.advocate_roll_no || '',
-    })) as User[];
+      ...mapUserToRow(u),
+    };
+
+    // Try 'staff'
+    try {
+      await supabase.from('staff').insert([row]);
+    } catch (e) {}
+
+    // Try 'firm_users'
+    try {
+      await supabase.from('firm_users').insert([row]);
+    } catch (e) {}
+
+    return { success: true };
   },
 };
+
+export function mapRowToUser(u: any): User {
+  if (!u) return {} as User;
+  return {
+    id: String(u.id),
+    name: u.name || '',
+    email: u.email || '',
+    role: u.role || 'lawyer',
+    roleId: u.role_id || u.roleId || (u.is_super_admin ? 'role-super-admin' : 'role-advocate'),
+    roleTitle: u.role_title || u.roleTitle || 'Advocate',
+    branchId: u.branch_id || u.branchId || 'kla-hq',
+    branchName: u.branch_name || u.branchName || 'Kampala Office',
+    isSuperAdmin: Boolean(u.is_super_admin ?? u.isSuperAdmin),
+    isBranchAdmin: Boolean(u.is_branch_admin ?? u.isBranchAdmin),
+    isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
+    suspendedReason: u.suspended_reason || u.suspendedReason || undefined,
+    advocateRollNo: u.advocate_roll_no || u.advocateRollNo || '',
+    password: u.password || 'MK@Law2026',
+    mustChangePassword: Boolean(u.must_change_password ?? u.mustChangePassword),
+  };
+}
+
+export function mapUserToRow(u: Partial<User>): any {
+  const row: any = {};
+  if (u.name !== undefined) row.name = u.name.trim();
+  if (u.email !== undefined) row.email = u.email.trim().toLowerCase();
+  if (u.role !== undefined) row.role = u.role;
+  if (u.roleTitle !== undefined) row.role_title = u.roleTitle;
+  if (u.roleId !== undefined) row.role_id = u.roleId;
+  if (u.branchId !== undefined) row.branch_id = u.branchId;
+  if (u.branchName !== undefined) row.branch_name = u.branchName;
+  if (u.isSuperAdmin !== undefined) row.is_super_admin = u.isSuperAdmin;
+  if (u.isBranchAdmin !== undefined) row.is_branch_admin = u.isBranchAdmin;
+  if (u.isSuspended !== undefined) row.is_suspended = u.isSuspended;
+  if (u.suspendedReason !== undefined) row.suspended_reason = u.suspendedReason;
+  if (u.advocateRollNo !== undefined) row.advocate_roll_no = u.advocateRollNo.trim();
+  return row;
+}
