@@ -661,7 +661,17 @@ export const SupabaseService = {
 
 export function isUserAdmin(u: any): boolean {
   if (!u) return false;
-  return Boolean(u.isSuperAdmin || u.is_super_admin || u.roleId === 'role-super-admin' || u.role === 'partner');
+  const role = String(u.role || '').toLowerCase().trim();
+  const roleId = String(u.roleId || u.role_id || '').toLowerCase().trim();
+  return Boolean(
+    u.isSuperAdmin ||
+    u.is_super_admin ||
+    role === 'admin' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'partner' ||
+    roleId === 'role-super-admin'
+  );
 }
 
 export function isUserLawyer(u: any): boolean {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
+import { isUserAdmin } from '../../lib/supabase';
 import {
   Briefcase,
   CalendarDays,
@@ -17,8 +18,10 @@ export const MobileBottomNav: React.FC = () => {
     hearings,
     documents,
     setIsMobileMenuOpen,
+    currentUser,
   } = useApp();
 
+  const isAdmin = isUserAdmin(currentUser);
   const scheduledHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
 
   return (
@@ -93,18 +96,20 @@ export const MobileBottomNav: React.FC = () => {
         )}
       </button>
 
-      {/* Branch Circuits Tab - Visible on Tablets */}
-      <button
-        onClick={() => setActiveTab('synchub')}
-        className={`hidden sm:flex flex-1 py-1 px-1 flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors ${
-          activeTab === 'synchub'
-            ? 'text-slate-900 font-bold'
-            : 'text-slate-500 hover:text-slate-800'
-        }`}
-      >
-        <Network className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px] leading-tight">Circuits</span>
-      </button>
+      {/* Branch Circuits Tab - Strictly restricted to Super Admins / Admins only */}
+      {isAdmin && (
+        <button
+          onClick={() => setActiveTab('synchub')}
+          className={`hidden sm:flex flex-1 py-1 px-1 flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors ${
+            activeTab === 'synchub'
+              ? 'text-slate-900 font-bold'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Network className="w-5 h-5 mb-0.5" />
+          <span className="text-[10px] leading-tight">Circuits</span>
+        </button>
+      )}
 
       {/* Full Menu Drawer Trigger */}
       <button

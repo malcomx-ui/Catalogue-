@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { isUserAdmin } from '../../lib/supabase';
 import {
   Network,
   RefreshCw,
@@ -9,6 +10,7 @@ import {
   Briefcase,
   FileText,
   UserCheck,
+  Lock,
 } from 'lucide-react';
 
 export const BranchSyncHub: React.FC = () => {
@@ -19,10 +21,34 @@ export const BranchSyncHub: React.FC = () => {
     lastGlobalSync,
     triggerManualSync,
     cases,
+    currentUser,
+    setActiveTab,
   } = useApp();
 
   const [syncingNodeId, setSyncingNodeId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+
+  const isAdmin = isUserAdmin(currentUser);
+
+  if (!isAdmin) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+          The Regional Offices &amp; Sync Hub is strictly reserved for Super Admins and Admins. Standard counsel and branch staff do not have authorization to view or manage live synchronization circuits.
+        </p>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const handleSyncNode = async (branchId: string) => {
     setSyncingNodeId(branchId);

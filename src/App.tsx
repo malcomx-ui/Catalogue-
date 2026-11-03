@@ -24,9 +24,12 @@ import { PrintableCauseSheet } from './components/reports/PrintableCauseSheet';
 import { ImportExcelModal } from './components/catalogue/ImportExcelModal';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
+import { isUserAdmin } from './lib/supabase';
 
 const MainLayout: React.FC = () => {
-  const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen } = useApp();
+  const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser } = useApp();
+
+  const isAdmin = isUserAdmin(currentUser);
 
   // If user is not authenticated, display firm-branded secure portal login screen
   if (!isAuthenticated) {
@@ -48,7 +51,7 @@ const MainLayout: React.FC = () => {
           {activeTab === 'dashboard' && <FirmDashboard />}
           {activeTab === 'catalogue' && <CaseList />}
           {activeTab === 'causelist' && <CauseListDiary />}
-          {activeTab === 'synchub' && <BranchSyncHub />}
+          {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : <FirmDashboard />)}
           {activeTab === 'conflicts' && <ConflictChecker />}
           {activeTab === 'documents' && <DocumentRepository />}
           {activeTab === 'analytics' && <LitigationAnalytics />}
@@ -66,10 +69,12 @@ const MainLayout: React.FC = () => {
       <ImportExcelModal />
       <AuthModal />
       <PrintableCauseSheet />
-      <CpanelMigrationModal
-        isOpen={isCpanelMigrationModalOpen}
-        onClose={() => setIsCpanelMigrationModalOpen(false)}
-      />
+      {isAdmin && (
+        <CpanelMigrationModal
+          isOpen={isCpanelMigrationModalOpen}
+          onClose={() => setIsCpanelMigrationModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

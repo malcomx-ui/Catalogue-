@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
+import { isUserAdmin } from '../../lib/supabase';
 import {
   Briefcase,
   CalendarDays,
@@ -42,6 +43,7 @@ export const Sidebar: React.FC = () => {
   } = useApp();
 
   const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
+  const isAdmin = isUserAdmin(currentUser);
 
   const navItems: { id: NavigationTab; label: string; icon: any; count?: number; onClick?: () => void }[] = [
     {
@@ -81,7 +83,8 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  if (systemSettings.features.enableBranchSync) {
+  // Strictly restricted to Super Admins / Admins only
+  if (isAdmin && systemSettings.features.enableBranchSync) {
     navItems.push({
       id: 'synchub',
       label: 'Sync Hub & Circuits',
@@ -417,29 +420,31 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Cloud Deploy (Supabase & Vercel) Shortcut */}
-      <div className="px-2 pt-2">
-        <button
-          onClick={() => {
-            if (isMobile) setIsMobileMenuOpen(false);
-            setIsCpanelMigrationModalOpen(true);
-          }}
-          className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-emerald-900 hover:from-emerald-100 hover:to-teal-100 transition-all shadow-2xs group"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
-              <Cloud className="w-3.5 h-3.5" />
+      {/* Cloud Deploy (Supabase & Vercel) Shortcut - Strictly restricted to Super Admins / Admins only */}
+      {isAdmin && (
+        <div className="px-2 pt-2">
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileMenuOpen(false);
+              setIsCpanelMigrationModalOpen(true);
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-emerald-900 hover:from-emerald-100 hover:to-teal-100 transition-all shadow-2xs group"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
+                <Cloud className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left">
+                <div className="font-bold text-xs text-emerald-950">Supabase &amp; Vercel</div>
+                <div className="text-[10px] text-emerald-700">Deploy &amp; Sync Hub</div>
+              </div>
             </div>
-            <div className="text-left">
-              <div className="font-bold text-xs text-emerald-950">Supabase &amp; Vercel</div>
-              <div className="text-[10px] text-emerald-700">Deploy &amp; Sync Hub</div>
-            </div>
-          </div>
-          <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
-            Live
-          </span>
-        </button>
-      </div>
+            <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
+              Live
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* User Session & Security Lockout Card */}
       <div className="mt-auto p-3 m-2 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
