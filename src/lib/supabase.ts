@@ -416,34 +416,46 @@ export const SupabaseService = {
     if (!supabase) return [];
     const staffList: User[] = [];
     const seenIds = new Set<string>();
+    const seenEmails = new Set<string>();
 
-    // 1. Try 'staff' table
+    const addRecord = (row: any) => {
+      if (!row) return;
+      const user = mapRowToUser(row);
+      const email = user.email.toLowerCase();
+      if (user.id && !seenIds.has(user.id) && (!email || !seenEmails.has(email))) {
+        staffList.push(user);
+        seenIds.add(user.id);
+        if (email) seenEmails.add(email);
+      }
+    };
+
+    // 1. Try 'profiles' table
+    try {
+      const { data, error } = await supabase.from('profiles').select('*');
+      if (!error && data && Array.isArray(data)) {
+        data.forEach(addRecord);
+      }
+    } catch (e) {
+      // ignore table not in schema
+    }
+
+    // 2. Try 'staff' table
     try {
       const { data, error } = await supabase.from('staff').select('*');
       if (!error && data && Array.isArray(data)) {
-        for (const row of data) {
-          const user = mapRowToUser(row);
-          if (user.id && !seenIds.has(user.id)) {
-            staffList.push(user);
-            seenIds.add(user.id);
-          }
-        }
+        data.forEach(addRecord);
       }
     } catch (e) {
-      // ignore table not found
+      // ignore table not in schema
     }
 
-    // 2. Fetch from 'firm_users' table
+    // 3. Fetch from 'firm_users' table (primary active table)
     try {
-      const { data, error } = await supabase.from('firm_users').select('*');
+      const { data, error } = await supabase.from('firm_users').select('*').order('created_at', { ascending: false });
       if (!error && data && Array.isArray(data)) {
-        for (const row of data) {
-          const user = mapRowToUser(row);
-          if (user.id && !seenIds.has(user.id)) {
-            staffList.push(user);
-            seenIds.add(user.id);
-          }
-        }
+        data.forEach(addRecord);
+      } else if (error && error.code !== 'PGRST205') {
+        console.warn('Error fetching firm_users from Supabase:', error);
       }
     } catch (e) {
       console.warn('Error fetching firm_users from Supabase:', e);
@@ -457,43 +469,54 @@ export const SupabaseService = {
    */
   async updateStaff(staffId: string, updates: Partial<User>): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
-    const row = mapUserToRow(updates);
+    const firmUserRow = mapUserToFirmUserRow(updates);
 
     let updatedRecord: any = null;
     let anySuccess = false;
 
-    // 1. Update in 'staff' table
+    // 1. Update in 'firm_users' table
     try {
       const { data, error } = await supabase
-        .from('staff')
-        .update(row)
+        .from('firm_users')
+        .update(firmUserRow)
         .eq('id', staffId)
         .select('*');
 
       if (!error && data && data.length > 0) {
         updatedRecord = data[0];
         anySuccess = true;
+      } else if (error && error.code !== 'PGRST205') {
+        console.error('Supabase update firm_users error:', error);
       }
     } catch (e) {
-      // ignore table not found
+      console.error('Supabase update firm_users error:', e);
     }
 
-    // 2. Update in 'firm_users' table
+    // 2. Update in 'staff' table
     try {
       const { data, error } = await supabase
-        .from('firm_users')
-        .update(row)
+        .from('staff')
+        .update(firmUserRow)
         .eq('id', staffId)
         .select('*');
 
       if (!error && data && data.length > 0) {
         updatedRecord = updatedRecord || data[0];
         anySuccess = true;
-      } else if (error && error.code !== 'PGRST205') {
-        console.error('Supabase update firm_users error:', error);
       }
     } catch (e) {
-      console.error('Supabase update error:', e);
+      // ignore table not found
+    }
+
+    // 3. Update in 'profiles' table
+    try {
+      const profileUpdates: any = {};
+      if (updates.name) profileUpdates.full_name = updates.name;
+      if (updates.role) profileUpdates.role = updates.role;
+      if (updates.branchName) profileUpdates.branch = updates.branchName;
+      await supabase.from('profiles').update(profileUpdates).eq('id', staffId);
+    } catch (e) {
+      // ignore table not found
     }
 
     return { success: anySuccess || true, data: updatedRecord };
@@ -505,21 +528,7 @@ export const SupabaseService = {
   async deleteStaff(staffId: string): Promise<boolean> {
     if (!supabase) return false;
 
-    // 1. Delete from 'staff' table
-    try {
-      const { error } = await supabase
-        .from('staff')
-        .delete()
-        .eq('id', staffId);
-
-      if (!error) {
-        console.log(`[Supabase] Deleted staff ${staffId} from 'staff'`);
-      }
-    } catch (e) {
-      // ignore table not found
-    }
-
-    // 2. Delete from 'firm_users' table
+    // 1. Delete from 'firm_users' table
     try {
       const { error } = await supabase
         .from('firm_users')
@@ -528,51 +537,147 @@ export const SupabaseService = {
 
       if (!error) {
         console.log(`[Supabase] Deleted staff ${staffId} from 'firm_users'`);
-      } else if (error.code !== 'PGRST205') {
-        console.error('Supabase delete firm_users error:', error);
       }
     } catch (e) {
-      console.error('Supabase delete error:', e);
+      // ignore table not found
+    }
+
+    // 2. Delete from 'staff' table
+    try {
+      await supabase.from('staff').delete().eq('id', staffId);
+    } catch (e) {
+      // ignore table not found
+    }
+
+    // 3. Delete from 'profiles' table
+    try {
+      await supabase.from('profiles').delete().eq('id', staffId);
+    } catch (e) {
+      // ignore table not found
     }
 
     return true;
   },
 
   /**
-   * Insert new staff member into Supabase
+   * Permanently inserts a new staff member into Supabase ('profiles', 'staff', 'firm_users')
    */
-  async insertStaff(u: User): Promise<{ success: boolean; error?: string }> {
+  async insertStaff(u: User): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
-    const row = {
-      id: u.id,
-      ...mapUserToRow(u),
-    };
 
-    // Try 'staff'
+    let anySuccess = false;
+    let savedRecord: any = null;
+    let primaryError: any = null;
+
+    // 1. Try 'profiles' table: await supabase.from('profiles').insert([{ full_name, email, role, branch }])
     try {
-      await supabase.from('staff').insert([row]);
-    } catch (e) {}
+      const profileRow = {
+        id: u.id,
+        full_name: u.name,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        role_title: u.roleTitle,
+        branch: u.branchName,
+        branch_id: u.branchId,
+        branch_name: u.branchName,
+      };
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([profileRow])
+        .select('*');
 
-    // Try 'firm_users'
+      if (!error && data && data.length > 0) {
+        anySuccess = true;
+        savedRecord = data[0];
+        console.log('[Supabase] Staff successfully inserted into profiles table:', u.email);
+      }
+    } catch (e) {
+      // ignore table not in schema
+    }
+
+    // 2. Try 'staff' table: await supabase.from('staff').insert([...])
     try {
-      await supabase.from('firm_users').insert([row]);
-    } catch (e) {}
+      const staffRow = {
+        id: u.id,
+        name: u.name,
+        full_name: u.name,
+        email: u.email,
+        role: u.role,
+        role_title: u.roleTitle,
+        branch: u.branchName,
+        branch_id: u.branchId,
+        branch_name: u.branchName,
+        is_super_admin: u.isSuperAdmin,
+        is_branch_admin: u.isBranchAdmin,
+        is_suspended: u.isSuspended,
+        advocate_roll_no: u.advocateRollNo,
+      };
+      const { data, error } = await supabase
+        .from('staff')
+        .insert([staffRow])
+        .select('*');
 
-    return { success: true };
+      if (!error && data && data.length > 0) {
+        anySuccess = true;
+        savedRecord = savedRecord || data[0];
+        console.log('[Supabase] Staff successfully inserted into staff table:', u.email);
+      }
+    } catch (e) {
+      // ignore table not in schema
+    }
+
+    // 3. Insert into 'firm_users' table (verified active database table)
+    try {
+      const firmUserRow = {
+        id: u.id,
+        ...mapUserToFirmUserRow(u),
+      };
+      const { data, error } = await supabase
+        .from('firm_users')
+        .insert([firmUserRow])
+        .select('*');
+
+      if (!error && data && data.length > 0) {
+        anySuccess = true;
+        savedRecord = savedRecord || data[0];
+        console.log('[Supabase] Staff successfully inserted into firm_users table:', u.email);
+      } else if (error) {
+        console.warn('Supabase insert into firm_users error:', error);
+        primaryError = error;
+      }
+    } catch (e) {
+      console.error('Supabase insert into firm_users exception:', e);
+      primaryError = e;
+    }
+
+    if (!anySuccess && primaryError) {
+      return { success: false, error: primaryError.message || 'Failed to save staff record to database' };
+    }
+
+    return { success: true, data: savedRecord };
   },
 };
 
 export function mapRowToUser(u: any): User {
   if (!u) return {} as User;
+  const name = u.full_name || u.name || '';
+  const email = (u.email || '').trim().toLowerCase();
+  const role = u.role || 'lawyer';
+  const roleId = u.role_id || u.roleId || (u.is_super_admin ? 'role-super-admin' : role === 'clerk' ? 'role-clerk' : role === 'admin' ? 'role-admin' : 'role-advocate');
+  const roleTitle = u.role_title || u.roleTitle || (role === 'partner' ? 'Managing Partner' : role === 'team_lead' ? 'Litigation Team Lead' : role === 'clerk' ? 'Registry Clerk' : 'Advocate');
+  const branchName = u.branch_name || u.branch || 'Kampala Office';
+  const branchId = u.branch_id || u.branchId || 'kla-hq';
+
   return {
     id: String(u.id),
-    name: u.name || '',
-    email: u.email || '',
-    role: u.role || 'lawyer',
-    roleId: u.role_id || u.roleId || (u.is_super_admin ? 'role-super-admin' : 'role-advocate'),
-    roleTitle: u.role_title || u.roleTitle || 'Advocate',
-    branchId: u.branch_id || u.branchId || 'kla-hq',
-    branchName: u.branch_name || u.branchName || 'Kampala Office',
+    name,
+    email,
+    role,
+    roleId,
+    roleTitle,
+    branchId,
+    branchName,
     isSuperAdmin: Boolean(u.is_super_admin ?? u.isSuperAdmin),
     isBranchAdmin: Boolean(u.is_branch_admin ?? u.isBranchAdmin),
     isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
@@ -583,19 +688,21 @@ export function mapRowToUser(u: any): User {
   };
 }
 
-export function mapUserToRow(u: Partial<User>): any {
+export function mapUserToFirmUserRow(u: Partial<User>): any {
   const row: any = {};
   if (u.name !== undefined) row.name = u.name.trim();
   if (u.email !== undefined) row.email = u.email.trim().toLowerCase();
   if (u.role !== undefined) row.role = u.role;
   if (u.roleTitle !== undefined) row.role_title = u.roleTitle;
-  if (u.roleId !== undefined) row.role_id = u.roleId;
   if (u.branchId !== undefined) row.branch_id = u.branchId;
   if (u.branchName !== undefined) row.branch_name = u.branchName;
-  if (u.isSuperAdmin !== undefined) row.is_super_admin = u.isSuperAdmin;
-  if (u.isBranchAdmin !== undefined) row.is_branch_admin = u.isBranchAdmin;
-  if (u.isSuspended !== undefined) row.is_suspended = u.isSuspended;
-  if (u.suspendedReason !== undefined) row.suspended_reason = u.suspendedReason;
-  if (u.advocateRollNo !== undefined) row.advocate_roll_no = u.advocateRollNo.trim();
+  if (u.isSuperAdmin !== undefined) row.is_super_admin = Boolean(u.isSuperAdmin);
+  if (u.isBranchAdmin !== undefined) row.is_branch_admin = Boolean(u.isBranchAdmin);
+  if (u.isSuspended !== undefined) row.is_suspended = Boolean(u.isSuspended);
+  if (u.advocateRollNo !== undefined) row.advocate_roll_no = (u.advocateRollNo || '').trim();
   return row;
+}
+
+export function mapUserToRow(u: Partial<User>): any {
+  return mapUserToFirmUserRow(u);
 }

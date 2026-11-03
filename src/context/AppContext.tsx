@@ -764,6 +764,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const liveStaff = await SupabaseService.fetchStaff();
       if (Array.isArray(liveStaff) && liveStaff.length > 0) {
         setAvailableUsers(liveStaff);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(liveStaff));
+        } catch (e) {}
       }
     } catch (err) {
       console.warn('Error refreshing staff from Supabase:', err);
@@ -772,15 +775,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // User Management Methods (Super Admin: Add, Edit, Suspend, Delete)
   const addUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string; user?: User }> => {
-    if (!userPermissions.canManageUsers) {
+    if (!userPermissions.canManageUsers && !currentUser.isSuperAdmin) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
     if (!userData.name?.trim() || !userData.email?.trim()) {
       return { success: false, error: 'Full name and email address are required.' };
     }
 
+    const cleanEmail = userData.email.trim().toLowerCase();
     const exists = availableUsers.some(
-      (u) => u.email.toLowerCase() === userData.email!.trim().toLowerCase()
+      (u) => u.email.toLowerCase() === cleanEmail
     );
     if (exists) {
       return { success: false, error: 'A staff member with this email address already exists.' };
@@ -793,13 +797,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newUser: User = {
       id: `user-${Date.now()}`,
       name: userData.name.trim(),
-      email: userData.email.trim().toLowerCase(),
-      role: assignedRole.id as any,
+      email: cleanEmail,
+      role: (assignedRole.id.replace('role-', '') || 'lawyer') as any,
       roleId: assignedRole.id,
       roleTitle: assignedRole.name,
       branchId: branch.id,
       branchName: branch.name,
-      isSuperAdmin: assignedRole.isSuperAdmin,
+      isSuperAdmin: Boolean(assignedRole.isSuperAdmin),
       isBranchAdmin: Boolean(userData.isBranchAdmin || assignedRole.id === 'role-admin'),
       isSuspended: false,
       password: initialPass,
@@ -808,16 +812,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advocateRollNo: userData.advocateRollNo?.trim() || undefined,
     };
 
-    // Optimistic UI update
-    setAvailableUsers((prev) => [...prev, newUser]);
-
-    // Permanently write to Supabase
+    // 1. Permanently insert into Supabase ('profiles', 'staff', and 'firm_users')
     try {
-      await SupabaseService.insertStaff(newUser);
-      await refreshStaffFromSupabase();
-    } catch (err) {
+      const res = await SupabaseService.insertStaff(newUser);
+      if (!res.success) {
+        return { success: false, error: res.error || 'Failed to save staff record to database.' };
+      }
+    } catch (err: any) {
       console.error('Error inserting staff in Supabase:', err);
+      return { success: false, error: err.message || 'Supabase error occurred while saving staff member.' };
     }
+
+    // 2. Immediately re-fetch the fresh staff list from Supabase so the new member appears and persists
+    await refreshStaffFromSupabase();
+
+    // 3. Fallback optimistic state check in case of network latency
+    setAvailableUsers((prev) => {
+      if (prev.some((u) => u.id === newUser.id || u.email.toLowerCase() === cleanEmail)) {
+        return prev;
+      }
+      const updated = [newUser, ...prev];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
 
     return { success: true, user: newUser };
   };

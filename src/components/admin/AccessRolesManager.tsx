@@ -21,6 +21,7 @@ import {
   Phone,
   Mail,
   UserPlus,
+  Loader2,
 } from 'lucide-react';
 import { CustomRole, RolePermissions, User, Branch } from '../../types';
 import { StaffWelcomeModal } from './StaffWelcomeModal';
@@ -80,6 +81,7 @@ export const AccessRolesManager: React.FC = () => {
   const [userBranchId, setUserBranchId] = useState(branches[0]?.id || 'kla-hq');
   const [userRollNo, setUserRollNo] = useState('');
   const [userError, setUserError] = useState<string | null>(null);
+  const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
   // New Branch Form State
   const [isBranchModalOpen, setIsBranchModalOpen] = useState(false);
@@ -123,27 +125,35 @@ export const AccessRolesManager: React.FC = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingUser) return;
     setUserError(null);
+    setIsSubmittingUser(true);
 
-    const result = await addUser({
-      name: userName.trim(),
-      email: userEmail.trim(),
-      password: userPassword.trim(),
-      roleId: userRoleId,
-      branchId: userBranchId,
-      advocateRollNo: userRollNo.trim() || undefined,
-    });
+    try {
+      const result = await addUser({
+        name: userName.trim(),
+        email: userEmail.trim(),
+        password: userPassword.trim(),
+        roleId: userRoleId,
+        branchId: userBranchId,
+        advocateRollNo: userRollNo.trim() || undefined,
+      });
 
-    if (result.success) {
-      setIsUserModalOpen(false);
-      setUserName('');
-      setUserEmail('');
-      setUserRollNo('');
-      if (result.user) {
-        setWelcomeUser(result.user);
+      if (result.success) {
+        setIsUserModalOpen(false);
+        setUserName('');
+        setUserEmail('');
+        setUserRollNo('');
+        if (result.user) {
+          setWelcomeUser(result.user);
+        }
+      } else {
+        setUserError(result.error || 'Failed to permanently create staff account in database.');
       }
-    } else {
-      setUserError(result.error || 'Failed to create staff account.');
+    } catch (err: any) {
+      setUserError(err?.message || 'An unexpected error occurred while creating staff member.');
+    } finally {
+      setIsSubmittingUser(false);
     }
   };
 
@@ -955,16 +965,25 @@ export const AccessRolesManager: React.FC = () => {
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSubmittingUser}
                   onClick={() => setIsUserModalOpen(false)}
-                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg text-xs"
+                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50 rounded-lg text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs shadow-xs"
+                  disabled={isSubmittingUser}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg text-xs shadow-xs flex items-center gap-1.5"
                 >
-                  Create Staff Account
+                  {isSubmittingUser ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <span>Create Staff Account</span>
+                  )}
                 </button>
               </div>
             </form>
