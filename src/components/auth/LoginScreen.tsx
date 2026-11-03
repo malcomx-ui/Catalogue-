@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import LoginForm from './LoginForm';
 import {
   Lock,
   Mail,
@@ -16,8 +17,9 @@ import {
 } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
-  const { login, availableUsers, updateUserPassword } = useApp();
+  const { login, availableUsers, updateUserPassword, handleLoginSuccess } = useApp();
 
+  const [useMinimalLoginForm, setUseMinimalLoginForm] = useState(false);
   const [identifier, setIdentifier] = useState('infosightug@gmail.com');
   const [password, setPassword] = useState('Admin@2026');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,14 +50,14 @@ export const LoginScreen: React.FC = () => {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setInfoMessage(null);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const result = login(identifier, password);
+    try {
+      const result = await login(identifier, password);
       setIsLoading(false);
       if (!result.success) {
         setErrorMessage(result.error || 'Authentication failed. Please verify your credentials or contact the Super Admin.');
@@ -67,7 +69,10 @@ export const LoginScreen: React.FC = () => {
         setErrorMessage(null);
         setInfoMessage(null);
       }
-    }, 150);
+    } catch (err: any) {
+      setIsLoading(false);
+      setErrorMessage(err.message || 'Authentication error.');
+    }
   };
 
   const handleSetPermanentPassword = async (e: React.FormEvent) => {
@@ -89,10 +94,8 @@ export const LoginScreen: React.FC = () => {
       const updateRes = await updateUserPassword(targetUserToChangePass.id, newPassword);
       if (updateRes.success) {
         // Log in with new permanent password
-        setTimeout(() => {
-          login(targetUserToChangePass.email, newPassword);
-          setIsLoading(false);
-        }, 150);
+        await login(targetUserToChangePass.email, newPassword);
+        setIsLoading(false);
       } else {
         setIsLoading(false);
         setErrorMessage(updateRes.error || 'Failed to update permanent password.');
@@ -100,17 +103,18 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = (email: string, pass: string) => {
+  const handleQuickLogin = async (email: string, pass: string) => {
     setErrorMessage(null);
     setInfoMessage(null);
     setIdentifier(email);
     setPassword(pass);
     setIsLoading(true);
 
-    setTimeout(() => {
-      login(email, pass);
+    try {
+      await login(email, pass);
+    } finally {
       setIsLoading(false);
-    }, 100);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -119,6 +123,22 @@ export const LoginScreen: React.FC = () => {
       'Account credentials and access provisioning are managed exclusively by the Super Admin. Please contact the Firm Administrator at infosightug@gmail.com to request access or reset your credentials.'
     );
   };
+
+  if (useMinimalLoginForm) {
+    return (
+      <div className="relative">
+        <div className="fixed top-4 right-4 z-50">
+          <button
+            onClick={() => setUseMinimalLoginForm(false)}
+            className="text-xs font-medium bg-white px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 shadow-xs transition-colors cursor-pointer"
+          >
+            &larr; Switch to Firm Portal View
+          </button>
+        </div>
+        <LoginForm onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -389,6 +409,16 @@ export const LoginScreen: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => setUseMinimalLoginForm(true)}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium underline transition-colors cursor-pointer"
+          >
+            Switch to Standalone Supabase LoginForm &rarr;
+          </button>
         </div>
 
         {/* Clean, quiet footer */}

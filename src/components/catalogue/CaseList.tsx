@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CaseItem } from '../../types';
+import CasesPage from './CasesPage';
 import {
   Search,
   Filter,
@@ -20,6 +21,7 @@ import {
   X,
   Scale,
   ShieldCheck,
+  Layers,
 } from 'lucide-react';
 
 export const CaseList: React.FC = () => {
@@ -43,7 +45,7 @@ export const CaseList: React.FC = () => {
 
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'directory'>('table');
 
   // Extract all distinct lawyers from cases and firm legal staff with active case counts
   const lawyerOptions = React.useMemo(() => {
@@ -140,7 +142,7 @@ export const CaseList: React.FC = () => {
             <button
               onClick={() => setViewMode('table')}
               className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] ${
-                viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
+                viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600'
               }`}
             >
               Table View
@@ -148,10 +150,19 @@ export const CaseList: React.FC = () => {
             <button
               onClick={() => setViewMode('cards')}
               className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] ${
-                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'
+                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600'
               }`}
             >
               Cards
+            </button>
+            <button
+              onClick={() => setViewMode('directory')}
+              className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] flex items-center gap-1.5 ${
+                viewMode === 'directory' ? 'bg-white text-indigo-700 shadow-2xs font-semibold' : 'text-slate-600'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Cases Directory</span>
             </button>
           </div>
 
@@ -315,8 +326,19 @@ export const CaseList: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table View */}
-      {viewMode === 'table' ? (
+      {/* Main Views */}
+      {viewMode === 'directory' ? (
+        <CasesPage
+          userSession={{
+            user: currentUser,
+            profile: {
+              role: currentUser.role,
+              branch: currentUser.branchName,
+              full_name: currentUser.name,
+            },
+          }}
+        />
+      ) : viewMode === 'table' ? (
         <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">

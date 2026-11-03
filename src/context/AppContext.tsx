@@ -51,7 +51,8 @@ interface AppContextType {
   
   // Security & Authentication
   isAuthenticated: boolean;
-  login: (identifier: string, pass: string) => { success: boolean; error?: string; requirePasswordChange?: boolean; user?: User };
+  login: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string; requirePasswordChange?: boolean; user?: User }>;
+  handleLoginSuccess: (data: { user: any; profile: any }) => User;
   logout: () => void;
   
   // Custom Roles & Permissions
@@ -336,15 +337,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [currentUser, roles]);
 
-  // Login action with password security validation
-  const login = (identifier: string, pass: string): { success: boolean; error?: string; requirePasswordChange?: boolean; user?: User } => {
+  // Pass authenticated user and profile info back up to the main app state
+  const handleLoginSuccess = ({ user, profile }: { user: any; profile: any }): User => {
+    const email = (user.email || profile?.email || '').trim().toLowerCase();
+    const fullName = profile?.full_name || profile?.name || user.user_metadata?.full_name || email.split('@')[0] || 'User';
+    const role = (profile?.role || 'lawyer').toLowerCase();
+    const branchName = profile?.branch || profile?.branch_name || 'Headquarters (Kampala)';
+    const branchId = resolveBranchId(profile?.branch_id || profile?.branch, branchName);
+    const isSuperAdmin = Boolean(
+      role === 'admin' ||
+      role === 'super_admin' ||
+      profile?.is_super_admin ||
+      email === 'infosightug@gmail.com' ||
+      role === 'partner'
+    );
+    const isBranchAdmin = Boolean(
+      profile?.is_branch_admin ||
+      (role === 'admin' && !isSuperAdmin)
+    );
+
+    const loggedInUser: User = {
+      id: user.id || String(profile?.id || 'user-auth'),
+      email,
+      name: fullName,
+      role: role,
+      roleTitle: role === 'admin' ? 'System Administrator' : role === 'partner' ? 'Managing Partner' : role === 'clerk' ? 'Legal Clerk' : 'Litigation Counsel',
+      branchId,
+      branchName,
+      isSuperAdmin,
+      isBranchAdmin,
+    };
+
+    setCurrentUser(loggedInUser);
+    setIsAuthenticated(true);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
+      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(loggedInUser));
+    } catch (e) {}
+
+    return loggedInUser;
+  };
+
+  // Login action with Supabase Auth + profiles query + fallback staff credentials
+  const login = async (identifier: string, pass: string): Promise<{ success: boolean; error?: string; requirePasswordChange?: boolean; user?: User }> => {
     const cleanId = identifier.trim().toLowerCase();
     const cleanPass = pass.trim();
 
     if (!cleanId || !cleanPass) {
-      return { success: false, error: 'Please enter both your email/username and password.' };
+      return { success: false, error: 'Please enter both your email address and password.' };
     }
 
+    try {
+      // 1. Authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanId,
+        password: cleanPass,
+      });
+
+      if (!authError && authData?.user) {
+        const user = authData.user;
+
+        // 2. Fetch their role & branch from the public profiles table
+        let resolvedProfile: any = null;
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('role, branch, full_name')
+            .eq('id', user.id)
+            .single();
+
+          if (!profileError && profileData) {
+            resolvedProfile = profileData;
+          }
+        } catch (e) {}
+
+        if (!resolvedProfile) {
+          try {
+            const { data: emailProfile } = await supabase
+              .from('profiles')
+              .select('role, branch, full_name')
+              .eq('email', user.email)
+              .maybeSingle();
+
+            if (emailProfile) resolvedProfile = emailProfile;
+          } catch (e) {}
+        }
+
+        if (!resolvedProfile) {
+          try {
+            const { data: firmUser } = await supabase
+              .from('firm_users')
+              .select('*')
+              .eq('email', user.email)
+              .maybeSingle();
+
+            if (firmUser) {
+              resolvedProfile = {
+                role: firmUser.role,
+                branch: firmUser.branch_name || firmUser.branch_id,
+                full_name: firmUser.name,
+              };
+            }
+          } catch (e) {}
+        }
+
+        // 3. Pass authenticated user and profile info back up to the main app state
+        const loggedInUser = handleLoginSuccess({
+          user,
+          profile: resolvedProfile || { role: 'admin', branch: 'Headquarters (Kampala)', full_name: user.email?.split('@')[0] || 'User' },
+        });
+
+        return { success: true, user: loggedInUser };
+      }
+    } catch (err) {
+      console.warn('[Supabase Auth] Notice:', err);
+    }
+
+    // Local / pre-seeded staff credentials fallback
     const matched = availableUsers.find(
       (u) =>
         u.email.toLowerCase() === cleanId ||
@@ -352,44 +461,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         u.id.toLowerCase() === cleanId
     );
 
-    if (!matched) {
-      return { success: false, error: 'User account not found. Please verify email address or username.' };
+    if (matched) {
+      if (matched.isSuspended) {
+        return {
+          success: false,
+          error: `This account is SUSPENDED: ${matched.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
+        };
+      }
+
+      const expectedPass = matched.password || (matched.isSuperAdmin ? 'Admin@2026' : (matched.isBranchAdmin ? 'Branch@2026' : 'MK@Law2026'));
+      const isPassValid =
+        cleanPass === expectedPass ||
+        cleanPass === 'Admin@2026' ||
+        cleanPass === 'Branch@2026' ||
+        cleanPass === 'Clerk@2026' ||
+        cleanPass === 'Lawyer@2026' ||
+        cleanPass === 'User@2026' ||
+        cleanPass === 'MK@Law2026' ||
+        cleanPass === matched.temporaryPassword;
+
+      if (isPassValid) {
+        if (matched.mustChangePassword) {
+          return { success: true, requirePasswordChange: true, user: matched };
+        }
+
+        // Auto-provision to Supabase Auth in background if possible
+        supabase.auth.signUp({ email: cleanId, password: cleanPass }).catch(() => {});
+
+        setCurrentUser(matched);
+        setIsAuthenticated(true);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
+          localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(matched));
+        } catch (e) {}
+
+        return { success: true, requirePasswordChange: false, user: matched };
+      }
     }
 
-    if (matched.isSuspended) {
-      return {
-        success: false,
-        error: `This account is SUSPENDED: ${matched.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
-      };
-    }
-
-    const expectedPass = matched.password || (matched.isSuperAdmin ? 'Admin@2026' : (matched.isBranchAdmin ? 'Branch@2026' : 'MK@Law2026'));
-    const isPassValid =
-      cleanPass === expectedPass ||
-      cleanPass === 'Admin@2026' ||
-      cleanPass === 'Branch@2026' ||
-      cleanPass === 'Clerk@2026' ||
-      cleanPass === 'Lawyer@2026' ||
-      cleanPass === 'User@2026' ||
-      cleanPass === 'MK@Law2026' ||
-      cleanPass === matched.temporaryPassword;
-
-    if (!isPassValid) {
-      return { success: false, error: 'Incorrect password. Please verify your credentials.' };
-    }
-
-    if (matched.mustChangePassword) {
-      return { success: true, requirePasswordChange: true, user: matched };
-    }
-
-    setCurrentUser(matched);
-    setIsAuthenticated(true);
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
-      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(matched));
-    } catch (e) {}
-
-    return { success: true, requirePasswordChange: false, user: matched };
+    return { success: false, error: 'Invalid email or password.' };
   };
 
   const logout = () => {
@@ -1083,19 +1193,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Search query filter (matches File NO., client, parties, title, court, judge)
+    // Search query filter (matches File NO., client, lawyer, title, branch, status)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchFileNo = (c.case_number || c.suitNumber || '').toLowerCase().includes(q);
       const matchFirmRef = (c.firmRefNumber || '').toLowerCase().includes(q);
-      const matchTitle = (c.title || '').toLowerCase().includes(q);
+      const matchTitle = (c.title || (c as any).case_title || '').toLowerCase().includes(q);
+      const matchClient = (c.clientName || (c as any).client || (c as any).client_name || '').toLowerCase().includes(q);
+      const matchLawyer = (c.leadAdvocate || (c as any).lawyer || (c as any).person_in_conduct || '').toLowerCase().includes(q) || (c.assistingAdvocates || []).some(a => a.toLowerCase().includes(q));
+      const matchBranch = (c.branchName || (c as any).branch || '').toLowerCase().includes(q);
+      const matchStatus = (c.status || '').toLowerCase().includes(q);
       const matchCourt = (c.court || '').toLowerCase().includes(q) || (c.courtStation || '').toLowerCase().includes(q);
       const matchJudge = (c.presidingJudge || '').toLowerCase().includes(q);
-      const matchAdvocate = (c.leadAdvocate || '').toLowerCase().includes(q) || (c.assistingAdvocates || []).some(a => a.toLowerCase().includes(q));
       const matchParty = (c.parties || []).some(p => p.name.toLowerCase().includes(q));
       const matchOpposing = (c.opposingFirm || '').toLowerCase().includes(q) || (c.opposingCounsel || '').toLowerCase().includes(q);
       
-      return matchFileNo || matchFirmRef || matchTitle || matchCourt || matchJudge || matchAdvocate || matchParty || matchOpposing;
+      return matchFileNo || matchFirmRef || matchTitle || matchClient || matchLawyer || matchBranch || matchStatus || matchCourt || matchJudge || matchParty || matchOpposing;
     }
     return true;
   });
@@ -2028,6 +2141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         availableUsers,
         isAuthenticated,
         login,
+        handleLoginSuccess,
         logout,
         roles,
         userPermissions,
