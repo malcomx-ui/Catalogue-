@@ -10,6 +10,7 @@ import {
   Trash2,
   Download,
   Users,
+  Loader2,
 } from 'lucide-react';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
 import { cleanCaseNumber } from '../../utils/caseNumber';
@@ -28,8 +29,9 @@ export const ImportExcelModal: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [replaceExisting, setReplaceExisting] = useState<boolean>(true);
+  const [replaceExisting, setReplaceExisting] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [batchProgress, setBatchProgress] = useState<{ processed: number; total: number } | null>(null);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
 
   if (!isImportModalOpen) return null;
@@ -204,16 +206,41 @@ export const ImportExcelModal: React.FC = () => {
     reader.readAsArrayBuffer(fileToParse);
   };
 
-  const handleConfirmImport = () => {
-    if (parsedRows.length === 0) return;
-    importCasesFromExcel(parsedRows, replaceExisting);
-    setImportSuccess(parsedRows.length);
-    setTimeout(() => {
-      setIsImportModalOpen(false);
-      setParsedRows([]);
-      setFile(null);
-      setImportSuccess(null);
-    }, 1200);
+  const handleConfirmImport = async () => {
+    if (parsedRows.length === 0 || isProcessing) return;
+    setIsProcessing(true);
+    setError(null);
+    setBatchProgress({ processed: 0, total: parsedRows.length });
+
+    try {
+      const result = await importCasesFromExcel(
+        parsedRows,
+        replaceExisting,
+        (processed, total) => {
+          setBatchProgress({ processed, total });
+        }
+      );
+
+      if (result.success) {
+        setImportSuccess(result.count);
+        setTimeout(() => {
+          setIsImportModalOpen(false);
+          setParsedRows([]);
+          setFile(null);
+          setImportSuccess(null);
+          setBatchProgress(null);
+          setIsProcessing(false);
+        }, 1600);
+      } else {
+        setError(result.error || 'Failed to permanently save imported cases to Supabase database.');
+        setIsProcessing(false);
+        setBatchProgress(null);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'An unexpected error occurred during database import.');
+      setIsProcessing(false);
+      setBatchProgress(null);
+    }
   };
 
   const handleDownloadSample = () => {
@@ -318,26 +345,56 @@ export const ImportExcelModal: React.FC = () => {
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
           {importSuccess !== null ? (
             <div className="text-center py-12 space-y-3">
-              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">Import Successful!</h3>
-              <p className="text-sm text-slate-600">
-                Successfully imported <strong>{importSuccess}</strong> cases into your catalogue.
+              <p className="text-sm text-slate-600 max-w-md mx-auto">
+                Successfully imported and permanently saved <strong>{importSuccess}</strong> cases to your live Supabase database.
+              </p>
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-block font-medium">
+                Records are permanently stored in Supabase & will persist across page refreshes.
               </p>
             </div>
           ) : (
             <>
+              {/* Batch Processing Indicator */}
+              {isProcessing && batchProgress && (
+                <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-blue-900">
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                      Saving to Supabase Database (Batch Insert)...
+                    </span>
+                    <span className="font-mono text-blue-700">
+                      {batchProgress.processed} / {batchProgress.total} records ({Math.round((batchProgress.processed / (batchProgress.total || 1)) * 100)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-blue-200/60 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{
+                        width: `${Math.round((batchProgress.processed / (batchProgress.total || 1)) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-blue-700">
+                    Executing batched inserts to Supabase 'cases' table. Please keep this modal open...
+                  </p>
+                </div>
+              )}
+
               {/* Dropzone */}
               <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-8 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-blue-50/30 group"
+                onClick={() => !isProcessing && fileInputRef.current?.click()}
+                className={`border-2 border-dashed ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'} border-slate-300 rounded-xl p-8 text-center transition-colors bg-slate-50/50 group`}
               >
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept=".xlsx, .xls, .csv"
                   onChange={handleFileUpload}
+                  disabled={isProcessing}
                   className="hidden"
                 />
 
@@ -375,14 +432,15 @@ export const ImportExcelModal: React.FC = () => {
                     type="checkbox"
                     checked={replaceExisting}
                     onChange={(e) => setReplaceExisting(e.target.checked)}
+                    disabled={isProcessing}
                     className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
                     <span className="text-xs font-semibold text-slate-900 block">
-                      Clear existing demo data & replace completely (Recommended)
+                      Clear existing cases & replace completely with this file
                     </span>
                     <span className="text-[11px] text-slate-500 block">
-                      Purges demo dummy cases and populates the catalogue exclusively with your real firm records.
+                      Leave unchecked to safely append imported cases to your live Supabase database without touching existing matters.
                     </span>
                   </div>
                 </label>
@@ -474,8 +532,9 @@ export const ImportExcelModal: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                disabled={isProcessing}
                 onClick={() => setIsImportModalOpen(false)}
-                className="px-4 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-white transition-colors"
+                className="px-4 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-white disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
@@ -485,8 +544,21 @@ export const ImportExcelModal: React.FC = () => {
                 onClick={handleConfirmImport}
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
               >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Import {parsedRows.length > 0 ? `${parsedRows.length} Cases` : 'Data'}</span>
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>
+                      {batchProgress
+                        ? `Saving (${batchProgress.processed}/${batchProgress.total})...`
+                        : 'Saving to Supabase...'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import {parsedRows.length > 0 ? `${parsedRows.length} Cases` : 'Data'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

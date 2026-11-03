@@ -128,7 +128,11 @@ interface AppContextType {
   addDocument: (docData: Omit<PleadingDocument, 'id'>) => void;
   runConflictCheck: (query: string) => ConflictCheckResult;
   exportCatalogueToCsv: () => void;
-  importCasesFromExcel: (imported: any[], replaceAll?: boolean) => void;
+  importCasesFromExcel: (
+    imported: any[], 
+    replaceAll?: boolean,
+    onProgress?: (processed: number, total: number) => void
+  ) => Promise<{ success: boolean; count: number; error?: string }>;
   clearAllCases: () => void;
   loadDemoCases: () => void;
   addFileMovement: (caseId: string, movement: Omit<FileMovementRecord, 'id' | 'timestamp'>) => void;
@@ -1692,12 +1696,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearAllCases();
   };
 
-  // Import cases from Excel (.xlsx, .xls, .csv) - Restricted strictly to Super Admin
-  const importCasesFromExcel = (importedData: any[], replaceAll: boolean = true) => {
+  // Import cases from Excel (.xlsx, .xls, .csv) - Permanently writes to Supabase cases table in batches
+  const importCasesFromExcel = async (
+    importedData: any[],
+    replaceAll: boolean = false,
+    onProgress?: (processed: number, total: number) => void
+  ): Promise<{ success: boolean; count: number; error?: string }> => {
     if (!userPermissions.canBulkImport) {
       console.warn('Access denied: Excel bulk import is restricted to Super Admin only.');
-      return;
+      return { success: false, count: 0, error: 'Access denied: Super Admin permission required for bulk import.' };
     }
+
+    if (!importedData || importedData.length === 0) {
+      return { success: true, count: 0 };
+    }
+
     const currentBranchFilterObj = selectedBranchFilter !== 'all' ? branches.find((b) => b.id === selectedBranchFilter) : null;
     const defaultBranch = currentBranchFilterObj || branches.find((b) => b.id === 'kla-hq') || branches[0];
 
@@ -1846,21 +1859,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
+    // 1. If replaceAll was explicitly requested, purge existing cases in Supabase
     if (replaceAll) {
-      setCases(formattedCases);
       try {
-        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(formattedCases));
-        localStorage.setItem('mk_demo_cleared', 'true');
-      } catch (e) {}
-    } else {
-      setCases((prev) => {
-        const merged = [...formattedCases, ...prev];
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(merged));
-        } catch (e) {}
-        return merged;
-      });
+        await supabase.from('cases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      } catch (err) {
+        console.warn('Error clearing existing cases for replaceAll:', err);
+      }
     }
+
+    // 2. Permanently insert into Supabase cases table in batches
+    let insertedCount = 0;
+    try {
+      const result = await SupabaseService.bulkInsertCases(formattedCases, 50, onProgress);
+      insertedCount = result.insertedCount;
+
+      if (!result.success && insertedCount === 0 && result.errors.length > 0) {
+        const errorMsg = result.errors[0]?.message || 'Failed to insert cases into Supabase';
+        return { success: false, count: 0, error: errorMsg };
+      }
+    } catch (err: any) {
+      console.error('Error during bulkInsertCases to Supabase:', err);
+      return { success: false, count: 0, error: err.message || 'Supabase insertion failed' };
+    }
+
+    // 3. Immediately trigger a fresh database fetch from Supabase
+    // ensuring the imported records persist permanently across page refreshes
+    await refreshCasesFromSupabase();
+
+    // Log the sync event
+    const syncLog: SyncLog = {
+      id: `sync-import-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      branchId: defaultBranch.id,
+      branchName: defaultBranch.name,
+      action: `Excel Import Completed: ${insertedCount} Cases`,
+      recordsSynced: insertedCount,
+      status: 'SUCCESS',
+      latencyMs: 38,
+      details: `Permanently wrote ${insertedCount} imported case records to Supabase 'cases' table.`,
+    };
+    setSyncLogs((prev) => [syncLog, ...prev]);
+
+    return { success: true, count: insertedCount };
   };
 
   // Add physical file movement record

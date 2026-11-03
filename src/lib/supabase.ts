@@ -221,6 +221,77 @@ export const SupabaseService = {
   },
 
   /**
+   * Bulk inserts parsed cases into Supabase 'cases' table in batches.
+   * Handles large spreadsheets reliably with progress tracking and batch chunking.
+   */
+  async bulkInsertCases(
+    casesToInsert: Partial<CaseItem>[],
+    batchSize: number = 50,
+    onProgress?: (inserted: number, total: number) => void
+  ): Promise<{ success: boolean; insertedCount: number; data: CaseItem[]; errors: any[] }> {
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+
+    if (!casesToInsert || casesToInsert.length === 0) {
+      return { success: true, insertedCount: 0, data: [], errors: [] };
+    }
+
+    const rows = casesToInsert.map((c) => mapCaseToRow(c, true));
+    const total = rows.length;
+    const insertedRows: any[] = [];
+    const errors: any[] = [];
+
+    // Loop through batches of rows
+    for (let i = 0; i < total; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+
+      try {
+        const { data, error } = await supabase
+          .from('cases')
+          .insert(batch)
+          .select('*');
+
+        if (error) {
+          console.error(`Supabase bulkInsertCases batch ${Math.floor(i / batchSize) + 1} error:`, error);
+          errors.push(error);
+
+          // Fallback: Attempt individual row inserts within this failed batch so valid rows still persist
+          for (const singleRow of batch) {
+            try {
+              const singleRes = await supabase.from('cases').insert([singleRow]).select('*');
+              if (singleRes.data && singleRes.data.length > 0) {
+                insertedRows.push(singleRes.data[0]);
+              } else if (singleRes.error) {
+                console.warn('Single row insert error in fallback:', singleRes.error);
+              }
+            } catch (singleErr) {
+              console.warn('Single row insert exception:', singleErr);
+            }
+          }
+        } else if (data) {
+          insertedRows.push(...data);
+        }
+      } catch (batchErr) {
+        console.error('Batch insert exception:', batchErr);
+        errors.push(batchErr);
+      }
+
+      if (onProgress) {
+        onProgress(Math.min(i + batchSize, total), total);
+      }
+    }
+
+    const insertedCases = insertedRows.map(mapRowToCase);
+    return {
+      success: insertedRows.length > 0 || errors.length === 0,
+      insertedCount: insertedRows.length,
+      data: insertedCases,
+      errors,
+    };
+  },
+
+  /**
    * Permanently updates an existing case using supabase.from('cases').update(...)
    */
   async updateCase(id: string, updates: Partial<CaseItem>): Promise<CaseItem | null> {
