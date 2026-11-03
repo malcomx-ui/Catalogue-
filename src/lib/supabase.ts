@@ -29,7 +29,7 @@ function parseDateForPostgres(d: any): string | null {
   return null;
 }
 
-function resolveBranchId(branchId?: string, branchName?: string): string {
+export function resolveBranchId(branchId?: string, branchName?: string): string {
   if (branchId && ['ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg'].includes(branchId)) {
     return branchId;
   }
@@ -659,15 +659,71 @@ export const SupabaseService = {
   },
 };
 
+export function isUserAdmin(u: any): boolean {
+  if (!u) return false;
+  return Boolean(u.isSuperAdmin || u.is_super_admin || u.roleId === 'role-super-admin' || u.role === 'partner');
+}
+
+export function isUserLawyer(u: any): boolean {
+  if (!u) return false;
+  if (isUserAdmin(u)) return false;
+  const role = String(u.role || '').toLowerCase();
+  const roleId = String(u.roleId || u.role_id || '').toLowerCase();
+  const title = String(u.roleTitle || u.role_title || '').toLowerCase();
+  return (
+    role === 'lawyer' ||
+    role === 'team_lead' ||
+    role === 'advocate' ||
+    roleId === 'role-advocate' ||
+    roleId === 'role-team-lead' ||
+    roleId === 'role-lead' ||
+    title.includes('advocate') ||
+    title.includes('counsel') ||
+    title.includes('lawyer') ||
+    title.includes('team lead')
+  );
+}
+
+export function isBranchStaff(u: any): boolean {
+  if (!u) return false;
+  return !isUserAdmin(u) && !isUserLawyer(u);
+}
+
 export function mapRowToUser(u: any): User {
   if (!u) return {} as User;
   const name = u.full_name || u.name || '';
   const email = (u.email || '').trim().toLowerCase();
   const role = u.role || 'lawyer';
   const roleId = u.role_id || u.roleId || (u.is_super_admin ? 'role-super-admin' : role === 'clerk' ? 'role-clerk' : role === 'admin' ? 'role-admin' : 'role-advocate');
-  const roleTitle = u.role_title || u.roleTitle || (role === 'partner' ? 'Managing Partner' : role === 'team_lead' ? 'Litigation Team Lead' : role === 'clerk' ? 'Registry Clerk' : 'Advocate');
+  const roleTitle = u.role_title || u.roleTitle || (role === 'partner' ? 'Managing Partner' : role === 'team_lead' ? 'Litigation Team Lead' : role === 'clerk' ? 'Registry Clerk' : role === 'admin' ? 'Branch Administrator' : 'Advocate');
   const branchName = u.branch_name || u.branch || 'Kampala Office';
-  const branchId = u.branch_id || u.branchId || 'kla-hq';
+  const branchId = resolveBranchId(u.branch_id || u.branchId, branchName);
+
+  // Extract embedded password from advocate_roll_no if present (e.g. 'MK/ADV/022:::[PW]:MyPassword')
+  let rawRollNo = u.advocate_roll_no || u.advocateRollNo || '';
+  let extractedPassword = u.password;
+  if (rawRollNo.includes(':::[PW]:')) {
+    const parts = rawRollNo.split(':::[PW]:');
+    rawRollNo = parts[0].trim();
+    if (parts[1]) {
+      extractedPassword = parts[1].trim();
+    }
+  }
+
+  // Fallback defaults based on role if no explicit password stored
+  if (!extractedPassword) {
+    if (u.is_super_admin || roleId === 'role-super-admin' || role === 'partner') {
+      extractedPassword = 'Admin@2026';
+    } else if (u.is_branch_admin || roleId === 'role-admin' || role === 'admin') {
+      extractedPassword = 'Branch@2026';
+    } else if (roleId === 'role-clerk' || role === 'clerk') {
+      extractedPassword = 'Clerk@2026';
+    } else if (roleId === 'role-advocate' || role === 'lawyer' || role === 'team_lead') {
+      extractedPassword = 'Lawyer@2026';
+    } else {
+      extractedPassword = 'User@2026';
+    }
+  }
 
   return {
     id: String(u.id),
@@ -679,11 +735,11 @@ export function mapRowToUser(u: any): User {
     branchId,
     branchName,
     isSuperAdmin: Boolean(u.is_super_admin ?? u.isSuperAdmin),
-    isBranchAdmin: Boolean(u.is_branch_admin ?? u.isBranchAdmin),
+    isBranchAdmin: Boolean(u.is_branch_admin ?? u.isBranchAdmin ?? (roleId === 'role-admin' || role === 'admin')),
     isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
     suspendedReason: u.suspended_reason || u.suspendedReason || undefined,
-    advocateRollNo: u.advocate_roll_no || u.advocateRollNo || '',
-    password: u.password || 'MK@Law2026',
+    advocateRollNo: rawRollNo,
+    password: extractedPassword,
     mustChangePassword: Boolean(u.must_change_password ?? u.mustChangePassword),
   };
 }
@@ -694,12 +750,20 @@ export function mapUserToFirmUserRow(u: Partial<User>): any {
   if (u.email !== undefined) row.email = u.email.trim().toLowerCase();
   if (u.role !== undefined) row.role = u.role;
   if (u.roleTitle !== undefined) row.role_title = u.roleTitle;
-  if (u.branchId !== undefined) row.branch_id = u.branchId;
+  if (u.branchId !== undefined) row.branch_id = resolveBranchId(u.branchId, u.branchName);
   if (u.branchName !== undefined) row.branch_name = u.branchName;
   if (u.isSuperAdmin !== undefined) row.is_super_admin = Boolean(u.isSuperAdmin);
   if (u.isBranchAdmin !== undefined) row.is_branch_admin = Boolean(u.isBranchAdmin);
   if (u.isSuspended !== undefined) row.is_suspended = Boolean(u.isSuspended);
-  if (u.advocateRollNo !== undefined) row.advocate_roll_no = (u.advocateRollNo || '').trim();
+
+  // Securely persist password embedded into advocate_roll_no without exceeding schema cache
+  const baseRoll = (u.advocateRollNo || '').split(':::[PW]:')[0].trim();
+  if (u.password && u.password.trim()) {
+    row.advocate_roll_no = `${baseRoll}:::[PW]:${u.password.trim()}`;
+  } else if (u.advocateRollNo !== undefined) {
+    row.advocate_roll_no = baseRoll;
+  }
+
   return row;
 }
 

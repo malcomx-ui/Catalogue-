@@ -100,15 +100,15 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleQuickAdminLogin = () => {
+  const handleQuickLogin = (email: string, pass: string) => {
     setErrorMessage(null);
     setInfoMessage(null);
-    setIdentifier(superAdmin.email);
-    setPassword(superAdmin.password || 'Admin@2026');
+    setIdentifier(email);
+    setPassword(pass);
     setIsLoading(true);
 
     setTimeout(() => {
-      login(superAdmin.email, superAdmin.password || 'Admin@2026');
+      login(email, pass);
       setIsLoading(false);
     }, 100);
   };
@@ -323,20 +323,68 @@ export const LoginScreen: React.FC = () => {
                 </button>
               </form>
 
-              {/* Super Admin Quick Login */}
+              {/* Fast Workstation Role Switcher for Testing */}
               <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                <button
-                  type="button"
-                  onClick={handleQuickAdminLogin}
-                  disabled={isLoading}
-                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2.5 px-3 rounded-lg text-xs border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
-                >
-                  <span>1-Click Sign In as Super Admin</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-                </button>
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                  1-Click Role Testing (Permanent Supabase Staff)
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('infosightug@gmail.com', 'Admin@2026')}
+                    disabled={isLoading}
+                    className="w-full text-left bg-purple-50 hover:bg-purple-100 text-purple-950 p-2 rounded-lg text-[11px] border border-purple-200 transition-colors"
+                  >
+                    <div className="font-semibold flex items-center justify-between">
+                      <span>Managing Partner</span>
+                      <span className="text-[9px] bg-purple-200 px-1 rounded font-mono">GLOBAL</span>
+                    </div>
+                    <div className="text-[10px] text-purple-700 font-mono truncate">infosightug@gmail.com</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('sarah.namatovu@mkadvocates.ug', 'Lawyer@2026')}
+                    disabled={isLoading}
+                    className="w-full text-left bg-emerald-50 hover:bg-emerald-100 text-emerald-950 p-2 rounded-lg text-[11px] border border-emerald-200 transition-colors"
+                  >
+                    <div className="font-semibold flex items-center justify-between">
+                      <span>Trial Advocate (Lawyer)</span>
+                      <span className="text-[9px] bg-emerald-200 px-1 rounded font-mono">GLOBAL</span>
+                    </div>
+                    <div className="text-[10px] text-emerald-700 font-mono truncate">sarah.namatovu@...</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('admin.fortportal@mkadvocates.ug', 'Branch@2026')}
+                    disabled={isLoading}
+                    className="w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-950 p-2 rounded-lg text-[11px] border border-indigo-200 transition-colors"
+                  >
+                    <div className="font-semibold flex items-center justify-between">
+                      <span>Branch Administrator</span>
+                      <span className="text-[9px] bg-indigo-200 px-1 rounded font-mono">BRANCH</span>
+                    </div>
+                    <div className="text-[10px] text-indigo-700 font-mono truncate">admin.fortportal@...</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickLogin('clerk.fortportal@mkadvocates.ug', 'Clerk@2026')}
+                    disabled={isLoading}
+                    className="w-full text-left bg-slate-100 hover:bg-slate-200 text-slate-900 p-2 rounded-lg text-[11px] border border-slate-200 transition-colors"
+                  >
+                    <div className="font-semibold flex items-center justify-between">
+                      <span>Registry Clerk</span>
+                      <span className="text-[9px] bg-slate-200 px-1 rounded font-mono">BRANCH</span>
+                    </div>
+                    <div className="text-[10px] text-slate-600 font-mono truncate">clerk.fortportal@...</div>
+                  </button>
+                </div>
 
                 <div className="text-center pt-2 text-[11px] text-slate-400">
-                  Not registered? Contact Firm Super Admin to provision an authorized account.
+                  Branch staff have full CRUD permissions specifically for their assigned branch.
                 </div>
               </div>
             </>

@@ -45,11 +45,12 @@ export const NewCaseModal: React.FC = () => {
     addCase,
     branches,
     currentUser,
+    userPermissions,
     runConflictCheck,
     systemSettings,
   } = useApp();
 
-  const isAdmin = currentUser.role === 'partner' || currentUser.role === 'office_admin';
+  const canSelectAnyBranch = userPermissions.canViewAllBranches;
 
   const intake = systemSettings?.intakeFields || {};
   const getField = (id: string, fallbackLabel: string) => {
@@ -310,10 +311,10 @@ export const NewCaseModal: React.FC = () => {
                   {getField('branch', 'Branch').label} *
                 </label>
                 <select
-                  value={form.branch}
+                  value={canSelectAnyBranch ? form.branch : (currentUser.branchName || branches[0]?.name)}
                   onChange={(e) => set('branch', e.target.value)}
-                  disabled={!isAdmin}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-75"
+                  disabled={!canSelectAnyBranch}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-85 disabled:bg-slate-100"
                 >
                   {branches.map((b) => (
                     <option key={b.id} value={b.name}>
@@ -321,9 +322,13 @@ export const NewCaseModal: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {!isAdmin && (
+                {!canSelectAnyBranch ? (
+                  <p className="text-[11px] text-blue-700 font-medium">
+                    Branch Staff: Automatically assigned to your custody branch ({currentUser.branchName || 'Assigned Branch'}).
+                  </p>
+                ) : (
                   <p className="text-[11px] text-slate-500">
-                    Cases are created in your assigned branch.
+                    Global Access (Admin / Lawyer): Choose branch destination for this matter.
                   </p>
                 )}
               </div>

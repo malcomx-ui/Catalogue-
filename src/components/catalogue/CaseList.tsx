@@ -38,6 +38,7 @@ export const CaseList: React.FC = () => {
     searchQuery,
     setSearchQuery,
     userPermissions,
+    currentUser,
   } = useApp();
 
   const [stageFilter, setStageFilter] = useState<string>('all');
@@ -130,7 +131,7 @@ export const CaseList: React.FC = () => {
             Litigation Cases
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Managing {displayCases.length} matters across all branches
+            Managing {displayCases.length} matters {userPermissions.canViewAllBranches ? 'across all branches' : `in ${currentUser.branchName || 'Assigned Branch'}`}
           </p>
         </div>
 
@@ -200,18 +201,26 @@ export const CaseList: React.FC = () => {
       <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 w-full sm:w-auto">
           {/* Branch filter */}
-          <select
-            value={selectedBranchFilter}
-            onChange={(e) => setSelectedBranchFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
-          >
-            <option value="all">All Branches</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+          {userPermissions.canViewAllBranches ? (
+            <select
+              value={selectedBranchFilter}
+              onChange={(e) => setSelectedBranchFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
+            >
+              <option value="all">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="bg-blue-50/80 border border-blue-200/80 rounded-md px-3 py-2 text-xs font-semibold text-blue-900 flex items-center gap-1.5 min-h-[38px]">
+              <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>Branch: {currentUser.branchName || 'Assigned Branch'}</span>
+              <span className="text-[10px] text-blue-600 font-mono bg-blue-100 px-1 rounded ml-1">Custody</span>
+            </div>
+          )}
 
           {/* Stage filter */}
           <select

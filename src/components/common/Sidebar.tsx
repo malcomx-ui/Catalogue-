@@ -271,34 +271,38 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* All Branches Option */}
-        <button
-          onClick={() => handleBranchClick('all', isMobile)}
-          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs transition-all min-h-[38px] ${
-            selectedBranchFilter === 'all'
-              ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-          }`}
-        >
-          <div className="flex items-center gap-2 truncate">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                selectedBranchFilter === 'all' ? 'bg-blue-600' : 'bg-slate-300'
-              }`}
-            />
-            <span className="truncate">All Branches</span>
-          </div>
-          <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
-        </button>
+        {/* All Branches Option (Global Access only) */}
+        {userPermissions.canViewAllBranches && (
+          <button
+            onClick={() => handleBranchClick('all', isMobile)}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs transition-all min-h-[38px] ${
+              selectedBranchFilter === 'all'
+                ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  selectedBranchFilter === 'all' ? 'bg-blue-600' : 'bg-slate-300'
+                }`}
+              />
+              <span className="truncate">All Branches</span>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
+          </button>
+        )}
 
-        {/* Individual Branches List */}
+        {/* Individual Branches List (restricted to own branch if branch staff) */}
         <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
-          {branches.map((branch) => {
-            const isSelected = selectedBranchFilter === branch.id;
-            return (
-              <button
-                key={branch.id}
-                onClick={() => handleBranchClick(branch.id, isMobile)}
+          {branches
+            .filter((branch) => userPermissions.canViewAllBranches || branch.id === currentUser.branchId)
+            .map((branch) => {
+              const isSelected = selectedBranchFilter === branch.id || (!userPermissions.canViewAllBranches && branch.id === currentUser.branchId);
+              return (
+                <button
+                  key={branch.id}
+                  onClick={() => handleBranchClick(branch.id, isMobile)}
                 className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[36px] ${
                   isSelected
                     ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'

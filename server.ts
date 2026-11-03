@@ -394,6 +394,18 @@ app.get('/api/database/backup', (req: Request, res: Response) => {
   res.send(JSON.stringify(db, null, 2));
 });
 
+// Download Supabase RLS Policies Migration Script
+app.get(['/supabase_rls_policies.sql', '/api/supabase_rls_policies.sql'], (req: Request, res: Response) => {
+  const filePath = path.resolve(__dirname, 'public/supabase_rls_policies.sql');
+  if (fs.existsSync(filePath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="supabase_rls_policies.sql"');
+    res.sendFile(filePath);
+  } else {
+    res.status(404).send('RLS SQL file not found');
+  }
+});
+
 // Download MySQL Database Schema Dump
 app.get(['/mk_advocates_database.sql', '/api/mk_advocates_database.sql'], (req: Request, res: Response) => {
   const filePath = path.resolve(__dirname, 'public/mk_advocates_database.sql');

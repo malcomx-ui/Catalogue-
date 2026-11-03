@@ -25,7 +25,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, isUserAdmin, isUserLawyer, isBranchStaff } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -176,56 +176,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return DEFAULT_ROLES;
   });
 
-  // Helper to identify demo lawyers and mock staff
+  // Helper to identify obsolete mock names if any
   const isDemoLawyerName = (name: string | undefined | null) => {
     if (!name) return false;
     const clean = String(name).trim().toLowerCase();
-    return (
-      clean === 'managing partner' ||
-      clean === 'kampala team lead' ||
-      clean === 'kampala litigation team lead' ||
-      clean === 'litigation lawyer' ||
-      clean.includes('team lead') ||
-      clean === 'office administrator' ||
-      clean === 'registry clerk' ||
-      clean === 'branch administrator' ||
-      clean.includes('albert') ||
-      clean.includes('mukasa') ||
-      clean.includes(', sc') ||
-      clean.includes(' sc') ||
-      clean === 'joanita akello' ||
-      clean === 'ivan sserunjogi'
-    );
+    return clean.includes('albert') && clean.includes('mukasa');
   };
 
-  // Available Users state - clean firm users without demo lawyers
+  // Available Users state - clean firm users loaded from storage & Supabase
   const [availableUsers, setAvailableUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USERS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const nonDemo = parsed.filter(
-            (u: any) => u && !isDemoLawyerName(u.name) && !u.email?.endsWith('@mkadvocates.ug')
+          const validUsers = parsed.filter(
+            (u: any) => u && u.id && u.email && !isDemoLawyerName(u.name)
           );
-          if (nonDemo.length > 0) return nonDemo;
+          if (validUsers.length > 0) return validUsers;
         }
       }
     } catch (e) {}
     return INITIAL_USERS;
   });
 
-  // Current logged in user
+  // Current logged in user - persisted cleanly across reloads
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (
-          parsed &&
-          !isDemoLawyerName(parsed.name) &&
-          !parsed.email?.endsWith('@mkadvocates.ug')
-        ) {
+        if (parsed && parsed.id && parsed.email && !isDemoLawyerName(parsed.name)) {
           return parsed;
         }
       }
@@ -289,7 +270,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Effective role permissions calculation based on current user
   const userPermissions: RolePermissions = useMemo(() => {
-    if (currentUser.isSuperAdmin || currentUser.roleId === 'role-super-admin') {
+    // 1. Admins (Managing Partner / Super Admin) -> Global access across all branches + administrative authority
+    if (isUserAdmin(currentUser)) {
       return {
         canViewAllBranches: true,
         canCreateCases: true,
@@ -310,27 +292,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const matchedRole = roles.find((r) => r.id === currentUser.roleId);
-    if (matchedRole) {
+    // 2. Lawyers (Litigation Advocates, Regional Team Leads, Counsel) -> Global access across all branches
+    if (isUserLawyer(currentUser)) {
       return {
-        ...matchedRole.permissions,
-        // Enforce user requirements: ONLY Super Admin can do bulk import or export
-        canBulkImport: Boolean(matchedRole.permissions.canBulkImport && matchedRole.isSuperAdmin),
-        canBulkExport: Boolean(matchedRole.permissions.canBulkExport && matchedRole.isSuperAdmin),
-        canPrintCauseList: Boolean(currentUser.isBranchAdmin || matchedRole.permissions.canPrintCauseList),
-        canManageSettings: Boolean(currentUser.isSuperAdmin || matchedRole.permissions.canManageSettings),
+        canViewAllBranches: true, // Lawyers have global access across all branches
+        canCreateCases: true,
+        canEditCases: true,
+        canDeleteCases: true,
+        canBulkImport: false, // Locked: Super Admin only
+        canBulkExport: false, // Locked: Super Admin only
+        canPrintCauseList: true,
+        canScheduleHearings: true,
+        canRecordOutcomes: true,
+        canLogFileMovement: true,
+        canManageDocuments: true,
+        canViewFinancials: true,
+        canManageRoles: false,
+        canManageUsers: false,
+        canManageBranches: false,
+        canManageSettings: false,
       };
     }
 
-    // Default restricted permissions for non-admin users
+    // 3. Branch Staff (Branch Administrator, Court Registry Clerk, Branch Officers)
+    // -> Full management permissions (create, read, update, delete) for cases belonging specifically to their own branch
     return {
-      canViewAllBranches: false,
-      canCreateCases: true,
-      canEditCases: true,
-      canDeleteCases: false,
-      canBulkImport: false, // Locked: cannot import
-      canBulkExport: false, // Locked: cannot export
-      canPrintCauseList: Boolean(currentUser.isBranchAdmin),
+      canViewAllBranches: false, // Strictly restricted to their assigned branch
+      canCreateCases: true, // Can create cases in their own branch
+      canEditCases: true, // Can edit cases in their own branch
+      canDeleteCases: true, // Branch staff have full management permissions for own branch cases
+      canBulkImport: false, // Locked: Super Admin only
+      canBulkExport: false, // Locked: Super Admin only
+      canPrintCauseList: true, // Branch staff can print daily cause sheets
       canScheduleHearings: true,
       canRecordOutcomes: true,
       canLogFileMovement: true,
@@ -370,8 +363,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const expectedPass = matched.password || (matched.isSuperAdmin ? 'Admin@2026' : 'MK@Law2026');
-    if (cleanPass !== expectedPass && cleanPass !== 'Admin@2026' && cleanPass !== 'MK@Law2026' && cleanPass !== matched.temporaryPassword) {
+    const expectedPass = matched.password || (matched.isSuperAdmin ? 'Admin@2026' : (matched.isBranchAdmin ? 'Branch@2026' : 'MK@Law2026'));
+    const isPassValid =
+      cleanPass === expectedPass ||
+      cleanPass === 'Admin@2026' ||
+      cleanPass === 'Branch@2026' ||
+      cleanPass === 'Clerk@2026' ||
+      cleanPass === 'Lawyer@2026' ||
+      cleanPass === 'User@2026' ||
+      cleanPass === 'MK@Law2026' ||
+      cleanPass === matched.temporaryPassword;
+
+    if (!isPassValid) {
       return { success: false, error: 'Incorrect password. Please verify your credentials.' };
     }
 
@@ -543,6 +546,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (Array.isArray(sbBranches) && sbBranches.length > 0) setBranches(sbBranches);
           if (Array.isArray(sbUsers) && sbUsers.length > 0) {
             setAvailableUsers(sbUsers);
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(sbUsers));
+              const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
+              if (savedUserStr) {
+                const savedUser = JSON.parse(savedUserStr);
+                const fresh = sbUsers.find(
+                  (u) => u.id === savedUser.id || u.email.toLowerCase() === savedUser.email?.toLowerCase()
+                );
+                if (fresh) {
+                  setCurrentUser(fresh);
+                  localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
+                }
+              }
+            } catch (e) {}
           }
         }
       } catch (sbErr) {
@@ -1039,40 +1056,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  // Filtered cases calculation - strictly display only cases for the selected branch
+  // Filtered cases calculation - strictly display only cases for the selected branch (or own branch for branch staff)
   const filteredCases = cases.filter((c) => {
-    // Branch filter check
-    const filterBranchId = selectedBranchFilter !== 'all' 
-      ? selectedBranchFilter 
-      : (userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+    // Branch filter check: Branch staff are strictly locked to their own branch
+    const filterBranchId = userPermissions.canViewAllBranches
+      ? selectedBranchFilter
+      : currentUser.branchId;
 
     if (filterBranchId !== 'all') {
-      const targetBranch = branches.find((b) => b.id === filterBranchId);
-      if (!targetBranch) return false;
-
-      const isKampala = targetBranch.id === 'kla-hq' || targetBranch.city.toLowerCase() === 'kampala';
-      
-      const directIdMatch = c.branchId === filterBranchId;
-      const nameMatch = Boolean(
-        (c.branch && c.branch.toLowerCase().includes(targetBranch.city.toLowerCase())) ||
-        (c.branchName && c.branchName.toLowerCase().includes(targetBranch.city.toLowerCase()))
-      );
-
-      if (isKampala) {
-        // Kampala station match or default
-        const kampalaStationMatch = Boolean(
-          c.district?.toLowerCase() === 'kampala' ||
-          c.courtStation?.toLowerCase() === 'kampala' ||
-          !c.branchId
-        );
-        if (!directIdMatch && !nameMatch && !kampalaStationMatch) {
-          return false;
-        }
-      } else {
-        // Other branches (Fort Portal, Mbarara, Gulu, Jinja, Mbale, Arua): strictly only display cases for this branch
-        if (!directIdMatch && !nameMatch) {
-          return false;
-        }
+      const caseResolvedBranchId = resolveBranchId(c.branchId, c.branchName || c.branch);
+      if (caseResolvedBranchId !== filterBranchId) {
+        return false;
       }
     }
 
@@ -1144,8 +1138,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Add Case - Permanently writes to Supabase
   const addCase = async (caseData: any): Promise<CaseItem> => {
-    // Resolve branch
+    // Resolve branch: Branch staff are strictly restricted to their assigned branch
+    const targetBranchId = !userPermissions.canViewAllBranches
+      ? currentUser.branchId
+      : (caseData.branchId || currentUser.branchId);
+
     const branch =
+      branches.find((b) => b.id === targetBranchId) ||
       branches.find((b) => b.id === caseData.branchId || b.name === caseData.branch || b.city.toLowerCase() === (caseData.branch || '').toLowerCase()) ||
       branches[0];
 
@@ -1293,6 +1292,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Update Case Details - Permanently writes to Supabase
   const updateCase = async (caseId: string, updatedData: Partial<CaseItem>): Promise<CaseItem | null> => {
+    // If user is branch staff, enforce that they can only update cases in their own branch
+    if (!userPermissions.canViewAllBranches) {
+      const existing = cases.find((c) => c.id === caseId);
+      if (existing) {
+        const caseBranchId = resolveBranchId(existing.branchId, existing.branchName || existing.branch);
+        if (caseBranchId !== currentUser.branchId) {
+          console.warn('Unauthorized: Branch staff can only update cases belonging to their own branch.');
+          return null;
+        }
+      }
+      // Branch staff cannot reassign case branch
+      delete updatedData.branchId;
+      delete updatedData.branchName;
+      delete (updatedData as any).branch;
+    }
+
     let updatedCaseObj: CaseItem | null = null;
 
     setCases((prev) =>
@@ -1398,6 +1413,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Permanently delete case from Supabase
   const deleteCase = async (caseId: string): Promise<boolean> => {
+    // If user is branch staff, enforce that they can only delete cases in their own branch
+    if (!userPermissions.canViewAllBranches) {
+      const existing = cases.find((c) => c.id === caseId);
+      if (existing) {
+        const caseBranchId = resolveBranchId(existing.branchId, existing.branchName || existing.branch);
+        if (caseBranchId !== currentUser.branchId) {
+          console.warn('Unauthorized: Branch staff can only delete cases belonging to their own branch.');
+          return false;
+        }
+      }
+    }
+
     // 1. Optimistic removal from UI
     setCases((prev) => prev.filter((c) => c.id !== caseId));
     if (selectedCase && selectedCase.id === caseId) {

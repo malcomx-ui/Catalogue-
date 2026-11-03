@@ -22,6 +22,10 @@ import {
   Mail,
   UserPlus,
   Loader2,
+  Copy,
+  Check,
+  Download,
+  Code,
 } from 'lucide-react';
 import { CustomRole, RolePermissions, User, Branch } from '../../types';
 import { StaffWelcomeModal } from './StaffWelcomeModal';
@@ -47,7 +51,8 @@ export const AccessRolesManager: React.FC = () => {
     userPermissions,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'roles' | 'users' | 'branches'>('roles');
+  const [activeSubTab, setActiveSubTab] = useState<'roles' | 'users' | 'branches' | 'rls'>('roles');
+  const [copiedSql, setCopiedSql] = useState(false);
 
   // New Custom Role Form State
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -251,6 +256,18 @@ export const AccessRolesManager: React.FC = () => {
           >
             <Building2 className="w-4 h-4 text-amber-500" />
             <span>Branch Registries ({branches.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('rls')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeSubTab === 'rls'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Lock className="w-4 h-4 text-purple-400" />
+            <span>Supabase RLS Policies</span>
           </button>
         </div>
       </div>
@@ -650,6 +667,171 @@ export const AccessRolesManager: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: SUPABASE ROW LEVEL SECURITY (RLS) POLICIES */}
+      {activeSubTab === 'rls' && (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900">
+                  Supabase Row Level Security (RLS) &amp; Branch Permissions
+                </h2>
+                <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                  ACTIVE IN CORE
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                PostgreSQL database policies enforcing branch-specific CRUD for branch staff and global access for Admins and Lawyers.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href="/api/supabase_rls_policies.sql"
+                download="supabase_rls_policies.sql"
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold border border-slate-200 transition-colors"
+                title="Download Supabase SQL migration file"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-600" />
+                <span>Download .SQL</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const sql = `-- MK Advocates RLS Policies
+ALTER TABLE public.cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.firm_users ENABLE ROW LEVEL SECURITY;
+
+-- 1. Helper function to check if user is Admin or Lawyer
+CREATE OR REPLACE FUNCTION public.is_admin_or_lawyer()
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+DECLARE
+  v_role TEXT;
+  v_is_super BOOLEAN;
+BEGIN
+  SELECT role, is_super_admin INTO v_role, v_is_super 
+  FROM public.firm_users WHERE LOWER(email) = LOWER(auth.jwt()->>'email') LIMIT 1;
+  IF v_is_super IS TRUE OR v_role IN ('partner', 'team_lead', 'lawyer', 'advocate') THEN
+    RETURN TRUE;
+  END IF;
+  RETURN auth.role() = 'service_role' OR auth.jwt() IS NULL;
+END;
+$$;
+
+-- 2. Helper function to get caller's assigned branch_id
+CREATE OR REPLACE FUNCTION public.get_user_branch_id()
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+  SELECT branch_id FROM public.firm_users WHERE LOWER(email) = LOWER(auth.jwt()->>'email') LIMIT 1;
+$$;
+
+-- 3. Cases RLS: Global Access for Admins & Lawyers
+CREATE POLICY "Global users full access to cases" ON public.cases
+FOR ALL TO authenticated, anon
+USING (public.is_admin_or_lawyer() OR public.get_user_branch_id() IS NULL)
+WITH CHECK (public.is_admin_or_lawyer() OR public.get_user_branch_id() IS NULL);
+
+-- 4. Cases RLS: Branch Staff CRUD restricted to own branch
+CREATE POLICY "Branch staff view branch cases" ON public.cases
+FOR SELECT TO authenticated, anon USING (branch_id = public.get_user_branch_id());
+
+CREATE POLICY "Branch staff insert branch cases" ON public.cases
+FOR INSERT TO authenticated, anon WITH CHECK (branch_id = public.get_user_branch_id());
+
+CREATE POLICY "Branch staff update branch cases" ON public.cases
+FOR UPDATE TO authenticated, anon
+USING (branch_id = public.get_user_branch_id())
+WITH CHECK (branch_id = public.get_user_branch_id());
+
+CREATE POLICY "Branch staff delete branch cases" ON public.cases
+FOR DELETE TO authenticated, anon USING (branch_id = public.get_user_branch_id());`;
+
+                  navigator.clipboard?.writeText(sql);
+                  setCopiedSql(true);
+                  setTimeout(() => setCopiedSql(false), 2000);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+              >
+                {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSql ? 'Copied SQL!' : 'Copy SQL Script'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Cards summarizing the 2 policy boundaries */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-indigo-900 font-bold text-xs">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                <span>1. Branch Staff Rules (Branch Restricted)</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Applies to: <strong>Branch Administrator</strong>, <strong>Court Registry Clerk</strong>, and branch personnel.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-1.5 list-disc list-inside">
+                <li><strong>SELECT:</strong> Only cases matching user's branch (<code className="font-mono text-[11px] bg-slate-100 px-1">branch_id = get_user_branch_id()</code>).</li>
+                <li><strong>INSERT:</strong> New cases are automatically locked to user's branch.</li>
+                <li><strong>UPDATE:</strong> Can update all matter fields, but cannot reassign case to another branch.</li>
+                <li><strong>DELETE:</strong> Full management deletion rights restricted specifically to cases belonging to their assigned branch.</li>
+              </ul>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>2. Admins &amp; Lawyers Rules (Global Access)</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Applies to: <strong>Managing Partner (Super Admin)</strong>, <strong>Litigation Advocates</strong>, and <strong>Regional Team Leads</strong>.
+              </p>
+              <ul className="text-xs text-slate-700 space-y-1.5 list-disc list-inside">
+                <li><strong>GLOBAL SELECT:</strong> Full cross-branch access across Kampala, Fort Portal, Mbarara, Masaka, Jinja, etc.</li>
+                <li><strong>GLOBAL INSERT:</strong> Can create cases for any branch.</li>
+                <li><strong>GLOBAL UPDATE:</strong> Can edit and reassign cases across all branches.</li>
+                <li><strong>GLOBAL DELETE:</strong> Supreme authority to delete or archive matters in any branch.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* SQL Preview Block */}
+          <div className="bg-slate-900 text-slate-200 rounded-xl p-4 font-mono text-xs overflow-x-auto border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-slate-400 pb-2 border-b border-slate-800 text-[11px]">
+              <span className="flex items-center gap-1.5">
+                <Code className="w-3.5 h-3.5 text-blue-400" />
+                <span>PostgreSQL RLS Definition &bull; supabase/migrations/20261103_branch_staff_rls.sql</span>
+              </span>
+              <span>PostgreSQL 15+</span>
+            </div>
+            <pre className="text-[11px] leading-relaxed text-slate-300">
+{`-- 1. Enable RLS
+ALTER TABLE public.cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.firm_users ENABLE ROW LEVEL SECURITY;
+
+-- 2. Global Access for Admins & Lawyers
+CREATE POLICY "Global users full access to cases" ON public.cases
+FOR ALL TO authenticated, anon
+USING (is_admin_or_lawyer() OR get_user_branch_id() IS NULL)
+WITH CHECK (is_admin_or_lawyer() OR get_user_branch_id() IS NULL);
+
+-- 3. Branch Staff CRUD restricted to own branch
+CREATE POLICY "Branch staff view branch cases" ON public.cases
+FOR SELECT TO authenticated, anon USING (branch_id = get_user_branch_id());
+
+CREATE POLICY "Branch staff insert branch cases" ON public.cases
+FOR INSERT TO authenticated, anon WITH CHECK (branch_id = get_user_branch_id());
+
+CREATE POLICY "Branch staff update branch cases" ON public.cases
+FOR UPDATE TO authenticated, anon
+USING (branch_id = get_user_branch_id())
+WITH CHECK (branch_id = get_user_branch_id());
+
+CREATE POLICY "Branch staff delete branch cases" ON public.cases
+FOR DELETE TO authenticated, anon USING (branch_id = get_user_branch_id());`}
+            </pre>
           </div>
         </div>
       )}

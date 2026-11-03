@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
-import { supabase, mapRowToCase } from '../../lib/supabase';
+import { supabase, mapRowToCase, resolveBranchId } from '../../lib/supabase';
 
 export const CaseDetailModal: React.FC = () => {
   const {
@@ -55,6 +55,7 @@ export const CaseDetailModal: React.FC = () => {
     addHearing,
     addDocument,
     currentUser,
+    userPermissions,
     addFileMovement,
     addProgressiveNote,
     systemSettings,
@@ -504,6 +505,14 @@ export const CaseDetailModal: React.FC = () => {
     return null;
   }
 
+  const activeCaseBranchId = resolveBranchId(
+    selectedCase.branch_id || selectedCase.branchId,
+    selectedCase.branch_name || selectedCase.branchName || selectedCase.branch
+  );
+  const isBranchStaffUser = !userPermissions.canViewAllBranches;
+  const isOwnBranchCase = activeCaseBranchId === currentUser.branchId;
+  const canManageThisCase = userPermissions.canViewAllBranches || isOwnBranchCase;
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
       <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
@@ -540,27 +549,39 @@ export const CaseDetailModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleDeleteCase}
-              disabled={isDeleting}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
-              title="Permanently delete case from Supabase"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
-            </button>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                isEditing
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? 'Cancel Edit' : 'Edit Form'}</span>
-            </button>
+            {!canManageThisCase && (
+              <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-medium">
+                View Only · Outside your branch custody
+              </span>
+            )}
+
+            {canManageThisCase && userPermissions.canDeleteCases && (
+              <button
+                type="button"
+                onClick={handleDeleteCase}
+                disabled={isDeleting}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
+                title="Permanently delete case from Supabase"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+              </button>
+            )}
+
+            {canManageThisCase && userPermissions.canEditCases && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                  isEditing
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? 'Cancel Edit' : 'Edit Form'}</span>
+              </button>
+            )}
+
             <button
               onClick={() => setSelectedCase(null)}
               className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
@@ -594,7 +615,8 @@ export const CaseDetailModal: React.FC = () => {
                   <select
                     value={editForm.branch}
                     onChange={(e) => setEdit('branch', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    disabled={isBranchStaffUser}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-85 disabled:bg-slate-100"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.name}>
@@ -602,6 +624,11 @@ export const CaseDetailModal: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  {isBranchStaffUser && (
+                    <p className="text-[11px] text-slate-500">
+                      Branch staff cannot reassign case branch custody.
+                    </p>
+                  )}
                 </div>
 
                 {/* 2. Case No. */}
