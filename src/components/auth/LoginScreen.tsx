@@ -64,7 +64,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <div className="text-center">
           <img
             src="/logo.png"
-            alt="MK Advocates & Solicitors"
+            alt="Muhumuza - Kiiza Advocates & Legal Consultants"
             className="h-12 w-auto mx-auto mb-4 object-contain"
             onError={(e) => {
               const target = e.currentTarget;
@@ -73,8 +73,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               }
             }}
           />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            MK Advocates &amp; Solicitors
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            Muhumuza - Kiiza Advocates &amp; Legal Consultants
           </h1>
           <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mt-1">
             MK Case Catalogue
@@ -85,9 +85,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <div className="mt-8 bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-200/80">
           <div className="mb-6 pb-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Secure Legal Management Portal</h2>
+              <h2 className="text-base font-bold text-slate-900">Muhumuza - Kiiza Advocates &amp; Legal Consultants</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Sign in to access your case catalogue
+                Secure Legal Management Portal &bull; Staff Sign In
               </p>
             </div>
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200">
@@ -183,7 +183,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
             <span>End-to-End Encrypted Session</span>
           </p>
-          <p>&copy; {new Date().getFullYear()} MK Advocates &bull; Kampala &bull; Fort Portal &bull; Mbarara &bull; Masaka &bull; Jinja</p>
+          <p>&copy; {new Date().getFullYear()} Muhumuza - Kiiza Advocates &amp; Legal Consultants &bull; Kampala &bull; Fort Portal &bull; Mbarara &bull; Masaka &bull; Jinja</p>
         </div>
       </div>
     </div>
