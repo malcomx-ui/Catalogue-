@@ -155,15 +155,22 @@ const LOCAL_STORAGE_KEY_ROLES = 'mk_case_catalogue_roles_v3';
 const LOCAL_STORAGE_KEY_USERS = 'mk_case_catalogue_users_v3';
 const LOCAL_STORAGE_KEY_BRANCHES = 'mk_case_catalogue_branches_v3';
 
+const EMPTY_USER: User = {
+  id: '',
+  name: 'Authorised Staff',
+  email: '',
+  role: 'branch_staff',
+  roleId: 'role-clerk',
+  roleTitle: 'Unauthenticated User',
+  branchId: 'kla-hq',
+  branchName: 'Kampala Central (Head Office)',
+  isSuperAdmin: false,
+  isBranchAdmin: false,
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication & Security state - Default to displaying the Login Page
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    try {
-      const savedAuth = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
-      if (savedAuth !== null) return savedAuth === 'true';
-    } catch (e) {}
-    return false; // Default to showing the login page on new sessions
-  });
+  // Authentication & Security state - Strictly unauthenticated on initial load
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Custom Roles state - initialized with Super Admin, Branch Administrator, Team Lead, Advocate, Clerk
   const [roles, setRoles] = useState<CustomRole[]>(() => {
@@ -201,21 +208,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_USERS;
   });
 
-  // Current logged in user - persisted cleanly across reloads
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.id && parsed.email && !isDemoLawyerName(parsed.name)) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-    return INITIAL_USERS[0];
-  });
+  // Current logged in user - strictly unauthenticated on load with no super-admin bypass
+  const [currentUser, setCurrentUser] = useState<User>(EMPTY_USER);
 
   // Branches state - clean branches with 0 demo lawyers
   const [branches, setBranches] = useState<Branch[]>(() => {
@@ -339,8 +333,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Pass authenticated user and profile info back up to the main app state
   const handleLoginSuccess = ({ user, profile }: { user: any; profile: any }): User => {
-    const email = (user.email || profile?.email || '').trim().toLowerCase();
-    const fullName = profile?.full_name || profile?.name || user.user_metadata?.full_name || email.split('@')[0] || 'User';
+    const email = (user?.email || profile?.email || '').trim().toLowerCase();
+    const fullName = profile?.full_name || profile?.name || user?.user_metadata?.full_name || email.split('@')[0] || 'User';
     const role = (profile?.role || 'lawyer').toLowerCase();
     const branchName = profile?.branch || profile?.branch_name || 'Headquarters (Kampala)';
     const branchId = resolveBranchId(profile?.branch_id || profile?.branch, branchName);
@@ -353,15 +347,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     const isBranchAdmin = Boolean(
       profile?.is_branch_admin ||
-      (role === 'admin' && !isSuperAdmin)
+      (role === 'admin' && !isSuperAdmin) ||
+      role === 'branch_admin'
     );
 
     const loggedInUser: User = {
-      id: user.id || String(profile?.id || 'user-auth'),
+      id: user?.id || String(profile?.id || 'user-auth'),
       email,
       name: fullName,
       role: role,
-      roleTitle: role === 'admin' ? 'System Administrator' : role === 'partner' ? 'Managing Partner' : role === 'clerk' ? 'Legal Clerk' : 'Litigation Counsel',
+      roleTitle: isSuperAdmin ? 'Managing Partner / Super Admin' : isBranchAdmin ? 'Branch Administrator' : role === 'clerk' ? 'Legal Clerk' : 'Litigation Counsel',
       branchId,
       branchName,
       isSuperAdmin,
@@ -370,6 +365,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setCurrentUser(loggedInUser);
     setIsAuthenticated(true);
+
+    // Route users to their correct dashboard view only after successful authentication based on their role in the profiles table
+    if (isSuperAdmin || role === 'super_admin' || role === 'partner' || role === 'admin') {
+      setActiveTab('dashboard');
+      setSelectedBranchFilter('all');
+    } else if (role === 'branch_staff' || role === 'branch_admin' || role === 'clerk' || role === 'office_admin') {
+      setActiveTab('catalogue');
+      setSelectedBranchFilter(branchId);
+    } else {
+      setActiveTab('catalogue');
+      setSelectedBranchFilter('all');
+    }
+
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
       localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(loggedInUser));
@@ -378,134 +386,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return loggedInUser;
   };
 
-  // Login action with Supabase Auth + profiles query + fallback staff credentials
+  // Login action strictly hooked up to Supabase Auth signInWithPassword and public profiles
   const login = async (identifier: string, pass: string): Promise<{ success: boolean; error?: string; requirePasswordChange?: boolean; user?: User }> => {
-    const cleanId = identifier.trim().toLowerCase();
+    const cleanEmail = identifier.trim().toLowerCase();
     const cleanPass = pass.trim();
 
-    if (!cleanId || !cleanPass) {
+    if (!cleanEmail || !cleanPass) {
       return { success: false, error: 'Please enter both your email address and password.' };
     }
 
     try {
-      // 1. Authenticate with Supabase Auth
+      // 1. Authenticate strictly with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanId,
+        email: cleanEmail,
         password: cleanPass,
       });
 
-      if (!authError && authData?.user) {
-        const user = authData.user;
-
-        // 2. Fetch their role & branch from the public profiles table
-        let resolvedProfile: any = null;
-        try {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('role, branch, full_name')
-            .eq('id', user.id)
-            .single();
-
-          if (!profileError && profileData) {
-            resolvedProfile = profileData;
-          }
-        } catch (e) {}
-
-        if (!resolvedProfile) {
-          try {
-            const { data: emailProfile } = await supabase
-              .from('profiles')
-              .select('role, branch, full_name')
-              .eq('email', user.email)
-              .maybeSingle();
-
-            if (emailProfile) resolvedProfile = emailProfile;
-          } catch (e) {}
-        }
-
-        if (!resolvedProfile) {
-          try {
-            const { data: firmUser } = await supabase
-              .from('firm_users')
-              .select('*')
-              .eq('email', user.email)
-              .maybeSingle();
-
-            if (firmUser) {
-              resolvedProfile = {
-                role: firmUser.role,
-                branch: firmUser.branch_name || firmUser.branch_id,
-                full_name: firmUser.name,
-              };
-            }
-          } catch (e) {}
-        }
-
-        // 3. Pass authenticated user and profile info back up to the main app state
-        const loggedInUser = handleLoginSuccess({
-          user,
-          profile: resolvedProfile || { role: 'admin', branch: 'Headquarters (Kampala)', full_name: user.email?.split('@')[0] || 'User' },
-        });
-
-        return { success: true, user: loggedInUser };
-      }
-    } catch (err) {
-      console.warn('[Supabase Auth] Notice:', err);
-    }
-
-    // Local / pre-seeded staff credentials fallback
-    const matched = availableUsers.find(
-      (u) =>
-        u.email.toLowerCase() === cleanId ||
-        u.name.toLowerCase() === cleanId ||
-        u.id.toLowerCase() === cleanId
-    );
-
-    if (matched) {
-      if (matched.isSuspended) {
+      if (authError) {
         return {
           success: false,
-          error: `This account is SUSPENDED: ${matched.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
+          error: authError.message || 'Invalid email or password. Please verify your credentials.',
         };
       }
 
-      const expectedPass = matched.password || (matched.isSuperAdmin ? 'Admin@2026' : (matched.isBranchAdmin ? 'Branch@2026' : 'MK@Law2026'));
-      const isPassValid =
-        cleanPass === expectedPass ||
-        cleanPass === 'Admin@2026' ||
-        cleanPass === 'Branch@2026' ||
-        cleanPass === 'Clerk@2026' ||
-        cleanPass === 'Lawyer@2026' ||
-        cleanPass === 'User@2026' ||
-        cleanPass === 'MK@Law2026' ||
-        cleanPass === matched.temporaryPassword;
-
-      if (isPassValid) {
-        if (matched.mustChangePassword) {
-          return { success: true, requirePasswordChange: true, user: matched };
-        }
-
-        // Auto-provision to Supabase Auth in background if possible
-        supabase.auth.signUp({ email: cleanId, password: cleanPass }).catch(() => {});
-
-        setCurrentUser(matched);
-        setIsAuthenticated(true);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
-          localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(matched));
-        } catch (e) {}
-
-        return { success: true, requirePasswordChange: false, user: matched };
+      const user = authData?.user;
+      if (!user) {
+        return { success: false, error: 'Authentication failed. User record not found.' };
       }
-    }
 
-    return { success: false, error: 'Invalid email or password.' };
+      // 2. Fetch their role & branch from the public profiles table
+      let resolvedProfile: any = null;
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, branch, full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileData && !profileError) {
+          resolvedProfile = profileData;
+        }
+      } catch (e) {
+        console.warn('Profile fetch by id warning:', e);
+      }
+
+      if (!resolvedProfile && user.email) {
+        try {
+          const { data: emailProfile } = await supabase
+            .from('profiles')
+            .select('role, branch, full_name')
+            .eq('email', user.email)
+            .maybeSingle();
+
+          if (emailProfile) resolvedProfile = emailProfile;
+        } catch (e) {}
+      }
+
+      if (!resolvedProfile && user.email) {
+        try {
+          const { data: firmUser } = await supabase
+            .from('firm_users')
+            .select('*')
+            .eq('email', user.email)
+            .maybeSingle();
+
+          if (firmUser) {
+            resolvedProfile = {
+              role: firmUser.role,
+              branch: firmUser.branch_name || firmUser.branch_id,
+              full_name: firmUser.name,
+            };
+          }
+        } catch (e) {}
+      }
+
+      // Check if user is suspended in availableUsers list
+      const matchedLocal = availableUsers.find(
+        (u) => u.email.toLowerCase() === cleanEmail || u.id === user.id
+      );
+      if (matchedLocal?.isSuspended) {
+        await supabase.auth.signOut().catch(() => {});
+        return {
+          success: false,
+          error: `This account is SUSPENDED: ${matchedLocal.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
+        };
+      }
+
+      // 3. Pass authenticated user and profile info back up to the main app state and route by role
+      const loggedInUser = handleLoginSuccess({
+        user,
+        profile: resolvedProfile || {
+          role: 'lawyer',
+          branch: 'Headquarters (Kampala)',
+          full_name: user.email?.split('@')[0] || 'User',
+        },
+      });
+
+      return { success: true, user: loggedInUser };
+    } catch (err: any) {
+      console.error('[Supabase Auth Login Error]:', err);
+      return {
+        success: false,
+        error: err?.message || 'Invalid email or password.',
+      };
+    }
   };
 
   const logout = () => {
     setIsAuthenticated(false);
+    setCurrentUser(EMPTY_USER);
+    setActiveTab('dashboard');
+    setSelectedBranchFilter('all');
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'false');
+      supabase.auth.signOut().catch(() => {});
+      localStorage.removeItem(LOCAL_STORAGE_KEY_AUTH);
+      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
     } catch (e) {}
   };
   
@@ -658,15 +653,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setAvailableUsers(sbUsers);
             try {
               localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(sbUsers));
-              const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
-              if (savedUserStr) {
-                const savedUser = JSON.parse(savedUserStr);
-                const fresh = sbUsers.find(
-                  (u) => u.id === savedUser.id || u.email.toLowerCase() === savedUser.email?.toLowerCase()
-                );
-                if (fresh) {
-                  setCurrentUser(fresh);
-                  localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
+              if (isAuthenticated) {
+                const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
+                if (savedUserStr) {
+                  const savedUser = JSON.parse(savedUserStr);
+                  const fresh = sbUsers.find(
+                    (u) => u.id === savedUser.id || u.email.toLowerCase() === savedUser.email?.toLowerCase()
+                  );
+                  if (fresh) {
+                    setCurrentUser(fresh);
+                    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
+                  }
                 }
               }
             } catch (e) {}

@@ -19,7 +19,6 @@ import { AccessRolesManager } from './components/admin/AccessRolesManager';
 import { SystemSettingsManager } from './components/admin/SystemSettingsManager';
 import { FirmDashboard } from './components/dashboard/FirmDashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
-import { AuthModal } from './components/auth/AuthModal';
 import { PrintableCauseSheet } from './components/reports/PrintableCauseSheet';
 import { ImportExcelModal } from './components/catalogue/ImportExcelModal';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
@@ -67,7 +66,6 @@ const MainLayout: React.FC = () => {
       <CaseDetailModal />
       <NewCaseModal />
       <ImportExcelModal />
-      <AuthModal />
       <PrintableCauseSheet />
       {isAdmin && (
         <CpanelMigrationModal
