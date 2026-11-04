@@ -12,7 +12,11 @@ import {
   Loader2,
 } from 'lucide-react';
 
-export const LoginScreen: React.FC = () => {
+export interface LoginScreenProps {
+  onLoginSuccess?: (data: { user: any; profile: any }) => void;
+}
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const { login } = useApp();
 
   // Inputs strictly start completely blank with zero pre-fill or auto-signin bypass
@@ -41,6 +45,8 @@ export const LoginScreen: React.FC = () => {
           result.error ||
             'Authentication failed. Please verify your credentials or contact the Firm Administrator.'
         );
+      } else if (onLoginSuccess && result.user) {
+        onLoginSuccess({ user: result.user, profile: result.user });
       }
       // On success, handleLoginSuccess inside login() automatically sets authentication and routes to role dashboard view
     } catch (err: any) {
@@ -55,7 +61,7 @@ export const LoginScreen: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100/90 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans-legal">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Law Firm Executive Crest & Header */}
+        {/* Law Firm Executive Crest & Centered Branding */}
         <div className="text-center">
           <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 shadow-md mx-auto flex items-center justify-center text-amber-400 mb-4">
             <Scale className="w-7 h-7" />
@@ -64,7 +70,7 @@ export const LoginScreen: React.FC = () => {
             MK Advocates &amp; Solicitors
           </h1>
           <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mt-1">
-            Litigation Case Catalogue &bull; Uganda National Registry
+            MK Case Catalogue
           </p>
         </div>
 
@@ -72,12 +78,12 @@ export const LoginScreen: React.FC = () => {
         <div className="mt-8 bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-200/80">
           <div className="mb-6 pb-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Staff Portal Sign In</h2>
+              <h2 className="text-base font-bold text-slate-900">Secure Legal Management Portal</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Enter your Supabase credentials to access your catalogue
+                Sign in to access your case catalogue
               </p>
             </div>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200">
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
@@ -162,18 +168,13 @@ export const LoginScreen: React.FC = () => {
               </button>
             </div>
           </form>
-
-          {/* Secure System Notice */}
-          <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-500 leading-relaxed text-center">
-            Role Level Security (RLS) policies are active. Branch staff access is restricted to their assigned regional branch. Admins and litigation advocates maintain global registry authority.
-          </div>
         </div>
 
-        {/* Footer */}
+        {/* Clean Footer */}
         <div className="mt-8 text-center text-xs text-slate-400 space-y-1">
           <p className="flex items-center justify-center gap-1.5">
             <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-            <span>End-to-End Encrypted Session &bull; Supabase RLS Protected</span>
+            <span>End-to-End Encrypted Session</span>
           </p>
           <p>&copy; {new Date().getFullYear()} MK Advocates &bull; Kampala &bull; Fort Portal &bull; Mbarara &bull; Masaka &bull; Jinja</p>
         </div>
