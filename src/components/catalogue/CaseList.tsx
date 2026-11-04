@@ -42,7 +42,7 @@ export const CaseList: React.FC = () => {
     currentUser,
   } = useApp();
 
-  const [stageFilter, setStageFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'directory'>('table');
 
@@ -98,29 +98,32 @@ export const CaseList: React.FC = () => {
   }, [cases, branches]);
 
   const displayCases = filteredCases.filter((c) => {
-    if (stageFilter !== 'all' && c.stage !== stageFilter) return false;
+    if (statusFilter !== 'all') {
+      const caseStatus = (c.status || 'Active').toLowerCase();
+      if (!caseStatus.includes(statusFilter.toLowerCase())) return false;
+    }
     if (divisionFilter !== 'all' && !c.division.includes(divisionFilter)) return false;
     return true;
   });
 
-  const getStageBadgeColor = (stage: string) => {
-    switch (stage) {
-      case 'Pleadings & Defense':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'Mediation & Scheduling':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Trial (Plaintiff Stage)':
-      case 'Trial (Defense Stage)':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'Final Legal Submissions':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'Judgment / Ruling Reserved':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
-      case 'Decree & Execution':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      default:
-        return 'bg-slate-50 text-slate-700 border-slate-200';
+  const getStatusBadgeColor = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('active') || s.includes('ongoing')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
+    if (s.includes('pending') || s.includes('instruction')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    if (s.includes('adjourn')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    }
+    if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
+      return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
+    if (s.includes('dormant') || s.includes('inactive')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    return 'bg-blue-50 text-blue-700 border-blue-200';
   };
 
   return (
@@ -242,20 +245,18 @@ export const CaseList: React.FC = () => {
             </div>
           )}
 
-          {/* Stage filter */}
+          {/* Status filter */}
           <select
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
             className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
           >
-            <option value="all">All Stages</option>
-            <option value="Pleadings & Defense">Pleadings</option>
-            <option value="Mediation & Scheduling">Mediation & Scheduling</option>
-            <option value="Trial (Plaintiff Stage)">Trial (Plaintiff)</option>
-            <option value="Trial (Defense Stage)">Trial (Defense)</option>
-            <option value="Final Legal Submissions">Submissions</option>
-            <option value="Judgment / Ruling Reserved">Judgment Reserved</option>
-            <option value="Decree & Execution">Decree & Execution</option>
+            <option value="all">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Adjourned">Adjourned</option>
+            <option value="Closed">Closed</option>
+            <option value="Dormant">Dormant</option>
           </select>
 
           {/* Division filter */}
@@ -314,12 +315,12 @@ export const CaseList: React.FC = () => {
             </span>
           )}
 
-          {(selectedBranchFilter !== 'all' || selectedLawyerFilter !== 'all' || stageFilter !== 'all' || divisionFilter !== 'all' || searchQuery) && (
+          {(selectedBranchFilter !== 'all' || selectedLawyerFilter !== 'all' || statusFilter !== 'all' || divisionFilter !== 'all' || searchQuery) && (
             <button
               onClick={() => {
                 setSelectedBranchFilter('all');
                 setSelectedLawyerFilter('all');
-                setStageFilter('all');
+                setStatusFilter('all');
                 setDivisionFilter('all');
                 setSearchQuery('');
               }}
@@ -357,7 +358,7 @@ export const CaseList: React.FC = () => {
                   <th className="py-3 px-4">Case Title & Parties</th>
                   <th className="py-3 px-4">Court & Division</th>
                   <th className="py-3 px-4">Branch</th>
-                  <th className="py-3 px-4">Stage</th>
+                  <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4">Next Hearing</th>
                   <th className="py-3 px-4">Lead Counsel</th>
                   <th className="py-3 px-4 text-right">Action</th>
@@ -376,7 +377,7 @@ export const CaseList: React.FC = () => {
                             Counsel: {selectedLawyerFilter}
                           </div>
                           <p className="text-xs text-slate-500 leading-relaxed">
-                            No cases currently assigned to Counsel {selectedLawyerFilter} match the active branch and stage filters.
+                            No cases currently assigned to Counsel {selectedLawyerFilter} match the active branch and status filters.
                           </p>
                           <div className="pt-2 flex items-center justify-center gap-2">
                             <button
@@ -389,7 +390,7 @@ export const CaseList: React.FC = () => {
                               onClick={() => {
                                 setSelectedBranchFilter('all');
                                 setSelectedLawyerFilter('all');
-                                setStageFilter('all');
+                                setStatusFilter('all');
                                 setDivisionFilter('all');
                                 setSearchQuery('');
                               }}
@@ -529,8 +530,8 @@ export const CaseList: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${getStageBadgeColor(caseItem.stage)}`}>
-                          {caseItem.stage}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
+                          {caseItem.status || 'Active'}
                         </span>
                       </td>
 
@@ -653,8 +654,8 @@ export const CaseList: React.FC = () => {
                       <Plus className="w-2.5 h-2.5" /> Enter File NO.
                     </span>
                   )}
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${getStageBadgeColor(caseItem.stage)}`}>
-                    {caseItem.stage}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
+                    {caseItem.status || 'Active'}
                   </span>
                 </div>
 
