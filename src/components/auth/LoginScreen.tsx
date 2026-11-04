@@ -76,18 +76,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
             Muhumuza - Kiiza Advocates &amp; Legal Consultants
           </h1>
-          <p className="text-xs uppercase tracking-widest text-slate-500 font-semibold mt-1">
-            MK Case Catalogue
-          </p>
         </div>
 
         {/* Login Container Card */}
         <div className="mt-8 bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-slate-200/80">
           <div className="mb-6 pb-4 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Muhumuza - Kiiza Advocates &amp; Legal Consultants</h2>
+              <h2 className="text-base font-bold text-slate-900">Secure Legal Management Portal</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Secure Legal Management Portal &bull; Staff Sign In
+                Staff Sign In &bull; Case Catalogue
               </p>
             </div>
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200">
