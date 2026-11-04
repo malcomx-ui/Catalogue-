@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CaseItem, CourtHearing, PleadingDocument, Branch, User } from '../types';
+import { CaseItem, CourtHearing, PleadingDocument, Branch, User, AuditLog } from '../types';
 
 export const DEFAULT_SUPABASE_URL = 'https://kidaxoubrzbvnrtuinff.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGF4b3Vicnpidm5ydHVpbmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1ODE0NjAsImV4cCI6MjEwOTE1NzQ2MH0.eDf8euIyXDj5CEzZbW3Dy8irKqGWC-0scvftzfwMS5g';
@@ -362,6 +362,67 @@ export const SupabaseService = {
     const { data, error } = await supabase.from('court_hearings').upsert([row]);
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Logs user actions (INSERT, UPDATE, DELETE) to dedicated 'audit_logs' table in Supabase
+   */
+  async logAudit(logData: {
+    case_id?: string;
+    case_number?: string;
+    action: 'INSERT' | 'UPDATE' | 'DELETE' | string;
+    performed_by?: string;
+    user_email?: string;
+    user_role?: string;
+    branch?: string;
+    changes?: Record<string, any>;
+  }): Promise<{ success: boolean; data?: any; error?: any }> {
+    try {
+      const payload: any = {
+        action: logData.action,
+        case_id: logData.case_id || null,
+        case_number: logData.case_number || null,
+        user_email: logData.user_email || null,
+        user_role: logData.user_role || null,
+        branch: logData.branch || null,
+        changes: logData.changes || null,
+      };
+      if (logData.performed_by && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(logData.performed_by)) {
+        payload.performed_by = logData.performed_by;
+      }
+
+      const { data, error } = await supabase.from('audit_logs').insert([payload]).select('*');
+      if (error) {
+        console.warn('[Supabase Audit] audit_logs notice:', error.message);
+        return { success: false, error };
+      }
+      return { success: true, data: data?.[0] };
+    } catch (e: any) {
+      console.warn('[Supabase Audit] audit_logs logging exception:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  /**
+   * Fetches audit trail logs from Supabase 'audit_logs' table (for Super Admins)
+   */
+  async fetchAuditLogs(): Promise<AuditLog[]> {
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.warn('[Supabase Audit] fetchAuditLogs notice:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.warn('[Supabase Audit] fetchAuditLogs exception:', e);
+      return [];
+    }
   },
 
   async fetchBranches(): Promise<Branch[] | null> {

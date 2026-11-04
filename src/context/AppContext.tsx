@@ -12,6 +12,7 @@ import {
   CustomRole,
   RolePermissions,
   SystemSettings,
+  AuditLog,
 } from '../types';
 import {
   INITIAL_BRANCHES,
@@ -100,6 +101,8 @@ interface AppContextType {
   hearings: CourtHearing[];
   documents: PleadingDocument[];
   syncLogs: SyncLog[];
+  auditLogs: AuditLog[];
+  refreshAuditLogs: () => Promise<void>;
   
   isSyncing: boolean;
   lastGlobalSync: string;
@@ -131,11 +134,8 @@ interface AppContextType {
   exportCatalogueToCsv: () => void;
   importCasesFromExcel: (
     imported: any[], 
-    replaceAll?: boolean,
     onProgress?: (processed: number, total: number) => void
   ) => Promise<{ success: boolean; count: number; error?: string }>;
-  clearAllCases: () => void;
-  loadDemoCases: () => void;
   addFileMovement: (caseId: string, movement: Omit<FileMovementRecord, 'id' | 'timestamp'>) => void;
   addProgressiveNote: (caseId: string, note: Omit<ProgressiveNote, 'id' | 'timestamp'>) => void;
   
@@ -685,6 +685,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>(INITIAL_SYNC_LOGS);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastGlobalSync, setLastGlobalSync] = useState<string>('Just now');
+
+  // Audit Trail state (Super Admin live compliance logs from Supabase audit_logs table)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  const refreshAuditLogs = async () => {
+    if (isSupabaseConfigured) {
+      try {
+        const logs = await SupabaseService.fetchAuditLogs();
+        setAuditLogs(logs);
+      } catch (e) {
+        console.warn('refreshAuditLogs notice:', e);
+      }
+    }
+  };
+
+  useEffect(() => {
+    refreshAuditLogs();
+  }, [isAuthenticated]);
 
   // Modals & Panels
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -1400,6 +1418,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setSyncLogs((prev) => [syncLog, ...prev]);
 
+    // Permanently record INSERT in dedicated 'audit_logs' table in Supabase
+    if (isSupabaseConfigured) {
+      SupabaseService.logAudit({
+        case_id: savedCase.id,
+        case_number: savedCase.suitNumber,
+        action: 'INSERT',
+        performed_by: currentUser.id,
+        user_email: currentUser.email,
+        user_role: currentUser.role,
+        branch: savedCase.branchName || currentUser.branchName,
+        changes: {
+          title: savedCase.title,
+          client: savedCase.client,
+          court: savedCase.court,
+          division: savedCase.division,
+          stage: savedCase.stage,
+          status: savedCase.status,
+          leadAdvocate: savedCase.leadAdvocate,
+        },
+      }).then(() => refreshAuditLogs()).catch(() => {});
+    }
+
     return savedCase;
   };
 
@@ -1519,6 +1559,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (err) {
         console.error('Supabase updateCase permanent write failed:', err);
       }
+
+      // Record UPDATE in dedicated 'audit_logs' table in Supabase
+      if (updatedCaseObj) {
+        SupabaseService.logAudit({
+          case_id: updatedCaseObj.id,
+          case_number: updatedCaseObj.suitNumber,
+          action: 'UPDATE',
+          performed_by: currentUser.id,
+          user_email: currentUser.email,
+          user_role: currentUser.role,
+          branch: updatedCaseObj.branchName || currentUser.branchName,
+          changes: {
+            updatedFields: Object.keys(updatedData),
+            updates: updatedData,
+          },
+        }).then(() => refreshAuditLogs()).catch(() => {});
+      }
     }
 
     return updatedCaseObj;
@@ -1526,9 +1583,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Permanently delete case from Supabase
   const deleteCase = async (caseId: string): Promise<boolean> => {
+    const existing = cases.find((c) => c.id === caseId);
+
     // If user is branch staff, enforce that they can only delete cases in their own branch
     if (!userPermissions.canViewAllBranches) {
-      const existing = cases.find((c) => c.id === caseId);
       if (existing) {
         const caseBranchId = resolveBranchId(existing.branchId, existing.branchName || existing.branch);
         if (caseBranchId !== currentUser.branchId) {
@@ -1548,6 +1606,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured) {
       try {
         await SupabaseService.deleteCase(caseId);
+
+        // Record DELETE in dedicated 'audit_logs' table in Supabase
+        SupabaseService.logAudit({
+          case_id: caseId,
+          case_number: existing?.suitNumber || caseId,
+          action: 'DELETE',
+          performed_by: currentUser.id,
+          user_email: currentUser.email,
+          user_role: currentUser.role,
+          branch: existing?.branchName || currentUser.branchName,
+          changes: {
+            deletedTitle: existing?.title,
+            deletedClient: existing?.client,
+            deletedAt: new Date().toISOString(),
+          },
+        }).then(() => refreshAuditLogs()).catch(() => {});
       } catch (err) {
         console.error('Supabase permanent deleteCase failed:', err);
         return false;
@@ -1831,34 +1905,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.body.removeChild(link);
   };
 
-  // Clear all client data / Emergency wipe for confidentiality & safety
-  const clearAllCases = () => {
-    setCases([]);
-    setHearings([]);
-    setDocuments([]);
-    setSyncLogs([]);
-    setSelectedCase(null);
-    try {
-      localStorage.removeItem(LOCAL_STORAGE_KEY_CASES);
-      localStorage.removeItem(LOCAL_STORAGE_KEY_HEARINGS);
-      localStorage.removeItem(LOCAL_STORAGE_KEY_DOCS);
-      localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify([]));
-      localStorage.setItem(LOCAL_STORAGE_KEY_HEARINGS, JSON.stringify([]));
-      localStorage.setItem(LOCAL_STORAGE_KEY_DOCS, JSON.stringify([]));
-      localStorage.setItem('mk_client_data_cleared', 'true');
-      localStorage.setItem('mk_demo_cleared', 'true');
-    } catch (e) {}
-  };
-
-  // Reset catalogue (no demo files)
-  const loadDemoCases = () => {
-    clearAllCases();
-  };
-
-  // Import cases from Excel (.xlsx, .xls, .csv) - Permanently writes to Supabase cases table in batches
+  // Import cases from Excel (.xlsx, .xls, .csv) - Safely appends and permanently writes to Supabase
   const importCasesFromExcel = async (
     importedData: any[],
-    replaceAll: boolean = false,
     onProgress?: (processed: number, total: number) => void
   ): Promise<{ success: boolean; count: number; error?: string }> => {
     if (!userPermissions.canBulkImport) {
@@ -2018,16 +2067,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     });
 
-    // 1. If replaceAll was explicitly requested, purge existing cases in Supabase
-    if (replaceAll) {
-      try {
-        await supabase.from('cases').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      } catch (err) {
-        console.warn('Error clearing existing cases for replaceAll:', err);
-      }
-    }
-
-    // 2. Permanently insert into Supabase cases table in batches
+    // Permanently insert into Supabase cases table in batches (Safe append, preserving existing cases)
     let insertedCount = 0;
     try {
       const result = await SupabaseService.bulkInsertCases(formattedCases, 50, onProgress);
@@ -2202,8 +2242,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         runConflictCheck,
         exportCatalogueToCsv,
         importCasesFromExcel,
-        clearAllCases,
-        loadDemoCases,
         addFileMovement,
         addProgressiveNote,
         printableCauseDate,
@@ -2211,6 +2249,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isServerConnected,
         isCpanelMigrationModalOpen,
         setIsCpanelMigrationModalOpen,
+        auditLogs,
+        refreshAuditLogs,
       }}
     >
       {children}

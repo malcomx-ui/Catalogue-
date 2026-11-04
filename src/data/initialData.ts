@@ -329,83 +329,10 @@ export const INITIAL_USERS: User[] = [
 
 export const DEMO_USERS: User[] = INITIAL_USERS;
 
-const createFtpCase = (id: string, caseNo: string, title: string, status: 'Active' | 'Inactive' | 'Closed'): CaseItem => ({
-  id,
-  case_number: caseNo,
-  suitNumber: caseNo,
-  firmRefNumber: caseNo,
-  title,
-  client: 'CENTENARY BANK',
-  clientName: 'CENTENARY BANK',
-  court: 'High Court of Uganda (Fort Portal Circuit)',
-  division: 'High Court (Civil Division)',
-  presidingJudge: 'Hon. Justice Vincent Wagona',
-  courtStation: 'Fort Portal',
-  stage: status === 'Closed' ? 'Disposed & Closed' : status === 'Inactive' ? 'Pleadings & Defense' : 'Trial (Plaintiff Stage)',
-  priority: 'Standard',
-  branchId: 'ftp-reg',
-  branch: 'Fort Portal Office',
-  branchName: 'Fort Portal Office',
-  leadAdvocate: 'Adv. Sarah Namatovu',
-  assistingAdvocates: [],
-  parties: [
-    {
-      name: 'CENTENARY BANK',
-      type: 'Plaintiff / Claimant',
-      representedByFirm: true,
-    },
-    {
-      name: title.split(' VS ')[1] || 'Defendant',
-      type: 'Defendant / Respondent',
-      representedByFirm: false,
-    },
-  ],
-  opposingFirm: '',
-  opposingCounsel: '',
-  claimValueUGX: 35000000,
-  filingDate: '2020-04-12',
-  syncedAcrossBranches: true,
-  briefSummary: `Litigation recovery matter before Fort Portal High Court. Ref: ${caseNo}`,
-  documentsCount: 2,
-  lastUpdated: '2026-11-02',
-  status,
-});
-
-export const INITIAL_CASES: CaseItem[] = [
-  createFtpCase('ftp-case-001', 'MK-0017-2020', 'BRIGHTH EMMANUEL VS CENTENARY BANK', 'Active'),
-  createFtpCase('ftp-case-002', 'MK-005-2020', 'CENTENARY BANK VS MASEREKA ABDUL', 'Active'),
-  createFtpCase('ftp-case-003', 'MK-006-2020', 'CENTENARY BANK VS TUGUME JOHN', 'Active'),
-  createFtpCase('ftp-case-004', 'MK-008-2020', 'CENTENARY BANK VS KABASINGUZI ALICE', 'Active'),
-  createFtpCase('ftp-case-005', 'MK-011-2020', 'CENTENARY BANK VS MUGISA PETER', 'Active'),
-  createFtpCase('ftp-case-006', 'MK-012-2020', 'CENTENARY BANK VS KYOMUHENDO GRACE', 'Active'),
-  createFtpCase('ftp-case-007', 'MK-014-2020', 'CENTENARY BANK VS BIRUNGI MOSES', 'Active'),
-  createFtpCase('ftp-case-008', 'MK-015-2020', 'CENTENARY BANK VS ASIIMWE PATRICK', 'Active'),
-  createFtpCase('ftp-case-009', 'MK-019-2020', 'CENTENARY BANK VS TWINOMUJUNI ENID', 'Active'),
-  createFtpCase('ftp-case-010', 'MK-021-2020', 'CENTENARY BANK VS BYAMUKAMA JOSEPH', 'Active'),
-  createFtpCase('ftp-case-011', 'MK-022-2020', 'CENTENARY BANK VS TUSIIME RICHARD', 'Active'),
-  createFtpCase('ftp-case-012', 'MK-025-2020', 'CENTENARY BANK VS MUGAMBWA FRED', 'Active'),
-  createFtpCase('ftp-case-013', 'MK-027-2020', 'CENTENARY BANK VS NYANGOMA ROSE', 'Active'),
-  createFtpCase('ftp-case-014', 'MK-029-2020', 'CENTENARY BANK VS KIIZA EMMANUEL', 'Active'),
-  createFtpCase('ftp-case-015', 'MK-031-2020', 'CENTENARY BANK VS AHEEBWA DAVID', 'Active'),
-  createFtpCase('ftp-case-016', 'MK-033-2020', 'CENTENARY BANK VS KAKURU FRANCIS', 'Active'),
-  createFtpCase('ftp-case-017', 'MK-035-2020', 'CENTENARY BANK VS TINDYEBWA STEPHEN', 'Active'),
-  createFtpCase('ftp-case-018', 'MK-036-2020', 'CENTENARY BANK VS KEMIGISA BEATRICE', 'Active'),
-  createFtpCase('ftp-case-019', 'MK-038-2020', 'CENTENARY BANK VS MBABAZI CHARLES', 'Active'),
-  createFtpCase('ftp-case-020', 'MK-040-2020', 'CENTENARY BANK VS ATUHEIRE JANET', 'Active'),
-  createFtpCase('ftp-case-021', 'MK-042-2020', 'CENTENARY BANK VS RWAKAIKARA PAUL', 'Active'),
-  createFtpCase('ftp-case-022', 'MK-044-2020', 'CENTENARY BANK VS BAZARABUSA SIMON', 'Inactive'),
-  createFtpCase('ftp-case-023', 'MK-045-2020', 'CENTENARY BANK VS KASAIJA RONALD', 'Inactive'),
-  createFtpCase('ftp-case-024', 'MK-001-2020', 'CENTENARY BANK VS TUMWESIGE EDWARD', 'Closed'),
-  createFtpCase('ftp-case-025', 'MK-002-2020', 'CENTENARY BANK VS KOMUNTALE MARY', 'Closed'),
-  createFtpCase('ftp-case-026', 'MK-003-2020', 'CENTENARY BANK VS BUSINGE ROBERT', 'Closed'),
-  createFtpCase('ftp-case-027', 'MK-004-2020', 'CENTENARY BANK VS MUHUMUZA GEOFFREY', 'Closed'),
-  createFtpCase('ftp-case-028', 'MK-007-2020', 'CENTENARY BANK VS KAHWA JULIUS', 'Closed'),
-  createFtpCase('ftp-case-029', 'MK-009-2020', 'CENTENARY BANK VS BAGUMA KENNETH', 'Closed'),
-  createFtpCase('ftp-case-030', 'MK-010-2020', 'CENTENARY BANK VS NYAKAANA DANIEL', 'Closed'),
-];
-
+// Production Clean Cases - No sample case data or injection seeders
+export const INITIAL_CASES: CaseItem[] = [];
 export const UPGRADED_KAMPALA_CASES: CaseItem[] = [];
-export const DEMO_SAMPLE_CASES: CaseItem[] = INITIAL_CASES;
+export const DEMO_SAMPLE_CASES: CaseItem[] = [];
 
 // Clean hearings and documents - All demo records purged
 export const INITIAL_HEARINGS: CourtHearing[] = [];

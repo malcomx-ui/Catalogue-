@@ -442,31 +442,6 @@ app.get('/api/cpanel_index.php', (req: Request, res: Response) => {
   }
 });
 
-// One-click Central Database Restore
-app.post('/api/database/restore', (req: Request, res: Response) => {
-  const backupData = req.body;
-  if (!backupData || (!Array.isArray(backupData.cases) && !Array.isArray(backupData.users))) {
-    return res.status(400).json({ success: false, error: 'Invalid backup file structure.' });
-  }
-
-  const ok = writeDatabase({
-    version: '2.0',
-    lastUpdated: new Date().toISOString(),
-    cases: Array.isArray(backupData.cases) ? backupData.cases : [],
-    hearings: Array.isArray(backupData.hearings) ? backupData.hearings : [],
-    documents: Array.isArray(backupData.documents) ? backupData.documents : [],
-    branches: Array.isArray(backupData.branches) ? backupData.branches : DEFAULT_DATABASE.branches,
-    users: Array.isArray(backupData.users) ? backupData.users : DEFAULT_DATABASE.users,
-    roles: Array.isArray(backupData.roles) ? backupData.roles : DEFAULT_DATABASE.roles,
-  });
-
-  if (ok) {
-    res.json({ success: true, message: 'Database restored successfully to central server.' });
-  } else {
-    res.status(500).json({ success: false, error: 'Could not write restored database.' });
-  }
-});
-
 // Dev vs Prod Vite Integration
 async function start() {
   if (process.env.NODE_ENV === 'production' && fs.existsSync(path.resolve(__dirname, 'dist'))) {

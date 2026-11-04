@@ -26,8 +26,15 @@ import {
   Check,
   Download,
   Code,
+  History,
+  Search,
+  Filter,
+  Eye,
+  RefreshCw,
+  FileText,
+  Database,
 } from 'lucide-react';
-import { CustomRole, RolePermissions, User, Branch } from '../../types';
+import { CustomRole, RolePermissions, User, Branch, AuditLog } from '../../types';
 import { StaffWelcomeModal } from './StaffWelcomeModal';
 import { EditStaffModal } from './EditStaffModal';
 
@@ -49,10 +56,20 @@ export const AccessRolesManager: React.FC = () => {
     updateBranch,
     deleteBranch,
     userPermissions,
+    auditLogs = [],
+    refreshAuditLogs,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'roles' | 'users' | 'branches' | 'rls'>('roles');
+  const [activeSubTab, setActiveSubTab] = useState<'roles' | 'users' | 'branches' | 'rls' | 'audit'>('roles');
   const [copiedSql, setCopiedSql] = useState(false);
+  const [copiedAuditSql, setCopiedAuditSql] = useState(false);
+
+  // Audit Logs Filter State
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState<'ALL' | 'INSERT' | 'UPDATE' | 'DELETE'>('ALL');
+  const [auditBranchFilter, setAuditBranchFilter] = useState<string>('ALL');
+  const [inspectLog, setInspectLog] = useState<AuditLog | null>(null);
+  const [isRefreshingLogs, setIsRefreshingLogs] = useState(false);
 
   // New Custom Role Form State
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
@@ -188,6 +205,64 @@ export const AccessRolesManager: React.FC = () => {
     setSuspendTargetUser(null);
   };
 
+  const handleRefreshAuditLogs = async () => {
+    setIsRefreshingLogs(true);
+    try {
+      await refreshAuditLogs();
+    } finally {
+      setIsRefreshingLogs(false);
+    }
+  };
+
+  const exportAuditLogsToCsv = () => {
+    if (!auditLogs || auditLogs.length === 0) return;
+    const headers = ['ID', 'Timestamp (UTC)', 'Action', 'Case Number', 'Case ID', 'User Email', 'User Role', 'Branch', 'Changes'];
+    const rows = auditLogs.map((log) => [
+      log.id,
+      log.created_at,
+      log.action,
+      log.case_number || '',
+      log.case_id || '',
+      log.user_email || '',
+      log.user_role || '',
+      log.branch || '',
+      JSON.stringify(log.changes || {}).replace(/"/g, '""'),
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((r) => r.map((f) => `"${f}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `firm_audit_trail_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const filteredAuditLogs = auditLogs.filter((log) => {
+    if (auditActionFilter !== 'ALL' && log.action !== auditActionFilter) return false;
+    if (auditBranchFilter !== 'ALL' && log.branch !== auditBranchFilter) return false;
+    if (auditSearch.trim()) {
+      const q = auditSearch.toLowerCase();
+      const matchCase = log.case_number?.toLowerCase().includes(q) || log.case_id?.toLowerCase().includes(q);
+      const matchEmail = log.user_email?.toLowerCase().includes(q);
+      const matchRole = log.user_role?.toLowerCase().includes(q);
+      const matchBranch = log.branch?.toLowerCase().includes(q);
+      const matchAction = log.action?.toLowerCase().includes(q);
+      const matchChanges = JSON.stringify(log.changes || {}).toLowerCase().includes(q);
+      return matchCase || matchEmail || matchRole || matchBranch || matchAction || matchChanges;
+    }
+    return true;
+  });
+
+  const auditStats = {
+    total: auditLogs.length,
+    inserts: auditLogs.filter((l) => l.action === 'INSERT').length,
+    updates: auditLogs.filter((l) => l.action === 'UPDATE').length,
+    deletes: auditLogs.filter((l) => l.action === 'DELETE').length,
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Super Admin Center Header */}
@@ -268,6 +343,18 @@ export const AccessRolesManager: React.FC = () => {
           >
             <Lock className="w-4 h-4 text-purple-400" />
             <span>Supabase RLS Policies</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('audit')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+              activeSubTab === 'audit'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <History className="w-4 h-4 text-cyan-400" />
+            <span>Audit Trail &amp; Compliance ({auditLogs.length})</span>
           </button>
         </div>
       </div>
@@ -795,6 +882,38 @@ FOR DELETE TO authenticated, anon USING (branch_id = public.get_user_branch_id()
                 <li><strong>GLOBAL DELETE:</strong> Supreme authority to delete or archive matters in any branch.</li>
               </ul>
             </div>
+
+            {/* Card 3: Restrict Delete Access Policy */}
+            <div className="bg-white border border-rose-200 rounded-xl p-4 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-rose-900 font-bold text-xs">
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>3. Restrict Delete Access (Strict Multi-Branch Authority)</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Cases can only be deleted by <strong>Super Admins</strong> globally or by <strong>Branch Admins</strong> exclusively for their assigned branch:
+              </p>
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 font-mono text-[11px] text-slate-800 leading-relaxed">
+                <code>{`profiles.role = 'super_admin' OR (profiles.role = 'branch_admin' AND profiles.branch = cases.branch)`}</code>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Prevents accidental cross-branch deletions while empowering regional managing clerks.
+              </p>
+            </div>
+
+            {/* Card 4: Dedicated audit_logs Security */}
+            <div className="bg-white border border-cyan-200 rounded-xl p-4 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-cyan-900 font-bold text-xs">
+                <Shield className="w-4 h-4 text-cyan-600" />
+                <span>4. Dedicated Audit Logs Table &amp; RLS Protection</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Immutable <code className="font-mono text-[11px] bg-slate-100 px-1">public.audit_logs</code> table tracking every <code className="font-mono text-[11px] text-emerald-700">INSERT</code>, <code className="font-mono text-[11px] text-blue-700">UPDATE</code>, and <code className="font-mono text-[11px] text-rose-700">DELETE</code>:
+              </p>
+              <ul className="text-xs text-slate-700 space-y-1.5 list-disc list-inside">
+                <li><strong>SuperAdmin View Audit Logs:</strong> Only <code className="font-mono text-[11px] bg-slate-100 px-1">super_admin</code> can SELECT or view full logs.</li>
+                <li><strong>Users Insert Audit Logs:</strong> Authenticated users write event logs matching their <code className="font-mono text-[11px] bg-slate-100 px-1">auth.uid()</code>.</li>
+              </ul>
+            </div>
           </div>
 
           {/* SQL Preview Block */}
@@ -802,36 +921,486 @@ FOR DELETE TO authenticated, anon USING (branch_id = public.get_user_branch_id()
             <div className="flex items-center justify-between text-slate-400 pb-2 border-b border-slate-800 text-[11px]">
               <span className="flex items-center gap-1.5">
                 <Code className="w-3.5 h-3.5 text-blue-400" />
-                <span>PostgreSQL RLS Definition &bull; supabase/migrations/20261103_branch_staff_rls.sql</span>
+                <span>PostgreSQL RLS Definition &bull; supabase/migrations/20261104_audit_logs.sql</span>
               </span>
-              <span>PostgreSQL 15+</span>
+              <button
+                onClick={() => {
+                  const sql = `-- 1. Restrict Delete Access on cases
+create policy "Restrict Delete Access" on public.cases
+  for delete
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and (
+        profiles.role = 'super_admin'
+        or (profiles.role = 'branch_admin' and profiles.branch = cases.branch)
+      )
+    )
+  );
+
+-- 2. Create audit_logs table
+create table if not exists public.audit_logs (
+    id uuid default gen_random_uuid() primary key,
+    case_id text,
+    case_number text,
+    action text not null,
+    performed_by uuid references auth.users(id),
+    user_email text,
+    user_role text,
+    branch text,
+    changes jsonb,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 3. Enable RLS on audit_logs
+alter table public.audit_logs enable row level security;
+
+-- 4. Policy: Only Super Admins can view audit logs
+create policy "SuperAdmin View Audit Logs" on public.audit_logs
+  for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'super_admin'
+    )
+  );
+
+-- 5. Policy: Authenticated users can insert logs
+create policy "Users Insert Audit Logs" on public.audit_logs
+  for insert
+  with check (auth.uid() = performed_by);`;
+
+                  navigator.clipboard?.writeText(sql);
+                  setCopiedAuditSql(true);
+                  setTimeout(() => setCopiedAuditSql(false), 2000);
+                }}
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+              >
+                {copiedAuditSql ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{copiedAuditSql ? 'Copied Audit SQL!' : 'Copy Audit SQL'}</span>
+              </button>
             </div>
             <pre className="text-[11px] leading-relaxed text-slate-300">
-{`-- 1. Enable RLS
-ALTER TABLE public.cases ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.firm_users ENABLE ROW LEVEL SECURITY;
+{`-- 1. Restrict Delete Access Policy
+create policy "Restrict Delete Access" on public.cases
+  for delete
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and (
+        profiles.role = 'super_admin'
+        or (profiles.role = 'branch_admin' and profiles.branch = cases.branch)
+      )
+    )
+  );
 
--- 2. Global Access for Admins & Lawyers
-CREATE POLICY "Global users full access to cases" ON public.cases
-FOR ALL TO authenticated, anon
-USING (is_admin_or_lawyer() OR get_user_branch_id() IS NULL)
-WITH CHECK (is_admin_or_lawyer() OR get_user_branch_id() IS NULL);
+-- 2. Create audit_logs table
+create table public.audit_logs (
+    id uuid default gen_random_uuid() primary key,
+    case_id text,
+    case_number text,
+    action text not null, -- 'INSERT', 'UPDATE', 'DELETE'
+    performed_by uuid references auth.users(id),
+    user_email text,
+    user_role text,
+    branch text,
+    changes jsonb, -- Stores old/new details & modifications
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
--- 3. Branch Staff CRUD restricted to own branch
-CREATE POLICY "Branch staff view branch cases" ON public.cases
-FOR SELECT TO authenticated, anon USING (branch_id = get_user_branch_id());
+-- 3. Enable RLS on audit_logs
+alter table public.audit_logs enable row level security;
 
-CREATE POLICY "Branch staff insert branch cases" ON public.cases
-FOR INSERT TO authenticated, anon WITH CHECK (branch_id = get_user_branch_id());
+-- 4. Policy: Only Super Admins can view full audit logs
+create policy "SuperAdmin View Audit Logs" on public.audit_logs
+  for select
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'super_admin'
+    )
+  );
 
-CREATE POLICY "Branch staff update branch cases" ON public.cases
-FOR UPDATE TO authenticated, anon
-USING (branch_id = get_user_branch_id())
-WITH CHECK (branch_id = get_user_branch_id());
-
-CREATE POLICY "Branch staff delete branch cases" ON public.cases
-FOR DELETE TO authenticated, anon USING (branch_id = get_user_branch_id());`}
+-- 5. Policy: Authenticated users can insert logs for actions
+create policy "Users Insert Audit Logs" on public.audit_logs
+  for insert
+  with check (auth.uid() = performed_by);`}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: AUDIT TRAIL & COMPLIANCE (SUPER ADMIN ONLY) */}
+      {activeSubTab === 'audit' && (
+        <div className="space-y-4">
+          {/* Header & Stats Banner */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-400">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <span>Immutable Case Audit Trail</span>
+                      <span className="text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full uppercase">
+                        Super Admin Eyes Only
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Real-time ledger recording every matter insertion, edit, and deletion across all branches with exact user identity, branch context, and JSON payload diffs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRefreshAuditLogs}
+                  disabled={isRefreshingLogs}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin text-cyan-400' : ''}`} />
+                  <span>{isRefreshingLogs ? 'Refreshing...' : 'Refresh Logs'}</span>
+                </button>
+
+                <button
+                  onClick={exportAuditLogsToCsv}
+                  disabled={auditLogs.length === 0}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-800">
+              <div className="bg-slate-800/80 border border-slate-700/60 rounded-xl p-3">
+                <span className="text-[11px] text-slate-400 font-medium">Total Audit Events</span>
+                <p className="text-xl font-bold text-white mt-0.5">{auditStats.total}</p>
+              </div>
+              <div className="bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-3">
+                <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                  <Plus className="w-3 h-3" />
+                  <span>Matter Insertions</span>
+                </span>
+                <p className="text-xl font-bold text-emerald-300 mt-0.5">{auditStats.inserts}</p>
+              </div>
+              <div className="bg-blue-950/40 border border-blue-800/50 rounded-xl p-3">
+                <span className="text-[11px] text-blue-400 font-medium flex items-center gap-1">
+                  <Edit2 className="w-3 h-3" />
+                  <span>Matter Modifications</span>
+                </span>
+                <p className="text-xl font-bold text-blue-300 mt-0.5">{auditStats.updates}</p>
+              </div>
+              <div className="bg-rose-950/40 border border-rose-800/50 rounded-xl p-3">
+                <span className="text-[11px] text-rose-400 font-medium flex items-center gap-1">
+                  <Trash2 className="w-3 h-3" />
+                  <span>Case Deletions</span>
+                </span>
+                <p className="text-xl font-bold text-rose-300 mt-0.5">{auditStats.deletes}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter & Search Bar */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search audit trail by case, user, branch..."
+                value={auditSearch}
+                onChange={(e) => setAuditSearch(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-8 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
+              />
+              {auditSearch && (
+                <button
+                  onClick={() => setAuditSearch('')}
+                  className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              {/* Action Filter Pills */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                {(['ALL', 'INSERT', 'UPDATE', 'DELETE'] as const).map((act) => (
+                  <button
+                    key={act}
+                    onClick={() => setAuditActionFilter(act)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                      auditActionFilter === act
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {act === 'ALL' ? 'All Actions' : act}
+                  </button>
+                ))}
+              </div>
+
+              {/* Branch Filter */}
+              <select
+                value={auditBranchFilter}
+                onChange={(e) => setAuditBranchFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+              >
+                <option value="ALL">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Audit Logs Table */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="py-3 px-4">Timestamp (UTC)</th>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Matter / Suit No</th>
+                    <th className="py-3 px-4">Branch</th>
+                    <th className="py-3 px-4">Performed By</th>
+                    <th className="py-3 px-4">Audit Payload Preview</th>
+                    <th className="py-3 px-4 text-right">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAuditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-slate-400">
+                        <History className="w-8 h-8 text-slate-300 mx-auto mb-2 opacity-50" />
+                        <p className="font-semibold text-slate-600">No audit records match your query.</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Audit logs will automatically appear whenever matters are created, updated, or deleted.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAuditLogs.map((log) => {
+                      const isInsert = log.action === 'INSERT';
+                      const isUpdate = log.action === 'UPDATE';
+                      const isDelete = log.action === 'DELETE';
+
+                      const dateStr = new Date(log.created_at).toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      });
+
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="py-3 px-4 font-mono text-[11px] text-slate-600 whitespace-nowrap">
+                            {dateStr}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {isInsert && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <Plus className="w-3 h-3" />
+                                <span>INSERT</span>
+                              </span>
+                            )}
+                            {isUpdate && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                <Edit2 className="w-3 h-3" />
+                                <span>UPDATE</span>
+                              </span>
+                            )}
+                            {isDelete && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                <Trash2 className="w-3 h-3" />
+                                <span>DELETE</span>
+                              </span>
+                            )}
+                            {!isInsert && !isUpdate && !isDelete && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                                {log.action}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
+                            <div className="flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-slate-400" />
+                              <span className="font-mono text-xs">{log.case_number || log.case_id || 'N/A'}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-slate-700 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-slate-100 border border-slate-200 text-slate-700">
+                              <MapPin className="w-3 h-3 text-slate-400" />
+                              <span>{log.branch || 'Global'}</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div>
+                              <p className="font-semibold text-slate-800 text-[11px]">
+                                {log.user_email || 'System Operation'}
+                              </p>
+                              {log.user_role && (
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  Role: {log.user_role}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 max-w-xs truncate text-[11px] font-mono text-slate-500">
+                            {log.changes ? (
+                              <span title={JSON.stringify(log.changes)}>
+                                {JSON.stringify(log.changes).slice(0, 70)}...
+                              </span>
+                            ) : (
+                              <span className="italic text-slate-400">None</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setInspectLog(log)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-cyan-700 hover:text-cyan-800 bg-cyan-50 hover:bg-cyan-100 rounded-lg border border-cyan-200 transition-colors"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>View Payload</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+              <span>
+                Showing <strong>{filteredAuditLogs.length}</strong> of <strong>{auditLogs.length}</strong> recorded audit events
+              </span>
+              <span className="text-[11px] flex items-center gap-1 text-slate-400 font-mono">
+                <Database className="w-3 h-3" />
+                <span>Supabase RLS Protected</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AUDIT LOG PAYLOAD INSPECTOR */}
+      {inspectLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600">
+                  <History className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <span>Audit Event Details</span>
+                    <span
+                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                        inspectLog.action === 'INSERT'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : inspectLog.action === 'UPDATE'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {inspectLog.action}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">Event ID: {inspectLog.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectLog(null)}
+                className="text-slate-400 hover:text-slate-600 text-sm font-semibold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Event Attributes Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Case / Suit No</span>
+                  <p className="font-mono font-bold text-slate-900 mt-0.5">
+                    {inspectLog.case_number || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Branch</span>
+                  <p className="font-semibold text-slate-900 mt-0.5">{inspectLog.branch || 'Global'}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Timestamp</span>
+                  <p className="font-mono text-[11px] text-slate-700 mt-0.5">
+                    {new Date(inspectLog.created_at).toISOString()}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Performed By</span>
+                  <p className="font-semibold text-slate-900 mt-0.5">{inspectLog.user_email || 'System'}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">User Role</span>
+                  <p className="font-semibold text-slate-900 mt-0.5">{inspectLog.user_role || 'Unknown'}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400">User ID</span>
+                  <p className="font-mono text-[10px] text-slate-500 truncate mt-0.5">
+                    {inspectLog.performed_by || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {/* JSON Changes Object */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Code className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>Payload Changes JSON (PostgreSQL jsonb)</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(JSON.stringify(inspectLog.changes, null, 2));
+                    }}
+                    className="text-[11px] text-cyan-600 hover:text-cyan-700 font-semibold flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy JSON</span>
+                  </button>
+                </div>
+
+                <div className="bg-slate-900 rounded-xl p-3.5 font-mono text-[11px] text-cyan-300 overflow-x-auto max-h-64 border border-slate-800">
+                  <pre>{JSON.stringify(inspectLog.changes, null, 2)}</pre>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end border-t border-slate-100 pt-3">
+              <button
+                onClick={() => setInspectLog(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       )}

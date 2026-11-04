@@ -361,3 +361,15 @@ export interface SystemSettings {
   practiceAreas: string[];
 }
 
+export interface AuditLog {
+  id: string;
+  case_id?: string;
+  case_number?: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE' | string;
+  performed_by?: string;
+  user_email?: string;
+  user_role?: string;
+  branch?: string;
+  changes?: Record<string, any>;
+  created_at: string;
+}

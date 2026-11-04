@@ -31,7 +31,6 @@ export const CaseList: React.FC = () => {
     setSelectedCase,
     setIsNewCaseModalOpen,
     setIsImportModalOpen,
-    clearAllCases,
     selectedBranchFilter,
     setSelectedBranchFilter,
     selectedLawyerFilter,
@@ -175,22 +174,6 @@ export const CaseList: React.FC = () => {
             >
               <Upload className="w-3.5 h-3.5" />
               <span>Import Excel</span>
-            </button>
-          )}
-
-          {/* Clear Catalogue - Super Admin Only */}
-          {userPermissions.canManageRoles && cases.length > 0 && (
-            <button
-              onClick={() => {
-                if (window.confirm('Clear all cases from the catalogue?')) {
-                  clearAllCases();
-                }
-              }}
-              title="Clear all cases from catalogue"
-              className="flex items-center gap-1 text-slate-500 hover:text-red-600 hover:bg-red-50 border border-slate-200 px-2.5 py-1.5 rounded-lg text-xs transition-colors min-h-[34px]"
-            >
-              <Trash2 className="w-3 h-3" />
-              <span className="hidden sm:inline">Clear Catalogue</span>
             </button>
           )}
 

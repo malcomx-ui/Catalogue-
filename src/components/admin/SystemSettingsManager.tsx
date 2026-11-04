@@ -28,14 +28,13 @@ import {
 } from 'lucide-react';
 
 export const SystemSettingsManager: React.FC = () => {
-  const { systemSettings, updateSystemSettings, resetSystemSettingsToDefault, currentUser } = useApp();
+  const { systemSettings, updateSystemSettings, currentUser } = useApp();
 
   const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'firm'>('intake');
   const [formData, setFormData] = useState(systemSettings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [newCourt, setNewCourt] = useState('');
   const [newPracticeArea, setNewPracticeArea] = useState('');
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // New Custom Field Modal state
   const [isAddingCustomField, setIsAddingCustomField] = useState(false);
@@ -190,13 +189,6 @@ export const SystemSettingsManager: React.FC = () => {
     setTimeout(() => setSavedSuccess(false), 4000);
   };
 
-  const handleResetToDefault = () => {
-    resetSystemSettingsToDefault();
-    setShowResetConfirm(false);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 4000);
-  };
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Top Header Card */}
@@ -219,15 +211,6 @@ export const SystemSettingsManager: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setShowResetConfirm(true)}
-            className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restore Defaults</span>
-          </button>
-
           <button
             type="button"
             onClick={handleSave}
@@ -1083,43 +1066,6 @@ export const SystemSettingsManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Reset Confirmation Modal */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-5 max-w-md w-full border border-slate-200 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-rose-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Reset System Settings to Factory Defaults?</h3>
-                <p className="text-xs text-slate-500 mt-0.5">This will restore standard High Court intake requirements.</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              This action will restore default field requirement levels and default court taxonomies. Your saved legal cases and documents will remain 100% untouched.
-            </p>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-3.5 py-1.5 text-xs text-slate-600 hover:text-slate-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleResetToDefault}
-                className="px-4 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-2xs"
-              >
-                Yes, Restore Factory Defaults
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

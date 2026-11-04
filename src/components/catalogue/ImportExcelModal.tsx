@@ -20,7 +20,6 @@ export const ImportExcelModal: React.FC = () => {
     isImportModalOpen,
     setIsImportModalOpen,
     importCasesFromExcel,
-    clearAllCases,
     branches,
   } = useApp();
 
@@ -29,7 +28,6 @@ export const ImportExcelModal: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [replaceExisting, setReplaceExisting] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [batchProgress, setBatchProgress] = useState<{ processed: number; total: number } | null>(null);
   const [importSuccess, setImportSuccess] = useState<number | null>(null);
@@ -215,7 +213,6 @@ export const ImportExcelModal: React.FC = () => {
     try {
       const result = await importCasesFromExcel(
         parsedRows,
-        replaceExisting,
         (processed, total) => {
           setBatchProgress({ processed, total });
         }
@@ -425,25 +422,12 @@ export const ImportExcelModal: React.FC = () => {
                 </div>
               )}
 
-              {/* Action Options */}
-              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={replaceExisting}
-                    onChange={(e) => setReplaceExisting(e.target.checked)}
-                    disabled={isProcessing}
-                    className="mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div>
-                    <span className="text-xs font-semibold text-slate-900 block">
-                      Clear existing cases & replace completely with this file
-                    </span>
-                    <span className="text-[11px] text-slate-500 block">
-                      Leave unchecked to safely append imported cases to your live Supabase database without touching existing matters.
-                    </span>
-                  </div>
-                </label>
+              {/* Safe Import Policy Notice */}
+              <div className="bg-emerald-50/70 p-3.5 rounded-lg border border-emerald-200 flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs text-emerald-800">
+                  <strong>Safe Append Mode:</strong> Imported cases will be securely registered in the central Supabase database. Existing firm records are strictly preserved and never overwritten.
+                </span>
               </div>
 
               {/* Preview */}
@@ -515,19 +499,7 @@ export const ImportExcelModal: React.FC = () => {
 
         {/* Footer */}
         {importSuccess === null && (
-          <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('Clear all demo cases from the catalogue right now?')) {
-                  clearAllCases();
-                }
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear Demo Cases</span>
-            </button>
+          <div className="px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-end">
 
             <div className="flex items-center gap-2">
               <button
