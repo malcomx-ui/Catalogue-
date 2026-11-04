@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
 import {
   Lock,
   Mail,
@@ -9,6 +10,8 @@ import {
   ShieldCheck,
   ArrowRight,
   Loader2,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 
 export interface LoginScreenProps {
@@ -24,6 +27,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Forgot password request modal state
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetMsg(null);
+    setResetError(null);
+    const cleanReset = resetEmail.trim();
+    if (!cleanReset) {
+      setResetError('Please enter your registered staff email address.');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/#type=recovery`
+        : 'https://catalogue.mkadvocates.ug/#type=recovery';
+
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanReset, {
+        redirectTo: redirectUrl,
+      });
+
+      if (resetErr) throw resetErr;
+
+      setResetMsg('A password recovery email has been sent. Please check your inbox and click the recovery link.');
+    } catch (err: any) {
+      setResetError(err?.message || 'Failed to send recovery email. Please contact the Firm Administrator.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,9 +174,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <label className="block text-xs font-semibold text-slate-700">
                   Password
                 </label>
-                <span className="text-[11px] text-slate-400">
-                  Strictly Confidential
-                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetEmail(email.trim());
+                    setResetMsg(null);
+                    setResetError(null);
+                    setIsResetModalOpen(true);
+                  }}
+                  className="text-[11px] text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                >
+                  Forgot password?
+                </button>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -191,6 +240,87 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           <p>&copy; {new Date().getFullYear()} Muhumuza - Kiiza Advocates &amp; Legal Consultants &bull; Kampala &bull; Fort Portal &bull; Mbarara &bull; Masaka &bull; Jinja</p>
         </div>
       </div>
+
+      {/* Forgot Password Reset Request Modal */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900">Reset Portal Password</h3>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+              Enter your registered firm email address to receive a secure password recovery link.
+            </p>
+
+            {resetMsg && (
+              <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">{resetMsg}</div>
+              </div>
+            )}
+
+            {resetError && (
+              <div className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">{resetError}</div>
+              </div>
+            )}
+
+            {!resetMsg ? (
+              <form onSubmit={handleSendResetEmail} className="mt-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Registered Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="counsel@mkadvocates.ug"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+                  />
+                </div>
+
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="px-3 py-2 text-xs text-slate-600 hover:text-slate-800 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={resetLoading}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
+                  >
+                    {resetLoading ? 'Sending link...' : 'Send Recovery Link'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

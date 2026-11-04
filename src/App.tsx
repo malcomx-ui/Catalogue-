@@ -19,16 +19,53 @@ import { AccessRolesManager } from './components/admin/AccessRolesManager';
 import { SystemSettingsManager } from './components/admin/SystemSettingsManager';
 import { FirmDashboard } from './components/dashboard/FirmDashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
+import UpdatePasswordPage from './components/auth/UpdatePasswordPage';
 import { PrintableCauseSheet } from './components/reports/PrintableCauseSheet';
 import { ImportExcelModal } from './components/catalogue/ImportExcelModal';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
-import { isUserAdmin } from './lib/supabase';
+import { isUserAdmin, supabase } from './lib/supabase';
 
 const MainLayout: React.FC = () => {
   const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser } = useApp();
+  const [isPasswordRecovery, setIsPasswordRecovery] = React.useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const path = window.location.pathname || '';
+      const search = window.location.search || '';
+      return (
+        hash.includes('type=recovery') ||
+        path.includes('update-password') ||
+        path.includes('reset-password') ||
+        search.includes('type=recovery')
+      );
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const isAdmin = isUserAdmin(currentUser);
+
+  // If password recovery link was opened, display the UpdatePasswordPage component
+  if (isPasswordRecovery) {
+    return (
+      <UpdatePasswordPage
+        onPasswordUpdated={() => setIsPasswordRecovery(false)}
+        onCancel={() => setIsPasswordRecovery(false)}
+      />
+    );
+  }
 
   // If user is not authenticated, display firm-branded secure portal login screen
   if (!isAuthenticated) {
