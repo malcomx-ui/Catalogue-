@@ -366,17 +366,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(loggedInUser);
     setIsAuthenticated(true);
 
-    // Route users to their correct dashboard view only after successful authentication based on their role in the profiles table
-    if (isSuperAdmin || role === 'super_admin' || role === 'partner' || role === 'admin') {
-      setActiveTab('dashboard');
+    // 1. Ensure that upon a successful authentication response, the user is immediately redirected to the main dashboard route
+    setActiveTab('dashboard');
+    if (isSuperAdmin || role === 'super_admin' || role === 'partner' || role === 'admin' || role === 'lawyer') {
       setSelectedBranchFilter('all');
-    } else if (role === 'branch_staff' || role === 'branch_admin' || role === 'clerk' || role === 'office_admin') {
-      setActiveTab('catalogue');
-      setSelectedBranchFilter(branchId);
     } else {
-      setActiveTab('catalogue');
-      setSelectedBranchFilter('all');
+      setSelectedBranchFilter(branchId);
     }
+
+    try {
+      if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+        window.history.pushState(null, '', '/dashboard');
+      }
+    } catch (e) {}
 
     try {
       localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');

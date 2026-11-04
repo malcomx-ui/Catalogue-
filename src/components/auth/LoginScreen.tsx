@@ -44,10 +44,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           result.error ||
             'Authentication failed. Please verify your credentials or contact the Firm Administrator.'
         );
-      } else if (onLoginSuccess && result.user) {
-        onLoginSuccess({ user: result.user, profile: result.user });
+      } else {
+        // Immediate redirect upon valid authentication response to the main dashboard route
+        try {
+          if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+            window.history.pushState(null, '', '/dashboard');
+          }
+        } catch (e) {}
+
+        if (onLoginSuccess && result.user) {
+          onLoginSuccess({ user: result.user, profile: result.user });
+        }
       }
-      // On success, handleLoginSuccess inside login() automatically sets authentication and routes to role dashboard view
     } catch (err: any) {
       setErrorMessage(
         err?.message || 'An unexpected error occurred during sign-in. Please try again.'
