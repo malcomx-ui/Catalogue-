@@ -7,7 +7,6 @@ import {
   EyeOff,
   AlertCircle,
   ShieldCheck,
-  Scale,
   ArrowRight,
   Loader2,
 } from 'lucide-react';
@@ -61,11 +60,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen bg-slate-100/90 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans-legal">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Law Firm Executive Crest & Centered Branding */}
+        {/* Law Firm Executive Brand Logo & Centered Branding */}
         <div className="text-center">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 shadow-md mx-auto flex items-center justify-center text-amber-400 mb-4">
-            <Scale className="w-7 h-7" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="MK Advocates & Solicitors"
+            className="h-12 w-auto mx-auto mb-4 object-contain"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.src.includes('/assets/logo.png')) {
+                target.src = '/assets/logo.png';
+              }
+            }}
+          />
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             MK Advocates &amp; Solicitors
           </h1>
