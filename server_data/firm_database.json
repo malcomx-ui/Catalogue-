@@ -1,0 +1,491 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-11-05T11:44:28.477Z",
+  "cases": [],
+  "hearings": [],
+  "documents": [],
+  "branches": [
+    {
+      "id": "kla-hq",
+      "name": "Kampala Central (Head Office)",
+      "city": "Kampala",
+      "address": "Millennium Plaza, 2nd Floor, Plot 69 Spring Road, Bugolobi",
+      "isHeadquarters": true,
+      "teamLead": "",
+      "officeAdmin": "",
+      "clerk": "",
+      "lawyersCount": 0,
+      "leadAdvocate": "",
+      "activeAdvocates": 0,
+      "phone": "+256 414 250 890",
+      "caseCount": 0,
+      "syncStatus": "synced",
+      "lastSyncTime": "Just now",
+      "latencyMs": 14,
+      "staff": []
+    },
+    {
+      "id": "ftp-reg",
+      "name": "Fort Portal Regional Office",
+      "city": "Fort Portal",
+      "address": "Plot 12 Lugard Road, Rwenzori Commercial Chambers",
+      "isHeadquarters": false,
+      "teamLead": "",
+      "officeAdmin": "",
+      "clerk": "",
+      "lawyersCount": 0,
+      "leadAdvocate": "",
+      "activeAdvocates": 0,
+      "phone": "+256 483 422 150",
+      "caseCount": 0,
+      "syncStatus": "synced",
+      "lastSyncTime": "Just now",
+      "latencyMs": 28,
+      "staff": []
+    },
+    {
+      "id": "mbr-reg",
+      "name": "Mbarara Regional Office",
+      "city": "Mbarara",
+      "address": "Plot 4 High Street, Ankole Kingdom Plaza",
+      "isHeadquarters": false,
+      "teamLead": "",
+      "officeAdmin": "",
+      "clerk": "",
+      "lawyersCount": 0,
+      "leadAdvocate": "",
+      "activeAdvocates": 0,
+      "phone": "+256 485 420 310",
+      "caseCount": 0,
+      "syncStatus": "synced",
+      "lastSyncTime": "Just now",
+      "latencyMs": 32,
+      "staff": []
+    },
+    {
+      "id": "msk-reg",
+      "name": "Masaka Regional Office",
+      "city": "Masaka",
+      "address": "Plot 24 Elgin Road, Greater Masaka Arcade",
+      "isHeadquarters": false,
+      "teamLead": "",
+      "officeAdmin": "",
+      "clerk": "",
+      "lawyersCount": 0,
+      "leadAdvocate": "",
+      "activeAdvocates": 0,
+      "phone": "+256 481 421 990",
+      "caseCount": 0,
+      "syncStatus": "synced",
+      "lastSyncTime": "Just now",
+      "latencyMs": 25,
+      "staff": []
+    },
+    {
+      "id": "jnj-reg",
+      "name": "Jinja Regional Office",
+      "city": "Jinja",
+      "address": "Plot 32 Main Street, Nile Crescent Building",
+      "isHeadquarters": false,
+      "teamLead": "",
+      "officeAdmin": "",
+      "clerk": "",
+      "lawyersCount": 0,
+      "leadAdvocate": "",
+      "activeAdvocates": 0,
+      "phone": "+256 434 120 750",
+      "caseCount": 0,
+      "syncStatus": "synced",
+      "lastSyncTime": "Just now",
+      "latencyMs": 22,
+      "staff": []
+    }
+  ],
+  "users": [
+    {
+      "id": "user-admin",
+      "name": "Firm Administrator",
+      "email": "infosightug@gmail.com",
+      "role": "role-super-admin",
+      "roleId": "role-super-admin",
+      "roleTitle": "Sole Managing Partner & Super Admin",
+      "branchId": "kla-hq",
+      "branchName": "Kampala Central",
+      "isSuperAdmin": true,
+      "isBranchAdmin": true,
+      "password": "Admin@2026",
+      "advocateRollNo": ""
+    }
+  ],
+  "roles": [
+    {
+      "id": "role-super-admin",
+      "name": "Managing Partner (Super Admin)",
+      "description": "Supreme firm authority: full access to update system, add branches, add/suspend/delete users, create custom roles, and exclusively perform bulk import/export.",
+      "isSuperAdmin": true,
+      "isSystem": true,
+      "badgeColor": "bg-purple-100 text-purple-800 border-purple-200",
+      "permissions": {
+        "canViewAllBranches": true,
+        "canCreateCases": true,
+        "canEditCases": true,
+        "canDeleteCases": true,
+        "canBulkImport": true,
+        "canBulkExport": true,
+        "canPrintCauseList": true,
+        "canScheduleHearings": true,
+        "canRecordOutcomes": true,
+        "canLogFileMovement": true,
+        "canManageDocuments": true,
+        "canViewFinancials": true,
+        "canManageRoles": true,
+        "canManageUsers": true,
+        "canManageBranches": true
+      }
+    },
+    {
+      "id": "role-admin",
+      "name": "Branch Administrator",
+      "description": "Branch administrative custody: authorized to print daily cause sheets, manage physical file registries, verify intake, and coordinate branch operations.",
+      "isSuperAdmin": false,
+      "isSystem": true,
+      "badgeColor": "bg-indigo-100 text-indigo-800 border-indigo-200",
+      "permissions": {
+        "canViewAllBranches": false,
+        "canCreateCases": true,
+        "canEditCases": true,
+        "canDeleteCases": false,
+        "canBulkImport": false,
+        "canBulkExport": false,
+        "canPrintCauseList": true,
+        "canScheduleHearings": true,
+        "canRecordOutcomes": true,
+        "canLogFileMovement": true,
+        "canManageDocuments": true,
+        "canViewFinancials": false,
+        "canManageRoles": false,
+        "canManageUsers": false,
+        "canManageBranches": false
+      }
+    },
+    {
+      "id": "role-lead",
+      "name": "Regional Litigation Team Lead",
+      "description": "Supervises branch advocates, reviews pleadings, conducts high-value trials, and assigns regional litigation briefs.",
+      "isSuperAdmin": false,
+      "isSystem": true,
+      "badgeColor": "bg-blue-100 text-blue-800 border-blue-200",
+      "permissions": {
+        "canViewAllBranches": false,
+        "canCreateCases": true,
+        "canEditCases": true,
+        "canDeleteCases": false,
+        "canBulkImport": false,
+        "canBulkExport": false,
+        "canPrintCauseList": false,
+        "canScheduleHearings": true,
+        "canRecordOutcomes": true,
+        "canLogFileMovement": true,
+        "canManageDocuments": true,
+        "canViewFinancials": false,
+        "canManageRoles": false,
+        "canManageUsers": false,
+        "canManageBranches": false
+      }
+    },
+    {
+      "id": "role-advocate",
+      "name": "Litigation Lawyer / Associate",
+      "description": "Enters daily case notes, registers court appearances, drafts pleadings, and attends scheduled division hearings.",
+      "isSuperAdmin": false,
+      "isSystem": true,
+      "badgeColor": "bg-emerald-100 text-emerald-800 border-emerald-200",
+      "permissions": {
+        "canViewAllBranches": false,
+        "canCreateCases": true,
+        "canEditCases": true,
+        "canDeleteCases": false,
+        "canBulkImport": false,
+        "canBulkExport": false,
+        "canPrintCauseList": false,
+        "canScheduleHearings": true,
+        "canRecordOutcomes": true,
+        "canLogFileMovement": true,
+        "canManageDocuments": true,
+        "canViewFinancials": false,
+        "canManageRoles": false,
+        "canManageUsers": false,
+        "canManageBranches": false
+      }
+    },
+    {
+      "id": "role-clerk",
+      "name": "Court & Registry Clerk",
+      "description": "Manages physical file custody, logs cabinet movements, delivers court pleadings, and registers cause diary fixtures.",
+      "isSuperAdmin": false,
+      "isSystem": true,
+      "badgeColor": "bg-slate-100 text-slate-800 border-slate-200",
+      "permissions": {
+        "canViewAllBranches": false,
+        "canCreateCases": false,
+        "canEditCases": false,
+        "canDeleteCases": false,
+        "canBulkImport": false,
+        "canBulkExport": false,
+        "canPrintCauseList": true,
+        "canScheduleHearings": false,
+        "canRecordOutcomes": false,
+        "canLogFileMovement": true,
+        "canManageDocuments": true,
+        "canViewFinancials": false,
+        "canManageRoles": false,
+        "canManageUsers": false,
+        "canManageBranches": false
+      }
+    }
+  ],
+  "systemSettings": {
+    "version": "2.0",
+    "lastUpdated": "2026-10-27T07:47:43.752Z",
+    "updatedBy": "Firm Super Admin",
+    "firm": {
+      "firmName": "MK Advocates & Solicitors",
+      "firmTagline": "Advocates, Commissioners for Oaths & Legal Consultants",
+      "officialEmail": "infosightug@gmail.com",
+      "officialPhone": "+256 414 250 890",
+      "headquartersAddress": "Plot 14, Lumumba Avenue, Nakasero, Kampala",
+      "currencySymbol": "UGX",
+      "jurisdiction": "Republic of Uganda"
+    },
+    "features": {
+      "enableCauseList": true,
+      "enableDocuments": true,
+      "enableConflicts": true,
+      "enableBranchSync": true,
+      "enableAnalytics": true,
+      "enableFinancials": true,
+      "enablePhysicalFileTracking": true,
+      "enableProgressiveNotes": true,
+      "requirePasswordChangeOnFirstLogin": true,
+      "allowPublicRegistration": false,
+      "enableCaseAutoNumbering": false,
+      "caseNumberPrefix": "MKA/"
+    },
+    "intakeFields": {
+      "branch": {
+        "id": "branch",
+        "label": "Branch Office Station",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Firm branch office handling the case brief"
+      },
+      "caseNumber": {
+        "id": "caseNumber",
+        "label": "Suit / Case Number",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Official court filing or suit identifier (e.g. HCT-00-CV-CS-0123-2026)"
+      },
+      "clientName": {
+        "id": "clientName",
+        "label": "Client Full Name / Entity",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Principal client or organization instructing the firm"
+      },
+      "title": {
+        "id": "title",
+        "label": "Case Title / Matter Name",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Full title of suit (e.g. Stanbic Bank (U) Ltd v. Equator Agro-Industries)"
+      },
+      "caseType": {
+        "id": "caseType",
+        "label": "Practice Area / Matter Type",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Legal area classification"
+      },
+      "status": {
+        "id": "status",
+        "label": "Case Status",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Current litigation status (Active, Instructions, Pending, Closed)"
+      },
+      "dateOfInstructions": {
+        "id": "dateOfInstructions",
+        "label": "Date of Instructions",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Date firm was formally retained on the matter"
+      },
+      "nextHearingDate": {
+        "id": "nextHearingDate",
+        "label": "Initial Hearing / Mention Date",
+        "requirement": "optional",
+        "helpText": "First court calendar fixture date if already assigned"
+      },
+      "court": {
+        "id": "court",
+        "label": "Court Tier / Judicial Forum",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Adjudicating court or specialized tribunal"
+      },
+      "district": {
+        "id": "district",
+        "label": "Territorial District",
+        "requirement": "optional",
+        "helpText": "Ugandan administrative district of the cause of action"
+      },
+      "personInConduct": {
+        "id": "personInConduct",
+        "label": "Persons in Conduct",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Lead counsel and assisting advocates assigned to the brief"
+      },
+      "fileLocation": {
+        "id": "fileLocation",
+        "label": "Physical Registry Shelf / Cabinet",
+        "requirement": "optional",
+        "helpText": "Physical registry location for hardcopy case brief"
+      },
+      "target": {
+        "id": "target",
+        "label": "Litigation Target / Objective",
+        "requirement": "optional",
+        "helpText": "Strategic relief sought, stay of execution, or recovery target"
+      },
+      "subjectMatter": {
+        "id": "subjectMatter",
+        "label": "Brief Facts & Cause of Action",
+        "requirement": "optional",
+        "helpText": "Concise summary of dispute, prayers, or reliefs sought"
+      },
+      "notes": {
+        "id": "notes",
+        "label": "Internal Notes & Remarks",
+        "requirement": "optional",
+        "helpText": "Firm internal notes, counsel strategy, or procedural remarks"
+      },
+      "yearOfClosure": {
+        "id": "yearOfClosure",
+        "label": "Year of Closure",
+        "requirement": "optional",
+        "helpText": "Calendar year file was formally concluded or closed"
+      },
+      "billingStatus": {
+        "id": "billingStatus",
+        "label": "Billing & Retainer Terms",
+        "requirement": "optional",
+        "helpText": "Fee note arrangement or client billing posture"
+      },
+      "paymentStatus": {
+        "id": "paymentStatus",
+        "label": "Fee Payment Status",
+        "requirement": "optional",
+        "helpText": "Client fee status (e.g. Paid, 50% Deposit, Invoiced)"
+      },
+      "verdict": {
+        "id": "verdict",
+        "label": "Verdict / Judgment / Decree",
+        "requirement": "optional",
+        "helpText": "Final ruling, judgment terms, or decree extracted"
+      },
+      "clientRole": {
+        "id": "clientRole",
+        "label": "Client Standing in Suit",
+        "requirement": "mandatory",
+        "helpText": "Plaintiff, Defendant, Appellant, Respondent, etc."
+      },
+      "clientContact": {
+        "id": "clientContact",
+        "label": "Client Phone Contact",
+        "requirement": "optional",
+        "helpText": "Direct mobile phone contact for hearing reminders and status updates"
+      },
+      "clientEmail": {
+        "id": "clientEmail",
+        "label": "Client Email Address",
+        "requirement": "optional",
+        "helpText": "Official client correspondence email"
+      },
+      "clientNin": {
+        "id": "clientNin",
+        "label": "National ID / NIN / Passport",
+        "requirement": "optional",
+        "helpText": "Uganda National ID (NIN) or Corporate Registration Number"
+      },
+      "courtDivision": {
+        "id": "courtDivision",
+        "label": "Court Division",
+        "requirement": "optional",
+        "helpText": "Commercial, Land, Civil, Anti-Corruption, Family, etc."
+      },
+      "presidingJudge": {
+        "id": "presidingJudge",
+        "label": "Presiding Judge / Magistrate",
+        "requirement": "optional",
+        "helpText": "Judge, Registrar, or Magistrate seized of the file"
+      },
+      "claimValueUGX": {
+        "id": "claimValueUGX",
+        "label": "Subject Matter / Claim Value",
+        "requirement": "optional",
+        "helpText": "Financial quantum of dispute or relief claimed"
+      },
+      "opposingParty": {
+        "id": "opposingParty",
+        "label": "Opposing Party / Litigant",
+        "requirement": "optional",
+        "helpText": "Adverse litigant or respondent entity"
+      },
+      "opposingCounsel": {
+        "id": "opposingCounsel",
+        "label": "Opposing Legal Counsel / Firm",
+        "requirement": "optional",
+        "helpText": "Law firm representing the adverse party"
+      },
+      "leadAdvocate": {
+        "id": "leadAdvocate",
+        "label": "Lead Advocate in Conduct",
+        "requirement": "mandatory",
+        "isSystem": true,
+        "helpText": "Firm counsel with primary responsibility for the file"
+      }
+    },
+    "customFields": [],
+    "courtList": [
+      "Supreme Court of Uganda",
+      "Court of Appeal / Constitutional Court",
+      "High Court (Commercial Division)",
+      "High Court (Land Division)",
+      "High Court (Civil Division)",
+      "High Court (Anti-Corruption)",
+      "High Court (Family Division)",
+      "High Court (Execution & Bailiffs)",
+      "High Court Regional Circuit",
+      "Industrial Court of Uganda",
+      "Tax Appeals Tribunal",
+      "Chief Magistrate Court",
+      "Grade I Magistrate Court",
+      "East African Court of Justice"
+    ],
+    "practiceAreas": [
+      "Civil Litigation",
+      "Commercial & Banking Law",
+      "Land & Property Conveyancing",
+      "Constitutional & Judicial Review",
+      "Employment & Labor Disputes",
+      "Family, Probate & Succession",
+      "Taxation & Revenue Law",
+      "Criminal Defense",
+      "Arbitration & Mediation (ADR)",
+      "Corporate Governance & Compliance",
+      "Intellectual Property & Technology"
+    ]
+  }
+}

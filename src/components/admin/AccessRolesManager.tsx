@@ -58,11 +58,13 @@ export const AccessRolesManager: React.FC = () => {
     userPermissions,
     auditLogs = [],
     refreshAuditLogs,
+    refreshStaffFromSupabase,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'roles' | 'users' | 'branches' | 'rls' | 'audit'>('roles');
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedAuditSql, setCopiedAuditSql] = useState(false);
+  const [isRefreshingStaff, setIsRefreshingStaff] = useState(false);
 
   // Audit Logs Filter State
   const [auditSearch, setAuditSearch] = useState('');
@@ -500,13 +502,33 @@ export const AccessRolesManager: React.FC = () => {
                 Super Admin can add new staff, reassign roles, suspend accounts immediately, or delete staff members.
               </p>
             </div>
-            <button
-              onClick={() => setIsUserModalOpen(true)}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors shrink-0"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Add Staff User</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                disabled={isRefreshingStaff}
+                onClick={async () => {
+                  setIsRefreshingStaff(true);
+                  try {
+                    await refreshStaffFromSupabase();
+                  } finally {
+                    setTimeout(() => setIsRefreshingStaff(false), 400);
+                  }
+                }}
+                className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-medium border border-slate-200 shadow-2xs transition-colors disabled:opacity-60"
+                title="Fetch authoritative profiles directly from Supabase database table"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingStaff ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
+                <span>{isRefreshingStaff ? 'Syncing...' : 'Sync Profiles'}</span>
+              </button>
+
+              <button
+                onClick={() => setIsUserModalOpen(true)}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors shrink-0"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Add Staff User</span>
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">

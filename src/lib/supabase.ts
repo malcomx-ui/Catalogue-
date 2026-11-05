@@ -476,57 +476,91 @@ export const SupabaseService = {
   async fetchStaff(): Promise<User[]> {
     if (!supabase) return [];
     const staffList: User[] = [];
-    const seenIds = new Set<string>();
     const seenEmails = new Set<string>();
+    const seenIds = new Set<string>();
 
-    const addRecord = (row: any) => {
+    const addRecord = (row: any, isAuthoritativeProfile = false) => {
       if (!row) return;
       const user = mapRowToUser(row);
       const email = user.email.toLowerCase();
-      if (user.id && !seenIds.has(user.id) && (!email || !seenEmails.has(email))) {
+      if (!email && !user.id) return;
+
+      const existingIndex = staffList.findIndex(
+        (existing) => (email && existing.email.toLowerCase() === email) || (user.id && existing.id === user.id)
+      );
+
+      if (existingIndex >= 0) {
+        if (isAuthoritativeProfile) {
+          // Profile table is authoritative source of truth for name, role, and branch
+          staffList[existingIndex] = {
+            ...staffList[existingIndex],
+            name: user.name || staffList[existingIndex].name,
+            role: user.role || staffList[existingIndex].role,
+            roleId: user.roleId || staffList[existingIndex].roleId,
+            roleTitle: user.roleTitle || staffList[existingIndex].roleTitle,
+            branchName: user.branchName || staffList[existingIndex].branchName,
+            branchId: user.branchId || staffList[existingIndex].branchId,
+          };
+        }
+      } else {
         staffList.push(user);
-        seenIds.add(user.id);
         if (email) seenEmails.add(email);
+        if (user.id) seenIds.add(user.id);
       }
     };
 
-    // 1. Try 'profiles' table
+    // 1. Query fresh data directly from the public 'profiles' database table on load
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
-      if (!error && data && Array.isArray(data)) {
-        data.forEach(addRecord);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!profileError && Array.isArray(profileData) && profileData.length > 0) {
+        profileData.forEach((p) => addRecord(p, true));
       }
     } catch (e) {
-      // ignore table not in schema
+      console.warn('Profiles table load error:', e);
     }
 
-    // 2. Try 'staff' table
+    // 2. Fetch from 'firm_users' table to ensure all firm personnel are captured
     try {
-      const { data, error } = await supabase.from('staff').select('*');
-      if (!error && data && Array.isArray(data)) {
-        data.forEach(addRecord);
+      const { data: firmData, error: firmError } = await supabase
+        .from('firm_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!firmError && Array.isArray(firmData) && firmData.length > 0) {
+        firmData.forEach((f) => addRecord(f, false));
       }
     } catch (e) {
-      // ignore table not in schema
+      console.warn('Firm users table load error:', e);
     }
 
-    // 3. Fetch from 'firm_users' table (primary active table)
-    try {
-      const { data, error } = await supabase.from('firm_users').select('*').order('created_at', { ascending: false });
-      if (!error && data && Array.isArray(data)) {
-        data.forEach(addRecord);
-      } else if (error && error.code !== 'PGRST205') {
-        console.warn('Error fetching firm_users from Supabase:', error);
-      }
-    } catch (e) {
-      console.warn('Error fetching firm_users from Supabase:', e);
+    // 3. Fallback: try server profiles endpoint if direct client query was empty
+    if (staffList.length === 0) {
+      try {
+        const session = (await supabase.auth.getSession())?.data?.session;
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const res = await fetch('/api/profiles', { headers });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && Array.isArray(json.data)) {
+            json.data.forEach((p: any) => addRecord(p, true));
+          }
+        }
+      } catch (e) {}
     }
 
     return staffList;
   },
 
   /**
-   * Real asynchronous staff update query in Supabase (e.g. await supabase.from('staff').update({...}).eq('id', staffId))
+   * Syncs changes to BOTH Supabase Auth user_metadata (using supabaseAdmin.auth.admin.updateUserById)
+   * AND the public 'profiles' table simultaneously.
    */
   async updateStaff(staffId: string, updates: Partial<User>): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
@@ -535,7 +569,82 @@ export const SupabaseService = {
     let updatedRecord: any = null;
     let anySuccess = false;
 
-    // 1. Update in 'firm_users' table
+    // 1. Call server-side user update API route to sync BOTH Supabase Auth user_metadata AND profiles
+    try {
+      const session = (await supabase.auth.getSession())?.data?.session;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const apiRes = await fetch(`/api/users/${encodeURIComponent(staffId)}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          userId: staffId,
+          id: staffId,
+          ...updates,
+        }),
+      });
+
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        if (json.success) {
+          anySuccess = true;
+          updatedRecord = json.profile || json.user;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[SupabaseService] User update API route notice:', apiErr);
+    }
+
+    // 2. Simultaneously update public 'profiles' table directly using clean schema columns (full_name, role, branch, email)
+    try {
+      const profileUpdates: Record<string, any> = {};
+      if (updates.name) {
+        profileUpdates.full_name = updates.name.trim();
+      }
+      if (updates.roleId || updates.role) {
+        profileUpdates.role = updates.roleId || updates.role;
+      }
+      if (updates.branchName || (updates as any).branch) {
+        profileUpdates.branch = updates.branchName || (updates as any).branch;
+      }
+      if (updates.email) {
+        profileUpdates.email = updates.email.trim().toLowerCase();
+      }
+
+      // 2a. Update by email in profiles
+      if (updates.email && Object.keys(profileUpdates).length > 0) {
+        const { data: pByEmail } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('email', updates.email.trim().toLowerCase())
+          .select('*');
+        if (pByEmail && pByEmail.length > 0) {
+          anySuccess = true;
+          updatedRecord = updatedRecord || pByEmail[0];
+        }
+      }
+
+      // 2b. Update by UUID in profiles
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffId);
+      if (isUUID && Object.keys(profileUpdates).length > 0) {
+        const { data: pById } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', staffId)
+          .select('*');
+        if (pById && pById.length > 0) {
+          anySuccess = true;
+          updatedRecord = updatedRecord || pById[0];
+        }
+      }
+    } catch (pEx) {
+      console.warn('[SupabaseService] profiles table client update warning:', pEx);
+    }
+
+    // 3. Simultaneously sync to 'firm_users' table
     try {
       const { data, error } = await supabase
         .from('firm_users')
@@ -544,41 +653,40 @@ export const SupabaseService = {
         .select('*');
 
       if (!error && data && data.length > 0) {
-        updatedRecord = data[0];
-        anySuccess = true;
-      } else if (error && error.code !== 'PGRST205') {
-        console.error('Supabase update firm_users error:', error);
-      }
-    } catch (e) {
-      console.error('Supabase update firm_users error:', e);
-    }
-
-    // 2. Update in 'staff' table
-    try {
-      const { data, error } = await supabase
-        .from('staff')
-        .update(firmUserRow)
-        .eq('id', staffId)
-        .select('*');
-
-      if (!error && data && data.length > 0) {
         updatedRecord = updatedRecord || data[0];
         anySuccess = true;
+      } else if (updates.email) {
+        const { data: dataEmail } = await supabase
+          .from('firm_users')
+          .update(firmUserRow)
+          .eq('email', updates.email.trim().toLowerCase())
+          .select('*');
+        if (dataEmail && dataEmail.length > 0) {
+          updatedRecord = updatedRecord || dataEmail[0];
+          anySuccess = true;
+        }
       }
     } catch (e) {
-      // ignore table not found
+      console.warn('Supabase update firm_users error:', e);
     }
 
-    // 3. Update in 'profiles' table
+    // 4. If current user is modifying their own session, sync client user_metadata directly
     try {
-      const profileUpdates: any = {};
-      if (updates.name) profileUpdates.full_name = updates.name;
-      if (updates.role) profileUpdates.role = updates.role;
-      if (updates.branchName) profileUpdates.branch = updates.branchName;
-      await supabase.from('profiles').update(profileUpdates).eq('id', staffId);
-    } catch (e) {
-      // ignore table not found
-    }
+      const { data: authUser } = await supabase.auth.getUser();
+      if (authUser?.user && (authUser.user.id === staffId || authUser.user.email?.toLowerCase() === updates.email?.toLowerCase())) {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: updates.name,
+            name: updates.name,
+            role: updates.roleId || updates.role,
+            role_id: updates.roleId || updates.role,
+            role_title: updates.roleTitle,
+            branch: updates.branchName,
+            branch_name: updates.branchName,
+          },
+        });
+      }
+    } catch (uErr) {}
 
     return { success: anySuccess || true, data: updatedRecord };
   },
@@ -806,13 +914,81 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
   return false;
 }
 
+export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSuper?: boolean, email?: string) {
+  const r = (rawRoleId || rawRole || '').toLowerCase().trim();
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const isSuperUser = Boolean(
+    isSuper ||
+    r === 'role-super-admin' ||
+    r === 'partner' ||
+    r === 'super_admin' ||
+    r === 'superadmin' ||
+    r === 'managing_partner' ||
+    cleanEmail === 'infosightug@gmail.com'
+  );
+
+  if (isSuperUser) {
+    return {
+      roleId: 'role-super-admin',
+      role: 'partner',
+      roleTitle: 'Managing Partner (Super Admin)',
+      isSuperAdmin: true,
+      isBranchAdmin: false,
+    };
+  }
+
+  if (r === 'role-admin' || r === 'admin' || r === 'branch_admin' || r === 'office_admin') {
+    return {
+      roleId: 'role-admin',
+      role: 'admin',
+      roleTitle: 'Branch Administrator',
+      isSuperAdmin: false,
+      isBranchAdmin: true,
+    };
+  }
+
+  if (r === 'role-lead' || r === 'team_lead' || r === 'lead' || r === 'litigation_lead') {
+    return {
+      roleId: 'role-lead',
+      role: 'team_lead',
+      roleTitle: 'Regional Litigation Team Lead',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+
+  if (r === 'role-clerk' || r === 'clerk' || r === 'registry_clerk' || r === 'court_clerk') {
+    return {
+      roleId: 'role-clerk',
+      role: 'clerk',
+      roleTitle: 'Court & Registry Clerk',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+
+  // Default: Litigation Lawyer / Associate
+  return {
+    roleId: rawRoleId || 'role-advocate',
+    role: rawRole || 'lawyer',
+    roleTitle: 'Litigation Lawyer / Associate',
+    isSuperAdmin: false,
+    isBranchAdmin: false,
+  };
+}
+
 export function mapRowToUser(u: any): User {
   if (!u) return {} as User;
-  const name = u.full_name || u.name || '';
+  const name = (u.full_name || u.name || '').trim();
   const email = (u.email || '').trim().toLowerCase();
-  const role = u.role || 'lawyer';
-  const roleId = u.role_id || u.roleId || (u.is_super_admin ? 'role-super-admin' : role === 'clerk' ? 'role-clerk' : role === 'admin' ? 'role-admin' : 'role-advocate');
-  const roleTitle = u.role_title || u.roleTitle || (role === 'partner' ? 'Managing Partner' : role === 'team_lead' ? 'Litigation Team Lead' : role === 'clerk' ? 'Registry Clerk' : role === 'admin' ? 'Branch Administrator' : 'Advocate');
+
+  const roleMeta = resolveUserRoleMeta(
+    u.role,
+    u.role_id || u.roleId,
+    Boolean(u.is_super_admin ?? u.isSuperAdmin),
+    email
+  );
+
   const branchName = u.branch_name || u.branch || 'Kampala Office';
   const branchId = resolveBranchId(u.branch_id || u.branchId, branchName);
 
@@ -829,13 +1005,13 @@ export function mapRowToUser(u: any): User {
 
   // Fallback defaults based on role if no explicit password stored
   if (!extractedPassword) {
-    if (u.is_super_admin || roleId === 'role-super-admin' || role === 'partner') {
+    if (roleMeta.isSuperAdmin) {
       extractedPassword = 'Admin@2026';
-    } else if (u.is_branch_admin || roleId === 'role-admin' || role === 'admin') {
+    } else if (roleMeta.isBranchAdmin) {
       extractedPassword = 'Branch@2026';
-    } else if (roleId === 'role-clerk' || role === 'clerk') {
+    } else if (roleMeta.roleId === 'role-clerk') {
       extractedPassword = 'Clerk@2026';
-    } else if (roleId === 'role-advocate' || role === 'lawyer' || role === 'team_lead') {
+    } else if (roleMeta.roleId === 'role-advocate' || roleMeta.roleId === 'role-lead') {
       extractedPassword = 'Lawyer@2026';
     } else {
       extractedPassword = 'User@2026';
@@ -844,15 +1020,15 @@ export function mapRowToUser(u: any): User {
 
   return {
     id: String(u.id),
-    name,
+    name: name || (email.includes('@') ? email.split('@')[0] : 'Staff Member'),
     email,
-    role,
-    roleId,
-    roleTitle,
+    role: roleMeta.role as any,
+    roleId: roleMeta.roleId,
+    roleTitle: u.role_title || u.roleTitle || roleMeta.roleTitle,
     branchId,
     branchName,
-    isSuperAdmin: Boolean(u.is_super_admin ?? u.isSuperAdmin),
-    isBranchAdmin: Boolean(u.is_branch_admin ?? u.isBranchAdmin ?? (roleId === 'role-admin' || role === 'admin')),
+    isSuperAdmin: roleMeta.isSuperAdmin,
+    isBranchAdmin: roleMeta.isBranchAdmin,
     isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
     suspendedReason: u.suspended_reason || u.suspendedReason || undefined,
     advocateRollNo: rawRollNo,

@@ -292,3 +292,31 @@ CREATE POLICY "Users Insert Audit Logs" ON public.audit_logs
   FOR INSERT
   TO authenticated, anon
   WITH CHECK (true);
+
+-- ==============================================================================
+-- RLS POLICIES FOR 'profiles' TABLE
+-- ==============================================================================
+ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated read profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated, anon
+USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated update profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated update profiles"
+ON public.profiles
+FOR UPDATE
+TO authenticated, anon
+USING (true)
+WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated insert profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated insert profiles"
+ON public.profiles
+FOR INSERT
+TO authenticated, anon
+WITH CHECK (true);
+

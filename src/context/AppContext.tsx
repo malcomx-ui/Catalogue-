@@ -26,7 +26,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveUserRoleMeta, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -335,32 +335,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleLoginSuccess = ({ user, profile }: { user: any; profile: any }): User => {
     const email = (user?.email || profile?.email || '').trim().toLowerCase();
     const fullName = profile?.full_name || profile?.name || user?.user_metadata?.full_name || email.split('@')[0] || 'User';
-    const role = (profile?.role || 'lawyer').toLowerCase();
-    const branchName = profile?.branch || profile?.branch_name || 'Headquarters (Kampala)';
+    const roleMeta = resolveUserRoleMeta(
+      profile?.role || user?.user_metadata?.role,
+      profile?.role_id || profile?.roleId || user?.user_metadata?.role_id,
+      Boolean(profile?.is_super_admin ?? user?.user_metadata?.is_super_admin),
+      email
+    );
+    const branchName = profile?.branch || profile?.branch_name || user?.user_metadata?.branch_name || 'Headquarters (Kampala)';
     const branchId = resolveBranchId(profile?.branch_id || profile?.branch, branchName);
-    const isSuperAdmin = Boolean(
-      role === 'admin' ||
-      role === 'super_admin' ||
-      profile?.is_super_admin ||
-      email === 'infosightug@gmail.com' ||
-      role === 'partner'
-    );
-    const isBranchAdmin = Boolean(
-      profile?.is_branch_admin ||
-      (role === 'admin' && !isSuperAdmin) ||
-      role === 'branch_admin'
-    );
 
     const loggedInUser: User = {
       id: user?.id || String(profile?.id || 'user-auth'),
       email,
       name: fullName,
-      role: role,
-      roleTitle: isSuperAdmin ? 'Managing Partner / Super Admin' : isBranchAdmin ? 'Branch Administrator' : role === 'clerk' ? 'Legal Clerk' : 'Litigation Counsel',
+      role: roleMeta.role as any,
+      roleId: roleMeta.roleId,
+      roleTitle: profile?.role_title || roleMeta.roleTitle,
       branchId,
       branchName,
-      isSuperAdmin,
-      isBranchAdmin,
+      isSuperAdmin: roleMeta.isSuperAdmin,
+      isBranchAdmin: roleMeta.isBranchAdmin,
     };
 
     setCurrentUser(loggedInUser);
@@ -368,7 +362,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 1. Ensure that upon a successful authentication response, the user is immediately redirected to the main dashboard route
     setActiveTab('dashboard');
-    if (isSuperAdmin || role === 'super_admin' || role === 'partner' || role === 'admin' || role === 'lawyer') {
+    if (roleMeta.isSuperAdmin || roleMeta.role === 'partner' || roleMeta.role === 'admin' || roleMeta.role === 'lawyer') {
       setSelectedBranchFilter('all');
     } else {
       setSelectedBranchFilter(branchId);
@@ -655,20 +649,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setAvailableUsers(sbUsers);
             try {
               localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(sbUsers));
-              if (isAuthenticated) {
+
+              // Query fresh data directly from the profiles database table on load rather than relying on stale session JWT metadata
+              const { data: sessionData } = await supabase.auth.getSession();
+              const authUser = sessionData?.session?.user;
+
+              if (authUser && isMounted) {
+                // Fetch fresh profile row directly from public profiles table
+                let freshProfile: any = null;
+                try {
+                  const { data: pData } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authUser.id)
+                    .maybeSingle();
+                  if (pData) freshProfile = pData;
+                } catch (pe) {}
+
+                if (!freshProfile && authUser.email) {
+                  try {
+                    const { data: pEmail } = await supabase
+                      .from('profiles')
+                      .select('*')
+                      .eq('email', authUser.email.toLowerCase())
+                      .maybeSingle();
+                    if (pEmail) freshProfile = pEmail;
+                  } catch (pe) {}
+                }
+
+                // If profiles row was found, directly use it
+                if (freshProfile) {
+                  const restored = handleLoginSuccess({
+                    user: authUser,
+                    profile: freshProfile,
+                  });
+                  setCurrentUser(restored);
+                  setIsAuthenticated(true);
+                } else {
+                  // Check against freshly loaded sbUsers (which came from profiles table)
+                  const matchedFresh = sbUsers.find(
+                    (u) => u.id === authUser.id || (authUser.email && u.email.toLowerCase() === authUser.email.toLowerCase())
+                  );
+                  if (matchedFresh) {
+                    setCurrentUser(matchedFresh);
+                    setIsAuthenticated(true);
+                    localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
+                    localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(matchedFresh));
+                  }
+                }
+              } else if (isMounted) {
+                // If local storage has previous login session, verify against fresh sbUsers from profiles
                 const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
                 if (savedUserStr) {
                   const savedUser = JSON.parse(savedUserStr);
                   const fresh = sbUsers.find(
-                    (u) => u.id === savedUser.id || u.email.toLowerCase() === savedUser.email?.toLowerCase()
+                    (u) => u.id === savedUser.id || (savedUser.email && u.email.toLowerCase() === savedUser.email.toLowerCase())
                   );
                   if (fresh) {
                     setCurrentUser(fresh);
+                    setIsAuthenticated(true);
                     localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
                   }
                 }
               }
-            } catch (e) {}
+            } catch (e) {
+              console.warn('Error synchronizing fresh profile on load:', e);
+            }
           }
         }
       } catch (sbErr) {
@@ -877,11 +923,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const assignUserRole = (userId: string, roleId: string) => {
+  const assignUserRole = async (userId: string, roleId: string) => {
     if (!userPermissions.canManageUsers && !userPermissions.canManageRoles) return;
     const role = roles.find((r) => r.id === roleId);
     if (!role) return;
 
+    const targetUser = availableUsers.find((u) => u.id === userId);
+    const targetEmail = targetUser?.email;
+
+    // 1. Optimistic state update
     setAvailableUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
@@ -900,9 +950,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return u;
       })
     );
+
+    // 2. Persist to BOTH Supabase Auth user_metadata AND public profiles table simultaneously
+    try {
+      await SupabaseService.updateStaff(userId, {
+        roleId: role.id,
+        role: role.id as any,
+        roleTitle: role.name,
+        email: targetEmail,
+        isSuperAdmin: role.isSuperAdmin,
+      });
+      await refreshStaffFromSupabase();
+    } catch (err) {
+      console.error('Failed to persist user role allocation:', err);
+    }
   };
 
-  // Refresh Staff directly from Supabase database table
+  // Refresh Staff directly from Supabase profiles database table
   const refreshStaffFromSupabase = async () => {
     try {
       const liveStaff = await SupabaseService.fetchStaff();
@@ -911,9 +975,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(liveStaff));
         } catch (e) {}
+
+        // Keep current logged-in user in sync with fresh database profile
+        setCurrentUser((current) => {
+          if (!current || !current.email) return current;
+          const fresh = liveStaff.find(
+            (u) => (current.id && u.id === current.id) || (current.email && u.email.toLowerCase() === current.email.toLowerCase())
+          );
+          if (fresh) {
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
+            } catch (e) {}
+            return fresh;
+          }
+          return current;
+        });
       }
     } catch (err) {
-      console.warn('Error refreshing staff from Supabase:', err);
+      console.warn('Error refreshing staff from Supabase profiles:', err);
     }
   };
 

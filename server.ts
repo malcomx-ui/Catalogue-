@@ -2,6 +2,18 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://kidaxoubrzbvnrtuinff.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGF4b3Vicnpidm5ydHVpbmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1ODE0NjAsImV4cCI6MjEwOTE1NzQ2MH0.eDf8euIyXDj5CEzZbW3Dy8irKqGWC-0scvftzfwMS5g';
+
+// Supabase Admin Client for user_metadata and server-side profile updates
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -382,6 +394,296 @@ app.post('/api/database', (req: Request, res: Response) => {
     });
   } else {
     res.status(500).json({ success: false, error: 'Failed to write central database file.' });
+  }
+});
+
+// ==============================================================================
+// User Update API Route: Syncs BOTH Supabase Auth user_metadata AND public profiles table
+// ==============================================================================
+const handleUserUpdate = async (req: Request, res: Response) => {
+  try {
+    const targetId = String(req.params.id || req.body.userId || req.body.id || '');
+    const {
+      name,
+      full_name,
+      email,
+      role,
+      roleId,
+      role_id,
+      roleTitle,
+      role_title,
+      branch,
+      branchName,
+      branch_name,
+      branchId,
+      branch_id,
+      isSuperAdmin,
+      is_super_admin,
+      isBranchAdmin,
+      is_branch_admin,
+      isSuspended,
+      is_suspended,
+      advocateRollNo,
+      advocate_roll_no,
+      password,
+    } = req.body;
+
+    const resolvedName = (name || full_name || '').trim();
+    const resolvedRole = (roleId || role_id || role || '').trim();
+    const resolvedRoleTitle = (roleTitle || role_title || '').trim();
+    const resolvedBranch = (branchName || branch_name || branch || '').trim();
+    const resolvedBranchId = (branchId || branch_id || '').trim();
+    const resolvedEmail = (email || '').trim().toLowerCase();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
+
+    // Initialize authenticated Supabase client if Authorization header is provided
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
+    const clientToUse = token
+      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          accessToken: async () => token,
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+      : supabaseAdmin;
+
+    // 1. Prepare user_metadata for Supabase Auth
+    const userMetadata: Record<string, any> = {};
+    if (resolvedName) {
+      userMetadata.full_name = resolvedName;
+      userMetadata.name = resolvedName;
+    }
+    if (resolvedRole) {
+      userMetadata.role = resolvedRole;
+      userMetadata.role_id = resolvedRole;
+    }
+    if (resolvedRoleTitle) userMetadata.role_title = resolvedRoleTitle;
+    if (resolvedBranch) {
+      userMetadata.branch = resolvedBranch;
+      userMetadata.branch_name = resolvedBranch;
+    }
+    if (resolvedBranchId) userMetadata.branch_id = resolvedBranchId;
+    if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
+      userMetadata.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
+    }
+    if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
+      userMetadata.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
+    }
+
+    // 1a. Update Supabase Auth user_metadata using supabaseAdmin.auth.admin.updateUserById
+    let authUpdated = false;
+    let authError: string | null = null;
+    let authUserId: string | null = isUUID ? targetId : null;
+
+    try {
+      // If targetId is not a UUID, attempt to resolve auth UUID via profiles table or Auth user list
+      if (!authUserId && resolvedEmail) {
+        try {
+          const { data: pLookup } = await clientToUse
+            .from('profiles')
+            .select('id')
+            .eq('email', resolvedEmail)
+            .maybeSingle();
+          if (pLookup?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pLookup.id)) {
+            authUserId = pLookup.id;
+          }
+        } catch (pe) {}
+      }
+
+      if (!authUserId && resolvedEmail) {
+        const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+        const matched = userList?.users?.find(
+          (u) => u.email?.toLowerCase() === resolvedEmail
+        );
+        if (matched) {
+          authUserId = matched.id;
+        }
+      }
+
+      if (authUserId) {
+        const authPayload: any = {
+          user_metadata: userMetadata,
+        };
+        if (resolvedEmail) authPayload.email = resolvedEmail;
+        if (password && password.trim()) authPayload.password = password.trim();
+
+        const { data: updatedAuthUser, error: authErr } = await supabaseAdmin.auth.admin.updateUserById(
+          authUserId,
+          authPayload
+        );
+        if (!authErr && updatedAuthUser) {
+          authUpdated = true;
+        } else if (authErr) {
+          authError = authErr.message;
+          console.warn('[User Update API] supabaseAdmin.auth.admin.updateUserById notice:', authErr.message);
+        }
+      }
+    } catch (authEx: any) {
+      authError = authEx?.message || 'Auth admin update exception';
+      console.warn('[User Update API] Auth update exception:', authEx);
+    }
+
+    // 2. Simultaneously sync to public 'profiles' table using clean schema columns (full_name, role, branch, email)
+    const profileRow: Record<string, any> = {};
+    if (resolvedName) profileRow.full_name = resolvedName;
+    if (resolvedRole) profileRow.role = resolvedRole;
+    if (resolvedBranch) profileRow.branch = resolvedBranch;
+    if (resolvedEmail) profileRow.email = resolvedEmail;
+
+    let profileUpdated = false;
+    let profileData: any = null;
+
+    // Try update by auth UUID if known
+    if (authUserId && Object.keys(profileRow).length > 0) {
+      const { data: pData, error: pErr } = await clientToUse
+        .from('profiles')
+        .update(profileRow)
+        .eq('id', authUserId)
+        .select('*');
+      if (!pErr && pData && pData.length > 0) {
+        profileUpdated = true;
+        profileData = pData[0];
+      }
+    }
+
+    // If targetId is UUID and not already updated
+    if (!profileUpdated && isUUID && Object.keys(profileRow).length > 0) {
+      const { data: pData, error: pErr } = await clientToUse
+        .from('profiles')
+        .update(profileRow)
+        .eq('id', targetId)
+        .select('*');
+      if (!pErr && pData && pData.length > 0) {
+        profileUpdated = true;
+        profileData = pData[0];
+      }
+    }
+
+    // Try update by email in profiles
+    if (!profileUpdated && resolvedEmail && Object.keys(profileRow).length > 0) {
+      const { data: pEmailData, error: peErr } = await clientToUse
+        .from('profiles')
+        .update(profileRow)
+        .eq('email', resolvedEmail)
+        .select('*');
+      if (!peErr && pEmailData && pEmailData.length > 0) {
+        profileUpdated = true;
+        profileData = pEmailData[0];
+      }
+    }
+
+    // If still not updated, upsert into profiles
+    if (!profileUpdated && (authUserId || resolvedEmail)) {
+      const insertRow: any = {
+        ...profileRow,
+        id: authUserId || (isUUID ? targetId : undefined),
+        email: resolvedEmail || undefined,
+      };
+      if (!insertRow.id) delete insertRow.id;
+      const { data: insData } = await clientToUse
+        .from('profiles')
+        .upsert([insertRow])
+        .select('*');
+      if (insData && insData.length > 0) {
+        profileUpdated = true;
+        profileData = insData[0];
+      }
+    }
+
+    // 3. Keep firm_users table synchronized
+    try {
+      const firmUserUpdates: any = {
+        name: resolvedName || undefined,
+        role: resolvedRole || undefined,
+        role_title: resolvedRoleTitle || undefined,
+        branch_name: resolvedBranch || undefined,
+        branch_id: resolvedBranchId || undefined,
+      };
+      if (advocateRollNo || advocate_roll_no) {
+        firmUserUpdates.advocate_roll_no = advocateRollNo || advocate_roll_no;
+      }
+      if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
+        firmUserUpdates.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
+      }
+      if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
+        firmUserUpdates.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
+      }
+
+      await clientToUse.from('firm_users').update(firmUserUpdates).eq('id', targetId);
+      if (resolvedEmail) {
+        await clientToUse.from('firm_users').update(firmUserUpdates).eq('email', resolvedEmail);
+      }
+    } catch (fuErr) {}
+
+    // 4. Update in-memory server database
+    const db = readDatabase();
+    db.users = (db.users || []).map((u: any) => {
+      if (u.id === targetId || (resolvedEmail && u.email?.toLowerCase() === resolvedEmail)) {
+        return {
+          ...u,
+          name: resolvedName || u.name,
+          email: resolvedEmail || u.email,
+          role: resolvedRole || u.role,
+          roleId: roleId || role_id || u.roleId,
+          roleTitle: resolvedRoleTitle || u.roleTitle,
+          branchName: resolvedBranch || u.branchName,
+          branchId: resolvedBranchId || u.branchId,
+          isSuperAdmin: isSuperAdmin !== undefined ? Boolean(isSuperAdmin) : u.isSuperAdmin,
+          isBranchAdmin: isBranchAdmin !== undefined ? Boolean(isBranchAdmin) : u.isBranchAdmin,
+          advocateRollNo: advocateRollNo || advocate_roll_no || u.advocateRollNo,
+        };
+      }
+      return u;
+    });
+    writeDatabase(db);
+
+    return res.json({
+      success: true,
+      message: 'Staff updated successfully across Auth user_metadata and profiles table',
+      authUpdated,
+      authError,
+      profileUpdated,
+      profile: profileData,
+    });
+  } catch (err: any) {
+    console.error('Error in user update API route:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Internal user update failure' });
+  }
+};
+
+app.post(['/api/users/:id', '/api/users/update', '/api/staff/:id'], handleUserUpdate);
+app.put(['/api/users/:id', '/api/staff/:id'], handleUserUpdate);
+
+// Fresh profiles endpoint: queries public profiles table directly
+app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Response) => {
+  try {
+    const authHeader = (req.headers.authorization || (req.headers as any)['Authorization'] || '') as string;
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const clientToUse = token
+      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          accessToken: async () => token,
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+      : supabaseAdmin;
+
+    const { data: profiles, error } = await clientToUse
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && profiles && profiles.length > 0) {
+      console.log(`[/api/profiles] Successfully returned ${profiles.length} fresh profiles from database.`);
+      return res.json({ success: true, data: profiles });
+    }
+
+    if (error) {
+      console.warn('[/api/profiles] Database query notice:', error.message);
+    }
+
+    // Fallback: query from local persistent database if profiles table is restricted by RLS
+    const db = readDatabase();
+    return res.json({ success: true, data: db.users || [] });
+  } catch (e: any) {
+    return res.status(500).json({ success: false, error: e.message });
   }
 });
 
