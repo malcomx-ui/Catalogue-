@@ -50,6 +50,7 @@ export const AccessRolesManager: React.FC = () => {
     assignUserRole,
     addUser,
     updateUser,
+    handleSaveStaff,
     toggleSuspendUser,
     deleteUser,
     addBranch,

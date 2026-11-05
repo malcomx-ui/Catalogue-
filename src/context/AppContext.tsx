@@ -26,7 +26,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveUserRoleMeta, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveUserRoleMeta, handleSaveStaff, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -67,6 +67,7 @@ interface AppContextType {
   // User Management (Super Admin)
   addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
   updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  handleSaveStaff: (userId: string, newName: string, newRole: string, newBranchId?: string, options?: any) => Promise<{ success: boolean; error?: string }>;
   updateUserPassword: (userId: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   toggleSuspendUser: (userId: string, reason?: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<boolean>;
@@ -953,6 +954,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 2. Persist to BOTH Supabase Auth user_metadata AND public profiles table simultaneously
     try {
+      await handleSaveStaff(userId, targetUser?.name || '', role.id, targetUser?.branchId, {
+        email: targetEmail,
+      });
       await SupabaseService.updateStaff(userId, {
         roleId: role.id,
         role: role.id as any,
@@ -2261,6 +2265,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignUserRole,
         addUser,
         updateUser,
+        handleSaveStaff,
         updateUserPassword,
         toggleSuspendUser,
         deleteUser,

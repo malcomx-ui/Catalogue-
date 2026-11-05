@@ -4,8 +4,9 @@ import { CaseItem, CourtHearing, PleadingDocument, Branch, User, AuditLog } from
 export const DEFAULT_SUPABASE_URL = 'https://kidaxoubrzbvnrtuinff.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGF4b3Vicnpidm5ydHVpbmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1ODE0NjAsImV4cCI6MjEwOTE1NzQ2MH0.eDf8euIyXDj5CEzZbW3Dy8irKqGWC-0scvftzfwMS5g';
 
-export const supabaseUrl: string = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-export const supabaseAnonKey: string = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+const env: any = (typeof import.meta !== 'undefined' && (import.meta as any).env) || (typeof process !== 'undefined' && process.env) || {};
+export const supabaseUrl: string = env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+export const supabaseAnonKey: string = env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured: boolean = Boolean(
   supabaseUrl && 
@@ -577,7 +578,8 @@ export const SupabaseService = {
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const apiRes = await fetch(`/api/users/${encodeURIComponent(staffId)}`, {
+      const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
+      const apiRes = await fetch(`${baseUrl}/api/users/${encodeURIComponent(staffId)}`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -827,6 +829,100 @@ export const SupabaseService = {
     return { success: true, data: savedRecord };
   },
 };
+
+/**
+ * Frontend admin form submit handler to update staff profile in Supabase 'profiles' table
+ * and sync across database and session state.
+ */
+export async function handleSaveStaff(
+  userId: string,
+  newName: string,
+  newRole: string,
+  newBranchId?: string,
+  options?: {
+    email?: string;
+    reloadOnSuccess?: boolean;
+    onSuccess?: () => void;
+    onError?: (err: string) => void;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+
+    // 1. Prepare profile updates matching database schema
+    const profilePayload: Record<string, any> = {
+      full_name: newName.trim(),
+      role: newRole,
+    };
+    if (newBranchId) {
+      profilePayload.branch = newBranchId;
+      profilePayload.branch_id = newBranchId;
+    }
+
+    let { error } = await supabase
+      .from('profiles')
+      .update(profilePayload)
+      .eq('id', userId);
+
+    // If 'branch_id' column is not in schema cache, fallback to 'branch'
+    if (error && error.message.includes('branch_id')) {
+      delete profilePayload.branch_id;
+      const retry = await supabase
+        .from('profiles')
+        .update(profilePayload)
+        .eq('id', userId);
+      error = retry.error;
+    }
+
+    // If not a UUID or if update by ID returned error, fallback to update by email
+    if (error || !isUUID) {
+      if (options?.email) {
+        const retryByEmail = await supabase
+          .from('profiles')
+          .update(profilePayload)
+          .eq('email', options.email.trim().toLowerCase());
+        if (!retryByEmail.error) {
+          error = null;
+        }
+      }
+    }
+
+    // 2. Concurrently update via SupabaseService to keep user_metadata, firm_users and backend sync intact
+    await SupabaseService.updateStaff(userId, {
+      name: newName.trim(),
+      role: newRole as any,
+      roleId: newRole,
+      branchId: newBranchId,
+      branchName: newBranchId,
+      email: options?.email,
+    }).catch(() => {});
+
+    if (error) {
+      const errMsg = 'Error updating user: ' + error.message;
+      if (options?.onError) {
+        options.onError(errMsg);
+      }
+      return { success: false, error: errMsg };
+    }
+
+    if (options?.onSuccess) {
+      options.onSuccess();
+    }
+
+    if (options?.reloadOnSuccess) {
+      // Refreshes to pull the fresh database values
+      window.location.reload();
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    const errMsg = 'Error updating user: ' + (err?.message || 'Unknown error');
+    if (options?.onError) {
+      options.onError(errMsg);
+    }
+    return { success: false, error: errMsg };
+  }
+}
 
 export function isUserAdmin(u: any): boolean {
   if (!u) return false;

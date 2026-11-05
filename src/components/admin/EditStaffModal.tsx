@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, Branch, CustomRole } from '../../types';
+import { handleSaveStaff } from '../../lib/supabase';
 import {
   UserCheck,
   Building2,
@@ -72,26 +73,44 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
 
     setIsSaving(true);
     try {
-      const result = await onSave(updates);
-      if (result.success) {
-        setSavedSuccess(true);
-        setTimeout(() => {
-          if (onOpenWelcomePackage) {
-            const updatedUserObj: User = {
-              ...user,
-              ...updates,
-              name: name.trim(),
-              email: email.trim().toLowerCase(),
-              password: password.trim() || user.password,
-            };
-            onOpenWelcomePackage(updatedUserObj);
-          } else {
-            onClose();
-          }
-        }, 350);
-      } else {
-        setError(result.error || 'Failed to update staff user in Supabase.');
+      // 1. Direct profile update using handleSaveStaff
+      const staffResult = await handleSaveStaff(
+        user.id,
+        name.trim(),
+        roleId,
+        branchId,
+        { email: email.trim().toLowerCase() }
+      );
+
+      if (!staffResult.success) {
+        setError(staffResult.error || 'Failed to update user.');
+        setIsSaving(false);
+        return;
       }
+
+      // 2. Also pass updates to parent onSave handler for state synchronization
+      const result = await onSave(updates);
+      if (result && !result.success) {
+        setError(result.error || 'Failed to update user.');
+        setIsSaving(false);
+        return;
+      }
+
+      setSavedSuccess(true);
+      setTimeout(() => {
+        if (onOpenWelcomePackage) {
+          const updatedUserObj: User = {
+            ...user,
+            ...updates,
+            name: name.trim(),
+            email: email.trim().toLowerCase(),
+            password: password.trim() || user.password,
+          };
+          onOpenWelcomePackage(updatedUserObj);
+        } else {
+          onClose();
+        }
+      }, 350);
     } catch (err: any) {
       setError(err?.message || 'Database update failed.');
     } finally {

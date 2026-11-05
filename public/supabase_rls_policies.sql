@@ -296,6 +296,8 @@ CREATE POLICY "Users Insert Audit Logs" ON public.audit_logs
 -- ==============================================================================
 -- RLS POLICIES FOR 'profiles' TABLE
 -- ==============================================================================
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS branch_id TEXT;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS branch TEXT;
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
