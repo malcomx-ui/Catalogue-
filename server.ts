@@ -442,6 +442,12 @@ app.get('/api/cpanel_index.php', (req: Request, res: Response) => {
   }
 });
 
+// Search engine indexing disallow (Disallow: /)
+app.get('/robots.txt', (_req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send('User-agent: *\nDisallow: /\n');
+});
+
 // Dev vs Prod Vite Integration
 async function start() {
   if (process.env.NODE_ENV === 'production' && fs.existsSync(path.resolve(__dirname, 'dist'))) {

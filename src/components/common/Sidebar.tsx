@@ -93,7 +93,17 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  if (systemSettings.features.enableConflicts) {
+  const isPartnerOrSuperadmin = Boolean(
+    currentUser.isSuperAdmin ||
+    isAdmin ||
+    currentUser.role === 'partner' ||
+    currentUser.role === 'super_admin' ||
+    currentUser.role?.toLowerCase().includes('partner') ||
+    currentUser.role?.toLowerCase().includes('admin')
+  );
+
+  // 🔒 Restricted to Partner & Superadmin
+  if (isPartnerOrSuperadmin && systemSettings.features.enableConflicts) {
     navItems.push({
       id: 'conflicts',
       label: 'Conflict Clearance',
@@ -101,7 +111,8 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  if (systemSettings.features.enableAnalytics) {
+  // 🔒 Restricted to Partner & Superadmin
+  if (isPartnerOrSuperadmin && systemSettings.features.enableAnalytics) {
     navItems.push({
       id: 'analytics',
       label: 'Firm Analytics',

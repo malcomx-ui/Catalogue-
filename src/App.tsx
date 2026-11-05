@@ -56,6 +56,14 @@ const MainLayout: React.FC = () => {
   }, []);
 
   const isAdmin = isUserAdmin(currentUser);
+  const isPartnerOrSuperadmin = Boolean(
+    currentUser?.isSuperAdmin ||
+    isAdmin ||
+    currentUser?.role === 'partner' ||
+    currentUser?.role === 'super_admin' ||
+    currentUser?.role?.toLowerCase().includes('partner') ||
+    currentUser?.role?.toLowerCase().includes('admin')
+  );
 
   // If password recovery link was opened, display the UpdatePasswordPage component
   if (isPasswordRecovery) {
@@ -88,11 +96,11 @@ const MainLayout: React.FC = () => {
           {activeTab === 'catalogue' && <CaseList />}
           {activeTab === 'causelist' && <CauseListDiary />}
           {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : <FirmDashboard />)}
-          {activeTab === 'conflicts' && <ConflictChecker />}
+          {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : <FirmDashboard />)}
           {activeTab === 'documents' && <DocumentRepository />}
-          {activeTab === 'analytics' && <LitigationAnalytics />}
-          {activeTab === 'roles' && <AccessRolesManager />}
-          {activeTab === 'settings' && <SystemSettingsManager />}
+          {activeTab === 'analytics' && (isPartnerOrSuperadmin ? <LitigationAnalytics /> : <FirmDashboard />)}
+          {activeTab === 'roles' && (isAdmin ? <AccessRolesManager /> : <FirmDashboard />)}
+          {activeTab === 'settings' && (isAdmin ? <SystemSettingsManager /> : <FirmDashboard />)}
         </main>
       </div>
 
