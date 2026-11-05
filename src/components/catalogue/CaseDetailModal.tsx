@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
-import { supabase, mapRowToCase, resolveBranchId } from '../../lib/supabase';
+import { supabase, mapRowToCase, resolveBranchId, canUserModifyCase } from '../../lib/supabase';
 
 export const CaseDetailModal: React.FC = () => {
   const {
@@ -306,6 +306,10 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleDeleteCase = async () => {
     if (!activeCase) return;
+    if (!canUserModifyCase(currentUser, activeCase)) {
+      alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
+      return;
+    }
     const caseDisplay = activeCase.case_number || activeCase.suit_number || activeCase.suitNumber || activeCase.file_no || activeCase.title;
     const confirmed = window.confirm(
       `Are you sure you want to permanently delete case "${caseDisplay}" from Supabase?\n\nThis will remove it from the database and cannot be undone.`
@@ -330,6 +334,10 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeCase || !canUserModifyCase(currentUser, activeCase)) {
+      alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
+      return;
+    }
     if (!editForm.title.trim()) return;
 
     const validPersons = editForm.persons_in_conduct.map((p) => p.trim()).filter(Boolean);
@@ -505,13 +513,8 @@ export const CaseDetailModal: React.FC = () => {
     return null;
   }
 
-  const activeCaseBranchId = resolveBranchId(
-    selectedCase.branch_id || selectedCase.branchId,
-    selectedCase.branch_name || selectedCase.branchName || selectedCase.branch
-  );
+  const canModifyThisCase = canUserModifyCase(currentUser, selectedCase);
   const isBranchStaffUser = !userPermissions.canViewAllBranches;
-  const isOwnBranchCase = activeCaseBranchId === currentUser.branchId;
-  const canManageThisCase = userPermissions.canViewAllBranches || isOwnBranchCase;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
@@ -549,13 +552,14 @@ export const CaseDetailModal: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {!canManageThisCase && (
-              <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-medium">
-                View Only · Outside your branch custody
+            {!canModifyThisCase && (
+              <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 shadow-2xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>View Only · Branch Custody Restricted ({selectedCase.branchName || selectedCase.branch || 'Other Branch'})</span>
               </span>
             )}
 
-            {canManageThisCase && userPermissions.canDeleteCases && (
+            {canModifyThisCase && userPermissions.canDeleteCases && (
               <button
                 type="button"
                 onClick={handleDeleteCase}
@@ -568,7 +572,7 @@ export const CaseDetailModal: React.FC = () => {
               </button>
             )}
 
-            {canManageThisCase && userPermissions.canEditCases && (
+            {canModifyThisCase && userPermissions.canEditCases && (
               <button
                 onClick={() => setIsEditing(!isEditing)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${

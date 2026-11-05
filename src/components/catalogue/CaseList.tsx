@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CaseItem } from '../../types';
+import { canUserModifyCase } from '../../lib/supabase';
 import CasesPage from './CasesPage';
 import {
   Search,
@@ -526,7 +527,17 @@ export const CaseList: React.FC = () => {
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap text-slate-600 font-medium">
-                        {caseItem.branchName.replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{caseItem.branchName.replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}</span>
+                          {!canUserModifyCase(currentUser, caseItem) && (
+                            <span
+                              className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
+                              title="Branch custody isolation: View only outside your assigned branch"
+                            >
+                              🔒 View Only
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap">
@@ -578,9 +589,13 @@ export const CaseList: React.FC = () => {
                             e.stopPropagation();
                             setSelectedCase(caseItem);
                           }}
-                          className="px-2.5 py-1 text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded font-medium transition-colors"
+                          className={`px-2.5 py-1 rounded font-medium transition-colors text-xs ${
+                            canUserModifyCase(currentUser, caseItem)
+                              ? 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200'
+                              : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                          }`}
                         >
-                          View
+                          {canUserModifyCase(currentUser, caseItem) ? 'View / Edit' : 'View Only'}
                         </button>
                       </td>
                     </tr>
@@ -654,9 +669,19 @@ export const CaseList: React.FC = () => {
                       <Plus className="w-2.5 h-2.5" /> Enter File NO.
                     </span>
                   )}
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
-                    {caseItem.status || 'Active'}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {!canUserModifyCase(currentUser, caseItem) && (
+                      <span
+                        className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
+                        title="Branch custody isolation: View only outside your assigned branch"
+                      >
+                        🔒 View Only
+                      </span>
+                    )}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
+                      {caseItem.status || 'Active'}
+                    </span>
+                  </div>
                 </div>
 
                 <h3 className="font-semibold text-sm text-slate-900 mt-2 leading-snug">

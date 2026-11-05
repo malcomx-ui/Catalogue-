@@ -760,6 +760,52 @@ export function isBranchStaff(u: any): boolean {
   return !isUserAdmin(u) && !isUserLawyer(u);
 }
 
+/**
+ * Strict branch-level isolation check:
+ * - Partners and Superadmins are exempt and have full multi-branch access for all operations.
+ * - Branch staff can ONLY modify (Edit, Update, Delete) cases strictly belonging to their own branch.
+ */
+export function canUserModifyCase(u: any, caseItem: any): boolean {
+  if (!u || !caseItem) return false;
+
+  // 1. Partners and Superadmins are exempt and have full multi-branch access for all operations
+  if (isUserAdmin(u)) {
+    return true;
+  }
+
+  const role = String(u.role || '').toLowerCase().trim();
+  if (
+    role === 'partner' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'admin' ||
+    Boolean(u.isSuperAdmin)
+  ) {
+    return true;
+  }
+
+  // 2. Branch staff: compare case branch with user's assigned branch
+  const userBranchId = String(u.branchId || u.branch_id || '').toLowerCase().trim();
+  const caseBranchId = String(caseItem.branchId || caseItem.branch_id || '').toLowerCase().trim();
+
+  if (userBranchId && caseBranchId && userBranchId === caseBranchId) {
+    return true;
+  }
+
+  // Fallback comparison using branch names or resolved branch codes
+  const userBranchName = String(u.branchName || u.branch || '').toLowerCase().trim();
+  const caseBranchName = String(caseItem.branchName || caseItem.branch || '').toLowerCase().trim();
+
+  if (userBranchName && caseBranchName) {
+    if (userBranchName === caseBranchName) return true;
+    const resolvedUser = resolveBranchId(userBranchId, userBranchName);
+    const resolvedCase = resolveBranchId(caseBranchId, caseBranchName);
+    if (resolvedUser && resolvedCase && resolvedUser === resolvedCase) return true;
+  }
+
+  return false;
+}
+
 export function mapRowToUser(u: any): User {
   if (!u) return {} as User;
   const name = u.full_name || u.name || '';

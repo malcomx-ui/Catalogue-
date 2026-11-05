@@ -1,59 +1,87 @@
 -- ==============================================================================
--- MK ADVOCATES LITIGATION SYSTEM
+-- MUHUMUZA - KIIZA ADVOCATES & LEGAL CONSULTANTS (MK ADVOCATES)
 -- SUPABASE ROW LEVEL SECURITY (RLS) POLICIES
--- Multi-Branch Jurisdiction & Staff Access Control
+-- Strict Branch-Level Case Isolation & Cross-Branch Transparency
 -- ==============================================================================
 -- Rules Enforced:
--- 1. Branch Staff (Branch Administrator, Court Registry Clerk):
---    - Full CRUD management permissions (create, read, update, delete)
---      strictly restricted to cases belonging specifically to their assigned branch.
--- 2. Admins & Lawyers (Managing Partner, Super Admin, Trial Advocates, Team Leads):
---    - Full global cross-branch access across all branches (Kampala, Fort Portal, Mbarara, etc.)
+-- 1. Database RLS Policies (Supabase):
+--    - The `cases` table has RLS enabled and a `branch_id` foreign key referencing `branches(id)`.
+--    - SELECT policy: Allows all authenticated staff to view cases from any branch (for transparency).
+--    - INSERT, UPDATE, and DELETE policies: Restrict modifications strictly to cases belonging
+--      to the user's own branch.
+--    - Partners and Superadmins are exempt and have full multi-branch access for all operations.
 -- ==============================================================================
 
--- 1. Enable Row Level Security (RLS) on tables
+-- 1. Ensure foreign key constraint on cases(branch_id) -> branches(id)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'fk_cases_branch' AND table_name = 'cases'
+  ) THEN
+    ALTER TABLE IF EXISTS public.cases 
+      ADD CONSTRAINT fk_cases_branch 
+      FOREIGN KEY (branch_id) 
+      REFERENCES public.branches(id) 
+      ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- 2. Enable Row Level Security (RLS) on tables
 ALTER TABLE IF EXISTS public.cases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.firm_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.branches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.court_hearings ENABLE ROW LEVEL SECURITY;
 
--- 2. Helper Security Function: Check if caller is Global Admin or Litigation Lawyer
-CREATE OR REPLACE FUNCTION public.is_admin_or_lawyer()
+-- 3. Helper Security Function: Check if caller is Partner or Superadmin
+CREATE OR REPLACE FUNCTION public.is_partner_or_superadmin()
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
 DECLARE
   v_role TEXT;
   v_is_super BOOLEAN;
   v_user_email TEXT;
 BEGIN
-  -- Extract email from Supabase Auth JWT
-  v_user_email := auth.jwt()->>'email';
-
-  -- If not using JWT or called by service_role, allow global execution
+  -- Service role always has bypass privileges
   IF auth.role() = 'service_role' THEN
     RETURN TRUE;
   END IF;
 
+  -- Extract email from Supabase Auth JWT
+  v_user_email := auth.jwt()->>'email';
+
   IF v_user_email IS NULL OR v_user_email = '' THEN
-    RETURN TRUE;
+    RETURN FALSE;
   END IF;
 
+  -- Check firm_users directory
   SELECT role, is_super_admin 
   INTO v_role, v_is_super 
   FROM public.firm_users 
   WHERE LOWER(email) = LOWER(v_user_email)
   LIMIT 1;
 
-  -- Super Admin or Lawyers have global access across all branches
-  IF v_is_super IS TRUE OR v_role IN ('partner', 'team_lead', 'lawyer', 'advocate') THEN
+  -- Partners and Superadmins have full multi-branch access for all operations
+  IF v_is_super IS TRUE OR LOWER(v_role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner') THEN
     RETURN TRUE;
+  END IF;
+
+  -- Also check profiles table if present
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') THEN
+    IF EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE (id = auth.uid() OR LOWER(email) = LOWER(v_user_email)) 
+      AND (role IN ('partner', 'super_admin', 'superadmin') OR is_super_admin IS TRUE)
+    ) THEN
+      RETURN TRUE;
+    END IF;
   END IF;
 
   RETURN FALSE;
 END;
 $$;
 
--- 3. Helper Security Function: Get caller's assigned branch_id from firm_users
-CREATE OR REPLACE FUNCTION public.get_user_branch_id()
+-- 4. Helper Security Function: Get caller's assigned branch_id
+CREATE OR REPLACE FUNCTION public.get_auth_user_branch_id()
 RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
 DECLARE
   v_branch_id TEXT;
@@ -71,15 +99,43 @@ BEGIN
   WHERE LOWER(email) = LOWER(v_user_email)
   LIMIT 1;
 
+  IF v_branch_id IS NOT NULL THEN
+    RETURN v_branch_id;
+  END IF;
+
+  -- Check profiles table if present
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') THEN
+    SELECT branch_id 
+    INTO v_branch_id 
+    FROM public.profiles 
+    WHERE (id = auth.uid() OR LOWER(email) = LOWER(v_user_email))
+    LIMIT 1;
+  END IF;
+
   RETURN v_branch_id;
 END;
 $$;
 
+-- Alias for backwards compatibility
+CREATE OR REPLACE FUNCTION public.is_admin_or_lawyer()
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+BEGIN
+  RETURN public.is_partner_or_superadmin();
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_branch_id()
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+BEGIN
+  RETURN public.get_auth_user_branch_id();
+END;
+$$;
+
 -- ==============================================================================
--- RLS POLICIES FOR 'cases' TABLE
+-- RLS POLICIES FOR 'cases' TABLE (Branch Isolation & Transparency)
 -- ==============================================================================
 
--- Drop existing legacy policies if any
+-- Drop existing legacy policies on cases
 DROP POLICY IF EXISTS "Global users full access to cases" ON public.cases;
 DROP POLICY IF EXISTS "Branch staff view branch cases" ON public.cases;
 DROP POLICY IF EXISTS "Branch staff insert branch cases" ON public.cases;
@@ -87,56 +143,56 @@ DROP POLICY IF EXISTS "Branch staff update branch cases" ON public.cases;
 DROP POLICY IF EXISTS "Branch staff delete branch cases" ON public.cases;
 DROP POLICY IF EXISTS "Allow authenticated full cases access" ON public.cases;
 DROP POLICY IF EXISTS "Allow anon cases access" ON public.cases;
+DROP POLICY IF EXISTS "Restrict Delete Access" ON public.cases;
+DROP POLICY IF EXISTS "Authenticated staff view all cases" ON public.cases;
+DROP POLICY IF EXISTS "Branch staff insert own branch cases" ON public.cases;
+DROP POLICY IF EXISTS "Branch staff update own branch cases" ON public.cases;
+DROP POLICY IF EXISTS "Branch staff delete own branch cases" ON public.cases;
 
--- Policy 1: Global Access for Super Admins and Lawyers across all branches
-CREATE POLICY "Global users full access to cases"
-ON public.cases
-FOR ALL
-TO authenticated, anon
-USING (
-  public.is_admin_or_lawyer() OR public.get_user_branch_id() IS NULL
-)
-WITH CHECK (
-  public.is_admin_or_lawyer() OR public.get_user_branch_id() IS NULL
-);
-
--- Policy 2: Branch Staff SELECT (Read) - strictly restricted to assigned branch
-CREATE POLICY "Branch staff view branch cases"
+-- Policy 1 (SELECT): Allow all authenticated staff to view cases from any branch (for transparency)
+CREATE POLICY "Authenticated staff view all cases"
 ON public.cases
 FOR SELECT
 TO authenticated, anon
-USING (
-  branch_id = public.get_user_branch_id()
-);
+USING (true);
 
--- Policy 3: Branch Staff INSERT (Create) - strictly restricted to assigned branch
-CREATE POLICY "Branch staff insert branch cases"
+-- Policy 2 (INSERT): Restrict INSERT strictly to user's own branch; Partners/Superadmins exempt
+CREATE POLICY "Branch staff insert own branch cases"
 ON public.cases
 FOR INSERT
 TO authenticated, anon
 WITH CHECK (
-  branch_id = public.get_user_branch_id()
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
+  OR branch_id IS NULL
 );
 
--- Policy 4: Branch Staff UPDATE (Edit) - strictly restricted to assigned branch
-CREATE POLICY "Branch staff update branch cases"
+-- Policy 3 (UPDATE): Restrict UPDATE strictly to user's own branch; Partners/Superadmins exempt
+CREATE POLICY "Branch staff update own branch cases"
 ON public.cases
 FOR UPDATE
 TO authenticated, anon
 USING (
-  branch_id = public.get_user_branch_id()
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
 )
 WITH CHECK (
-  branch_id = public.get_user_branch_id()
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
 );
 
--- Policy 5: Branch Staff DELETE - strictly restricted to assigned branch
-CREATE POLICY "Branch staff delete branch cases"
+-- Policy 4 (DELETE): Restrict DELETE strictly to user's own branch; Partners/Superadmins exempt
+CREATE POLICY "Branch staff delete own branch cases"
 ON public.cases
 FOR DELETE
 TO authenticated, anon
 USING (
-  branch_id = public.get_user_branch_id()
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
 );
 
 -- ==============================================================================
@@ -153,16 +209,16 @@ FOR SELECT
 TO authenticated, anon
 USING (true);
 
--- Allow Super Admins and authorized staff to insert and manage users
+-- Allow Super Admins, Partners, and service_role to manage users
 CREATE POLICY "Admins manage firm users"
 ON public.firm_users
 FOR ALL
 TO authenticated, anon
 USING (
-  public.is_admin_or_lawyer() OR auth.role() = 'service_role' OR auth.jwt() IS NULL
+  public.is_partner_or_superadmin() OR auth.role() = 'service_role' OR auth.jwt() IS NULL
 )
 WITH CHECK (
-  public.is_admin_or_lawyer() OR auth.role() = 'service_role' OR auth.jwt() IS NULL
+  public.is_partner_or_superadmin() OR auth.role() = 'service_role' OR auth.jwt() IS NULL
 );
 
 -- ==============================================================================
@@ -177,40 +233,36 @@ TO authenticated, anon
 USING (true);
 
 DROP POLICY IF EXISTS "Global and branch court hearings" ON public.court_hearings;
-CREATE POLICY "Global and branch court hearings"
+DROP POLICY IF EXISTS "Authenticated staff view all court hearings" ON public.court_hearings;
+DROP POLICY IF EXISTS "Branch staff modify own court hearings" ON public.court_hearings;
+
+-- View court hearings across all branches for cause list transparency
+CREATE POLICY "Authenticated staff view all court hearings"
+ON public.court_hearings
+FOR SELECT
+TO authenticated, anon
+USING (true);
+
+-- Modify hearings strictly for own branch or partner/superadmin
+CREATE POLICY "Branch staff modify own court hearings"
 ON public.court_hearings
 FOR ALL
 TO authenticated, anon
 USING (
-  public.is_admin_or_lawyer() OR branch_id = public.get_user_branch_id() OR public.get_user_branch_id() IS NULL
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
 )
 WITH CHECK (
-  public.is_admin_or_lawyer() OR branch_id = public.get_user_branch_id() OR public.get_user_branch_id() IS NULL
+  auth.role() = 'service_role'
+  OR public.is_partner_or_superadmin()
+  OR branch_id = public.get_auth_user_branch_id()
 );
 
 -- ==============================================================================
--- RESTRICTED CASE DELETION & AUDIT TRAIL LOGGING
+-- AUDIT TRAIL LOGGING TABLE & RLS
 -- ==============================================================================
 
--- Example RLS Delete Policy restriction:
--- Only Super Admin or Branch Admin (for their own branch) can delete cases.
-DROP POLICY IF EXISTS "Restrict Delete Access" ON public.cases;
-CREATE POLICY "Restrict Delete Access" ON public.cases
-  FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND (
-        profiles.role = 'super_admin'
-        OR (profiles.role = 'branch_admin' AND profiles.branch = cases.branch)
-      )
-    )
-    OR auth.role() = 'service_role'
-    OR auth.uid() IS NULL
-  );
-
--- 1. Create audit_logs table
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     case_id TEXT,
@@ -224,35 +276,19 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Enable RLS on audit_logs
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- 3. Policy: Only Super Admins can view the full audit logs
 DROP POLICY IF EXISTS "SuperAdmin View Audit Logs" ON public.audit_logs;
 CREATE POLICY "SuperAdmin View Audit Logs" ON public.audit_logs
   FOR SELECT
+  TO authenticated, anon
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role = 'super_admin'
-    )
+    public.is_partner_or_superadmin()
     OR auth.role() = 'service_role'
-    OR EXISTS (
-      SELECT 1 FROM public.firm_users
-      WHERE LOWER(firm_users.email) = LOWER(auth.jwt()->>'email')
-      AND (firm_users.is_super_admin IS TRUE OR firm_users.role IN ('partner', 'super_admin'))
-    )
   );
 
--- 4. Policy: Authenticated users can insert logs when they perform actions
 DROP POLICY IF EXISTS "Users Insert Audit Logs" ON public.audit_logs;
 CREATE POLICY "Users Insert Audit Logs" ON public.audit_logs
   FOR INSERT
-  WITH CHECK (
-    auth.uid() = performed_by
-    OR auth.role() = 'service_role'
-    OR auth.uid() IS NOT NULL
-    OR performed_by IS NULL
-  );
-
+  TO authenticated, anon
+  WITH CHECK (true);

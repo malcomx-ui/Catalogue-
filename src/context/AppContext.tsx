@@ -26,7 +26,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, isUserAdmin, isUserLawyer, isBranchStaff } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -1444,16 +1444,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Update Case Details - Permanently writes to Supabase
   const updateCase = async (caseId: string, updatedData: Partial<CaseItem>): Promise<CaseItem | null> => {
-    // If user is branch staff, enforce that they can only update cases in their own branch
-    if (!userPermissions.canViewAllBranches) {
-      const existing = cases.find((c) => c.id === caseId);
-      if (existing) {
-        const caseBranchId = resolveBranchId(existing.branchId, existing.branchName || existing.branch);
-        if (caseBranchId !== currentUser.branchId) {
-          console.warn('Unauthorized: Branch staff can only update cases belonging to their own branch.');
-          return null;
-        }
-      }
+    // Enforce strict branch-level isolation: Partners and Superadmins exempt; branch staff restricted to own branch
+    const existing = cases.find((c) => c.id === caseId);
+    if (existing && !canUserModifyCase(currentUser, existing)) {
+      console.warn('Unauthorized: Branch staff can only update cases strictly belonging to their own branch.');
+      return null;
+    }
+    if (!canUserModifyCase(currentUser, { branchId: updatedData.branchId, branchName: updatedData.branch || updatedData.branchName })) {
       // Branch staff cannot reassign case branch
       delete updatedData.branchId;
       delete updatedData.branchName;
@@ -1584,15 +1581,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCase = async (caseId: string): Promise<boolean> => {
     const existing = cases.find((c) => c.id === caseId);
 
-    // If user is branch staff, enforce that they can only delete cases in their own branch
-    if (!userPermissions.canViewAllBranches) {
-      if (existing) {
-        const caseBranchId = resolveBranchId(existing.branchId, existing.branchName || existing.branch);
-        if (caseBranchId !== currentUser.branchId) {
-          console.warn('Unauthorized: Branch staff can only delete cases belonging to their own branch.');
-          return false;
-        }
-      }
+    // Enforce strict branch-level isolation: Partners and Superadmins exempt; branch staff restricted to own branch
+    if (existing && !canUserModifyCase(currentUser, existing)) {
+      console.warn('Unauthorized: Branch staff can only delete cases strictly belonging to their own branch.');
+      return false;
     }
 
     // 1. Optimistic removal from UI
