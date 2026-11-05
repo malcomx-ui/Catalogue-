@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
 import { isUserAdmin } from '../../lib/supabase';
+import RefreshSessionButton from '../auth/RefreshSessionButton';
 import {
   Briefcase,
   CalendarDays,
@@ -481,16 +482,20 @@ export const Sidebar: React.FC = () => {
           {currentUser.roleTitle || currentUser.email}
         </p>
 
-        <button
-          onClick={() => {
-            if (isMobile) setIsMobileMenuOpen(false);
-            logout();
-          }}
-          className="w-full mt-2.5 pt-2 border-t border-slate-200/80 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 py-1.5 rounded transition-colors"
-        >
-          <LogOut className="w-3.5 h-3.5 text-slate-400" />
-          <span>Lock / Sign Out</span>
-        </button>
+        <div className="mt-2.5 space-y-1.5 pt-2 border-t border-slate-200/80">
+          <RefreshSessionButton compact />
+
+          <button
+            onClick={() => {
+              if (isMobile) setIsMobileMenuOpen(false);
+              logout();
+            }}
+            className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 py-1.5 rounded transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5 text-slate-400" />
+            <span>Lock / Sign Out</span>
+          </button>
+        </div>
       </div>
     </div>
   );

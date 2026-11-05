@@ -6,6 +6,7 @@ import {
   LogOut,
   Plus,
 } from 'lucide-react';
+import RefreshSessionButton from '../auth/RefreshSessionButton';
 
 export const Header: React.FC = () => {
   const {
@@ -94,7 +95,9 @@ export const Header: React.FC = () => {
                     <div className="text-slate-400 text-[10px]">{currentUser.branchName}</div>
                   </div>
 
-                  <div className="pt-1.5 px-2">
+                  <div className="pt-2 px-2.5 pb-1 space-y-1.5">
+                    <RefreshSessionButton compact />
+
                     <button
                       onClick={() => {
                         setIsUserSwitcherOpen(false);
