@@ -105,7 +105,7 @@ export default function CasesPage({ userSession }: CasesPageProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by client, case no, lawyer, title..."
+              placeholder="Search by client, MK case no, suit no, lawyer, title..."
               className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-xs transition-all"
             />
             {searchQuery && (
@@ -133,7 +133,7 @@ export default function CasesPage({ userSession }: CasesPageProps) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Case No</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">MK Case No</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Case Title</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Lead Counsel</th>
@@ -155,8 +155,15 @@ export default function CasesPage({ userSession }: CasesPageProps) {
                       }}
                       className="hover:bg-gray-50/80 transition-colors cursor-pointer"
                     >
-                      <td className="px-5 py-3.5 whitespace-nowrap text-xs font-mono font-bold text-indigo-600">
-                        {c.case_number}
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                        <div className="font-mono font-bold text-indigo-600" title="MK Case No.">
+                          {c.case_number}
+                        </div>
+                        {c.suit_no && (
+                          <div className="text-[10px] text-blue-700 font-mono font-medium truncate" title="Court Registry Suit No.">
+                            Suit: {c.suit_no}
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-xs text-gray-900 font-medium max-w-xs truncate">
                         {c.case_title}

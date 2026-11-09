@@ -372,7 +372,7 @@ export const SystemSettingsManager: React.FC = () => {
 
             {formData.features.enableCaseAutoNumbering && (
               <div className="pt-2 border-t border-slate-100 flex items-center gap-3">
-                <label className="text-xs text-slate-700 font-medium">Case Number Prefix:</label>
+                <label className="text-xs text-slate-700 font-medium">MK Case No. Prefix:</label>
                 <input
                   type="text"
                   value={formData.features.caseNumberPrefix}

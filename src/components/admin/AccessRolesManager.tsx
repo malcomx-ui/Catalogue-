@@ -206,7 +206,7 @@ export const AccessRolesManager: React.FC = () => {
 
   const exportAuditLogsToCsv = () => {
     if (!auditLogs || auditLogs.length === 0) return;
-    const headers = ['ID', 'Timestamp (UTC)', 'Action', 'Case Number', 'Case ID', 'User Email', 'User Role', 'Branch', 'Changes'];
+    const headers = ['ID', 'Timestamp (UTC)', 'Action', 'MK Case No.', 'Case ID', 'User Email', 'User Role', 'Branch', 'Changes'];
     const rows = auditLogs.map((log) => [
       log.id,
       log.created_at,

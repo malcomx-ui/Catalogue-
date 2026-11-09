@@ -37,10 +37,10 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
     },
     caseNumber: {
       id: 'caseNumber',
-      label: 'Case No.',
+      label: 'MK Case No.',
       requirement: 'mandatory',
       isSystem: true,
-      helpText: 'Official court suit number or firm file reference',
+      helpText: 'Firm-assigned internal case reference number (MK Case No.)',
     },
     clientName: {
       id: 'clientName',

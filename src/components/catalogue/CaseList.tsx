@@ -207,7 +207,7 @@ export const CaseList: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by client, case no, lawyer, title..."
+            placeholder="Search by client, MK case no, suit no, lawyer, title..."
             className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm transition-all"
           />
           {searchQuery && (
@@ -355,7 +355,7 @@ export const CaseList: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
                 <tr>
-                  <th className="py-3 px-4">File NO.</th>
+                  <th className="py-3 px-4">MK File No.</th>
                   <th className="py-3 px-4">Case Title & Parties</th>
                   <th className="py-3 px-4">Court & Division</th>
                   <th className="py-3 px-4">Branch</th>
@@ -507,10 +507,10 @@ export const CaseList: React.FC = () => {
                               setSelectedCase(caseItem);
                             }}
                             className="inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2 py-0.5 rounded font-medium cursor-pointer transition-colors shadow-2xs"
-                            title="Click to enter File NO. manually"
+                            title="Click to enter MK File No. manually"
                           >
                             <Plus className="w-2.5 h-2.5" />
-                            <span>Enter File NO.</span>
+                            <span>Enter MK File No.</span>
                           </div>
                         )}
                       </td>
@@ -671,7 +671,7 @@ export const CaseList: React.FC = () => {
                     </span>
                   ) : (
                     <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/80 inline-flex items-center gap-1 shadow-2xs">
-                      <Plus className="w-2.5 h-2.5" /> Enter File NO.
+                      <Plus className="w-2.5 h-2.5" /> Enter MK File No.
                     </span>
                   )}
                   {caseItem.suit_no && (

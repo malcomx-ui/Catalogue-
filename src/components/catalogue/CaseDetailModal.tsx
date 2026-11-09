@@ -528,19 +528,19 @@ export const CaseDetailModal: React.FC = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs flex-wrap">
               {selectedCase.case_number || selectedCase.suitNumber ? (
-                <span className="font-mono font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
-                  {selectedCase.case_number || selectedCase.suitNumber}
+                <span className="font-mono font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded" title="MK Case No.">
+                  MK: {selectedCase.case_number || selectedCase.suitNumber}
                 </span>
               ) : (
                 <span className="text-[11px] italic text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                  No file number assigned
+                  No MK file number assigned
                 </span>
               )}
               {selectedCase.suit_no && (
                 <>
                   <span className="text-slate-300">·</span>
                   <span className="font-mono font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]" title="Court Registry Identifier">
-                    Suit: {selectedCase.suit_no}
+                    Court Suit No: {selectedCase.suit_no}
                   </span>
                 </>
               )}
@@ -647,17 +647,18 @@ export const CaseDetailModal: React.FC = () => {
                   )}
                 </div>
 
-                {/* 2. Case No. */}
+                {/* 2. MK Case No. */}
                 <div className="space-y-1.5">
                   <label htmlFor="edit_case_number" className="block font-medium text-slate-700">
-                    {getField('caseNumber', 'Case No.').label}
-                    {getField('caseNumber', 'Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                    {getField('caseNumber', 'MK Case No.').label}
+                    {getField('caseNumber', 'MK Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
                   <input
                     id="edit_case_number"
                     type="text"
                     value={editForm.case_number}
                     onChange={(e) => setEdit('case_number', e.target.value)}
+                    placeholder="e.g. MKA/2026/012"
                     className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   />
                 </div>
@@ -1135,21 +1136,21 @@ export const CaseDetailModal: React.FC = () => {
                         <span className="font-medium text-blue-700">{selectedCase.branch || selectedCase.branchName}</span>
                       </div>
 
-                      {/* 2. Case No. */}
+                      {/* 2. MK Case No. */}
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">{getField('caseNumber', 'Case No.').label}</span>
+                        <span className="text-slate-400 block text-[10px] uppercase">{getField('caseNumber', 'MK Case No.').label}</span>
                         {selectedCase.case_number || selectedCase.suitNumber ? (
                           <span className="font-mono font-medium text-slate-800">
                             {selectedCase.case_number || selectedCase.suitNumber}
                           </span>
                         ) : (
-                          <span className="text-slate-400 italic text-xs font-sans">No file number</span>
+                          <span className="text-slate-400 italic text-xs font-sans">No MK file number</span>
                         )}
                       </div>
 
                       {/* Suit No. */}
                       <div>
-                        <span className="text-slate-400 block text-[10px] uppercase">Suit No. (Registry Identifier)</span>
+                        <span className="text-slate-400 block text-[10px] uppercase">Suit No.</span>
                         {selectedCase.suit_no ? (
                           <span className="font-mono font-medium text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                             {selectedCase.suit_no}

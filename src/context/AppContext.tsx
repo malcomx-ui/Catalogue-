@@ -1937,7 +1937,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
     const headers = [
-      'File NO.',
+      'MK File No.',
+      'Court Suit No.',
       'Firm Ref',
       'Case Title',
       'Court Division',
@@ -1955,6 +1956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const rows = filteredCases.map((c) => [
       `"${c.case_number || c.suitNumber || ''}"`,
+      `"${c.suit_no || ''}"`,
       `"${c.firmRefNumber}"`,
       `"${c.title.replace(/"/g, '""')}"`,
       `"${c.division}"`,

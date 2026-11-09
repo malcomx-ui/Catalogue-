@@ -93,7 +93,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
             >
               {cases.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.suitNumber ? `${c.suitNumber} — ` : ''}{c.title} ({c.branchName})
+                  {c.case_number || c.suitNumber ? `[MK: ${c.case_number || c.suitNumber}] ` : ''}{c.suit_no ? `[Suit: ${c.suit_no}] ` : ''}{c.title} ({c.branchName})
                 </option>
               ))}
             </select>

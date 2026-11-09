@@ -183,7 +183,7 @@ export const ImportExcelModal: React.FC = () => {
         const valid = mapped.filter((m) => m.title || m.case_number || m.client);
 
         if (valid.length === 0) {
-          setError('Could not find recognizable case columns (such as Title, Case Number, or Client) in this file.');
+          setError('Could not find recognizable case columns (such as Title, MK Case No, or Client) in this file.');
           setIsProcessing(false);
           return;
         }
@@ -265,7 +265,7 @@ export const ImportExcelModal: React.FC = () => {
 
     const sampleRows = [
       [
-        '', // File NO. (leave blank or enter your firm file number)
+        '', // MK File No. (leave blank or enter your firm file number)
         'Matter of Commercial Client v. Debtor Ltd',
         branches[0]?.name || 'Kampala Central (Head Office)',
         'Stanbic Bank (U) Ltd',
@@ -442,7 +442,7 @@ export const ImportExcelModal: React.FC = () => {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-slate-100 text-slate-700 sticky top-0">
                         <tr>
-                          <th className="p-2 border-b">Case No</th>
+                          <th className="p-2 border-b">MK Case No</th>
                           <th className="p-2 border-b">Title</th>
                           <th className="p-2 border-b">Branch</th>
                           <th className="p-2 border-b">District</th>

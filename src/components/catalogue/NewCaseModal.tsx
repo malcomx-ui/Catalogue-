@@ -167,8 +167,8 @@ export const NewCaseModal: React.FC = () => {
       finalCaseNumber = `${prefix}${new Date().getFullYear()}/${Math.floor(1000 + Math.random() * 9000)}`;
     }
 
-    if (getField('caseNumber', 'File NO.').isMandatory && !finalCaseNumber) {
-      setError(`${getField('caseNumber', 'File NO.').label} is required by firm intake rules.`);
+    if (getField('caseNumber', 'MK File No.').isMandatory && !finalCaseNumber) {
+      setError(`${getField('caseNumber', 'MK File No.').label} is required by firm intake rules.`);
       return;
     }
     if (getField('clientName', 'Client').isMandatory && !form.client.trim()) {
@@ -347,12 +347,12 @@ export const NewCaseModal: React.FC = () => {
                 )}
               </div>
 
-              {/* 2. Case No. */}
+              {/* 2. MK Case No. */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label htmlFor="case_number" className="block font-medium text-slate-700">
-                    {getField('caseNumber', 'Case No.').label}
-                    {getField('caseNumber', 'Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                    {getField('caseNumber', 'MK Case No.').label}
+                    {getField('caseNumber', 'MK Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
                   {systemSettings?.features?.enableCaseAutoNumbering && (
                     <button
@@ -374,7 +374,7 @@ export const NewCaseModal: React.FC = () => {
                   placeholder={
                     systemSettings?.features?.enableCaseAutoNumbering
                       ? `Auto-generates as ${systemSettings.features.caseNumberPrefix || 'MKA/'}${new Date().getFullYear()}/...`
-                      : 'Enter file number (or leave blank if unassigned)'
+                      : 'Enter MK case number (or leave blank if unassigned)'
                   }
                   className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
