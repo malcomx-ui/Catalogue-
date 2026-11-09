@@ -4,6 +4,12 @@ Disallow: /
 User-agent: Google-Extended
 Disallow: /
 
+User-agent: Google-InspectionTool
+Disallow: /
+
+User-agent: AI-Studio
+Disallow: /
+
 User-agent: GPTBot
 Disallow: /
 
@@ -11,6 +17,9 @@ User-agent: ChatGPT-User
 Disallow: /
 
 User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-Web
 Disallow: /
 
 User-agent: anthropic-ai
@@ -41,4 +50,13 @@ User-agent: omgilibot
 Disallow: /
 
 User-agent: cohere-ai
+Disallow: /
+
+User-agent: Timpibot
+Disallow: /
+
+User-agent: Omgilibot
+Disallow: /
+
+User-agent: YouBot
 Disallow: /

@@ -341,8 +341,9 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Strict Privacy & Anti-Scraping / AI Crawler Block Middleware
 app.use((req, res, next) => {
-  // Enforce zero-indexing and strict referrer privacy
+  // Enforce zero-indexing, strict referrer privacy, and anti-AI training headers
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, notranslate, noimageindex');
+  res.setHeader('X-AI-Training', 'prohibited');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Permissions-Policy', 'interest-cohort=(), browsing-topics=(), conversion-measurement=(), attribution-reporting=()');
@@ -354,13 +355,26 @@ app.use((req, res, next) => {
     res.setHeader('Expires', '0');
   }
 
-  // Intercept and block known AI scrapers, telemetry harvesters, and automated web crawlers
+  // Block unauthorized direct access to sensitive workspace files and databases
+  const normalizedPath = req.path.toLowerCase();
+  const restrictedPaths = ['/server_data', '/.env', '/.git', '/metadata.json', '/package.json', '/tsconfig.json'];
+  if (restrictedPaths.some((p) => normalizedPath.startsWith(p))) {
+    return res.status(403).json({
+      error: 'Access Denied: Protected firm workspace boundary.',
+    });
+  }
+
+  // Intercept and block AI Studio, AI scrapers, telemetry harvesters, and automated web crawlers
   const userAgent = (req.headers['user-agent'] || '').toLowerCase();
   const blockedAgents = [
     'gptbot',
     'chatgpt-user',
     'google-extended',
+    'google-inspectiontool',
+    'aistudio',
+    'ai-studio',
     'claudebot',
+    'claude-web',
     'anthropic',
     'ccbot',
     'bytespider',
@@ -370,11 +384,17 @@ app.use((req, res, next) => {
     'omgilibot',
     'cohere-ai',
     'scrapy',
+    'timpibot',
+    'youbot',
+    'headlesschrome',
+    'puppeteer',
+    'phantomjs',
+    'selenium',
   ];
 
   if (blockedAgents.some((bot) => userAgent.includes(bot))) {
     return res.status(403).json({
-      error: 'Access Forbidden: MK Advocates privacy perimeter blocks external AI indexing and data scraping.',
+      error: 'Access Forbidden: MK Advocates privacy perimeter blocks external AI indexing, telemetry, and automated data scraping.',
     });
   }
 
