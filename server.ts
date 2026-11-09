@@ -564,12 +564,29 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       console.warn('[User Update API] Auth update exception:', authEx);
     }
 
-    // 2. Simultaneously sync to public 'profiles' table using clean schema columns (full_name, role, branch, email)
+    // 2. Simultaneously sync to public 'profiles' table using clean schema columns (full_name, role, branch_id, branch_name, branch, email)
     const profileRow: Record<string, any> = {};
     if (resolvedName) profileRow.full_name = resolvedName;
-    if (resolvedRole) profileRow.role = resolvedRole;
-    if (resolvedBranch) profileRow.branch = resolvedBranch;
+    if (resolvedRole) {
+      profileRow.role = resolvedRole;
+      profileRow.role_id = resolvedRole;
+    }
+    if (resolvedRoleTitle) profileRow.role_title = resolvedRoleTitle;
+    if (resolvedBranch) {
+      profileRow.branch = resolvedBranch;
+      profileRow.branch_name = resolvedBranch;
+    }
+    if (resolvedBranchId) {
+      profileRow.branch_id = resolvedBranchId;
+    }
     if (resolvedEmail) profileRow.email = resolvedEmail;
+    if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
+      profileRow.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
+    }
+    if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
+      profileRow.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
+    }
+    profileRow.updated_at = new Date().toISOString();
 
     let profileUpdated = false;
     let profileData: any = null;
@@ -692,6 +709,242 @@ const handleUserUpdate = async (req: Request, res: Response) => {
   }
 };
 
+// ==============================================================================
+// User Provisioning API Route: Uses supabaseAdmin.auth.admin.createUser
+// to securely provision credentials in Supabase Auth & public profiles
+// ==============================================================================
+const handleUserCreate = async (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      full_name,
+      email,
+      password,
+      role,
+      roleId,
+      role_id,
+      roleTitle,
+      role_title,
+      branch,
+      branchName,
+      branch_name,
+      branchId,
+      branch_id,
+      isSuperAdmin,
+      is_super_admin,
+      isBranchAdmin,
+      is_branch_admin,
+      advocateRollNo,
+      advocate_roll_no,
+      mustChangePassword,
+    } = req.body;
+
+    const resolvedEmail = (email || '').trim().toLowerCase();
+    const resolvedName = (name || full_name || '').trim();
+    const rawPassword = (password || '').trim() || 'MK@Law2026';
+    const resolvedRoleId = (roleId || role_id || role || 'role-advocate').trim();
+    const resolvedRoleTitle = (roleTitle || role_title || '').trim();
+    const resolvedBranchId = (branchId || branch_id || '').trim();
+    const resolvedBranchName = (branchName || branch_name || branch || '').trim();
+
+    if (!resolvedEmail) {
+      return res.status(400).json({ success: false, error: 'Staff email address is required.' });
+    }
+    if (!resolvedName) {
+      return res.status(400).json({ success: false, error: 'Staff full name is required.' });
+    }
+    if (rawPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters.' });
+    }
+
+    // Branch resolution helper inside server
+    let finalBranchId = 'kla-hq';
+    let finalBranchName = 'Kampala Central (Head Office)';
+    const cleanB = (resolvedBranchName || resolvedBranchId || '').toLowerCase();
+    if (resolvedBranchId === 'ftp-reg' || cleanB.includes('fort') || cleanB.includes('portal') || cleanB.includes('ftp')) {
+      finalBranchId = 'ftp-reg';
+      finalBranchName = 'Fort Portal Regional Office';
+    } else if (resolvedBranchId === 'mbr-reg' || cleanB.includes('mbarara') || cleanB.includes('mbr')) {
+      finalBranchId = 'mbr-reg';
+      finalBranchName = 'Mbarara Regional Office';
+    } else if (resolvedBranchId === 'msk-reg' || cleanB.includes('masaka') || cleanB.includes('msk')) {
+      finalBranchId = 'msk-reg';
+      finalBranchName = 'Masaka Regional Office';
+    } else if (resolvedBranchId === 'jnj-reg' || cleanB.includes('jinja') || cleanB.includes('jnj')) {
+      finalBranchId = 'jnj-reg';
+      finalBranchName = 'Jinja Regional Office';
+    } else if (resolvedBranchId === 'glu-reg' || cleanB.includes('gulu') || cleanB.includes('glu')) {
+      finalBranchId = 'glu-reg';
+      finalBranchName = 'Gulu Regional Office';
+    } else if (resolvedBranchId === 'msn-reg' || cleanB.includes('masindi') || cleanB.includes('msn')) {
+      finalBranchId = 'msn-reg';
+      finalBranchName = 'Masindi Regional Office';
+    } else {
+      finalBranchId = 'kla-hq';
+      finalBranchName = 'Kampala Central (Head Office)';
+    }
+
+    const isSuper = Boolean(isSuperAdmin ?? is_super_admin ?? resolvedRoleId === 'role-super-admin');
+    const isBranch = Boolean(isBranchAdmin ?? is_branch_admin ?? resolvedRoleId === 'role-admin');
+
+    const userMetadata: Record<string, any> = {
+      full_name: resolvedName,
+      name: resolvedName,
+      role: resolvedRoleId,
+      role_id: resolvedRoleId,
+      role_title: resolvedRoleTitle || (isSuper ? 'Managing Partner (Super Admin)' : 'Litigation Lawyer / Associate'),
+      branch: finalBranchName,
+      branch_name: finalBranchName,
+      branch_id: finalBranchId,
+      is_super_admin: isSuper,
+      is_branch_admin: isBranch,
+      must_change_password: Boolean(mustChangePassword ?? true),
+      advocate_roll_no: advocateRollNo || advocate_roll_no || '',
+    };
+
+    // 1. Invoke Supabase Auth admin API to create or update auth user
+    let authUserId: string | null = null;
+    let authUserCreated = false;
+    let authError: string | null = null;
+
+    try {
+      const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = userList?.users?.find(
+        (u) => u.email?.toLowerCase() === resolvedEmail
+      );
+
+      if (existingUser) {
+        authUserId = existingUser.id;
+        const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(
+          existingUser.id,
+          {
+            password: rawPassword,
+            user_metadata: userMetadata,
+            email_confirm: true,
+          }
+        );
+        if (updErr) {
+          authError = updErr.message;
+        } else {
+          authUserCreated = true;
+        }
+      } else {
+        const { data: createdAuth, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email: resolvedEmail,
+          password: rawPassword,
+          email_confirm: true, // Mark confirmed so staff member can immediately log in
+          user_metadata: userMetadata,
+        });
+
+        if (createErr) {
+          authError = createErr.message;
+          console.warn('[handleUserCreate] createUser notice:', createErr.message);
+        } else if (createdAuth?.user) {
+          authUserId = createdAuth.user.id;
+          authUserCreated = true;
+        }
+      }
+    } catch (authEx: any) {
+      authError = authEx?.message || 'Supabase Auth admin createUser exception';
+      console.warn('[handleUserCreate] Auth exception:', authEx);
+    }
+
+    const targetUserId = authUserId || `user-${Date.now()}`;
+
+    // 2. Prepare profileRow and upsert into public profiles table
+    const profileRow: Record<string, any> = {
+      id: targetUserId,
+      full_name: resolvedName,
+      name: resolvedName,
+      email: resolvedEmail,
+      role: resolvedRoleId,
+      role_id: resolvedRoleId,
+      role_title: resolvedRoleTitle || userMetadata.role_title,
+      branch: finalBranchName,
+      branch_name: finalBranchName,
+      branch_id: finalBranchId,
+      is_super_admin: isSuper,
+      is_branch_admin: isBranch,
+      must_change_password: Boolean(mustChangePassword ?? true),
+      updated_at: new Date().toISOString(),
+    };
+
+    let profileData: any = null;
+    try {
+      const { data: pData } = await supabaseAdmin
+        .from('profiles')
+        .upsert([profileRow], { onConflict: 'email' })
+        .select('*');
+      if (pData && pData.length > 0) {
+        profileData = pData[0];
+      }
+    } catch (pe) {
+      console.warn('[handleUserCreate] Profiles table upsert notice:', pe);
+    }
+
+    // 3. Keep public.firm_users table synchronized
+    try {
+      const firmUserRow: Record<string, any> = {
+        id: targetUserId,
+        name: resolvedName,
+        email: resolvedEmail,
+        role: resolvedRoleId,
+        role_title: resolvedRoleTitle || userMetadata.role_title,
+        branch_id: finalBranchId,
+        branch_name: finalBranchName,
+        is_super_admin: isSuper,
+        is_branch_admin: isBranch,
+        advocate_roll_no: advocateRollNo || advocate_roll_no || '',
+      };
+      await supabaseAdmin.from('firm_users').upsert([firmUserRow], { onConflict: 'email' });
+    } catch (fe) {}
+
+    // 4. Update in-memory server database
+    const db = readDatabase();
+    const newUserRecord = {
+      id: targetUserId,
+      name: resolvedName,
+      email: resolvedEmail,
+      role: (resolvedRoleId.replace('role-', '') || 'lawyer'),
+      roleId: resolvedRoleId,
+      roleTitle: resolvedRoleTitle || userMetadata.role_title,
+      branchId: finalBranchId,
+      branchName: finalBranchName,
+      isSuperAdmin: isSuper,
+      isBranchAdmin: isBranch,
+      password: rawPassword,
+      temporaryPassword: rawPassword,
+      mustChangePassword: Boolean(mustChangePassword ?? true),
+      advocateRollNo: advocateRollNo || advocate_roll_no || '',
+    };
+
+    const existingIdx = (db.users || []).findIndex((u: any) => u.email?.toLowerCase() === resolvedEmail);
+    if (existingIdx >= 0) {
+      db.users[existingIdx] = { ...db.users[existingIdx], ...newUserRecord };
+    } else {
+      db.users = [newUserRecord, ...(db.users || [])];
+    }
+    writeDatabase(db);
+
+    return res.json({
+      success: true,
+      message: 'Staff account provisioned successfully in Supabase Auth & profiles table.',
+      user: {
+        ...newUserRecord,
+        id: targetUserId,
+      },
+      authUserCreated,
+      authUserId,
+      authError,
+      profile: profileData,
+    });
+  } catch (err: any) {
+    console.error('Error in user create API route:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to provision staff account.' });
+  }
+};
+
+app.post(['/api/users/create', '/api/users', '/api/staff/create'], handleUserCreate);
 app.post(['/api/users/:id', '/api/users/update', '/api/staff/:id'], handleUserUpdate);
 app.put(['/api/users/:id', '/api/staff/:id'], handleUserUpdate);
 

@@ -26,10 +26,19 @@ import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
 import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceholder';
 import { MortgagesPlaceholder } from './components/modules/MortgagesPlaceholder';
+import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
 import { isUserAdmin, supabase } from './lib/supabase';
 
 const MainLayout: React.FC = () => {
   const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser } = useApp();
+  const [isFirstLoginModalOpen, setIsFirstLoginModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated && currentUser.mustChangePassword) {
+      setIsFirstLoginModalOpen(true);
+    }
+  }, [isAuthenticated, currentUser.mustChangePassword]);
+
   const [isPasswordRecovery, setIsPasswordRecovery] = React.useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash || '';
@@ -83,7 +92,7 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 flex flex-col font-sans-legal">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans-legal">
       {/* Mobile Top Header (Hidden on Desktop 'lg:hidden' to strictly match m-law-sync-hub.base44.app) */}
       <Header />
 
@@ -122,6 +131,10 @@ const MainLayout: React.FC = () => {
           onClose={() => setIsCpanelMigrationModalOpen(false)}
         />
       )}
+      <FirstLoginPasswordModal
+        isOpen={isFirstLoginModalOpen}
+        onClose={() => setIsFirstLoginModalOpen(false)}
+      />
     </div>
   );
 };

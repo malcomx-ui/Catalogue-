@@ -43,6 +43,29 @@ CREATE TABLE IF NOT EXISTS public.firm_users (
 );
 
 -- ------------------------------------------------------------------------------
+-- 2b. PROFILES TABLE (Supabase Auth mirror with role and branch persistence)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id TEXT PRIMARY KEY,
+    full_name TEXT NOT NULL DEFAULT '',
+    email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'lawyer',
+    role_id TEXT NOT NULL DEFAULT 'role-advocate',
+    role_title TEXT NOT NULL DEFAULT 'Litigation Lawyer / Associate',
+    branch_id TEXT REFERENCES public.branches(id) ON DELETE SET NULL,
+    branch_name TEXT DEFAULT 'Kampala Central (Head Office)',
+    branch TEXT DEFAULT 'Kampala Central (Head Office)',
+    is_super_admin BOOLEAN DEFAULT false,
+    is_branch_admin BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_branch_id ON public.profiles(branch_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
+
+-- ------------------------------------------------------------------------------
 -- 3. LITIGATION CASES TABLE
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.cases (

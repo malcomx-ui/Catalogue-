@@ -1,4 +1,4 @@
-import { supabase, SupabaseService } from '../lib/supabase';
+import { supabase, SupabaseService, resolveBranchMeta } from '../lib/supabase';
 import { User } from '../types';
 
 export interface StaffUpdatePayload {
@@ -39,20 +39,30 @@ export async function secureUpdateStaff(
     const rawUpdates = updates as any;
     const resolvedName = (rawUpdates.name || rawUpdates.full_name || '').trim();
     const resolvedRole = (rawUpdates.roleId || rawUpdates.role || '').trim();
-    const resolvedBranch = (rawUpdates.branchName || rawUpdates.branch || rawUpdates.branchId || '').trim();
+    const bMeta = resolveBranchMeta(rawUpdates.branchId, rawUpdates.branchName || rawUpdates.branch);
     const resolvedEmail = (rawUpdates.email || '').trim().toLowerCase();
 
     // 1. Direct update to Supabase public 'profiles' table
     const profilePayload: Record<string, any> = {};
     if (resolvedName) profilePayload.full_name = resolvedName;
-    if (resolvedRole) profilePayload.role = resolvedRole;
-    if (resolvedBranch) {
-      profilePayload.branch = resolvedBranch;
-      if (updates.branchId) {
-        profilePayload.branch_id = updates.branchId;
-      }
+    if (resolvedRole) {
+      profilePayload.role = resolvedRole;
+      profilePayload.role_id = resolvedRole;
     }
+    if (rawUpdates.roleTitle) {
+      profilePayload.role_title = rawUpdates.roleTitle;
+    }
+    profilePayload.branch = bMeta.name;
+    profilePayload.branch_name = bMeta.name;
+    profilePayload.branch_id = bMeta.id;
     if (resolvedEmail) profilePayload.email = resolvedEmail;
+    if (rawUpdates.isSuperAdmin !== undefined) {
+      profilePayload.is_super_admin = Boolean(rawUpdates.isSuperAdmin);
+    }
+    if (rawUpdates.isBranchAdmin !== undefined) {
+      profilePayload.is_branch_admin = Boolean(rawUpdates.isBranchAdmin);
+    }
+    profilePayload.updated_at = new Date().toISOString();
 
     let profileUpdated = false;
 
@@ -116,8 +126,8 @@ export async function secureUpdateStaff(
           name: resolvedName || updates.name,
           roleId: resolvedRole || updates.roleId,
           role: resolvedRole || updates.role,
-          branchName: resolvedBranch || updates.branchName,
-          branchId: updates.branchId || resolvedBranch,
+          branchName: bMeta.name,
+          branchId: bMeta.id,
         }),
       });
     } catch (apiErr) {
@@ -130,8 +140,8 @@ export async function secureUpdateStaff(
       name: resolvedName || updates.name,
       role: (resolvedRole || updates.role) as any,
       roleId: resolvedRole || updates.roleId,
-      branchName: resolvedBranch || updates.branchName,
-      branchId: updates.branchId || resolvedBranch,
+      branchName: bMeta.name,
+      branchId: bMeta.id,
       email: resolvedEmail || updates.email,
     }).catch((sErr) => {
       console.warn('[secureUpdateStaff] SupabaseService.updateStaff warning:', sErr);

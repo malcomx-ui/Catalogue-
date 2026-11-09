@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-11-05T12:37:29.996Z",
+  "lastUpdated": "2026-11-09T10:44:54.995Z",
   "cases": [],
   "hearings": [],
   "documents": [],
@@ -102,6 +102,22 @@
     }
   ],
   "users": [
+    {
+      "id": "user-1794221094770",
+      "name": "Test Health Check",
+      "email": "healthcheck.test@mkfirm.ug",
+      "role": "advocate",
+      "roleId": "role-advocate",
+      "roleTitle": "Litigation Lawyer / Associate",
+      "branchId": "ftp-reg",
+      "branchName": "Kampala Central (Head Office)",
+      "isSuperAdmin": false,
+      "isBranchAdmin": false,
+      "password": "TestPassword2026",
+      "temporaryPassword": "TestPassword2026",
+      "mustChangePassword": true,
+      "advocateRollNo": ""
+    },
     {
       "id": "user-admin",
       "name": "Firm Administrator",

@@ -26,7 +26,7 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveUserRoleMeta, handleSaveStaff, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
+import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveBranchMeta, resolveUserRoleMeta, handleSaveStaff, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -344,8 +344,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       Boolean(profile?.is_super_admin ?? user?.user_metadata?.is_super_admin),
       email
     );
-    const branchName = profile?.branch || profile?.branch_name || user?.user_metadata?.branch_name || 'Headquarters (Kampala)';
-    const branchId = resolveBranchId(profile?.branch_id || profile?.branch, branchName);
+    const branchMeta = resolveBranchMeta(
+      profile?.branch_id || user?.user_metadata?.branch_id,
+      profile?.branch_name || profile?.branch || user?.user_metadata?.branch_name || user?.user_metadata?.branch
+    );
+
+    const mustChangePassword = Boolean(
+      profile?.must_change_password ??
+      user?.user_metadata?.must_change_password ??
+      false
+    );
 
     const loggedInUser: User = {
       id: user?.id || String(profile?.id || 'user-auth'),
@@ -354,10 +362,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role: roleMeta.role as any,
       roleId: roleMeta.roleId,
       roleTitle: profile?.role_title || roleMeta.roleTitle,
-      branchId,
-      branchName,
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
+      mustChangePassword,
     };
 
     setCurrentUser(loggedInUser);
@@ -368,7 +377,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (roleMeta.isSuperAdmin || roleMeta.role === 'partner' || roleMeta.role === 'admin' || roleMeta.role === 'lawyer') {
       setSelectedBranchFilter('all');
     } else {
-      setSelectedBranchFilter(branchId);
+      setSelectedBranchFilter(branchMeta.id);
     }
 
     try {
@@ -418,7 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('role, branch, full_name')
+          .select('*')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -433,7 +442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const { data: emailProfile } = await supabase
             .from('profiles')
-            .select('role, branch, full_name')
+            .select('*')
             .eq('email', user.email)
             .maybeSingle();
 
@@ -481,7 +490,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       });
 
-      return { success: true, user: loggedInUser };
+      return {
+        success: true,
+        user: loggedInUser,
+        requirePasswordChange: Boolean(loggedInUser.mustChangePassword),
+      };
     } catch (err: any) {
       console.error('[Supabase Auth Login Error]:', err);
       return {
@@ -756,6 +769,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadCentralDatabase();
     return () => { isMounted = false; };
   }, []);
+
+  // Real-time synchronization for employee profiles, roles, and branch assignments across tabs and sessions
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    // 1. Listen for PostgreSQL changes on public.profiles table
+    const profileChannel = supabase
+      .channel('realtime-profiles-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          console.log('[Supabase Realtime] profiles change detected:', payload.eventType);
+          refreshStaffFromSupabase();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'firm_users' },
+        (payload) => {
+          console.log('[Supabase Realtime] firm_users change detected:', payload.eventType);
+          refreshStaffFromSupabase();
+        }
+      )
+      .subscribe();
+
+    // 2. Auth change listener: re-sync profile whenever auth session or user updates
+    const { data: authSub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        refreshStaffFromSupabase();
+      }
+    });
+
+    // 3. Multi-tab synchronization: re-sync whenever localStorage user cache is updated in another tab
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LOCAL_STORAGE_KEY_USER || e.key === LOCAL_STORAGE_KEY_USERS) {
+        refreshStaffFromSupabase();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+      authSub.subscription.unsubscribe();
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [isSupabaseConfigured]);
 
   // Sync state
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>(INITIAL_SYNC_LOGS);
@@ -1069,33 +1129,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advocateRollNo: userData.advocateRollNo?.trim() || undefined,
     };
 
-    // 1. Permanently insert into Supabase ('profiles', 'staff', and 'firm_users')
+    // 1. Securely invoke Supabase Auth admin API via backend to provision credentials
+    let provisionedUser = newUser;
     try {
-      const res = await SupabaseService.insertStaff(newUser);
-      if (!res.success) {
-        return { success: false, error: res.error || 'Failed to save staff record to database.' };
+      const session = (await supabase.auth.getSession())?.data?.session;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       }
-    } catch (err: any) {
-      console.error('Error inserting staff in Supabase:', err);
-      return { success: false, error: err.message || 'Supabase error occurred while saving staff member.' };
+
+      const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
+      const apiRes = await fetch(`${baseUrl}/api/users/create`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          name: userData.name.trim(),
+          email: cleanEmail,
+          password: initialPass,
+          roleId: assignedRole.id,
+          role: assignedRole.id,
+          roleTitle: assignedRole.name,
+          branchId: branch.id,
+          branchName: branch.name,
+          isSuperAdmin: Boolean(assignedRole.isSuperAdmin),
+          isBranchAdmin: Boolean(userData.isBranchAdmin || assignedRole.id === 'role-admin'),
+          advocateRollNo: userData.advocateRollNo?.trim(),
+          mustChangePassword: userData.mustChangePassword !== false,
+        }),
+      });
+
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        if (json.success && json.user) {
+          provisionedUser = {
+            ...newUser,
+            ...json.user,
+            id: json.user.id || newUser.id,
+          };
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[addUser] Backend Auth admin createUser notice:', apiErr);
     }
 
-    // 2. Immediately re-fetch the fresh staff list from Supabase so the new member appears and persists
+    // 2. Concurrently ensure profile and firm_users tables are updated via client SDK
+    try {
+      await SupabaseService.insertStaff(provisionedUser);
+    } catch (err: any) {
+      console.warn('Direct Supabase insertStaff notice:', err);
+    }
+
+    // 3. Immediately re-fetch the fresh staff list from Supabase so the new member appears and persists
     await refreshStaffFromSupabase();
 
-    // 3. Fallback optimistic state check in case of network latency
+    // 4. Update local state store
     setAvailableUsers((prev) => {
-      if (prev.some((u) => u.id === newUser.id || u.email.toLowerCase() === cleanEmail)) {
-        return prev;
-      }
-      const updated = [newUser, ...prev];
+      const filtered = prev.filter((u) => u.id !== provisionedUser.id && u.email.toLowerCase() !== cleanEmail);
+      const updated = [provisionedUser, ...filtered];
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
 
-    return { success: true, user: newUser };
+    return { success: true, user: provisionedUser };
   };
 
   // Super Admin can edit/change user details including name, email, password, role, branch
@@ -1118,21 +1215,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    const role = updates.roleId ? roles.find((r) => r.id === updates.roleId) : undefined;
-    const branch = updates.branchId ? branches.find((b) => b.id === updates.branchId) : undefined;
+    const branchMeta = resolveBranchMeta(updates.branchId, updates.branchName);
+    const resolvedRoleId = updates.roleId || updates.role;
+    const role = resolvedRoleId ? roles.find((r) => r.id === resolvedRoleId) : undefined;
     const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : target.password;
 
     const mergedUpdates: Partial<User> = {
       ...updates,
+      roleId: resolvedRoleId || target.roleId,
+      role: (resolvedRoleId || target.role) as any,
       roleTitle: role ? role.name : (updates.roleTitle || target.roleTitle),
-      branchName: branch ? branch.name : (updates.branchName || target.branchName),
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
       isSuperAdmin: role ? role.isSuperAdmin : target.isSuperAdmin,
     };
 
-    // 1. Optimistic local state update
-    setAvailableUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
+    // 1. Optimistic local state update for instant UI and permission re-evaluation
+    setAvailableUsers((prev) => {
+      const updatedList = prev.map((u) => {
+        if (u.id === userId || (u.email && target.email && u.email.toLowerCase() === target.email.toLowerCase())) {
           const updated: User = {
             ...u,
             name: updates.name !== undefined ? updates.name.trim() : u.name,
@@ -1140,22 +1241,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             password: newPassword,
             temporaryPassword: updates.mustChangePassword ? newPassword : u.temporaryPassword,
             mustChangePassword: updates.mustChangePassword !== undefined ? updates.mustChangePassword : u.mustChangePassword,
-            roleId: role ? role.id : u.roleId,
-            role: (role ? role.id : u.role) as any,
+            roleId: resolvedRoleId || u.roleId,
+            role: (resolvedRoleId || u.role) as any,
             roleTitle: role ? role.name : u.roleTitle,
-            branchId: branch ? branch.id : u.branchId,
-            branchName: branch ? branch.name : u.branchName,
+            branchId: branchMeta.id,
+            branchName: branchMeta.name,
             advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : u.advocateRollNo,
             isSuperAdmin: role ? role.isSuperAdmin : u.isSuperAdmin,
           };
-          if (currentUser.id === userId) {
+          if (currentUser.id === userId || (currentUser.email && target.email && currentUser.email.toLowerCase() === target.email.toLowerCase())) {
             setCurrentUser(updated);
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updated));
+            } catch (e) {}
+            if (!updated.isSuperAdmin && updated.role !== 'partner' && updated.role !== 'lawyer') {
+              setSelectedBranchFilter(updated.branchId);
+            }
           }
           return updated;
         }
         return u;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     // 2. Perform real update query in Supabase (await supabase.from('staff').update({...}).eq('id', userId))
     try {

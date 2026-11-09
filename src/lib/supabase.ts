@@ -45,6 +45,28 @@ export function resolveBranchId(branchId?: string, branchName?: string): string 
   return 'ftp-reg';
 }
 
+export function resolveBranchMeta(branchId?: string, branchName?: string): { id: string; name: string } {
+  const resolvedId = resolveBranchId(branchId, branchName);
+  switch (resolvedId) {
+    case 'kla-hq':
+      return { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
+    case 'ftp-reg':
+      return { id: 'ftp-reg', name: 'Fort Portal Regional Office' };
+    case 'mbr-reg':
+      return { id: 'mbr-reg', name: 'Mbarara Regional Office' };
+    case 'msk-reg':
+      return { id: 'msk-reg', name: 'Masaka Regional Office' };
+    case 'jnj-reg':
+      return { id: 'jnj-reg', name: 'Jinja Regional Office' };
+    case 'glu-reg':
+      return { id: 'glu-reg', name: 'Gulu Regional Office' };
+    case 'msn-reg':
+      return { id: 'msn-reg', name: 'Masindi Regional Office' };
+    default:
+      return { id: resolvedId || 'kla-hq', name: branchName || 'Kampala Central (Head Office)' };
+  }
+}
+
 /**
  * Maps database row to frontend CaseItem
  */
@@ -735,7 +757,7 @@ export const SupabaseService = {
       console.warn('[SupabaseService] User update API route notice:', apiErr);
     }
 
-    // 2. Simultaneously update public 'profiles' table directly using clean schema columns (full_name, role, branch, email)
+    // 2. Simultaneously update public 'profiles' table directly using clean schema columns (full_name, role, branch_id, branch_name, branch, email)
     try {
       const profileUpdates: Record<string, any> = {};
       if (updates.name) {
@@ -743,21 +765,57 @@ export const SupabaseService = {
       }
       if (updates.roleId || updates.role) {
         profileUpdates.role = updates.roleId || updates.role;
+        profileUpdates.role_id = updates.roleId || updates.role;
       }
-      if (updates.branchName || (updates as any).branch) {
-        profileUpdates.branch = updates.branchName || (updates as any).branch;
+      if (updates.roleTitle) {
+        profileUpdates.role_title = updates.roleTitle;
+      }
+      if (updates.branchId || updates.branchName || (updates as any).branch) {
+        const bMeta = resolveBranchMeta(updates.branchId, updates.branchName || (updates as any).branch);
+        profileUpdates.branch_id = bMeta.id;
+        profileUpdates.branch_name = bMeta.name;
+        profileUpdates.branch = bMeta.name;
+      }
+      if (updates.isSuperAdmin !== undefined) {
+        profileUpdates.is_super_admin = Boolean(updates.isSuperAdmin);
+      }
+      if (updates.isBranchAdmin !== undefined) {
+        profileUpdates.is_branch_admin = Boolean(updates.isBranchAdmin);
       }
       if (updates.email) {
         profileUpdates.email = updates.email.trim().toLowerCase();
       }
+      profileUpdates.updated_at = new Date().toISOString();
+
+      // Helper to execute update with graceful column fallback
+      const executeProfileUpdate = async (matchColumn: string, matchValue: string) => {
+        let { data, error } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq(matchColumn, matchValue)
+          .select('*');
+
+        // If branch_id or branch_name is not supported in a custom schema, prune and retry
+        if (error && (error.message.includes('branch_id') || error.message.includes('branch_name') || error.message.includes('role_id'))) {
+          const fallbackUpdates = { ...profileUpdates };
+          delete fallbackUpdates.branch_id;
+          delete fallbackUpdates.branch_name;
+          delete fallbackUpdates.role_id;
+          delete fallbackUpdates.role_title;
+          const retry = await supabase
+            .from('profiles')
+            .update(fallbackUpdates)
+            .eq(matchColumn, matchValue)
+            .select('*');
+          data = retry.data;
+          error = retry.error;
+        }
+        return { data, error };
+      };
 
       // 2a. Update by email in profiles
       if (updates.email && Object.keys(profileUpdates).length > 0) {
-        const { data: pByEmail } = await supabase
-          .from('profiles')
-          .update(profileUpdates)
-          .eq('email', updates.email.trim().toLowerCase())
-          .select('*');
+        const { data: pByEmail } = await executeProfileUpdate('email', updates.email.trim().toLowerCase());
         if (pByEmail && pByEmail.length > 0) {
           anySuccess = true;
           updatedRecord = updatedRecord || pByEmail[0];
@@ -767,11 +825,7 @@ export const SupabaseService = {
       // 2b. Update by UUID in profiles
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffId);
       if (isUUID && Object.keys(profileUpdates).length > 0) {
-        const { data: pById } = await supabase
-          .from('profiles')
-          .update(profileUpdates)
-          .eq('id', staffId)
-          .select('*');
+        const { data: pById } = await executeProfileUpdate('id', staffId);
         if (pById && pById.length > 0) {
           anySuccess = true;
           updatedRecord = updatedRecord || pById[0];
@@ -875,22 +929,28 @@ export const SupabaseService = {
     let savedRecord: any = null;
     let primaryError: any = null;
 
-    // 1. Try 'profiles' table: await supabase.from('profiles').insert([{ full_name, email, role, branch }])
+    // 1. Try 'profiles' table with full role and branch metadata
     try {
-      const profileRow = {
+      const bMeta = resolveBranchMeta(u.branchId, u.branchName);
+      const profileRow: Record<string, any> = {
         id: u.id,
         full_name: u.name,
         name: u.name,
-        email: u.email,
-        role: u.role,
+        email: u.email.toLowerCase(),
+        role: u.roleId || u.role,
+        role_id: u.roleId || u.role,
         role_title: u.roleTitle,
-        branch: u.branchName,
-        branch_id: u.branchId,
-        branch_name: u.branchName,
+        branch: bMeta.name,
+        branch_name: bMeta.name,
+        branch_id: bMeta.id,
+        is_super_admin: Boolean(u.isSuperAdmin),
+        is_branch_admin: Boolean(u.isBranchAdmin),
+        must_change_password: Boolean(u.mustChangePassword),
+        updated_at: new Date().toISOString(),
       };
       const { data, error } = await supabase
         .from('profiles')
-        .insert([profileRow])
+        .upsert([profileRow], { onConflict: 'email' })
         .select('*');
 
       if (!error && data && data.length > 0) {
@@ -985,26 +1045,33 @@ export async function handleSaveStaff(
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
 
     // 1. Prepare profile updates matching database schema
+    const bMeta = resolveBranchMeta(newBranchId);
     const profilePayload: Record<string, any> = {
       full_name: newName.trim(),
       role: newRole,
+      role_id: newRole,
+      branch_id: bMeta.id,
+      branch_name: bMeta.name,
+      branch: bMeta.name,
+      updated_at: new Date().toISOString(),
     };
-    if (newBranchId) {
-      profilePayload.branch = newBranchId;
-      profilePayload.branch_id = newBranchId;
-    }
 
     let { error } = await supabase
       .from('profiles')
       .update(profilePayload)
       .eq('id', userId);
 
-    // If 'branch_id' column is not in schema cache, fallback to 'branch'
-    if (error && error.message.includes('branch_id')) {
-      delete profilePayload.branch_id;
+    // If 'branch_id' or 'branch_name' column is not in schema cache, fallback
+    if (error && (error.message.includes('branch_id') || error.message.includes('branch_name') || error.message.includes('role_id'))) {
+      const fallbackPayload = {
+        full_name: newName.trim(),
+        role: newRole,
+        branch: bMeta.name,
+        updated_at: new Date().toISOString(),
+      };
       const retry = await supabase
         .from('profiles')
-        .update(profilePayload)
+        .update(fallbackPayload)
         .eq('id', userId);
       error = retry.error;
     }
@@ -1027,8 +1094,8 @@ export async function handleSaveStaff(
       name: newName.trim(),
       role: newRole as any,
       roleId: newRole,
-      branchId: newBranchId,
-      branchName: newBranchId,
+      branchId: bMeta.id,
+      branchName: bMeta.name,
       email: options?.email,
     }).catch(() => {});
 
@@ -1220,8 +1287,9 @@ export function mapRowToUser(u: any): User {
     email
   );
 
-  const branchName = u.branch_name || u.branch || 'Kampala Office';
-  const branchId = resolveBranchId(u.branch_id || u.branchId, branchName);
+  const branchMeta = resolveBranchMeta(u.branch_id || u.branchId, u.branch_name || u.branch);
+  const branchName = branchMeta.name;
+  const branchId = branchMeta.id;
 
   // Extract embedded password from advocate_roll_no if present (e.g. 'MK/ADV/022:::[PW]:MyPassword')
   let rawRollNo = u.advocate_roll_no || u.advocateRollNo || '';
