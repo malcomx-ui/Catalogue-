@@ -191,26 +191,63 @@ export const LitigationAnalytics: React.FC = () => {
                 <th className="pb-2 font-semibold">Office Admin</th>
                 <th className="pb-2 font-semibold">Clerk</th>
                 <th className="pb-2 font-semibold text-center">Lawyers</th>
-                <th className="pb-2 font-semibold text-center">Active Suits</th>
+                <th className="pb-2 font-semibold text-center">Active</th>
+                <th className="pb-2 font-semibold text-center">Closed</th>
+                <th className="pb-2 font-semibold text-center">Archived</th>
+                <th className="pb-2 font-semibold text-center">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {branches.map((b) => (
-                <tr key={b.id} className="hover:bg-slate-50/70">
-                  <td className="py-2.5 font-medium text-slate-900 flex items-center gap-2">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{b.name}</span>
-                  </td>
-                  <td className="py-2.5 text-slate-600">{b.city}</td>
-                  <td className="py-2.5 text-slate-800 font-medium">
-                    {b.teamLead}
-                  </td>
-                  <td className="py-2.5 text-slate-600">{b.officeAdmin}</td>
-                  <td className="py-2.5 text-slate-600">{b.clerk}</td>
-                  <td className="py-2.5 text-center font-mono text-slate-800">{b.lawyersCount}</td>
-                  <td className="py-2.5 text-center font-mono font-semibold text-slate-900">{b.caseCount}</td>
-                </tr>
-              ))}
+              {branches.map((b) => {
+                const targetCity = (b.city || '').toLowerCase();
+                const targetName = (b.name || '').toLowerCase();
+                const branchCases = cases.filter((c) => {
+                  const bId = c.branchId;
+                  const bName = (c.branch || c.branchName || '').toLowerCase();
+                  return bId === b.id || bName.includes(targetCity) || bName.includes(targetName);
+                });
+                const activeCount = branchCases.filter((c) => {
+                  const s = (c.status || 'Active').toLowerCase();
+                  const isClosedOrArchived = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+                  return !isClosedOrArchived && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
+                }).length;
+                const closedCount = branchCases.filter((c) => {
+                  const s = (c.status || '').toLowerCase();
+                  return (
+                    (s === 'closed' ||
+                    s.includes('closed') ||
+                    s === 'concluded' ||
+                    s === 'resolved' ||
+                    Boolean(c.year_of_closure)) &&
+                    s !== 'archived' &&
+                    !s.includes('archived')
+                  );
+                }).length;
+                const archivedCount = branchCases.filter((c) => {
+                  const s = (c.status || '').toLowerCase();
+                  return s === 'archived' || s.includes('archived') || (c.file_location || '').toLowerCase().includes('archive');
+                }).length;
+
+                return (
+                  <tr key={b.id} className="hover:bg-slate-50/70">
+                    <td className="py-2.5 font-medium text-slate-900 flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{b.name}</span>
+                    </td>
+                    <td className="py-2.5 text-slate-600">{b.city}</td>
+                    <td className="py-2.5 text-slate-800 font-medium">
+                      {b.teamLead}
+                    </td>
+                    <td className="py-2.5 text-slate-600">{b.officeAdmin}</td>
+                    <td className="py-2.5 text-slate-600">{b.clerk}</td>
+                    <td className="py-2.5 text-center font-mono text-slate-800">{b.lawyersCount}</td>
+                    <td className="py-2.5 text-center font-mono font-semibold text-emerald-700">{activeCount}</td>
+                    <td className="py-2.5 text-center font-mono font-medium text-slate-700">{closedCount}</td>
+                    <td className="py-2.5 text-center font-mono font-semibold text-zinc-700">{archivedCount}</td>
+                    <td className="py-2.5 text-center font-mono font-bold text-slate-900">{branchCases.length}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

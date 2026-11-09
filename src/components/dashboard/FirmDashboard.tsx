@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Search,
   Bell,
+  Archive,
 } from 'lucide-react';
 import { WeeklyMattersNotificationModal } from '../causelist/WeeklyMattersNotificationModal';
 
@@ -83,17 +84,30 @@ export const FirmDashboard: React.FC = () => {
     });
   }, [branchScopedCases]);
 
-  // Closed / Concluded matters (precise matches including Archived & closure year)
+  // Closed / Concluded matters (precise matches excluding archived)
   const closedCases = useMemo(() => {
     return branchScopedCases.filter((c) => {
       const s = (c.status || '').toLowerCase();
       return (
-        s === 'closed' ||
-        s === 'archived' ||
+        (s === 'closed' ||
+        s.includes('closed') ||
         s === 'concluded' ||
         s === 'resolved' ||
-        s.includes('closed') ||
-        Boolean(c.year_of_closure)
+        Boolean(c.year_of_closure)) &&
+        s !== 'archived' &&
+        !s.includes('archived')
+      );
+    });
+  }, [branchScopedCases]);
+
+  // Archived matters count
+  const archivedCases = useMemo(() => {
+    return branchScopedCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return (
+        s === 'archived' ||
+        s.includes('archived') ||
+        (c.file_location || '').toLowerCase().includes('archive')
       );
     });
   }, [branchScopedCases]);
@@ -276,26 +290,32 @@ export const FirmDashboard: React.FC = () => {
 
     const active = branchCases.filter((c) => {
       const s = (c.status || 'Active').toLowerCase();
-      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
-      return !isClosed && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
+      const isClosedOrArchived = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+      return !isClosedOrArchived && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
     }).length;
 
     const inactive = branchCases.filter((c) => {
       const s = (c.status || '').toLowerCase();
-      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || Boolean(c.year_of_closure);
-      return !isClosed && (s.includes('inactive') || s.includes('dormant') || s.includes('pending'));
+      const isClosedOrArchived = s === 'closed' || s === 'archived' || s.includes('closed') || Boolean(c.year_of_closure);
+      return !isClosedOrArchived && (s.includes('inactive') || s.includes('dormant') || s.includes('pending') || s.includes('ruling'));
     }).length;
 
     const closed = branchCases.filter((c) => {
       const s = (c.status || '').toLowerCase();
       return (
-        s === 'closed' ||
-        s === 'archived' ||
+        (s === 'closed' ||
+        s.includes('closed') ||
         s === 'concluded' ||
         s === 'resolved' ||
-        s.includes('closed') ||
-        Boolean(c.year_of_closure)
+        Boolean(c.year_of_closure)) &&
+        s !== 'archived' &&
+        !s.includes('archived')
       );
+    }).length;
+
+    const archived = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return s === 'archived' || s.includes('archived') || (c.file_location || '').toLowerCase().includes('archive');
     }).length;
 
     // Upcoming hearings for this branch
@@ -311,6 +331,7 @@ export const FirmDashboard: React.FC = () => {
       active,
       inactive,
       closed,
+      archived,
       upcoming: branchHearingsCount,
     };
   };
@@ -433,8 +454,8 @@ export const FirmDashboard: React.FC = () => {
         </section>
       )}
 
-      {/* 2. 4 KPI STAT CARDS ROW */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. 5 KPI STAT CARDS ROW */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
         {/* TOTAL CASES */}
         <div
           onClick={() => {
@@ -535,6 +556,32 @@ export const FirmDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* ARCHIVED */}
+        <div
+          onClick={() => {
+            setSelectedBranchFilter('all');
+            setActiveTab('catalogue');
+          }}
+          className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex items-center gap-3.5 group"
+        >
+          <div className="w-11 h-11 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 shrink-0 group-hover:scale-105 transition-transform">
+            <Archive className="w-5 h-5 text-zinc-700" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              ARCHIVED
+            </div>
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span className="text-2xl font-extrabold text-slate-900">
+                {archivedCases.length}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">
+                in registry archives
+              </span>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* 3. BRANCH OVERVIEW SECTION */}
@@ -612,7 +659,7 @@ export const FirmDashboard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Bottom Status Pills: Active / Inactive / Closed */}
+                {/* Bottom Status Pills: Active / Inactive / Closed / Archived */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 flex-wrap text-[11px]">
                   <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full px-2.5 py-0.5 font-medium">
                     Active: <strong className="font-bold">{stats.active}</strong>
@@ -622,6 +669,10 @@ export const FirmDashboard: React.FC = () => {
                   </span>
                   <span className="bg-slate-50 text-slate-700 border border-slate-200/80 rounded-full px-2.5 py-0.5 font-medium">
                     Closed: <strong className="font-bold">{stats.closed}</strong>
+                  </span>
+                  <span className="bg-zinc-100 text-zinc-700 border border-zinc-300 rounded-full px-2.5 py-0.5 font-medium flex items-center gap-1">
+                    <Archive className="w-3 h-3 text-zinc-500 inline" />
+                    Archived: <strong className="font-bold">{stats.archived}</strong>
                   </span>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { isUserAdmin } from '../../lib/supabase';
 import {
@@ -11,6 +11,7 @@ import {
   FileText,
   UserCheck,
   Lock,
+  Archive,
 } from 'lucide-react';
 
 export const BranchSyncHub: React.FC = () => {
@@ -58,6 +59,92 @@ export const BranchSyncHub: React.FC = () => {
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId);
 
+  // Firm-wide live case synchronization metrics
+  const overallMetrics = useMemo(() => {
+    let totalActive = 0;
+    let totalPending = 0;
+    let totalClosed = 0;
+    let totalArchived = 0;
+
+    cases.forEach((c) => {
+      const s = (c.status || '').toLowerCase();
+      const isArchived = s === 'archived' || s.includes('archived') || (c.file_location || '').toLowerCase().includes('archive');
+      if (isArchived) {
+        totalArchived++;
+      } else if (
+        s === 'closed' ||
+        s.includes('closed') ||
+        s === 'concluded' ||
+        s === 'resolved' ||
+        Boolean(c.year_of_closure)
+      ) {
+        totalClosed++;
+      } else if (s.includes('inactive') || s.includes('dormant') || s.includes('pending') || s.includes('ruling')) {
+        totalPending++;
+      } else {
+        totalActive++;
+      }
+    });
+
+    return {
+      total: cases.length,
+      active: totalActive,
+      pending: totalPending,
+      closed: totalClosed,
+      archived: totalArchived,
+    };
+  }, [cases]);
+
+  // Branch statistics calculation helper with archived count
+  const getBranchCaseMetrics = (branch: any) => {
+    const targetCity = (branch.city || '').toLowerCase();
+    const targetName = (branch.name || '').toLowerCase();
+
+    const branchCases = cases.filter((c) => {
+      const bId = c.branchId;
+      const bName = (c.branch || c.branchName || '').toLowerCase();
+      return bId === branch.id || bName.includes(targetCity) || bName.includes(targetName);
+    });
+
+    const active = branchCases.filter((c) => {
+      const s = (c.status || 'Active').toLowerCase();
+      const isClosedOrArchived = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+      return !isClosedOrArchived && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
+    }).length;
+
+    const closed = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return (
+        (s === 'closed' ||
+        s.includes('closed') ||
+        s === 'concluded' ||
+        s === 'resolved' ||
+        Boolean(c.year_of_closure)) &&
+        s !== 'archived' &&
+        !s.includes('archived')
+      );
+    }).length;
+
+    const archived = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return s === 'archived' || s.includes('archived') || (c.file_location || '').toLowerCase().includes('archive');
+    }).length;
+
+    const pending = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      const isClosedOrArchived = s === 'closed' || s === 'archived' || s.includes('closed') || Boolean(c.year_of_closure);
+      return !isClosedOrArchived && (s.includes('inactive') || s.includes('dormant') || s.includes('pending') || s.includes('ruling'));
+    }).length;
+
+    return {
+      total: branchCases.length,
+      active,
+      pending,
+      closed,
+      archived,
+    };
+  };
+
   return (
     <div className="space-y-4">
       {/* Title & Actions */}
@@ -83,6 +170,33 @@ export const BranchSyncHub: React.FC = () => {
         </div>
       </div>
 
+      {/* Firm-Wide Live Case Synchronization Metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Matters</div>
+          <div className="text-xl font-extrabold text-emerald-700 mt-1">{overallMetrics.active}</div>
+          <div className="text-[11px] text-slate-400">across 7 circuits</div>
+        </div>
+        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending / Mention</div>
+          <div className="text-xl font-extrabold text-amber-700 mt-1">{overallMetrics.pending}</div>
+          <div className="text-[11px] text-slate-400">awaiting proceedings</div>
+        </div>
+        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Closed Matters</div>
+          <div className="text-xl font-extrabold text-slate-700 mt-1">{overallMetrics.closed}</div>
+          <div className="text-[11px] text-slate-400">judgments &amp; decrees</div>
+        </div>
+        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <Archive className="w-3 h-3 text-zinc-500" />
+            Archived Matters
+          </div>
+          <div className="text-xl font-extrabold text-zinc-800 mt-1">{overallMetrics.archived}</div>
+          <div className="text-[11px] text-slate-400">in branch safe archives</div>
+        </div>
+      </div>
+
       {/* Firm Organizational Structure Banner */}
       <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -100,7 +214,9 @@ export const BranchSyncHub: React.FC = () => {
 
       {/* Regional Branch Nodes Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-        {branches.map((b) => (
+        {branches.map((b) => {
+          const metrics = getBranchCaseMetrics(b);
+          return (
           <div
             key={b.id}
             className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
@@ -158,11 +274,33 @@ export const BranchSyncHub: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Active Cases:</span>
-                  <span className="font-mono font-medium text-slate-800">
-                    {b.caseCount} matters
-                  </span>
+                {/* Branch Case Registry Metrics including Archived */}
+                <div className="pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
+                    <span className="text-slate-500 font-semibold text-[11px]">Case Registry Metrics</span>
+                    <span className="font-mono text-xs font-bold text-slate-900">{metrics.total} total</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded px-2 py-1 flex items-center justify-between">
+                      <span className="font-medium">Active:</span>
+                      <strong className="font-bold">{metrics.active}</strong>
+                    </div>
+                    <div className="bg-amber-50 text-amber-800 border border-amber-200/80 rounded px-2 py-1 flex items-center justify-between">
+                      <span className="font-medium">Pending:</span>
+                      <strong className="font-bold">{metrics.pending}</strong>
+                    </div>
+                    <div className="bg-slate-100 text-slate-800 border border-slate-200 rounded px-2 py-1 flex items-center justify-between">
+                      <span className="font-medium">Closed:</span>
+                      <strong className="font-bold">{metrics.closed}</strong>
+                    </div>
+                    <div className="bg-zinc-100 text-zinc-800 border border-zinc-200 rounded px-2 py-1 flex items-center justify-between">
+                      <span className="font-medium flex items-center gap-1">
+                        <Archive className="w-3 h-3 text-zinc-600 inline" />
+                        Archived:
+                      </span>
+                      <strong className="font-bold">{metrics.archived}</strong>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -185,7 +323,8 @@ export const BranchSyncHub: React.FC = () => {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Staff Drawer Modal */}
