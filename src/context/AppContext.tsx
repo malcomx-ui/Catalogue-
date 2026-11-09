@@ -38,7 +38,9 @@ export type NavigationTab =
   | 'documents' 
   | 'analytics'
   | 'roles'
-  | 'settings';
+  | 'settings'
+  | 'debt_recovery'
+  | 'mortgages';
 
 interface AppContextType {
   currentUser: User;

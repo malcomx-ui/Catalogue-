@@ -24,6 +24,8 @@ import { PrintableCauseSheet } from './components/reports/PrintableCauseSheet';
 import { ImportExcelModal } from './components/catalogue/ImportExcelModal';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
+import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceholder';
+import { MortgagesPlaceholder } from './components/modules/MortgagesPlaceholder';
 import { isUserAdmin, supabase } from './lib/supabase';
 
 const MainLayout: React.FC = () => {
@@ -95,6 +97,8 @@ const MainLayout: React.FC = () => {
           {activeTab === 'dashboard' && <FirmDashboard />}
           {activeTab === 'catalogue' && <CaseList />}
           {activeTab === 'causelist' && <CauseListDiary />}
+          {activeTab === 'debt_recovery' && <DebtRecoveryPlaceholder />}
+          {activeTab === 'mortgages' && <MortgagesPlaceholder />}
           {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : <FirmDashboard />)}
           {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : <FirmDashboard />)}
           {activeTab === 'documents' && <DocumentRepository />}

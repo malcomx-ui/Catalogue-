@@ -21,6 +21,8 @@ import {
   Users,
   Cloud,
   ChevronDown,
+  Banknote,
+  Landmark,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -80,6 +82,16 @@ export const Sidebar: React.FC = () => {
       label: 'Deadlines',
       icon: CalendarDays,
       count: activeHearingsCount > 0 ? activeHearingsCount : undefined,
+    },
+    {
+      id: 'debt_recovery',
+      label: 'Debt Recovery',
+      icon: Banknote,
+    },
+    {
+      id: 'mortgages',
+      label: 'Mortgages',
+      icon: Landmark,
     },
   ];
 
