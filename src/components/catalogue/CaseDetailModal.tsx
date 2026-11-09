@@ -664,15 +664,20 @@ export const CaseDetailModal: React.FC = () => {
 
                 {/* Suit No. (Court Registry Identifier) */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_suit_no" className="block font-medium text-slate-700">
-                    Suit No. (Registry Identifier)
-                  </label>
+                  <div>
+                    <label htmlFor="edit_suit_no" className="block font-medium text-slate-700">
+                      Suit No.
+                    </label>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Unique identifier assigned by the court registry
+                    </p>
+                  </div>
                   <input
                     id="edit_suit_no"
                     type="text"
                     value={editForm.suit_no}
                     onChange={(e) => setEdit('suit_no', e.target.value)}
-                    placeholder="e.g. HCT-00-CC-CS-0245-2026"
+                    placeholder="HCT-00-CC-CS-0245-2026"
                     className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   />
                 </div>
@@ -1068,12 +1073,17 @@ export const CaseDetailModal: React.FC = () => {
             <div className="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
               {activeTab === 'overview' && (
                 <div className="space-y-4">
-                  {/* Card: Suit No. (Registry Identifier) */}
+                  {/* Card: Suit No. */}
                   <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-2">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                        <Gavel className="w-4 h-4 text-blue-600" />
-                        <span>Suit No. (Registry Identifier)</span>
+                      <div>
+                        <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                          <Gavel className="w-4 h-4 text-blue-600" />
+                          <span>Suit No.</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Unique identifier assigned by the court registry
+                        </p>
                       </div>
                       <span className="text-[10px] bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded">
                         Court Registry Assigned

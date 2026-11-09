@@ -382,15 +382,20 @@ export const NewCaseModal: React.FC = () => {
 
               {/* Suit No. (Court Registry Identifier) */}
               <div className="space-y-1.5">
-                <label htmlFor="suit_no" className="block font-medium text-slate-700">
-                  Suit No. (Unique identifier assigned by court registry)
-                </label>
+                <div>
+                  <label htmlFor="suit_no" className="block font-medium text-slate-700">
+                    Suit No.
+                  </label>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Unique identifier assigned by the court registry
+                  </p>
+                </div>
                 <input
                   id="suit_no"
                   type="text"
                   value={form.suit_no}
                   onChange={(e) => set('suit_no', e.target.value)}
-                  placeholder="e.g. HCT-00-CC-CS-0245-2026"
+                  placeholder="HCT-00-CC-CS-0245-2026"
                   className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
