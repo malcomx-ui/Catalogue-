@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   Users,
   Cloud,
+  ChevronDown,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -42,6 +43,13 @@ export const Sidebar: React.FC = () => {
     setIsCpanelMigrationModalOpen,
     systemSettings,
   } = useApp();
+
+  // Collapsible navigation state
+  const [isBranchesOpen, setIsBranchesOpen] = React.useState<boolean>(false);
+  const [isCounselHovered, setIsCounselHovered] = React.useState<boolean>(false);
+  const [isCounselClicked, setIsCounselClicked] = React.useState<boolean>(false);
+
+  const isCounselExpanded = isCounselHovered || isCounselClicked;
 
   const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
   const isAdmin = isUserAdmin(currentUser);
@@ -265,171 +273,221 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Regional Branches Section */}
+      {/* Regional Branches Section (Collapsible - Collapsed by default) */}
       <div className="p-3 pt-1 border-t border-slate-100 space-y-1">
-        <div className="flex items-center justify-between px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-          <div className="flex items-center gap-1.5">
-            <Building2 className="w-3 h-3 text-slate-400" />
-            <span>Branches ({branches.length})</span>
+        <button
+          type="button"
+          onClick={() => setIsBranchesOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold tracking-wider text-slate-500 uppercase hover:text-slate-900 hover:bg-slate-100/70 rounded-lg transition-colors group cursor-pointer"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Building2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            <span className="truncate">Branches ({branches.length})</span>
+            {selectedBranchFilter !== 'all' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" title="Filtered by branch" />
+            )}
           </div>
-          {userPermissions.canManageBranches && (
-            <button
-              onClick={() => {
-                setActiveTab('roles');
-                if (isMobile) setIsMobileMenuOpen(false);
-              }}
-              title="Add or manage branches in Super Admin Center"
-              className="text-[10px] text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1 rounded flex items-center gap-0.5 font-sans lowercase"
-            >
-              <Plus className="w-2.5 h-2.5" /> add
-            </button>
-          )}
-        </div>
-
-        {/* All Branches Option (Global Access only) */}
-        {userPermissions.canViewAllBranches && (
-          <button
-            onClick={() => handleBranchClick('all', isMobile)}
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs transition-all min-h-[38px] ${
-              selectedBranchFilter === 'all'
-                ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
-                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2 truncate">
+          <div className="flex items-center gap-1 shrink-0">
+            {userPermissions.canManageBranches && (
               <span
-                className={`w-2 h-2 rounded-full ${
-                  selectedBranchFilter === 'all' ? 'bg-blue-600' : 'bg-slate-300'
-                }`}
-              />
-              <span className="truncate">All Branches</span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
-          </button>
-        )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveTab('roles');
+                  if (isMobile) setIsMobileMenuOpen(false);
+                }}
+                title="Add or manage branches in Super Admin Center"
+                className="text-[10px] text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1 py-0.5 rounded flex items-center gap-0.5 font-sans lowercase mr-0.5"
+              >
+                <Plus className="w-2.5 h-2.5" /> add
+              </span>
+            )}
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+                isBranchesOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+        </button>
 
-        {/* Individual Branches List (restricted to own branch if branch staff) */}
-        <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
-          {branches
-            .filter((branch) => userPermissions.canViewAllBranches || branch.id === currentUser.branchId)
-            .map((branch) => {
-              const isSelected = selectedBranchFilter === branch.id || (!userPermissions.canViewAllBranches && branch.id === currentUser.branchId);
-              return (
-                <button
-                  key={branch.id}
-                  onClick={() => handleBranchClick(branch.id, isMobile)}
-                className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[36px] ${
-                  isSelected
+        {/* Expanded Branches List */}
+        {isBranchesOpen && (
+          <div className="space-y-1 pt-0.5">
+            {/* All Branches Option (Global Access only) */}
+            {userPermissions.canViewAllBranches && (
+              <button
+                onClick={() => handleBranchClick('all', isMobile)}
+                className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[34px] ${
+                  selectedBranchFilter === 'all'
                     ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-2 truncate min-w-0">
-                  <MapPin
-                    className={`w-3 h-3 shrink-0 ${
-                      isSelected ? 'text-blue-600' : 'text-slate-400'
+                <div className="flex items-center gap-2 truncate">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      selectedBranchFilter === 'all' ? 'bg-blue-600' : 'bg-slate-300'
                     }`}
                   />
-                  <div className="truncate">
-                    <span className="truncate">{branch.city}</span>
-                    {branch.isHeadquarters && (
-                      <span className="ml-1 text-[9px] text-blue-600 font-medium">HQ</span>
-                    )}
-                  </div>
+                  <span className="truncate">All Branches</span>
                 </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {branch.caseCount ?? 0}
-                  </span>
-                </div>
+                <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
               </button>
-            );
-          })}
-        </div>
+            )}
+
+            {/* Individual Branches List (restricted to own branch if branch staff) */}
+            <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+              {branches
+                .filter((branch) => userPermissions.canViewAllBranches || branch.id === currentUser.branchId)
+                .map((branch) => {
+                  const isSelected = selectedBranchFilter === branch.id || (!userPermissions.canViewAllBranches && branch.id === currentUser.branchId);
+                  return (
+                    <button
+                      key={branch.id}
+                      onClick={() => handleBranchClick(branch.id, isMobile)}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[34px] ${
+                        isSelected
+                          ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate min-w-0">
+                        <MapPin
+                          className={`w-3 h-3 shrink-0 ${
+                            isSelected ? 'text-blue-600' : 'text-slate-400'
+                          }`}
+                        />
+                        <div className="truncate">
+                          <span className="truncate">{branch.city}</span>
+                          {branch.isHeadquarters && (
+                            <span className="ml-1 text-[9px] text-blue-600 font-medium">HQ</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {branch.caseCount ?? 0}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Filter by Counsel Section */}
-      <div className="p-3 pt-1 border-t border-slate-100 space-y-1">
-        <div className="flex items-center justify-between px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
-          <div className="flex items-center gap-1.5">
-            <UserCheck className="w-3 h-3 text-slate-400" />
-            <span>Litigation Counsel</span>
-          </div>
-          {selectedLawyerFilter !== 'all' && (
-            <button
-              onClick={() => handleLawyerClick('all', isMobile)}
-              className="text-[10px] text-indigo-600 hover:text-indigo-800 lowercase font-sans font-medium"
-            >
-              clear
-            </button>
-          )}
-        </div>
-
-        {/* All Lawyers Option */}
+      {/* Filter by Counsel Section (Hover / Click Expandable - Collapsed by default) */}
+      <div
+        className="p-3 pt-1 border-t border-slate-100 space-y-1 transition-all"
+        onMouseEnter={() => setIsCounselHovered(true)}
+        onMouseLeave={() => {
+          setIsCounselHovered(false);
+          setIsCounselClicked(false);
+        }}
+      >
         <button
-          onClick={() => handleLawyerClick('all', isMobile)}
-          className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[36px] ${
-            selectedLawyerFilter === 'all'
-              ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-          }`}
+          type="button"
+          onClick={() => setIsCounselClicked((prev) => !prev)}
+          className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold tracking-wider text-slate-500 uppercase hover:text-slate-900 hover:bg-slate-100/70 rounded-lg transition-colors group cursor-pointer"
         >
-          <div className="flex items-center gap-2 truncate">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                selectedLawyerFilter === 'all' ? 'bg-indigo-600' : 'bg-slate-300'
+          <div className="flex items-center gap-1.5 min-w-0">
+            <UserCheck className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            <span className="truncate">Litigation Counsel ({activeLawyers.length})</span>
+            {selectedLawyerFilter !== 'all' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" title="Counsel filter active" />
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {selectedLawyerFilter !== 'all' && (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLawyerClick('all', isMobile);
+                }}
+                className="text-[10px] text-indigo-600 hover:text-indigo-800 lowercase font-sans font-medium px-1 hover:bg-indigo-50 rounded mr-0.5"
+                title="Clear counsel filter"
+              >
+                clear
+              </span>
+            )}
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
+                isCounselExpanded ? 'rotate-180' : ''
               }`}
             />
-            <span className="truncate">All Counsel</span>
           </div>
-          <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
         </button>
 
-        {/* Dynamic Lawyers List from Matched Matters */}
-        <div className="space-y-0.5 max-h-40 overflow-y-auto pr-1">
-          {activeLawyers.length === 0 ? (
-            <div className="px-3 py-2 text-[11px] text-slate-400 italic">
-              No counsel assigned yet
-            </div>
-          ) : (
-            activeLawyers.map((lawyer) => {
-              const isSelected =
-                selectedLawyerFilter.toLowerCase() === lawyer.name.toLowerCase();
-              return (
-                <button
-                  key={lawyer.name}
-                  onClick={() => handleLawyerClick(lawyer.name, isMobile)}
-                  className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[36px] ${
-                    isSelected
-                      ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+        {/* Dynamic Lawyers List (Revealed only on hover or click) */}
+        {isCounselExpanded && (
+          <div className="space-y-1 pt-0.5">
+            {/* All Lawyers Option */}
+            <button
+              onClick={() => handleLawyerClick('all', isMobile)}
+              className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[34px] ${
+                selectedLawyerFilter === 'all'
+                  ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    selectedLawyerFilter === 'all' ? 'bg-indigo-600' : 'bg-slate-300'
                   }`}
-                  title={lawyer.name}
-                >
-                  <div className="flex items-center gap-2 truncate min-w-0">
-                    <UserCheck
-                      className={`w-3 h-3 shrink-0 ${
-                        isSelected ? 'text-indigo-600' : 'text-slate-400'
-                      }`}
-                    />
-                    <span className="truncate font-medium">{lawyer.name}</span>
-                  </div>
+                />
+                <span className="truncate">All Counsel</span>
+              </div>
+              <span className="text-[10px] font-mono text-slate-400">{cases.length}</span>
+            </button>
 
-                  <span
-                    className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
-                      isSelected
-                        ? 'bg-indigo-200 text-indigo-900 font-bold'
-                        : 'bg-slate-100 text-slate-500'
-                    }`}
-                  >
-                    {lawyer.count}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
+            {/* Dynamic Lawyers List from Matched Matters */}
+            <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
+              {activeLawyers.length === 0 ? (
+                <div className="px-3 py-2 text-[11px] text-slate-400 italic">
+                  No counsel assigned yet
+                </div>
+              ) : (
+                activeLawyers.map((lawyer) => {
+                  const isSelected =
+                    selectedLawyerFilter.toLowerCase() === lawyer.name.toLowerCase();
+                  return (
+                    <button
+                      key={lawyer.name}
+                      onClick={() => handleLawyerClick(lawyer.name, isMobile)}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[34px] ${
+                        isSelected
+                          ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      title={lawyer.name}
+                    >
+                      <div className="flex items-center gap-2 truncate min-w-0">
+                        <UserCheck
+                          className={`w-3 h-3 shrink-0 ${
+                            isSelected ? 'text-indigo-600' : 'text-slate-400'
+                          }`}
+                        />
+                        <span className="truncate font-medium">{lawyer.name}</span>
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.2 rounded ${
+                          isSelected
+                            ? 'bg-indigo-200 text-indigo-900 font-bold'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {lawyer.count}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cloud Deploy (Supabase & Vercel) Shortcut - Strictly restricted to Super Admins / Admins only */}
