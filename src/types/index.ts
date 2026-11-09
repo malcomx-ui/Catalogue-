@@ -269,7 +269,7 @@ export const CASE_TYPES = [
 export const CASE_STATUSES = [
   { value: 'Active', label: 'Active' },
   { value: 'Mention', label: 'Mention' },
-  { value: 'Pending Ruling', label: 'Pending Ruling' },
+  { value: 'Pending Ruling / Judgment', label: 'Pending Ruling / Judgment' },
   { value: 'At Execution', label: 'At Execution' },
   { value: 'Closed', label: 'Closed' },
   { value: 'Archived', label: 'Archived' },
@@ -282,6 +282,7 @@ export const CASE_STATUSES = [
 export type CaseStatus =
   | 'Active'
   | 'Mention'
+  | 'Pending Ruling / Judgment'
   | 'Pending Ruling'
   | 'Closed'
   | 'At Execution'

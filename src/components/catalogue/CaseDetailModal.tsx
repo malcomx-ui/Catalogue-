@@ -243,7 +243,7 @@ export const CaseDetailModal: React.FC = () => {
         statusLower === 'closed' ? 'Closed' :
         statusLower.includes('execution') ? 'At Execution' :
         statusLower === 'mention' ? 'Mention' :
-        statusLower === 'pending ruling' ? 'Pending Ruling' :
+        statusLower.includes('ruling') ? 'Pending Ruling / Judgment' :
         statusLower === 'pending' ? 'Pending' :
         statusLower === 'instructions' ? 'Instructions' :
         statusLower === 'adjourned' ? 'Adjourned' :

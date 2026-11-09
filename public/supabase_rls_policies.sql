@@ -26,7 +26,7 @@ DO $$
 BEGIN
   ALTER TABLE IF EXISTS public.cases DROP CONSTRAINT IF EXISTS chk_cases_status;
   ALTER TABLE IF EXISTS public.cases ADD CONSTRAINT chk_cases_status 
-    CHECK (status IN ('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'));
+    CHECK (status IN ('Active', 'Mention', 'Pending Ruling / Judgment', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'));
 EXCEPTION
   WHEN OTHERS THEN NULL;
 END $$;

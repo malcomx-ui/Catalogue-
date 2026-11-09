@@ -94,7 +94,7 @@ CREATE TABLE `cases` (
   `opposing_counsel` VARCHAR(200) DEFAULT NULL,
   `practice_area` VARCHAR(100) DEFAULT NULL,
   `branch_id` VARCHAR(64) DEFAULT NULL,
-  `status` ENUM('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Stayed', 'Dormant') DEFAULT 'Active',
+  `status` ENUM('Active', 'Mention', 'Pending Ruling / Judgment', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Stayed', 'Dormant') DEFAULT 'Active',
   `stage` VARCHAR(100) DEFAULT NULL,
   `filing_date` DATE DEFAULT NULL,
   `summary` LONGTEXT DEFAULT NULL,

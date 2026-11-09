@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS public.cases (
     file_location TEXT DEFAULT 'Central Registry Safe',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    CONSTRAINT chk_cases_status CHECK (status IN ('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'))
+    CONSTRAINT chk_cases_status CHECK (status IN ('Active', 'Mention', 'Pending Ruling / Judgment', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_cases_suit_no ON public.cases(suit_no);

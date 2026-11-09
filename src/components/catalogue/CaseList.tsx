@@ -137,7 +137,7 @@ export const CaseList: React.FC = () => {
         if (!statusLower.includes('active') && !statusLower.includes('ongoing')) return false;
       } else if (filterLower === 'mention') {
         if (!statusLower.includes('mention')) return false;
-      } else if (filterLower === 'pending ruling') {
+      } else if (filterLower === 'pending ruling' || filterLower === 'pending ruling / judgment') {
         if (!statusLower.includes('ruling') && !statusLower.includes('judgment')) return false;
       } else if (filterLower === 'pending') {
         if (statusLower.includes('ruling') || !statusLower.includes('pending')) return false;
@@ -318,7 +318,7 @@ export const CaseList: React.FC = () => {
               return !s.includes('closed') && !s.includes('archived') && !s.includes('dormant') && !s.includes('execution') && (s.includes('active') || s.includes('ongoing'));
             }).length})</option>
             <option value="Mention">Mention ({filteredCases.filter(c => (c.status || '').toLowerCase().includes('mention')).length})</option>
-            <option value="Pending Ruling">Pending Ruling ({filteredCases.filter(c => (c.status || '').toLowerCase().includes('ruling') || (c.status || '').toLowerCase().includes('judgment')).length})</option>
+            <option value="Pending Ruling / Judgment">Pending Ruling / Judgment ({filteredCases.filter(c => (c.status || '').toLowerCase().includes('ruling') || (c.status || '').toLowerCase().includes('judgment')).length})</option>
             <option value="At Execution">At Execution ({filteredCases.filter(c => {
               const s = (c.status || '').toLowerCase();
               return s.includes('execution') || s.includes('decree') || (c.stage || '').toLowerCase().includes('execution');
