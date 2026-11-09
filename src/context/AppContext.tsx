@@ -172,8 +172,14 @@ const EMPTY_USER: User = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication & Security state - Strictly unauthenticated on initial load
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  // Authentication & Security state - initialized from storage if active session exists
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
 
   // Custom Roles state - initialized with Super Admin, Branch Administrator, Team Lead, Advocate, Clerk
   const [roles, setRoles] = useState<CustomRole[]>(() => {
@@ -211,8 +217,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_USERS;
   });
 
-  // Current logged in user - strictly unauthenticated on load with no super-admin bypass
-  const [currentUser, setCurrentUser] = useState<User>(EMPTY_USER);
+  // Current logged in user - pre-warmed from local cache, then immediately refreshed from profiles database table
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    try {
+      const isAuth = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
+      const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
+      if (isAuth === 'true' && savedUserStr) {
+        const parsed = JSON.parse(savedUserStr);
+        if (parsed && parsed.email) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return EMPTY_USER;
+  });
 
   // Branches state - clean branches with 0 demo lawyers
   const [branches, setBranches] = useState<Branch[]>(() => {
@@ -647,6 +665,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Central Server API & Multi-Computer Sync state
   const [isServerConnected, setIsServerConnected] = useState<boolean>(true);
   const [isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen] = useState<boolean>(false);
+
+  // Dedicated Initial Session & Database Profile Loader:
+  // On initial load or refresh, fetch the active user's record directly from the database
+  // ('profiles' table joined with auth session) rather than relying on stale browser localStorage or session cache.
+  // Ensures branch_id, branch_name, and role state variables are initialized from this fresh server fetch.
+  useEffect(() => {
+    let isMounted = true;
+
+    async function syncActiveUserProfileFromDb() {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const authUser = sessionData?.session?.user;
+
+        if (!authUser) {
+          const hasAuth = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
+          if (!hasAuth && isMounted) {
+            setIsAuthenticated(false);
+          }
+          return;
+        }
+
+        // Fetch fresh profile row directly from database 'profiles' table joined with auth session
+        let freshProfile: any = null;
+        try {
+          const { data: pById, error: idErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          if (pById && !idErr) freshProfile = pById;
+        } catch (e) {}
+
+        if (!freshProfile && authUser.email) {
+          try {
+            const { data: pEmail, error: emErr } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('email', authUser.email.trim().toLowerCase())
+              .maybeSingle();
+            if (pEmail && !emErr) freshProfile = pEmail;
+          } catch (e) {}
+        }
+
+        if (!freshProfile) {
+          try {
+            const token = sessionData?.session?.access_token;
+            const headers: Record<string, string> = {};
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const apiRes = await fetch('/api/profiles', { headers });
+            if (apiRes.ok) {
+              const apiJson = await apiRes.json();
+              const pList = apiJson.profiles || apiJson.data || [];
+              freshProfile = pList.find(
+                (p: any) => p.id === authUser.id || (p.email && p.email.toLowerCase() === authUser.email?.toLowerCase())
+              );
+            }
+          } catch (e) {}
+        }
+
+        if (!isMounted) return;
+
+        // Initialize branch_id, branch_name, and role state variables from this fresh server fetch
+        const email = (authUser.email || freshProfile?.email || '').trim().toLowerCase();
+        const fullName = freshProfile?.full_name || freshProfile?.name || authUser.user_metadata?.full_name || email.split('@')[0] || 'User';
+
+        const roleMeta = resolveUserRoleMeta(
+          freshProfile?.role || authUser.user_metadata?.role,
+          freshProfile?.role_id || freshProfile?.roleId || authUser.user_metadata?.role_id,
+          Boolean(freshProfile?.is_super_admin ?? authUser.user_metadata?.is_super_admin),
+          email
+        );
+
+        const branchMeta = resolveBranchMeta(
+          freshProfile?.branch_id || authUser.user_metadata?.branch_id,
+          freshProfile?.branch_name || freshProfile?.branch || authUser.user_metadata?.branch_name || authUser.user_metadata?.branch
+        );
+
+        const mustChangePassword = Boolean(
+          freshProfile?.must_change_password ??
+          authUser.user_metadata?.must_change_password ??
+          false
+        );
+
+        const freshUser: User = {
+          id: authUser.id,
+          email,
+          name: fullName,
+          role: roleMeta.role as any,
+          roleId: roleMeta.roleId,
+          roleTitle: freshProfile?.role_title || roleMeta.roleTitle,
+          branchId: branchMeta.id,
+          branchName: branchMeta.name,
+          isSuperAdmin: roleMeta.isSuperAdmin,
+          isBranchAdmin: roleMeta.isBranchAdmin,
+          mustChangePassword,
+        };
+
+        setCurrentUser(freshUser);
+        setIsAuthenticated(true);
+
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
+          localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(freshUser));
+        } catch (e) {}
+
+        if (!freshUser.isSuperAdmin && freshUser.role !== 'partner' && freshUser.role !== 'lawyer') {
+          setSelectedBranchFilter(branchMeta.id);
+        }
+      } catch (err) {
+        console.warn('Direct database profile initialization error:', err);
+      }
+    }
+
+    syncActiveUserProfileFromDb();
+
+    return () => { isMounted = false; };
+  }, []);
 
   // Initial Data Loader: Fetches live rows directly from Supabase tables (cases)
   useEffect(() => {
@@ -1268,13 +1403,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updatedList;
     });
 
-    // 2. Perform real update query in Supabase (await supabase.from('staff').update({...}).eq('id', userId))
+    // 2. Perform real update query in Supabase and server API
     try {
       const res = await SupabaseService.updateStaff(userId, mergedUpdates);
+      if (res.data) {
+        const p = res.data;
+        const bMeta = resolveBranchMeta(p.branch_id, p.branch_name || p.branch);
+        const rMeta = resolveUserRoleMeta(p.role, p.role_id, Boolean(p.is_super_admin), p.email);
+
+        // Instantly update current user if the modified staff member is the active session
+        setCurrentUser((current) => {
+          if (current.id === userId || (current.email && p.email && current.email.toLowerCase() === p.email.toLowerCase())) {
+            const updatedSelf: User = {
+              ...current,
+              name: p.full_name || p.name || current.name,
+              email: p.email || current.email,
+              role: rMeta.role as any,
+              roleId: rMeta.roleId,
+              roleTitle: p.role_title || rMeta.roleTitle,
+              branchId: bMeta.id,
+              branchName: bMeta.name,
+              isSuperAdmin: rMeta.isSuperAdmin,
+              isBranchAdmin: rMeta.isBranchAdmin,
+            };
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updatedSelf));
+            } catch (e) {}
+            if (!updatedSelf.isSuperAdmin && updatedSelf.role !== 'partner' && updatedSelf.role !== 'lawyer') {
+              setSelectedBranchFilter(updatedSelf.branchId);
+            }
+            return updatedSelf;
+          }
+          return current;
+        });
+      }
+
       if (!res.success && res.error) {
         console.warn('Supabase staff update warning:', res.error);
       }
-      // 3. Refetch updated staff list from Supabase so edits persist on reload
+      // 3. Refetch updated staff list from Supabase profiles table so edits persist on reload
       await refreshStaffFromSupabase();
       return { success: true };
     } catch (err: any) {

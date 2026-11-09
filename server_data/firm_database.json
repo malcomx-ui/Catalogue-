@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-11-09T10:44:54.995Z",
+  "lastUpdated": "2026-11-09T13:10:07.626Z",
   "cases": [],
   "hearings": [],
   "documents": [],
@@ -120,15 +120,15 @@
     },
     {
       "id": "user-admin",
-      "name": "Firm Administrator",
+      "name": "Sole Managing Partner",
       "email": "infosightug@gmail.com",
       "role": "partner",
-      "roleId": "partner",
-      "roleTitle": "Sole Managing Partner & Super Admin",
-      "branchId": "Kampala Central",
-      "branchName": "Kampala Central",
+      "roleId": "role-super-admin",
+      "roleTitle": "Managing Partner (Super Admin)",
+      "branchId": "kla-hq",
+      "branchName": "Kampala Central (Head Office)",
       "isSuperAdmin": true,
-      "isBranchAdmin": true,
+      "isBranchAdmin": false,
       "password": "Admin@2026",
       "advocateRollNo": ""
     }

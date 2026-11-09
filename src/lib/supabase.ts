@@ -874,6 +874,7 @@ export const SupabaseService = {
             role_title: updates.roleTitle,
             branch: updates.branchName,
             branch_name: updates.branchName,
+            branch_id: updates.branchId,
           },
         });
       }

@@ -462,9 +462,87 @@ app.post('/api/database', (req: Request, res: Response) => {
 // ==============================================================================
 // User Update API Route: Syncs BOTH Supabase Auth user_metadata AND public profiles table
 // ==============================================================================
+// Helper to resolve canonical branch station
+function resolveCanonicalBranch(branchId?: string, branchName?: string) {
+  const clean = `${branchId || ''} ${branchName || ''}`.toLowerCase();
+  if (branchId === 'ftp-reg' || clean.includes('fort') || clean.includes('portal') || clean.includes('ftp')) {
+    return { id: 'ftp-reg', name: 'Fort Portal Regional Office' };
+  }
+  if (branchId === 'mbr-reg' || clean.includes('mbarara') || clean.includes('mbr')) {
+    return { id: 'mbr-reg', name: 'Mbarara Regional Office' };
+  }
+  if (branchId === 'msk-reg' || clean.includes('masaka') || clean.includes('msk')) {
+    return { id: 'msk-reg', name: 'Masaka Regional Office' };
+  }
+  if (branchId === 'jnj-reg' || clean.includes('jinja') || clean.includes('jnj')) {
+    return { id: 'jnj-reg', name: 'Jinja Regional Office' };
+  }
+  if (branchId === 'glu-reg' || clean.includes('gulu') || clean.includes('glu')) {
+    return { id: 'glu-reg', name: 'Gulu Regional Office' };
+  }
+  if (branchId === 'msn-reg' || clean.includes('masindi') || clean.includes('msn')) {
+    return { id: 'msn-reg', name: 'Masindi Regional Office' };
+  }
+  return { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
+}
+
+// Helper to resolve canonical role and privileges
+function resolveCanonicalRole(roleId?: string, roleTitle?: string, isSuper?: boolean) {
+  const clean = `${roleId || ''} ${roleTitle || ''}`.toLowerCase();
+  if (isSuper || clean.includes('super') || clean.includes('partner') || clean.includes('managing')) {
+    return {
+      roleId: 'role-super-admin',
+      role: 'partner',
+      roleTitle: 'Managing Partner (Super Admin)',
+      isSuperAdmin: true,
+      isBranchAdmin: false,
+    };
+  }
+  if (clean.includes('admin') || clean.includes('branch_admin') || clean.includes('branch-admin')) {
+    return {
+      roleId: 'role-admin',
+      role: 'admin',
+      roleTitle: 'Branch Administrator',
+      isSuperAdmin: false,
+      isBranchAdmin: true,
+    };
+  }
+  if (clean.includes('team') || clean.includes('lead')) {
+    return {
+      roleId: 'role-team-lead',
+      role: 'lawyer',
+      roleTitle: 'Litigation Team Lead',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+  if (clean.includes('clerk')) {
+    return {
+      roleId: 'role-clerk',
+      role: 'clerk',
+      roleTitle: 'Court Registry Clerk',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+  return {
+    roleId: 'role-advocate',
+    role: 'lawyer',
+    roleTitle: roleTitle || 'Litigation Lawyer / Associate',
+    isSuperAdmin: false,
+    isBranchAdmin: false,
+  };
+}
+
+// ==============================================================================
+// User Update API Route: Atomically updates Supabase Auth user_metadata,
+// public profiles table, and firm_users, returning complete updated record
+// ==============================================================================
 const handleUserUpdate = async (req: Request, res: Response) => {
   try {
-    const targetId = String(req.params.id || req.body.userId || req.body.id || '');
+    const rawParamId = req.params?.id;
+    const validParamId = rawParamId && rawParamId !== 'update' && rawParamId !== 'create' ? rawParamId : '';
+    const targetId = String(req.body.userId || req.body.id || validParamId || '');
     const {
       name,
       full_name,
@@ -490,68 +568,50 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       password,
     } = req.body;
 
-    const resolvedName = (name || full_name || '').trim();
-    const resolvedRole = (roleId || role_id || role || '').trim();
-    const resolvedRoleTitle = (roleTitle || role_title || '').trim();
-    const resolvedBranch = (branchName || branch_name || branch || '').trim();
-    const resolvedBranchId = (branchId || branch_id || '').trim();
     const resolvedEmail = (email || '').trim().toLowerCase();
+    const resolvedName = (name || full_name || '').trim();
+    const rawBranchId = (branchId || branch_id || '').trim();
+    const rawBranchName = (branchName || branch_name || branch || '').trim();
+    const rawRoleId = (roleId || role_id || role || '').trim();
+    const rawRoleTitle = (roleTitle || role_title || '').trim();
+    const isSuperInput = isSuperAdmin !== undefined ? Boolean(isSuperAdmin) : (is_super_admin !== undefined ? Boolean(is_super_admin) : undefined);
+    const isBranchInput = isBranchAdmin !== undefined ? Boolean(isBranchAdmin) : (is_branch_admin !== undefined ? Boolean(is_branch_admin) : undefined);
+
+    // Resolve canonical station and role
+    const branchMeta = resolveCanonicalBranch(rawBranchId, rawBranchName);
+    const roleMeta = resolveCanonicalRole(rawRoleId, rawRoleTitle, isSuperInput);
+    if (isBranchInput !== undefined) {
+      roleMeta.isBranchAdmin = isBranchInput;
+    }
+
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
 
-    // Initialize authenticated Supabase client if Authorization header is provided
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.replace(/^Bearer\s+/i, '').trim();
-    const clientToUse = token
-      ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-          accessToken: async () => token,
-          auth: { autoRefreshToken: false, persistSession: false },
-        })
-      : supabaseAdmin;
-
-    // 1. Prepare user_metadata for Supabase Auth
-    const userMetadata: Record<string, any> = {};
-    if (resolvedName) {
-      userMetadata.full_name = resolvedName;
-      userMetadata.name = resolvedName;
-    }
-    if (resolvedRole) {
-      userMetadata.role = resolvedRole;
-      userMetadata.role_id = resolvedRole;
-    }
-    if (resolvedRoleTitle) userMetadata.role_title = resolvedRoleTitle;
-    if (resolvedBranch) {
-      userMetadata.branch = resolvedBranch;
-      userMetadata.branch_name = resolvedBranch;
-    }
-    if (resolvedBranchId) userMetadata.branch_id = resolvedBranchId;
-    if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
-      userMetadata.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
-    }
-    if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
-      userMetadata.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
-    }
-
-    // 1a. Update Supabase Auth user_metadata using supabaseAdmin.auth.admin.updateUserById
-    let authUpdated = false;
-    let authError: string | null = null;
+    // 1. Resolve Auth UUID
     let authUserId: string | null = isUUID ? targetId : null;
+    let existingProfile: any = null;
 
+    // Check profiles table for target
     try {
-      // If targetId is not a UUID, attempt to resolve auth UUID via profiles table or Auth user list
-      if (!authUserId && resolvedEmail) {
-        try {
-          const { data: pLookup } = await clientToUse
-            .from('profiles')
-            .select('id')
-            .eq('email', resolvedEmail)
-            .maybeSingle();
-          if (pLookup?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pLookup.id)) {
-            authUserId = pLookup.id;
-          }
-        } catch (pe) {}
+      if (authUserId) {
+        const { data: pById } = await supabaseAdmin.from('profiles').select('*').eq('id', authUserId).maybeSingle();
+        if (pById) existingProfile = pById;
       }
+      if (!existingProfile && resolvedEmail) {
+        const { data: pByEmail } = await supabaseAdmin.from('profiles').select('*').eq('email', resolvedEmail).maybeSingle();
+        if (pByEmail) {
+          existingProfile = pByEmail;
+          if (pByEmail.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pByEmail.id)) {
+            authUserId = pByEmail.id;
+          }
+        }
+      }
+    } catch (lookupErr) {
+      console.warn('[User Update] Profile lookup notice:', lookupErr);
+    }
 
-      if (!authUserId && resolvedEmail) {
+    // Check Supabase Auth user list if authUserId not resolved
+    if (!authUserId && resolvedEmail) {
+      try {
         const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
         const matched = userList?.users?.find(
           (u) => u.email?.toLowerCase() === resolvedEmail
@@ -559,13 +619,43 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         if (matched) {
           authUserId = matched.id;
         }
+      } catch (authListErr) {
+        console.warn('[User Update] Auth user list notice:', authListErr);
       }
+    }
 
-      if (authUserId) {
+    const finalFullName = resolvedName || existingProfile?.full_name || existingProfile?.name || '';
+    const finalEmail = resolvedEmail || existingProfile?.email || '';
+
+    // 2. Prepare user_metadata for Supabase Auth
+    const userMetadata: Record<string, any> = {
+      role: roleMeta.roleId,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      branch_id: branchMeta.id,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
+    };
+    if (finalFullName) {
+      userMetadata.full_name = finalFullName;
+      userMetadata.name = finalFullName;
+    }
+    if (advocateRollNo || advocate_roll_no) {
+      userMetadata.advocate_roll_no = advocateRollNo || advocate_roll_no;
+    }
+
+    // 3. Update Supabase Auth user_metadata (via supabaseAdmin.auth.admin.updateUserById)
+    let authUpdated = false;
+    let authError: string | null = null;
+
+    if (authUserId) {
+      try {
         const authPayload: any = {
           user_metadata: userMetadata,
         };
-        if (resolvedEmail) authPayload.email = resolvedEmail;
+        if (finalEmail) authPayload.email = finalEmail;
         if (password && password.trim()) authPayload.password = password.trim();
 
         const { data: updatedAuthUser, error: authErr } = await supabaseAdmin.auth.admin.updateUserById(
@@ -578,136 +668,128 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           authError = authErr.message;
           console.warn('[User Update API] supabaseAdmin.auth.admin.updateUserById notice:', authErr.message);
         }
+      } catch (authEx: any) {
+        authError = authEx?.message || 'Auth admin update exception';
+        console.warn('[User Update API] Auth update exception:', authEx);
       }
-    } catch (authEx: any) {
-      authError = authEx?.message || 'Auth admin update exception';
-      console.warn('[User Update API] Auth update exception:', authEx);
     }
 
-    // 2. Simultaneously sync to public 'profiles' table using clean schema columns (full_name, role, branch_id, branch_name, branch, email)
-    const profileRow: Record<string, any> = {};
-    if (resolvedName) profileRow.full_name = resolvedName;
-    if (resolvedRole) {
-      profileRow.role = resolvedRole;
-      profileRow.role_id = resolvedRole;
-    }
-    if (resolvedRoleTitle) profileRow.role_title = resolvedRoleTitle;
-    if (resolvedBranch) {
-      profileRow.branch = resolvedBranch;
-      profileRow.branch_name = resolvedBranch;
-    }
-    if (resolvedBranchId) {
-      profileRow.branch_id = resolvedBranchId;
-    }
-    if (resolvedEmail) profileRow.email = resolvedEmail;
-    if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
-      profileRow.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
-    }
-    if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
-      profileRow.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
-    }
-    profileRow.updated_at = new Date().toISOString();
+    // 4. Update public 'profiles' table atomically
+    const profileRow: Record<string, any> = {
+      role: roleMeta.roleId,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      branch_id: branchMeta.id,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
+      updated_at: new Date().toISOString(),
+    };
+    if (finalFullName) profileRow.full_name = finalFullName;
+    if (finalEmail) profileRow.email = finalEmail;
+    if (authUserId) profileRow.id = authUserId;
 
     let profileUpdated = false;
-    let profileData: any = null;
+    let completeProfile: any = null;
 
-    // Try update by auth UUID if known
-    if (authUserId && Object.keys(profileRow).length > 0) {
-      const { data: pData, error: pErr } = await clientToUse
-        .from('profiles')
-        .update(profileRow)
-        .eq('id', authUserId)
-        .select('*');
-      if (!pErr && pData && pData.length > 0) {
-        profileUpdated = true;
-        profileData = pData[0];
+    try {
+      // 4a. Update by authUserId if available
+      if (authUserId) {
+        const { data: pData, error: pErr } = await supabaseAdmin
+          .from('profiles')
+          .update(profileRow)
+          .eq('id', authUserId)
+          .select('*');
+
+        if (!pErr && pData && pData.length > 0) {
+          profileUpdated = true;
+          completeProfile = pData[0];
+        }
       }
+
+      // 4b. Update by email if not updated
+      if (!profileUpdated && finalEmail) {
+        const { data: pEmailData, error: peErr } = await supabaseAdmin
+          .from('profiles')
+          .update(profileRow)
+          .eq('email', finalEmail)
+          .select('*');
+
+        if (!peErr && pEmailData && pEmailData.length > 0) {
+          profileUpdated = true;
+          completeProfile = pEmailData[0];
+        }
+      }
+
+      // 4c. Upsert into profiles to ensure record exists
+      if (!profileUpdated && (authUserId || finalEmail)) {
+        const upsertRow: any = {
+          ...profileRow,
+          id: authUserId || (isUUID ? targetId : undefined),
+          email: finalEmail || undefined,
+        };
+        if (!upsertRow.id) delete upsertRow.id;
+
+        const { data: insData, error: insErr } = await supabaseAdmin
+          .from('profiles')
+          .upsert([upsertRow], { onConflict: authUserId ? 'id' : 'email' })
+          .select('*');
+
+        if (!insErr && insData && insData.length > 0) {
+          profileUpdated = true;
+          completeProfile = insData[0];
+        }
+      }
+    } catch (profErr) {
+      console.warn('[User Update] Profiles update exception:', profErr);
     }
 
-    // If targetId is UUID and not already updated
-    if (!profileUpdated && isUUID && Object.keys(profileRow).length > 0) {
-      const { data: pData, error: pErr } = await clientToUse
-        .from('profiles')
-        .update(profileRow)
-        .eq('id', targetId)
-        .select('*');
-      if (!pErr && pData && pData.length > 0) {
-        profileUpdated = true;
-        profileData = pData[0];
-      }
-    }
-
-    // Try update by email in profiles
-    if (!profileUpdated && resolvedEmail && Object.keys(profileRow).length > 0) {
-      const { data: pEmailData, error: peErr } = await clientToUse
-        .from('profiles')
-        .update(profileRow)
-        .eq('email', resolvedEmail)
-        .select('*');
-      if (!peErr && pEmailData && pEmailData.length > 0) {
-        profileUpdated = true;
-        profileData = pEmailData[0];
-      }
-    }
-
-    // If still not updated, upsert into profiles
-    if (!profileUpdated && (authUserId || resolvedEmail)) {
-      const insertRow: any = {
-        ...profileRow,
-        id: authUserId || (isUUID ? targetId : undefined),
-        email: resolvedEmail || undefined,
-      };
-      if (!insertRow.id) delete insertRow.id;
-      const { data: insData } = await clientToUse
-        .from('profiles')
-        .upsert([insertRow])
-        .select('*');
-      if (insData && insData.length > 0) {
-        profileUpdated = true;
-        profileData = insData[0];
-      }
-    }
-
-    // 3. Keep firm_users table synchronized
+    // 5. Keep public 'firm_users' table synchronized
     try {
       const firmUserUpdates: any = {
-        name: resolvedName || undefined,
-        role: resolvedRole || undefined,
-        role_title: resolvedRoleTitle || undefined,
-        branch_name: resolvedBranch || undefined,
-        branch_id: resolvedBranchId || undefined,
+        name: finalFullName || undefined,
+        role: roleMeta.roleId,
+        role_title: roleMeta.roleTitle,
+        branch_name: branchMeta.name,
+        branch_id: branchMeta.id,
+        is_super_admin: roleMeta.isSuperAdmin,
+        is_branch_admin: roleMeta.isBranchAdmin,
+        updated_at: new Date().toISOString(),
       };
+      if (finalEmail) firmUserUpdates.email = finalEmail;
       if (advocateRollNo || advocate_roll_no) {
         firmUserUpdates.advocate_roll_no = advocateRollNo || advocate_roll_no;
       }
-      if (isSuperAdmin !== undefined || is_super_admin !== undefined) {
-        firmUserUpdates.is_super_admin = Boolean(isSuperAdmin ?? is_super_admin);
-      }
-      if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
-        firmUserUpdates.is_branch_admin = Boolean(isBranchAdmin ?? is_branch_admin);
-      }
 
-      await clientToUse.from('firm_users').update(firmUserUpdates).eq('id', targetId);
-      if (resolvedEmail) {
-        await clientToUse.from('firm_users').update(firmUserUpdates).eq('email', resolvedEmail);
+      if (authUserId) {
+        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', authUserId);
       }
-    } catch (fuErr) {}
+      if (targetId && targetId !== authUserId) {
+        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', targetId);
+      }
+      if (finalEmail) {
+        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('email', finalEmail);
+      }
+    } catch (fuErr) {
+      console.warn('[User Update] firm_users update notice:', fuErr);
+    }
 
-    // 4. Update in-memory server database
+    // 6. Update in-memory and server_data/firm_database.json
     const db = readDatabase();
     db.users = (db.users || []).map((u: any) => {
-      if (u.id === targetId || (resolvedEmail && u.email?.toLowerCase() === resolvedEmail)) {
+      if (u.id === targetId || u.id === authUserId || (finalEmail && u.email?.toLowerCase() === finalEmail)) {
         return {
           ...u,
-          name: resolvedName || u.name,
-          email: resolvedEmail || u.email,
-          role: resolvedRole || u.role,
-          roleId: roleId || role_id || u.roleId,
-          roleTitle: resolvedRoleTitle || u.roleTitle,
-          branchName: resolvedBranch || u.branchName,
-          branchId: resolvedBranchId || u.branchId,
-          isSuperAdmin: isSuperAdmin !== undefined ? Boolean(isSuperAdmin) : u.isSuperAdmin,
-          isBranchAdmin: isBranchAdmin !== undefined ? Boolean(isBranchAdmin) : u.isBranchAdmin,
+          name: finalFullName || u.name,
+          email: finalEmail || u.email,
+          role: roleMeta.role,
+          roleId: roleMeta.roleId,
+          roleTitle: roleMeta.roleTitle,
+          branchName: branchMeta.name,
+          branchId: branchMeta.id,
+          isSuperAdmin: roleMeta.isSuperAdmin,
+          isBranchAdmin: roleMeta.isBranchAdmin,
           advocateRollNo: advocateRollNo || advocate_roll_no || u.advocateRollNo,
         };
       }
@@ -715,13 +797,45 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     });
     writeDatabase(db);
 
+    // 7. Ensure complete, populated profile record is constructed
+    const returnedProfile = completeProfile || {
+      id: authUserId || targetId,
+      full_name: finalFullName,
+      name: finalFullName,
+      email: finalEmail,
+      role: roleMeta.roleId,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      branch_id: branchMeta.id,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
+      updated_at: new Date().toISOString(),
+    };
+
+    const returnedUser = {
+      id: authUserId || targetId,
+      email: finalEmail,
+      name: finalFullName,
+      role: roleMeta.role,
+      roleId: roleMeta.roleId,
+      roleTitle: roleMeta.roleTitle,
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
+      isSuperAdmin: roleMeta.isSuperAdmin,
+      isBranchAdmin: roleMeta.isBranchAdmin,
+      advocateRollNo: advocateRollNo || advocate_roll_no || '',
+    };
+
     return res.json({
       success: true,
-      message: 'Staff updated successfully across Auth user_metadata and profiles table',
+      message: 'Staff updated successfully across Auth user_metadata, profiles, and firm_users',
       authUpdated,
       authError,
       profileUpdated,
-      profile: profileData,
+      profile: returnedProfile,
+      user: returnedUser,
     });
   } catch (err: any) {
     console.error('Error in user update API route:', err);
@@ -965,8 +1079,9 @@ const handleUserCreate = async (req: Request, res: Response) => {
 };
 
 app.post(['/api/users/create', '/api/users', '/api/staff/create'], handleUserCreate);
-app.post(['/api/users/:id', '/api/users/update', '/api/staff/:id'], handleUserUpdate);
-app.put(['/api/users/:id', '/api/staff/:id'], handleUserUpdate);
+app.post(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
+app.put(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
+app.patch(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
 
 // Fresh profiles endpoint: queries public profiles table directly
 app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Response) => {

@@ -94,12 +94,19 @@ export async function secureUpdateStaff(
 
       // 1b. Try update by Email if not yet updated or if non-UUID ID
       if (!profileUpdated && resolvedEmail) {
-        delete profilePayload.branch_id; // Safe column set
-        const { error: emailErr, data: emailData } = await supabase
+        let { error: emailErr, data: emailData } = await supabase
           .from('profiles')
           .update(profilePayload)
           .eq('email', resolvedEmail)
           .select('*');
+
+        if (emailErr && emailErr.message.includes('branch_id')) {
+          const fallback = { ...profilePayload };
+          delete fallback.branch_id;
+          const retry = await supabase.from('profiles').update(fallback).eq('email', resolvedEmail).select('*');
+          emailErr = retry.error;
+          emailData = retry.data;
+        }
 
         if (!emailErr && emailData && emailData.length > 0) {
           profileUpdated = true;
