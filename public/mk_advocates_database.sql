@@ -94,7 +94,7 @@ CREATE TABLE `cases` (
   `opposing_counsel` VARCHAR(200) DEFAULT NULL,
   `practice_area` VARCHAR(100) DEFAULT NULL,
   `branch_id` VARCHAR(64) DEFAULT NULL,
-  `status` ENUM('Active', 'Pending', 'Closed', 'Archived', 'Stayed') DEFAULT 'Active',
+  `status` ENUM('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Stayed', 'Dormant') DEFAULT 'Active',
   `stage` VARCHAR(100) DEFAULT NULL,
   `filing_date` DATE DEFAULT NULL,
   `summary` LONGTEXT DEFAULT NULL,
@@ -107,6 +107,7 @@ CREATE TABLE `cases` (
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_cases_number` (`case_number`),
+  KEY `idx_cases_suit_no` (`suit_no`),
   KEY `idx_cases_court` (`court`),
   KEY `idx_cases_branch` (`branch_id`),
   KEY `idx_cases_status` (`status`)

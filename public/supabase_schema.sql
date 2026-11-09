@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.cases (
     id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
     case_number TEXT NOT NULL,
     suit_number TEXT NOT NULL,
+    suit_no TEXT DEFAULT '',
     firm_ref_number TEXT DEFAULT '',
     title TEXT NOT NULL,
     client_name TEXT NOT NULL,
@@ -71,12 +72,20 @@ CREATE TABLE IF NOT EXISTS public.cases (
     next_hearing_date DATE,
     next_hearing_purpose TEXT DEFAULT '',
     status TEXT DEFAULT 'Active',
+    year_of_closure INTEGER,
+    case_type TEXT DEFAULT '',
+    billing_status TEXT DEFAULT '',
+    payment_status TEXT DEFAULT '',
     brief_summary TEXT DEFAULT '',
     notes TEXT DEFAULT '',
     file_location TEXT DEFAULT 'Central Registry Safe',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT chk_cases_status CHECK (status IN ('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_cases_suit_no ON public.cases(suit_no);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON public.cases(status);
 
 -- ------------------------------------------------------------------------------
 -- 4. COURT HEARINGS / CAUSE LIST TABLE

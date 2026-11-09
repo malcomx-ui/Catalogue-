@@ -83,6 +83,10 @@ export function mapRowToCase(row: any): CaseItem {
     documentsCount: 0,
     lastUpdated: row.updated_at || new Date().toISOString(),
     status: row.status || 'Active',
+    year_of_closure: row.year_of_closure || null,
+    case_type: row.case_type || row.division || 'General',
+    billing_status: row.billing_status || '',
+    payment_status: row.payment_status || '',
     briefSummary: row.brief_summary || '',
     notes: row.notes || '',
     file_location: row.file_location || 'Central Registry Safe',
@@ -120,6 +124,10 @@ export function mapCaseToRow(c: Partial<CaseItem>, isInsert = false): any {
     next_hearing_date: parseDateForPostgres(c.nextHearingDate || c.hearing_date),
     next_hearing_purpose: c.nextHearingPurpose || '',
     status: c.status || 'Active',
+    year_of_closure: (c as any).year_of_closure || null,
+    case_type: (c as any).case_type || c.division || '',
+    billing_status: (c as any).billing_status || '',
+    payment_status: (c as any).payment_status || '',
     brief_summary: c.briefSummary || (c as any).subject_matter || '',
     notes: c.notes || '',
     file_location: c.file_location || 'Central Registry Safe',
@@ -211,6 +219,18 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
   }
   if (c.status !== undefined) {
     row.status = c.status;
+  }
+  if ((c as any).year_of_closure !== undefined) {
+    row.year_of_closure = (c as any).year_of_closure || null;
+  }
+  if ((c as any).case_type !== undefined) {
+    row.case_type = (c as any).case_type || '';
+  }
+  if ((c as any).billing_status !== undefined) {
+    row.billing_status = (c as any).billing_status || '';
+  }
+  if ((c as any).payment_status !== undefined) {
+    row.payment_status = (c as any).payment_status || '';
   }
   if (c.briefSummary !== undefined || (c as any).subject_matter !== undefined) {
     row.brief_summary = c.briefSummary || (c as any).subject_matter || '';

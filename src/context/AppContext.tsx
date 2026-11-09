@@ -580,8 +580,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  // Cases state - clean catalogue loaded directly from Supabase (no mock data fallback)
-  const [cases, setCases] = useState<CaseItem[]>([]);
+  // Cases state - loaded from localStorage cache for instant persistence, then synced with live Supabase
+  const [cases, setCases] = useState<CaseItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_CASES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  // Mirror cases state into localStorage on every change so case statuses and updates survive reloads
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(cases));
+    } catch (e) {}
+  }, [cases]);
 
   // Hearings state - clean court appearances with 0 demo hearings
   const [hearings, setHearings] = useState<CourtHearing[]>(() => {
@@ -628,7 +644,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.error('Error fetching cases from Supabase:', error);
         } else if (isMounted) {
           const liveCases = (data || []).map(mapRowToCase);
-          setCases(liveCases);
+          setCases((prev) => {
+            if (!liveCases || liveCases.length === 0) {
+              return prev;
+            }
+            const liveMap = new Map(liveCases.map((c) => [c.id, c]));
+            // Retain any locally created cases that haven't synchronized to Supabase yet
+            const localOnly = prev.filter((c) => !liveMap.has(c.id));
+            const merged = [...liveCases, ...localOnly];
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
           setIsServerConnected(true);
           setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
@@ -1443,7 +1471,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reliefsSought: caseData.reliefsSought?.length ? caseData.reliefsSought : [],
       documentsCount: 0,
       lastUpdated: new Date().toISOString(),
-      status: (caseData.status === 'closed' ? 'Archived' : caseData.status === 'dormant' ? 'Dormant' : caseData.status === 'pending' ? 'Pending' : 'Active') as any,
+      status: (caseData.status || 'Active') as any,
+      suit_no: caseData.suit_no || (caseData as any).suit_number || '',
       fileMovementHistory: caseData.fileMovementHistory || [initialMovement],
       progressiveNotes: caseData.progressiveNotes || initialNotes,
     };
@@ -1463,7 +1492,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    setCases((prev) => [savedCase, ...prev.filter((c) => c.id !== savedCase.id)]);
+    setCases((prev) => {
+      const nextList = [savedCase, ...prev.filter((c) => c.id !== savedCase.id)];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
+      } catch (e) {}
+      return nextList;
+    });
 
     // If hearing date was provided, auto-create hearing in diary
     if (hearingDate) {
@@ -1546,8 +1581,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let updatedCaseObj: CaseItem | null = null;
 
-    setCases((prev) =>
-      prev.map((c) => {
+    setCases((prev) => {
+      const updatedList = prev.map((c) => {
         if (c.id === caseId) {
           const branchObj = updatedData.branchId
             ? branches.find((b) => b.id === updatedData.branchId)
@@ -1567,6 +1602,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ? cleanCaseNumber(updatedData.firmRefNumber)
               : cleanCaseNumber(c.firmRefNumber);
 
+          const updatedRegistrySuitNo =
+            (updatedData as any).suit_no !== undefined
+              ? (updatedData as any).suit_no
+              : c.suit_no;
+
           const updated: CaseItem = {
             ...c,
             ...updatedData,
@@ -1575,6 +1615,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             branch: branchObj ? branchObj.name : (updatedData.branch || c.branchName),
             suitNumber: updatedSuitNo,
             case_number: updatedSuitNo,
+            suit_no: updatedRegistrySuitNo,
             firmRefNumber: updatedFirmRef,
             clientName: updatedData.client || updatedData.clientName || c.clientName,
             client: updatedData.client || updatedData.clientName || c.client,
@@ -1586,8 +1627,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return updated;
         }
         return c;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     if (selectedCase && selectedCase.id === caseId) {
       setSelectedCase((prev) => {
@@ -1610,6 +1655,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ? cleanCaseNumber(updatedData.firmRefNumber)
             : cleanCaseNumber(prev.firmRefNumber);
 
+        const updatedRegistrySuitNo =
+          (updatedData as any).suit_no !== undefined
+            ? (updatedData as any).suit_no
+            : prev.suit_no;
+
         return {
           ...prev,
           ...updatedData,
@@ -1618,6 +1668,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           branch: branchObj ? branchObj.name : (updatedData.branch || prev.branchName),
           suitNumber: updatedSuitNo,
           case_number: updatedSuitNo,
+          suit_no: updatedRegistrySuitNo,
           firmRefNumber: updatedFirmRef,
           clientName: updatedData.client || updatedData.clientName || prev.clientName,
           client: updatedData.client || updatedData.clientName || prev.client,
@@ -1634,7 +1685,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const persisted = await SupabaseService.updateCase(caseId, updatedData);
         if (persisted) {
           updatedCaseObj = persisted;
-          setCases((prev) => prev.map((c) => (c.id === caseId ? persisted : c)));
+          setCases((prev) => {
+            const nextList = prev.map((c) => (c.id === caseId ? persisted : c));
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
+            } catch (e) {}
+            return nextList;
+          });
           if (selectedCase && selectedCase.id === caseId) {
             setSelectedCase(persisted);
           }
@@ -1675,7 +1732,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 1. Optimistic removal from UI
-    setCases((prev) => prev.filter((c) => c.id !== caseId));
+    setCases((prev) => {
+      const nextList = prev.filter((c) => c.id !== caseId);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
+      } catch (e) {}
+      return nextList;
+    });
     if (selectedCase && selectedCase.id === caseId) {
       setSelectedCase(null);
     }

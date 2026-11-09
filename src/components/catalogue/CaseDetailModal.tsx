@@ -239,7 +239,9 @@ export const CaseDetailModal: React.FC = () => {
       const rawStatus = (activeCase.status || 'Active').trim();
       const statusLower = rawStatus.toLowerCase();
       const mappedStatus = 
-        statusLower === 'closed' || statusLower === 'archived' ? 'Closed' :
+        statusLower === 'archived' ? 'Archived' :
+        statusLower === 'closed' ? 'Closed' :
+        statusLower.includes('execution') ? 'At Execution' :
         statusLower === 'mention' ? 'Mention' :
         statusLower === 'pending ruling' ? 'Pending Ruling' :
         statusLower === 'pending' ? 'Pending' :
@@ -1185,8 +1187,14 @@ export const CaseDetailModal: React.FC = () => {
                         <span className={`inline-block px-2.5 py-0.5 rounded font-medium text-[10px] border ${
                           (() => {
                             const s = (selectedCase.status || '').toLowerCase();
-                            if (s.includes('closed') || s.includes('concluded') || s.includes('disposed') || s.includes('archived')) {
+                            if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
                               return 'bg-slate-100 text-slate-700 border-slate-300';
+                            }
+                            if (s.includes('archived')) {
+                              return 'bg-zinc-100 text-zinc-700 border-zinc-300';
+                            }
+                            if (s.includes('execution') || s.includes('decree')) {
+                              return 'bg-amber-100 text-amber-900 border-amber-300';
                             }
                             if (s.includes('active') || s.includes('ongoing')) {
                               return 'bg-emerald-50 text-emerald-700 border-emerald-200';

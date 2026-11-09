@@ -12,9 +12,24 @@
 --    - Partners and Superadmins are exempt and have full multi-branch access for all operations.
 -- ==============================================================================
 
--- 1. Ensure foreign key constraint and suit_no schema column
-ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS suit_no TEXT;
+-- 1. Ensure foreign key constraint, suit_no, and status schema columns
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS suit_no TEXT DEFAULT '';
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS year_of_closure INTEGER;
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS case_type TEXT DEFAULT '';
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS billing_status TEXT DEFAULT '';
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_cases_suit_no ON public.cases(suit_no);
+CREATE INDEX IF NOT EXISTS idx_cases_status ON public.cases(status);
+
+-- Relax/update status check constraint to include 'At Execution' and 'Archived'
+DO $$
+BEGIN
+  ALTER TABLE IF EXISTS public.cases DROP CONSTRAINT IF EXISTS chk_cases_status;
+  ALTER TABLE IF EXISTS public.cases ADD CONSTRAINT chk_cases_status 
+    CHECK (status IN ('Active', 'Mention', 'Pending Ruling', 'Pending', 'Instructions', 'Adjourned', 'At Execution', 'Closed', 'Archived', 'Dormant', 'Stayed', 'Inactive'));
+EXCEPTION
+  WHEN OTHERS THEN NULL;
+END $$;
 
 DO $$
 BEGIN

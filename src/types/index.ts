@@ -267,14 +267,15 @@ export const CASE_TYPES = [
 ] as const;
 
 export const CASE_STATUSES = [
-  { value: 'Active', label: 'Active (Ongoing)' },
-  { value: 'Mention', label: 'Mention / Directions' },
-  { value: 'Pending Ruling', label: 'Pending Ruling / Judgment' },
-  { value: 'Pending', label: 'Pending Hearing' },
-  { value: 'Instructions', label: 'Fresh Instructions' },
-  { value: 'Adjourned', label: 'Adjourned' },
-  { value: 'Closed', label: 'Closed / Concluded' },
+  { value: 'Active', label: 'Active' },
+  { value: 'Mention', label: 'Mention' },
+  { value: 'Pending Ruling', label: 'Pending Ruling' },
+  { value: 'At Execution', label: 'At Execution' },
+  { value: 'Closed', label: 'Closed' },
   { value: 'Archived', label: 'Archived' },
+  { value: 'Pending', label: 'Pending Hearing' },
+  { value: 'Instructions', label: 'Instructions' },
+  { value: 'Adjourned', label: 'Adjourned' },
   { value: 'Dormant', label: 'Dormant' },
 ] as const;
 
@@ -282,11 +283,12 @@ export type CaseStatus =
   | 'Active'
   | 'Mention'
   | 'Pending Ruling'
+  | 'Closed'
+  | 'At Execution'
+  | 'Archived'
   | 'Pending'
   | 'Instructions'
   | 'Adjourned'
-  | 'Closed'
-  | 'Archived'
   | 'Dormant'
   | 'Inactive'
   | string;
