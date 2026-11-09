@@ -22,7 +22,7 @@ const empty = {
   branch: '',
   client: '',
   case_type: 'Civil',
-  status: 'active',
+  status: 'Active',
   date_of_instructions: new Date().toISOString().slice(0, 10),
   court: 'High Court of Uganda',
   district: 'Kampala',
@@ -216,7 +216,7 @@ export const NewCaseModal: React.FC = () => {
         client: form.client.trim(),
         clientName: form.client.trim(),
         case_type: form.case_type,
-        status: (form.status === 'closed' ? 'Archived' : form.status === 'dormant' ? 'Dormant' : form.status === 'pending' ? 'Pending' : 'Active') as any,
+        status: (form.status || 'Active') as any,
         date_of_instructions: form.date_of_instructions || undefined,
         filingDate: form.date_of_instructions || new Date().toISOString().slice(0, 10),
         court: form.court.trim() || 'High Court of Uganda',
@@ -228,7 +228,9 @@ export const NewCaseModal: React.FC = () => {
         nextHearingDate: form.hearing_date || undefined,
         target: form.target.trim(),
         file_location: form.file_location.trim(),
-        year_of_closure: form.year_of_closure ? Number(form.year_of_closure) : null,
+        year_of_closure: (form.status === 'Closed' || form.status === 'Archived')
+          ? (form.year_of_closure ? Number(form.year_of_closure) : new Date().getFullYear())
+          : (form.year_of_closure ? Number(form.year_of_closure) : null),
         billing_status: form.billing_status.trim(),
         payment_status: form.payment_status.trim(),
         verdict: form.verdict.trim(),

@@ -236,13 +236,17 @@ export const CaseDetailModal: React.FC = () => {
       }
       if (initialPersons.length === 0) initialPersons = [''];
 
-      const rawStatus = activeCase.status || 'Active';
+      const rawStatus = (activeCase.status || 'Active').trim();
+      const statusLower = rawStatus.toLowerCase();
       const mappedStatus = 
-        rawStatus === 'Archived' ? 'closed' :
-        rawStatus === 'Dormant' ? 'dormant' :
-        rawStatus === 'Inactive' ? 'inactive' :
-        rawStatus === 'Instructions' ? 'instructions' :
-        rawStatus.toLowerCase();
+        statusLower === 'closed' || statusLower === 'archived' ? 'Closed' :
+        statusLower === 'mention' ? 'Mention' :
+        statusLower === 'pending ruling' ? 'Pending Ruling' :
+        statusLower === 'pending' ? 'Pending' :
+        statusLower === 'instructions' ? 'Instructions' :
+        statusLower === 'adjourned' ? 'Adjourned' :
+        statusLower === 'dormant' || statusLower === 'inactive' ? 'Dormant' :
+        rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
 
       setEditForm({
         title: activeCase.title || '',
@@ -348,12 +352,7 @@ export const CaseDetailModal: React.FC = () => {
     const assistingAdvocates = validPersons.slice(1);
     const combinedPersons = validPersons.length > 0 ? validPersons.join(', ') : primaryLead;
 
-    const resolvedStatus = 
-      editForm.status === 'closed' ? 'Archived' :
-      editForm.status === 'dormant' ? 'Dormant' :
-      editForm.status === 'inactive' ? 'Inactive' :
-      editForm.status === 'instructions' ? 'Instructions' :
-      editForm.status === 'pending' ? 'Pending' : 'Active';
+    const resolvedStatus = editForm.status || activeCase.status || 'Active';
 
     setIsSavingEdit(true);
     try {
@@ -382,7 +381,11 @@ export const CaseDetailModal: React.FC = () => {
         subject_matter: editForm.subject_matter.trim(),
         briefSummary: editForm.subject_matter.trim() || selectedCase.briefSummary,
         notes: editForm.notes.trim(),
-        year_of_closure: editForm.year_of_closure ? Number(editForm.year_of_closure) : null,
+        year_of_closure: editForm.year_of_closure
+          ? Number(editForm.year_of_closure)
+          : (resolvedStatus === 'Closed' || resolvedStatus === 'Archived')
+          ? (activeCase.year_of_closure || new Date().getFullYear())
+          : null,
         billing_status: editForm.billing_status.trim(),
         payment_status: editForm.payment_status.trim(),
         verdict: editForm.verdict.trim(),
@@ -1179,10 +1182,34 @@ export const CaseDetailModal: React.FC = () => {
                       {/* 6. Status */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('status', 'Status').label}</span>
-                        <span className={`inline-block px-2 py-0.5 rounded font-medium text-[10px] ${
-                          selectedCase.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
+                        <span className={`inline-block px-2.5 py-0.5 rounded font-medium text-[10px] border ${
+                          (() => {
+                            const s = (selectedCase.status || '').toLowerCase();
+                            if (s.includes('closed') || s.includes('concluded') || s.includes('disposed') || s.includes('archived')) {
+                              return 'bg-slate-100 text-slate-700 border-slate-300';
+                            }
+                            if (s.includes('active') || s.includes('ongoing')) {
+                              return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                            }
+                            if (s.includes('mention')) {
+                              return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+                            }
+                            if (s.includes('ruling') || s.includes('judgment')) {
+                              return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                            }
+                            if (s.includes('pending') || s.includes('instruction')) {
+                              return 'bg-amber-50 text-amber-700 border-amber-200';
+                            }
+                            if (s.includes('adjourn')) {
+                              return 'bg-purple-50 text-purple-700 border-purple-200';
+                            }
+                            if (s.includes('dormant') || s.includes('inactive')) {
+                              return 'bg-rose-50 text-rose-700 border-rose-200';
+                            }
+                            return 'bg-blue-50 text-blue-700 border-blue-200';
+                          })()
                         }`}>
-                          {selectedCase.status}
+                          {selectedCase.status || 'Active'}
                         </span>
                       </div>
 

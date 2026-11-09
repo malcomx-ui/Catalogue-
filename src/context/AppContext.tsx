@@ -1303,7 +1303,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const matchClient = (c.clientName || (c as any).client || (c as any).client_name || '').toLowerCase().includes(q);
       const matchLawyer = (c.leadAdvocate || (c as any).lawyer || (c as any).person_in_conduct || '').toLowerCase().includes(q) || (c.assistingAdvocates || []).some(a => a.toLowerCase().includes(q));
       const matchBranch = (c.branchName || (c as any).branch || '').toLowerCase().includes(q);
-      const matchStatus = (c.status || '').toLowerCase().includes(q);
+      const statusLower = (c.status || '').toLowerCase();
+      const matchStatus =
+        statusLower.includes(q) ||
+        (q === 'closed' && (statusLower === 'archived' || statusLower.includes('concluded') || statusLower.includes('disposed') || !!c.year_of_closure));
       const matchCourt = (c.court || '').toLowerCase().includes(q) || (c.courtStation || '').toLowerCase().includes(q);
       const matchJudge = (c.presidingJudge || '').toLowerCase().includes(q);
       const matchParty = (c.parties || []).some(p => p.name.toLowerCase().includes(q));
@@ -1790,12 +1793,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setHearings((prev) => [newHearing, ...prev]);
 
-    // Update the nextHearingDate on the corresponding case
+    // Update the hearing_date and nextHearingDate on the corresponding case
     setCases((prev) =>
       prev.map((c) => {
         if (c.id === hearingData.caseId) {
           return {
             ...c,
+            hearing_date: hearingData.hearingDate,
             nextHearingDate: hearingData.hearingDate,
             nextHearingPurpose: hearingData.hearingPurpose,
             nextHearingJudge: hearingData.presidingJudge,
@@ -1805,6 +1809,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return c;
       })
     );
+
+    // Persist to Supabase if available
+    if (isSupabaseConfigured) {
+      SupabaseService.upsertHearing(newHearing).catch((err) =>
+        console.warn('Supabase upsertHearing non-fatal error:', err)
+      );
+      if (hearingData.caseId) {
+        SupabaseService.updateCase(hearingData.caseId, {
+          hearing_date: hearingData.hearingDate,
+          nextHearingDate: hearingData.hearingDate,
+          nextHearingPurpose: hearingData.hearingPurpose,
+          nextHearingJudge: hearingData.presidingJudge,
+        }).catch((err) => console.warn('Supabase case sync hearing_date non-fatal error:', err));
+      }
+    }
   };
 
   // Update Hearing Outcome
@@ -1820,13 +1839,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHearings((prev) =>
       prev.map((h) => {
         if (h.id === hearingId) {
-          return {
+          const updatedHearing: CourtHearing = {
             ...h,
             status: outcome.status,
             courtNotes: outcome.courtNotes,
             nextHearingDate: outcome.nextHearingDate,
             nextDirections: outcome.nextDirections,
           };
+          if (isSupabaseConfigured) {
+            SupabaseService.upsertHearing(updatedHearing).catch((err) =>
+              console.warn('Supabase update hearing outcome error:', err)
+            );
+          }
+          return updatedHearing;
         }
         return h;
       })
@@ -1840,6 +1865,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (c.id === currentHearing.caseId) {
             return {
               ...c,
+              hearing_date: outcome.nextHearingDate,
               nextHearingDate: outcome.nextHearingDate,
               nextHearingPurpose: outcome.nextDirections || 'Further Hearing',
               lastUpdated: new Date().toISOString(),
@@ -1848,6 +1874,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return c;
         })
       );
+
+      if (isSupabaseConfigured && currentHearing.caseId) {
+        SupabaseService.updateCase(currentHearing.caseId, {
+          hearing_date: outcome.nextHearingDate,
+          nextHearingDate: outcome.nextHearingDate,
+          nextHearingPurpose: outcome.nextDirections || 'Further Hearing',
+        }).catch((err) => console.warn('Supabase case sync outcome error:', err));
+      }
     }
   };
 

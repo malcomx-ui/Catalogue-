@@ -12,7 +12,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
   const { cases, addHearing, currentUser, branches } = useApp();
 
   const [selectedCaseId, setSelectedCaseId] = useState(cases[0]?.id || '');
-  const [hearingDate, setHearingDate] = useState('2026-10-22');
+  const [hearingDate, setHearingDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [hearingTime, setHearingTime] = useState('09:30 AM');
   const [courtName, setCourtName] = useState('High Court of Uganda');
   const [division, setDivision] = useState<CourtDivision>('High Court (Commercial Division)');

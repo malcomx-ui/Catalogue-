@@ -19,7 +19,9 @@ import {
   Printer,
   ShieldCheck,
   Search,
+  Bell,
 } from 'lucide-react';
+import { WeeklyMattersNotificationModal } from '../causelist/WeeklyMattersNotificationModal';
 
 export const FirmDashboard: React.FC = () => {
   const {
@@ -65,29 +67,115 @@ export const FirmDashboard: React.FC = () => {
 
   // Active cases count
   const activeCases = useMemo(() => {
-    return branchScopedCases.filter(
-      (c) => !c.status || c.status.toLowerCase() === 'active' || c.status.toLowerCase() === 'instructions'
-    );
+    return branchScopedCases.filter((c) => {
+      const s = (c.status || 'Active').toLowerCase();
+      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+      return !isClosed && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
+    });
   }, [branchScopedCases]);
 
   // Inactive cases count
   const inactiveCases = useMemo(() => {
-    return branchScopedCases.filter(
-      (c) => c.status && (c.status.toLowerCase() === 'inactive' || c.status.toLowerCase() === 'dormant' || c.status.toLowerCase() === 'pending')
-    );
+    return branchScopedCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || Boolean(c.year_of_closure);
+      return !isClosed && (s.includes('inactive') || s.includes('dormant') || s.includes('pending'));
+    });
   }, [branchScopedCases]);
 
-  // Closed / Concluded matters
+  // Closed / Concluded matters (precise matches including Archived & closure year)
   const closedCases = useMemo(() => {
-    return branchScopedCases.filter(
-      (c) =>
-        c.status &&
-        (c.status.toLowerCase() === 'closed' ||
-          c.status.toLowerCase() === 'archived' ||
-          c.status.toLowerCase() === 'concluded' ||
-          c.status.toLowerCase() === 'resolved')
-    );
+    return branchScopedCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return (
+        s === 'closed' ||
+        s === 'archived' ||
+        s === 'concluded' ||
+        s === 'resolved' ||
+        s.includes('closed') ||
+        Boolean(c.year_of_closure)
+      );
+    });
   }, [branchScopedCases]);
+
+  // Upcoming matters happening within the current week (next 7 days)
+  const weeklyMatters = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const maxDate = new Date(today);
+    maxDate.setDate(today.getDate() + 7);
+    maxDate.setHours(23, 59, 59, 999);
+
+    const todayStr = today.toISOString().split('T')[0];
+    const maxDateStr = maxDate.toISOString().split('T')[0];
+
+    const list: Array<{
+      id: string;
+      date: string;
+      time: string;
+      suitNumber: string;
+      title: string;
+      court: string;
+      purpose: string;
+      caseItem?: CaseItem;
+    }> = [];
+
+    hearings.forEach((h) => {
+      if (!h.hearingDate) return;
+      if (h.hearingDate >= todayStr && h.hearingDate <= maxDateStr) {
+        const matchedCase = cases.find(
+          (c) => c.id === h.caseId || (c.suitNumber && c.suitNumber === h.suitNumber)
+        );
+        list.push({
+          id: h.id,
+          date: h.hearingDate,
+          time: h.hearingTime || '09:30 AM',
+          suitNumber: h.suitNumber || matchedCase?.case_number || matchedCase?.suitNumber || 'Suit Pending',
+          title: h.caseTitle || matchedCase?.title || 'Litigation Matter',
+          court: h.courtName || matchedCase?.court || 'High Court of Uganda',
+          purpose: h.hearingPurpose || 'Court Appearance',
+          caseItem: matchedCase,
+        });
+      }
+    });
+
+    branchScopedCases.forEach((c) => {
+      const hDate = c.hearing_date || c.nextHearingDate;
+      if (!hDate) return;
+      if (hDate >= todayStr && hDate <= maxDateStr) {
+        const refNo = c.case_number || c.suitNumber;
+        const exists = list.some((item) => item.date === hDate && item.suitNumber === refNo);
+        if (!exists) {
+          list.push({
+            id: `case-hearing-${c.id}`,
+            date: hDate,
+            time: '09:30 AM',
+            suitNumber: refNo || 'Suit Pending',
+            title: c.title || 'Litigation Matter',
+            court: c.court || 'High Court of Uganda',
+            purpose: c.nextHearingPurpose || 'Court Hearing',
+            caseItem: c,
+          });
+        }
+      }
+    });
+
+    return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [hearings, cases, branchScopedCases]);
+
+  const [isWeeklyModalOpen, setIsWeeklyModalOpen] = useState(false);
+
+  // Automated pop-up notification on viewing dashboard
+  React.useEffect(() => {
+    if (weeklyMatters.length > 0) {
+      const hasDismissed = sessionStorage.getItem('mk_weekly_alert_dismissed_session');
+      if (!hasDismissed) {
+        setIsWeeklyModalOpen(true);
+        sessionStorage.setItem('mk_weekly_alert_dismissed_session', 'true');
+      }
+    }
+  }, [weeklyMatters.length]);
 
   // Upcoming hearings (next 30 days)
   const upcomingHearings = useMemo(() => {
@@ -186,17 +274,29 @@ export const FirmDashboard: React.FC = () => {
       return bId === branch.id || bName.includes(targetCity) || bName.includes(targetName);
     });
 
-    const active = branchCases.filter(
-      (c) => !c.status || c.status.toLowerCase() === 'active' || c.status.toLowerCase() === 'instructions'
-    ).length;
+    const active = branchCases.filter((c) => {
+      const s = (c.status || 'Active').toLowerCase();
+      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+      return !isClosed && (s.includes('active') || s.includes('ongoing') || s.includes('mention') || s.includes('instructions'));
+    }).length;
 
-    const inactive = branchCases.filter(
-      (c) => c.status && (c.status.toLowerCase() === 'inactive' || c.status.toLowerCase() === 'pending' || c.status.toLowerCase() === 'dormant')
-    ).length;
+    const inactive = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      const isClosed = s === 'closed' || s === 'archived' || s.includes('closed') || Boolean(c.year_of_closure);
+      return !isClosed && (s.includes('inactive') || s.includes('dormant') || s.includes('pending'));
+    }).length;
 
-    const closed = branchCases.filter(
-      (c) => c.status && (c.status.toLowerCase() === 'closed' || c.status.toLowerCase() === 'archived' || c.status.toLowerCase() === 'concluded' || c.status.toLowerCase() === 'resolved')
-    ).length;
+    const closed = branchCases.filter((c) => {
+      const s = (c.status || '').toLowerCase();
+      return (
+        s === 'closed' ||
+        s === 'archived' ||
+        s === 'concluded' ||
+        s === 'resolved' ||
+        s.includes('closed') ||
+        Boolean(c.year_of_closure)
+      );
+    }).length;
 
     // Upcoming hearings for this branch
     const branchHearingsCount = upcomingHearings.filter((h) => {
@@ -255,6 +355,18 @@ export const FirmDashboard: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {weeklyMatters.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsWeeklyModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 rounded-lg text-xs font-bold transition-all shadow-sm animate-pulse cursor-pointer"
+              title="Open Upcoming Weekly Matters Notification"
+            >
+              <Bell className="w-4 h-4 text-slate-950" />
+              <span>Weekly Matters ({weeklyMatters.length})</span>
+            </button>
+          )}
+
           {userPermissions.canCreateCases && (
             <button
               type="button"
@@ -279,6 +391,47 @@ export const FirmDashboard: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* 1.5 UPCOMING MATTERS THIS WEEK ALERT BANNER */}
+      {weeklyMatters.length > 0 && (
+        <section className="bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-orange-500/5 border border-amber-300 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-sm">
+              <Bell className="w-5 h-5 text-slate-950" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                  Upcoming Matters This Week
+                </span>
+                <span className="text-xs text-amber-900 font-semibold">
+                  Next 7 Days
+                </span>
+              </div>
+              <p className="text-xs text-slate-700 mt-0.5">
+                <strong>{weeklyMatters.length} matter{weeklyMatters.length === 1 ? '' : 's'}</strong> scheduled in the next 7 days across courts requiring advocate attendance or filing.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsWeeklyModalOpen(true)}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+            >
+              View Weekly Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('causelist')}
+              className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors"
+            >
+              Open Cause Diary
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* 2. 4 KPI STAT CARDS ROW */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -587,6 +740,12 @@ export const FirmDashboard: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Weekly Matters Modal */}
+      <WeeklyMattersNotificationModal
+        isOpen={isWeeklyModalOpen}
+        onClose={() => setIsWeeklyModalOpen(false)}
+      />
     </div>
   );
 };

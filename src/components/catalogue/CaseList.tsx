@@ -100,8 +100,40 @@ export const CaseList: React.FC = () => {
 
   const displayCases = filteredCases.filter((c) => {
     if (statusFilter !== 'all') {
-      const caseStatus = (c.status || 'Active').toLowerCase();
-      if (!caseStatus.includes(statusFilter.toLowerCase())) return false;
+      const caseStatus = (c.status || 'Active').trim();
+      const statusLower = caseStatus.toLowerCase();
+      const filterLower = statusFilter.toLowerCase();
+
+      if (filterLower === 'closed') {
+        // Precise matching for Closed cases: matches 'Closed', 'Archived', 'Concluded', 'Disposed', or explicit closure year
+        const isClosed =
+          statusLower === 'closed' ||
+          statusLower === 'archived' ||
+          statusLower === 'concluded' ||
+          statusLower === 'disposed' ||
+          statusLower.includes('closed') ||
+          Boolean(c.year_of_closure);
+        if (!isClosed) return false;
+      } else if (filterLower === 'active') {
+        const isClosed =
+          statusLower === 'closed' ||
+          statusLower === 'archived' ||
+          statusLower === 'dormant' ||
+          Boolean(c.year_of_closure);
+        if (isClosed || (!statusLower.includes('active') && !statusLower.includes('ongoing'))) {
+          return false;
+        }
+      } else if (filterLower === 'archived') {
+        if (statusLower !== 'archived') return false;
+      } else if (filterLower === 'mention') {
+        if (!statusLower.includes('mention')) return false;
+      } else if (filterLower === 'pending ruling') {
+        if (!statusLower.includes('ruling') && !statusLower.includes('judgment')) return false;
+      } else if (filterLower === 'pending') {
+        if (statusLower.includes('ruling') || !statusLower.includes('pending')) return false;
+      } else {
+        if (!statusLower.includes(filterLower)) return false;
+      }
     }
     if (divisionFilter !== 'all' && !c.division.includes(divisionFilter)) return false;
     return true;
@@ -109,17 +141,23 @@ export const CaseList: React.FC = () => {
 
   const getStatusBadgeColor = (status: string) => {
     const s = (status || '').toLowerCase();
+    if (s.includes('closed') || s.includes('concluded') || s.includes('disposed') || s.includes('archived')) {
+      return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
     if (s.includes('active') || s.includes('ongoing')) {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if (s.includes('mention')) {
+      return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+    }
+    if (s.includes('ruling') || s.includes('judgment')) {
+      return 'bg-indigo-50 text-indigo-700 border-indigo-200';
     }
     if (s.includes('pending') || s.includes('instruction')) {
       return 'bg-amber-50 text-amber-700 border-amber-200';
     }
     if (s.includes('adjourn')) {
       return 'bg-purple-50 text-purple-700 border-purple-200';
-    }
-    if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
-      return 'bg-slate-100 text-slate-700 border-slate-300';
     }
     if (s.includes('dormant') || s.includes('inactive')) {
       return 'bg-rose-50 text-rose-700 border-rose-200';
@@ -250,13 +288,23 @@ export const CaseList: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
+            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial font-medium"
           >
-            <option value="all">All Statuses</option>
-            <option value="Active">Active</option>
+            <option value="all">All Statuses ({filteredCases.length})</option>
+            <option value="Active">Active ({filteredCases.filter(c => {
+              const s = (c.status || 'Active').toLowerCase();
+              return !s.includes('closed') && !s.includes('archived') && !s.includes('dormant') && (s.includes('active') || s.includes('ongoing'));
+            }).length})</option>
+            <option value="Mention">Mention / Directions</option>
+            <option value="Pending Ruling">Pending Ruling</option>
             <option value="Pending">Pending</option>
+            <option value="Instructions">Instructions</option>
             <option value="Adjourned">Adjourned</option>
-            <option value="Closed">Closed</option>
+            <option value="Closed">Closed / Concluded ({filteredCases.filter(c => {
+              const s = (c.status || '').toLowerCase();
+              return s === 'closed' || s === 'archived' || s.includes('closed') || s.includes('concluded') || Boolean(c.year_of_closure);
+            }).length})</option>
+            <option value="Archived">Archived</option>
             <option value="Dormant">Dormant</option>
           </select>
 

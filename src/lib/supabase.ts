@@ -135,6 +135,98 @@ export function mapCaseToRow(c: Partial<CaseItem>, isInsert = false): any {
 }
 
 /**
+ * Maps partial frontend updates to database row for UPDATE statements,
+ * ensuring unspecified columns are NOT overwritten with blank defaults.
+ */
+export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
+  const row: any = {};
+
+  if (c.suitNumber !== undefined || (c as any).case_number !== undefined) {
+    const val = c.suitNumber || (c as any).case_number || '';
+    row.case_number = val;
+    row.suit_number = val;
+  }
+  if ((c as any).suit_no !== undefined) {
+    row.suit_no = (c as any).suit_no || '';
+  }
+  if (c.firmRefNumber !== undefined) {
+    row.firm_ref_number = c.firmRefNumber || '';
+  }
+  if (c.title !== undefined || (c as any).case_title !== undefined) {
+    row.title = c.title || (c as any).case_title || '';
+  }
+  if (c.clientName !== undefined || (c as any).client !== undefined || (c as any).client_name !== undefined) {
+    row.client_name = c.clientName || (c as any).client || (c as any).client_name || '';
+  }
+  if (c.court !== undefined) {
+    row.court = c.court;
+  }
+  if (c.division !== undefined || (c as any).case_type !== undefined) {
+    row.division = c.division || (c as any).case_type || '';
+  }
+  if (c.presidingJudge !== undefined) {
+    row.presiding_judge = c.presidingJudge;
+  }
+  if (c.courtStation !== undefined || (c as any).district !== undefined) {
+    row.court_station = c.courtStation || (c as any).district || '';
+  }
+  if (c.stage !== undefined) {
+    row.stage = c.stage;
+  }
+  if (c.priority !== undefined) {
+    row.priority = c.priority;
+  }
+  if (c.branchId !== undefined || c.branchName !== undefined || (c as any).branch !== undefined) {
+    row.branch_id = resolveBranchId(c.branchId, c.branchName || (c as any).branch);
+    row.branch_name = c.branchName || (c as any).branch || '';
+  }
+  if (c.leadAdvocate !== undefined || (c as any).person_in_conduct !== undefined) {
+    row.lead_advocate = c.leadAdvocate || (c as any).person_in_conduct || '';
+  }
+  if (c.assistingAdvocates !== undefined) {
+    row.assisting_advocates = c.assistingAdvocates;
+  }
+  if (c.parties !== undefined && Array.isArray(c.parties)) {
+    row.parties = c.parties;
+  }
+  if (c.opposingFirm !== undefined) {
+    row.opposing_firm = c.opposingFirm;
+  }
+  if (c.opposingCounsel !== undefined) {
+    row.opposing_counsel = c.opposingCounsel;
+  }
+  if (c.claimValueUGX !== undefined) {
+    row.claim_value_ugx = Number(c.claimValueUGX) || 0;
+  }
+  if (c.filingDate !== undefined || (c as any).date_of_instructions !== undefined) {
+    row.filing_date = parseDateForPostgres(c.filingDate || (c as any).date_of_instructions);
+  }
+  if (c.hearing_date !== undefined || c.nextHearingDate !== undefined) {
+    const hd = parseDateForPostgres(c.hearing_date || c.nextHearingDate);
+    row.hearing_date = hd;
+    row.next_hearing_date = hd;
+  }
+  if (c.nextHearingPurpose !== undefined) {
+    row.next_hearing_purpose = c.nextHearingPurpose;
+  }
+  if (c.status !== undefined) {
+    row.status = c.status;
+  }
+  if (c.briefSummary !== undefined || (c as any).subject_matter !== undefined) {
+    row.brief_summary = c.briefSummary || (c as any).subject_matter || '';
+  }
+  if (c.notes !== undefined) {
+    row.notes = c.notes;
+  }
+  if (c.file_location !== undefined) {
+    row.file_location = c.file_location;
+  }
+
+  row.updated_at = new Date().toISOString();
+  return row;
+}
+
+/**
  * Maps database row to frontend CourtHearing
  */
 export function mapRowToHearing(row: any): CourtHearing {
@@ -308,7 +400,7 @@ export const SupabaseService = {
    * Permanently updates an existing case using supabase.from('cases').update(...)
    */
   async updateCase(id: string, updates: Partial<CaseItem>): Promise<CaseItem | null> {
-    const row = mapCaseToRow(updates, false);
+    const row = mapPartialCaseToRow(updates);
     delete row.id;
 
     let { data, error } = await supabase

@@ -267,13 +267,50 @@ export const CASE_TYPES = [
 ] as const;
 
 export const CASE_STATUSES = [
-  { value: 'active', label: 'Active (Ongoing)' },
-  { value: 'instructions', label: 'Instructions' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'dormant', label: 'Dormant' },
-  { value: 'closed', label: 'Closed / Concluded' },
+  { value: 'Active', label: 'Active (Ongoing)' },
+  { value: 'Mention', label: 'Mention / Directions' },
+  { value: 'Pending Ruling', label: 'Pending Ruling / Judgment' },
+  { value: 'Pending', label: 'Pending Hearing' },
+  { value: 'Instructions', label: 'Fresh Instructions' },
+  { value: 'Adjourned', label: 'Adjourned' },
+  { value: 'Closed', label: 'Closed / Concluded' },
+  { value: 'Archived', label: 'Archived' },
+  { value: 'Dormant', label: 'Dormant' },
 ] as const;
+
+export type CaseStatus =
+  | 'Active'
+  | 'Mention'
+  | 'Pending Ruling'
+  | 'Pending'
+  | 'Instructions'
+  | 'Adjourned'
+  | 'Closed'
+  | 'Archived'
+  | 'Dormant'
+  | 'Inactive'
+  | string;
+
+export interface CalendarMatterEvent {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time?: string;
+  type: 'hearing' | 'deadline' | 'milestone';
+  title: string;
+  suitNumber?: string;
+  suitNo?: string;
+  caseId?: string;
+  court?: string;
+  courtRoom?: string;
+  judge?: string;
+  purpose: string;
+  counsel?: string;
+  status: string;
+  branchId?: string;
+  branchName?: string;
+  daysRemaining?: number;
+  isUrgent?: boolean;
+}
 
 export { UGANDA_DISTRICTS, type UgandaDistrict } from '../data/ugandaDistricts';
 
