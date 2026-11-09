@@ -339,6 +339,48 @@ function writeDatabase(data: any): boolean {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Strict Privacy & Anti-Scraping / AI Crawler Block Middleware
+app.use((req, res, next) => {
+  // Enforce zero-indexing and strict referrer privacy
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, notranslate, noimageindex');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Permissions-Policy', 'interest-cohort=(), browsing-topics=(), conversion-measurement=(), attribution-reporting=()');
+
+  // Prevent caching of confidential client matters and database records
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
+  // Intercept and block known AI scrapers, telemetry harvesters, and automated web crawlers
+  const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+  const blockedAgents = [
+    'gptbot',
+    'chatgpt-user',
+    'google-extended',
+    'claudebot',
+    'anthropic',
+    'ccbot',
+    'bytespider',
+    'diffbot',
+    'perplexitybot',
+    'applebot-extended',
+    'omgilibot',
+    'cohere-ai',
+    'scrapy',
+  ];
+
+  if (blockedAgents.some((bot) => userAgent.includes(bot))) {
+    return res.status(403).json({
+      error: 'Access Forbidden: MK Advocates privacy perimeter blocks external AI indexing and data scraping.',
+    });
+  }
+
+  next();
+});
+
 // CORS headers for local / cross-origin / cPanel proxy access
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -744,10 +786,57 @@ app.get('/api/cpanel_index.php', (req: Request, res: Response) => {
   }
 });
 
-// Search engine indexing disallow (Disallow: /)
+// Search engine & AI crawler indexing disallow (Disallow: /)
 app.get('/robots.txt', (_req: Request, res: Response) => {
+  const robotsTxt = [
+    'User-agent: *',
+    'Disallow: /',
+    '',
+    'User-agent: Google-Extended',
+    'Disallow: /',
+    '',
+    'User-agent: GPTBot',
+    'Disallow: /',
+    '',
+    'User-agent: ChatGPT-User',
+    'Disallow: /',
+    '',
+    'User-agent: ClaudeBot',
+    'Disallow: /',
+    '',
+    'User-agent: anthropic-ai',
+    'Disallow: /',
+    '',
+    'User-agent: CCBot',
+    'Disallow: /',
+    '',
+    'User-agent: Bytespider',
+    'Disallow: /',
+    '',
+    'User-agent: PerplexityBot',
+    'Disallow: /',
+    '',
+    'User-agent: Applebot-Extended',
+    'Disallow: /',
+    '',
+    'User-agent: Diffbot',
+    'Disallow: /',
+    '',
+    'User-agent: FacebookBot',
+    'Disallow: /',
+    '',
+    'User-agent: Scrapy',
+    'Disallow: /',
+    '',
+    'User-agent: omgilibot',
+    'Disallow: /',
+    '',
+    'User-agent: cohere-ai',
+    'Disallow: /',
+  ].join('\n');
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.send('User-agent: *\nDisallow: /\n');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.send(robotsTxt);
 });
 
 // Dev vs Prod Vite Integration
