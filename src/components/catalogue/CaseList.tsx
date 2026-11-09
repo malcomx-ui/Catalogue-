@@ -491,6 +491,11 @@ export const CaseList: React.FC = () => {
                             <div className="font-mono font-medium text-slate-900">
                               {caseItem.case_number || caseItem.suitNumber}
                             </div>
+                            {caseItem.suit_no && (
+                              <div className="text-[10px] text-blue-700 font-mono font-medium truncate" title="Court Registry Identifier">
+                                Suit: {caseItem.suit_no}
+                              </div>
+                            )}
                             {caseItem.firmRefNumber && caseItem.firmRefNumber !== (caseItem.case_number || caseItem.suitNumber) && (
                               <div className="text-[10px] text-slate-400 font-sans">{caseItem.firmRefNumber}</div>
                             )}
@@ -667,6 +672,11 @@ export const CaseList: React.FC = () => {
                   ) : (
                     <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/80 inline-flex items-center gap-1 shadow-2xs">
                       <Plus className="w-2.5 h-2.5" /> Enter File NO.
+                    </span>
+                  )}
+                  {caseItem.suit_no && (
+                    <span className="font-mono text-[10px] text-blue-800 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium" title="Court Registry Identifier">
+                      Suit: {caseItem.suit_no}
                     </span>
                   )}
                   <div className="flex items-center gap-1.5 flex-wrap">

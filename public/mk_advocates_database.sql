@@ -81,6 +81,7 @@ DROP TABLE IF EXISTS `cases`;
 CREATE TABLE `cases` (
   `id` VARCHAR(64) NOT NULL,
   `case_number` VARCHAR(100) NOT NULL,
+  `suit_no` VARCHAR(100) DEFAULT NULL COMMENT 'Unique identifier assigned by court registry',
   `title` VARCHAR(255) DEFAULT NULL,
   `court` VARCHAR(150) NOT NULL,
   `division` VARCHAR(100) DEFAULT NULL,

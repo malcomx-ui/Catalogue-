@@ -12,7 +12,10 @@
 --    - Partners and Superadmins are exempt and have full multi-branch access for all operations.
 -- ==============================================================================
 
--- 1. Ensure foreign key constraint on cases(branch_id) -> branches(id)
+-- 1. Ensure foreign key constraint and suit_no schema column
+ALTER TABLE IF EXISTS public.cases ADD COLUMN IF NOT EXISTS suit_no TEXT;
+CREATE INDEX IF NOT EXISTS idx_cases_suit_no ON public.cases(suit_no);
+
 DO $$
 BEGIN
   IF NOT EXISTS (

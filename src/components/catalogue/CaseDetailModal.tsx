@@ -110,6 +110,7 @@ export const CaseDetailModal: React.FC = () => {
   const [editForm, setEditForm] = useState({
     title: '',
     case_number: '',
+    suit_no: '',
     client: '',
     branch: '',
     case_type: 'Civil',
@@ -196,6 +197,7 @@ export const CaseDetailModal: React.FC = () => {
         ...(fetchedRecord || {}),
         suitNumber: fetchedRecord?.suit_number || fetchedRecord?.case_number || rawSelectedCase.suitNumber || rawSelectedCase.case_number || '',
         case_number: fetchedRecord?.case_number || fetchedRecord?.suit_number || rawSelectedCase.case_number || rawSelectedCase.suitNumber || '',
+        suit_no: fetchedRecord?.suit_no || rawSelectedCase.suit_no || (rawSelectedCase as any).suitNo || '',
         clientName: fetchedRecord?.client_name || rawSelectedCase.clientName || (rawSelectedCase as any).client || '',
         client: fetchedRecord?.client_name || (rawSelectedCase as any).client || rawSelectedCase.clientName || '',
         branchName: fetchedRecord?.branch_name || rawSelectedCase.branchName || (rawSelectedCase as any).branch || '',
@@ -245,6 +247,7 @@ export const CaseDetailModal: React.FC = () => {
       setEditForm({
         title: activeCase.title || '',
         case_number: activeCase.case_number || activeCase.suit_number || activeCase.suitNumber || activeCase.file_no || '',
+        suit_no: activeCase.suit_no || '',
         client: activeCase.client_name || activeCase.clientName || activeCase.client || '',
         branch: activeCase.branch_name || activeCase.branchName || activeCase.branch || '',
         case_type: activeCase.case_type || activeCase.division || 'Civil',
@@ -358,6 +361,7 @@ export const CaseDetailModal: React.FC = () => {
         title: editForm.title.trim(),
         case_number: editForm.case_number.trim(),
         suitNumber: editForm.case_number.trim(),
+        suit_no: editForm.suit_no.trim(),
         client: editForm.client.trim(),
         clientName: editForm.client.trim(),
         branch: editForm.branch,
@@ -532,6 +536,14 @@ export const CaseDetailModal: React.FC = () => {
                   No file number assigned
                 </span>
               )}
+              {selectedCase.suit_no && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-mono font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]" title="Court Registry Identifier">
+                    Suit: {selectedCase.suit_no}
+                  </span>
+                </>
+              )}
               {selectedCase.firmRefNumber && selectedCase.firmRefNumber !== (selectedCase.case_number || selectedCase.suitNumber) && (
                 <>
                   <span className="text-slate-300">·</span>
@@ -646,6 +658,21 @@ export const CaseDetailModal: React.FC = () => {
                     type="text"
                     value={editForm.case_number}
                     onChange={(e) => setEdit('case_number', e.target.value)}
+                    className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+
+                {/* Suit No. (Court Registry Identifier) */}
+                <div className="space-y-1.5">
+                  <label htmlFor="edit_suit_no" className="block font-medium text-slate-700">
+                    Suit No. (Registry Identifier)
+                  </label>
+                  <input
+                    id="edit_suit_no"
+                    type="text"
+                    value={editForm.suit_no}
+                    onChange={(e) => setEdit('suit_no', e.target.value)}
+                    placeholder="e.g. HCT-00-CC-CS-0245-2026"
                     className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   />
                 </div>
@@ -1041,6 +1068,44 @@ export const CaseDetailModal: React.FC = () => {
             <div className="p-5 overflow-y-auto flex-1 space-y-4 text-xs">
               {activeTab === 'overview' && (
                 <div className="space-y-4">
+                  {/* Card: Suit No. (Registry Identifier) */}
+                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
+                        <Gavel className="w-4 h-4 text-blue-600" />
+                        <span>Suit No. (Registry Identifier)</span>
+                      </div>
+                      <span className="text-[10px] bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded">
+                        Court Registry Assigned
+                      </span>
+                    </div>
+
+                    <div className="pt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        {selectedCase.suit_no ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm sm:text-base text-slate-900 bg-slate-100 border border-slate-200 px-3 py-1 rounded-md tracking-wider">
+                              {selectedCase.suit_no}
+                            </span>
+                            <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Official Registry Identifier
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-slate-500 italic text-xs py-1">
+                            <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>Not yet assigned by registry</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-slate-500">
+                        Registry: <span className="text-slate-800 font-medium">{selectedCase.court || 'High Court of Uganda'}</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Card 1: Case details */}
                   <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -1069,6 +1134,18 @@ export const CaseDetailModal: React.FC = () => {
                           </span>
                         ) : (
                           <span className="text-slate-400 italic text-xs font-sans">No file number</span>
+                        )}
+                      </div>
+
+                      {/* Suit No. */}
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase">Suit No. (Registry Identifier)</span>
+                        {selectedCase.suit_no ? (
+                          <span className="font-mono font-medium text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                            {selectedCase.suit_no}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic text-xs font-sans">Not yet assigned by registry</span>
                         )}
                       </div>
 

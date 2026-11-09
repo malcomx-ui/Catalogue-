@@ -67,6 +67,7 @@ export default function CasesPage({ userSession }: CasesPageProps) {
       const normalized = (data || []).map((c: any) => ({
         ...c,
         case_number: c.case_number || c.suit_number || 'Suit Pending',
+        suit_no: c.suit_no || '',
         case_title: c.case_title || c.title || 'Litigation Matter',
         client_name: c.client_name || c.client || 'Client',
         lawyer: c.lawyer || c.lead_advocate || c.person_in_conduct || 'Counsel Assigned',

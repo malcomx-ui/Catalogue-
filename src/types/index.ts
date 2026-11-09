@@ -169,6 +169,7 @@ export interface CaseActivity {
 export interface CaseItem {
   id: string;
   suitNumber: string; // Official court identifier entered by user or imported
+  suit_no?: string; // Unique identifier assigned by the court registry
   firmRefNumber: string; // Internal firm reference
   title: string;
   court: string;
@@ -227,6 +228,10 @@ export interface CaseItem {
     reason: string;
     approvedBy: string;
   }[];
+}
+
+export interface LegalCase extends CaseItem {
+  suit_no?: string;
 }
 
 export interface FileMovementRecord {

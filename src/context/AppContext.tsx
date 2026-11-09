@@ -1297,6 +1297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchFileNo = (c.case_number || c.suitNumber || '').toLowerCase().includes(q);
+      const matchSuitNo = (c.suit_no || '').toLowerCase().includes(q);
       const matchFirmRef = (c.firmRefNumber || '').toLowerCase().includes(q);
       const matchTitle = (c.title || (c as any).case_title || '').toLowerCase().includes(q);
       const matchClient = (c.clientName || (c as any).client || (c as any).client_name || '').toLowerCase().includes(q);
@@ -1308,7 +1309,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const matchParty = (c.parties || []).some(p => p.name.toLowerCase().includes(q));
       const matchOpposing = (c.opposingFirm || '').toLowerCase().includes(q) || (c.opposingCounsel || '').toLowerCase().includes(q);
       
-      return matchFileNo || matchFirmRef || matchTitle || matchClient || matchLawyer || matchBranch || matchStatus || matchCourt || matchJudge || matchParty || matchOpposing;
+      return matchFileNo || matchSuitNo || matchFirmRef || matchTitle || matchClient || matchLawyer || matchBranch || matchStatus || matchCourt || matchJudge || matchParty || matchOpposing;
     }
     return true;
   });

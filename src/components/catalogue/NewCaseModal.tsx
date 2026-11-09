@@ -17,6 +17,7 @@ import { supabase, mapCaseToRow, mapRowToCase } from '../../lib/supabase';
 
 const empty = {
   case_number: '',
+  suit_no: '',
   title: '',
   branch: '',
   client: '',
@@ -74,6 +75,7 @@ export const NewCaseModal: React.FC = () => {
     person_in_conduct: currentUser.name || '',
     persons_in_conduct: currentUser.name ? [currentUser.name] : [''],
     case_number: '',
+    suit_no: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -208,6 +210,7 @@ export const NewCaseModal: React.FC = () => {
       const payload = {
         case_number: finalCaseNumber,
         suitNumber: finalCaseNumber,
+        suit_no: form.suit_no.trim(),
         title: form.title.trim(),
         branch: form.branch,
         client: form.client.trim(),
@@ -237,10 +240,20 @@ export const NewCaseModal: React.FC = () => {
 
       // 1. Real asynchronous insert directly into Supabase 'cases' table
       const newCaseObject = mapCaseToRow(payload as any, true);
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('cases')
         .insert([newCaseObject])
         .select('*');
+
+      if (error && error.message.includes('suit_no')) {
+        delete newCaseObject.suit_no;
+        const retry = await supabase
+          .from('cases')
+          .insert([newCaseObject])
+          .select('*');
+        data = retry.data;
+        error = retry.error;
+      }
 
       if (error) {
         throw new Error(error.message || 'Failed to insert case into Supabase.');
@@ -253,6 +266,7 @@ export const NewCaseModal: React.FC = () => {
         ...empty,
         branch: currentUser.branchName || branches[0]?.name || '',
         persons_in_conduct: currentUser.name ? [currentUser.name] : [''],
+        suit_no: '',
       });
     } catch (err: any) {
       setError(err?.message || 'Could not save the case.');
@@ -362,6 +376,21 @@ export const NewCaseModal: React.FC = () => {
                       ? `Auto-generates as ${systemSettings.features.caseNumberPrefix || 'MKA/'}${new Date().getFullYear()}/...`
                       : 'Enter file number (or leave blank if unassigned)'
                   }
+                  className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              {/* Suit No. (Court Registry Identifier) */}
+              <div className="space-y-1.5">
+                <label htmlFor="suit_no" className="block font-medium text-slate-700">
+                  Suit No. (Unique identifier assigned by court registry)
+                </label>
+                <input
+                  id="suit_no"
+                  type="text"
+                  value={form.suit_no}
+                  onChange={(e) => set('suit_no', e.target.value)}
+                  placeholder="e.g. HCT-00-CC-CS-0245-2026"
                   className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>

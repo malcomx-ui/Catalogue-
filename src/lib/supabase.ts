@@ -55,6 +55,7 @@ export function mapRowToCase(row: any): CaseItem {
     id: row.id,
     suitNumber: row.suit_number || row.case_number || '',
     case_number: row.case_number || row.suit_number || '',
+    suit_no: row.suit_no || '',
     firmRefNumber: row.firm_ref_number || '',
     title: row.title || '',
     court: row.court || '',
@@ -96,6 +97,7 @@ export function mapCaseToRow(c: Partial<CaseItem>, isInsert = false): any {
   const row: any = {
     case_number: c.suitNumber || (c as any).case_number || '',
     suit_number: c.suitNumber || (c as any).case_number || '',
+    suit_no: (c as any).suit_no || '',
     firm_ref_number: c.firmRefNumber || '',
     title: c.title || '',
     client_name: c.clientName || (c as any).client || '',
@@ -206,10 +208,20 @@ export const SupabaseService = {
    */
   async insertCase(caseItem: Partial<CaseItem>): Promise<CaseItem | null> {
     const row = mapCaseToRow(caseItem, true);
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('cases')
       .insert([row])
       .select('*');
+
+    if (error && error.message.includes('suit_no')) {
+      delete row.suit_no;
+      const retry = await supabase
+        .from('cases')
+        .insert([row])
+        .select('*');
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Supabase insertCase error:', error);
@@ -299,11 +311,22 @@ export const SupabaseService = {
     const row = mapCaseToRow(updates, false);
     delete row.id;
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('cases')
       .update(row)
       .eq('id', id)
       .select('*');
+
+    if (error && error.message.includes('suit_no')) {
+      delete row.suit_no;
+      const retry = await supabase
+        .from('cases')
+        .update(row)
+        .eq('id', id)
+        .select('*');
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Supabase updateCase error:', error);
