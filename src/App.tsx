@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
-import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { CaseList } from './components/catalogue/CaseList';
 import { CaseDetailModal } from './components/catalogue/CaseDetailModal';
@@ -93,9 +92,6 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans-legal">
-      {/* Mobile Top Header (Hidden on Desktop 'lg:hidden' to strictly match m-law-sync-hub.base44.app) */}
-      <Header />
-
       {/* Main Body */}
       <div className="flex-1 w-full flex">
         {/* Left Navigation Sidebar with Branch Registries & Roles */}
