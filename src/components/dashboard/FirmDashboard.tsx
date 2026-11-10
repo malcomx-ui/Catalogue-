@@ -409,7 +409,7 @@ export const FirmDashboard: React.FC = () => {
           {/* Emblem Seal Logo */}
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white flex items-center justify-center p-1.5 shadow-md border border-amber-400/30 shrink-0">
             <img
-              src="/logo.png"
+              src="/seal.png"
               alt="Muhumuza-Kiiza Seal"
               className="w-full h-full object-contain rounded-xl"
               onError={(e) => {
@@ -423,9 +423,6 @@ export const FirmDashboard: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-serif-legal">
                 Muhumuza-Kiiza
               </h1>
-              <span className="text-[10px] font-mono tracking-widest text-amber-400 font-bold bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded">
-                UGANDA
-              </span>
             </div>
             <p className="text-[11px] font-semibold tracking-wider text-slate-300 uppercase mt-0.5">
               ADVOCATES &amp; LEGAL CONSULTANTS

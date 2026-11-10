@@ -44,7 +44,7 @@ export default function Header({
     }
   }, []);
 
-  const displayTitle = title || 'Muhumuza-Kiiza (UGANDA)';
+  const displayTitle = title || 'Muhumuza-Kiiza';
   const displaySubtitle = subtitle || 'ADVOCATES & LEGAL CONSULTANTS';
   const displayDate = date || formattedToday || 'Tue, 10 Nov 2026';
   const displayStation = station || userBranch || 'Kampala Central (Head Office)';
@@ -52,13 +52,17 @@ export default function Header({
 
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center px-6 py-4 bg-white border-b border-gray-200">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-gray-900">
-          {displayTitle}
-        </h1>
-        <p className="text-sm font-medium text-gray-600">
-          {displaySubtitle}
-        </p>
+      <div className="flex items-center space-x-3">
+        <img src="/seal.png" alt="Muhumuza-Kiiza Seal" className="h-10 w-10" />
+        <div>
+          {/* Removed (UGANDA) from here */}
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">
+            {displayTitle}
+          </h1>
+          <p className="text-sm font-medium text-gray-600">
+            {displaySubtitle}
+          </p>
+        </div>
       </div>
 
       <div className="mt-2 md:mt-0 text-sm text-gray-500 flex items-center gap-2">
