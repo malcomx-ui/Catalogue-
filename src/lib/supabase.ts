@@ -749,165 +749,67 @@ export const SupabaseService = {
    */
   async updateStaff(staffId: string, updates: Partial<User>): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
-    const firmUserRow = mapUserToFirmUserRow(updates);
 
     let updatedRecord: any = null;
     let anySuccess = false;
 
-    // 1. Call server-side user update API route to sync BOTH Supabase Auth user_metadata AND profiles
-    try {
-      const session = (await supabase.auth.getSession())?.data?.session;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+    const bMeta = resolveBranchMeta(updates.branchId, updates.branchName);
+    
+    // Unified payload for both tables
+    const profilePayload: Record<string, any> = {
+      full_name: updates.name?.trim(),
+      name: updates.name?.trim(),
+      role: updates.roleId || updates.role,
+      role_id: updates.roleId || updates.role,
+      role_title: updates.roleTitle,
+      branch_id: bMeta.id,
+      branch_name: bMeta.name,
+      branch: bMeta.name,
+      updated_at: new Date().toISOString(),
+    };
 
-      const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
-      const apiRes = await fetch(`${baseUrl}/api/users/${encodeURIComponent(staffId)}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          userId: staffId,
-          id: staffId,
-          ...updates,
-        }),
-      });
+    const firmUserPayload: Record<string, any> = {
+      name: updates.name?.trim(),
+      role: updates.roleId || updates.role,
+      role_title: updates.roleTitle,
+      branch_id: bMeta.id,
+      branch_name: bMeta.name,
+      updated_at: new Date().toISOString(),
+    };
 
-      if (apiRes.ok) {
-        const json = await apiRes.json();
-        if (json.success) {
-          anySuccess = true;
-          updatedRecord = json.profile || json.user;
-        }
-      }
-    } catch (apiErr) {
-      console.warn('[SupabaseService] User update API route notice:', apiErr);
-    }
-
-    // 2. Simultaneously update public 'profiles' table directly using clean schema columns (full_name, role, branch_id, branch_name, branch, email)
-    try {
-      const profileUpdates: Record<string, any> = {};
-      if (updates.name) {
-        profileUpdates.full_name = updates.name.trim();
-      }
-      if (updates.roleId || updates.role) {
-        profileUpdates.role = updates.roleId || updates.role;
-        profileUpdates.role_id = updates.roleId || updates.role;
-      }
-      if (updates.roleTitle) {
-        profileUpdates.role_title = updates.roleTitle;
-      }
-      if (updates.branchId || updates.branchName || (updates as any).branch) {
-        const bMeta = resolveBranchMeta(updates.branchId, updates.branchName || (updates as any).branch);
-        profileUpdates.branch_id = bMeta.id;
-        profileUpdates.branch_name = bMeta.name;
-        profileUpdates.branch = bMeta.name;
-      }
-      if (updates.isSuperAdmin !== undefined) {
-        profileUpdates.is_super_admin = Boolean(updates.isSuperAdmin);
-      }
-      if (updates.isBranchAdmin !== undefined) {
-        profileUpdates.is_branch_admin = Boolean(updates.isBranchAdmin);
-      }
-      if (updates.email) {
-        profileUpdates.email = updates.email.trim().toLowerCase();
-      }
-      profileUpdates.updated_at = new Date().toISOString();
-
-      // Helper to execute update with graceful column fallback
-      const executeProfileUpdate = async (matchColumn: string, matchValue: string) => {
-        let { data, error } = await supabase
-          .from('profiles')
-          .update(profileUpdates)
-          .eq(matchColumn, matchValue)
-          .select('*');
-
-        // If branch_id or branch_name is not supported in a custom schema, prune and retry
-        if (error && (error.message.includes('branch_id') || error.message.includes('branch_name') || error.message.includes('role_id'))) {
-          const fallbackUpdates = { ...profileUpdates };
-          delete fallbackUpdates.branch_id;
-          delete fallbackUpdates.branch_name;
-          delete fallbackUpdates.role_id;
-          delete fallbackUpdates.role_title;
-          const retry = await supabase
-            .from('profiles')
-            .update(fallbackUpdates)
-            .eq(matchColumn, matchValue)
-            .select('*');
-          data = retry.data;
-          error = retry.error;
-        }
-        return { data, error };
-      };
-
-      // 2a. Update by email in profiles
-      if (updates.email && Object.keys(profileUpdates).length > 0) {
-        const { data: pByEmail } = await executeProfileUpdate('email', updates.email.trim().toLowerCase());
-        if (pByEmail && pByEmail.length > 0) {
-          anySuccess = true;
-          updatedRecord = updatedRecord || pByEmail[0];
-        }
-      }
-
-      // 2b. Update by UUID in profiles
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffId);
-      if (isUUID && Object.keys(profileUpdates).length > 0) {
-        const { data: pById } = await executeProfileUpdate('id', staffId);
-        if (pById && pById.length > 0) {
-          anySuccess = true;
-          updatedRecord = updatedRecord || pById[0];
-        }
-      }
-    } catch (pEx) {
-      console.warn('[SupabaseService] profiles table client update warning:', pEx);
-    }
-
-    // 3. Simultaneously sync to 'firm_users' table
+    // 1. Update 'profiles' table
     try {
       const { data, error } = await supabase
-        .from('firm_users')
-        .update(firmUserRow)
+        .from('profiles')
+        .update(profilePayload)
         .eq('id', staffId)
         .select('*');
 
       if (!error && data && data.length > 0) {
-        updatedRecord = updatedRecord || data[0];
         anySuccess = true;
-      } else if (updates.email) {
-        const { data: dataEmail } = await supabase
-          .from('firm_users')
-          .update(firmUserRow)
-          .eq('email', updates.email.trim().toLowerCase())
-          .select('*');
-        if (dataEmail && dataEmail.length > 0) {
-          updatedRecord = updatedRecord || dataEmail[0];
-          anySuccess = true;
-        }
+        updatedRecord = data[0];
       }
     } catch (e) {
-      console.warn('Supabase update firm_users error:', e);
+      console.warn('Profiles update error:', e);
     }
 
-    // 4. If current user is modifying their own session, sync client user_metadata directly
+    // 2. Update 'firm_users' table
     try {
-      const { data: authUser } = await supabase.auth.getUser();
-      if (authUser?.user && (authUser.user.id === staffId || authUser.user.email?.toLowerCase() === updates.email?.toLowerCase())) {
-        await supabase.auth.updateUser({
-          data: {
-            full_name: updates.name,
-            name: updates.name,
-            role: updates.roleId || updates.role,
-            role_id: updates.roleId || updates.role,
-            role_title: updates.roleTitle,
-            branch: updates.branchName,
-            branch_name: updates.branchName,
-            branch_id: updates.branchId,
-          },
-        });
-      }
-    } catch (uErr) {}
+      const { data, error } = await supabase
+        .from('firm_users')
+        .update(firmUserPayload)
+        .eq('id', staffId)
+        .select('*');
 
-    return { success: anySuccess || true, data: updatedRecord };
+      if (!error && data && data.length > 0) {
+        anySuccess = true;
+        updatedRecord = updatedRecord || data[0];
+      }
+    } catch (e) {
+      console.warn('Firm users update error:', e);
+    }
+
+    return { success: anySuccess, data: updatedRecord };
   },
 
   /**

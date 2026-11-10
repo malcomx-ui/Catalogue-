@@ -79,7 +79,15 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
         name.trim(),
         roleId,
         branchId,
-        { email: email.trim().toLowerCase() }
+        {
+          email: email.trim().toLowerCase(),
+          onSuccess: () => {
+            console.log("User updated successfully in Supabase!");
+          },
+          onError: (err) => {
+            setError("Failed to save: " + err);
+          },
+        }
       );
 
       if (!staffResult.success) {
