@@ -74,6 +74,7 @@ interface AppContextType {
   toggleSuspendUser: (userId: string, reason?: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<boolean>;
   refreshStaffFromSupabase: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
   fetchUserProfile: (targetUserId?: string) => Promise<User | null>;
 
   // Central Server & Multi-Device Sync
@@ -2753,6 +2754,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCase,
         refreshCasesFromSupabase,
         refreshStaffFromSupabase,
+        fetchUsers: refreshStaffFromSupabase,
         fetchUserProfile,
         updateCaseStage,
         transferCaseToBranch,
