@@ -21,7 +21,7 @@ const empty = {
   title: '',
   branch: '',
   client: '',
-  case_type: 'Civil',
+  case_type: 'Civil Litigation',
   status: 'Active',
   date_of_instructions: new Date().toISOString().slice(0, 10),
   court: 'High Court of Uganda',
@@ -32,7 +32,7 @@ const empty = {
   target: '',
   file_location: 'KAMPALA HEAD OFFICE',
   year_of_closure: '',
-  billing_status: '',
+  billing_status: 'unbilled',
   payment_status: '',
   verdict: '',
   person_in_conduct: '',
@@ -130,7 +130,6 @@ export const NewCaseModal: React.FC = () => {
             const lead = foundBranch.staff.find((s) => s.role === 'team_lead' || s.role === 'partner');
             if (lead) {
               updated.person_in_conduct = lead.name;
-              // If only 1 person or empty, update to the branch lead
               if (updated.persons_in_conduct.length <= 1) {
                 updated.persons_in_conduct = [lead.name];
               }
@@ -179,26 +178,6 @@ export const NewCaseModal: React.FC = () => {
       setError(`${getField('court', 'Court').label} is required by firm intake rules.`);
       return;
     }
-    if (getField('dateOfInstructions', 'Date of instructions').isMandatory && !form.date_of_instructions) {
-      setError(`${getField('dateOfInstructions', 'Date of instructions').label} is required by firm intake rules.`);
-      return;
-    }
-    if (getField('subjectMatter', 'Subject matter').isMandatory && !form.subject_matter.trim()) {
-      setError(`${getField('subjectMatter', 'Subject matter').label} is required by firm intake rules.`);
-      return;
-    }
-    if (getField('fileLocation', 'Location of physical file').isMandatory && !form.file_location.trim()) {
-      setError(`${getField('fileLocation', 'Location of physical file').label} is required by firm intake rules.`);
-      return;
-    }
-    if (getField('billingStatus', 'Billing status').isMandatory && !form.billing_status.trim()) {
-      setError(`${getField('billingStatus', 'Billing status').label} is required by firm intake rules.`);
-      return;
-    }
-    if (getField('nextHearingDate', 'Hearing date').isMandatory && !form.hearing_date) {
-      setError(`${getField('nextHearingDate', 'Hearing date').label} is required by firm intake rules.`);
-      return;
-    }
 
     setSaving(true);
     try {
@@ -215,7 +194,7 @@ export const NewCaseModal: React.FC = () => {
         branch: form.branch,
         client: form.client.trim(),
         clientName: form.client.trim(),
-        case_type: form.case_type,
+        case_type: form.case_type, // <--- Explicitly included to resolve Supabase cache error
         status: (form.status || 'Active') as any,
         date_of_instructions: form.date_of_instructions || undefined,
         filingDate: form.date_of_instructions || new Date().toISOString().slice(0, 10),
@@ -231,7 +210,7 @@ export const NewCaseModal: React.FC = () => {
         year_of_closure: (form.status === 'Closed' || form.status === 'Archived')
           ? (form.year_of_closure ? Number(form.year_of_closure) : new Date().getFullYear())
           : (form.year_of_closure ? Number(form.year_of_closure) : null),
-        billing_status: form.billing_status.trim(),
+        billing_status: form.billing_status.trim() || 'unbilled',
         payment_status: form.payment_status.trim(),
         verdict: form.verdict.trim(),
         person_in_conduct: combinedPersons,
@@ -240,7 +219,6 @@ export const NewCaseModal: React.FC = () => {
         assistingAdvocates: assistingAdvocates,
       };
 
-      // 1. Real asynchronous insert directly into Supabase 'cases' table
       const newCaseObject = mapCaseToRow(payload as any, true);
       let { data, error } = await supabase
         .from('cases')
@@ -338,15 +316,6 @@ export const NewCaseModal: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {!canSelectAnyBranch ? (
-                  <p className="text-[11px] text-blue-700 font-medium">
-                    Branch Staff: Automatically assigned to your custody branch ({currentUser.branchName || 'Assigned Branch'}).
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-slate-500">
-                    Global Access (Admin / Lawyer): Choose branch destination for this matter.
-                  </p>
-                )}
               </div>
 
               {/* 2. MK Case No. */}
@@ -354,14 +323,12 @@ export const NewCaseModal: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <label htmlFor="case_number" className="block font-medium text-slate-700">
                     {getField('caseNumber', 'MK Case No.').label}
-                    {getField('caseNumber', 'MK Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
                   {systemSettings?.features?.enableCaseAutoNumbering && (
                     <button
                       type="button"
                       onClick={handleAutoGenerateNumber}
                       className="text-[10px] text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1"
-                      title="Auto-generate next firm suit number"
                     >
                       <Sparkles className="w-3 h-3" />
                       <span>Auto-Generate</span>
@@ -373,16 +340,12 @@ export const NewCaseModal: React.FC = () => {
                   type="text"
                   value={form.case_number}
                   onChange={(e) => set('case_number', e.target.value)}
-                  placeholder={
-                    systemSettings?.features?.enableCaseAutoNumbering
-                      ? `Auto-generates as ${systemSettings.features.caseNumberPrefix || 'MKA/'}${new Date().getFullYear()}/...`
-                      : 'Enter MK case number (or leave blank if unassigned)'
-                  }
+                  placeholder="Enter MK case number"
                   className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
-              {/* Suit No. (Court Registry Identifier) */}
+              {/* Suit No. */}
               <div className="space-y-1.5">
                 <label htmlFor="suit_no" className="block font-medium text-slate-700">
                   Suit No.
@@ -395,20 +358,17 @@ export const NewCaseModal: React.FC = () => {
                   placeholder="e.g. HCT-00-CC-CS-0245-2026"
                   className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Unique identifier assigned by the court registry
-                </p>
               </div>
 
               {/* 3. Client Full Name/Entity */}
               <div className="space-y-1.5">
                 <label htmlFor="client" className="block font-medium text-slate-700">
-                  {getField('clientName', 'Client Full Name/Entity').label}
-                  {getField('clientName', 'Client Full Name/Entity').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                  {getField('clientName', 'Client Full Name/Entity').label} *
                 </label>
                 <input
                   id="client"
                   type="text"
+                  required
                   value={form.client}
                   onChange={(e) => set('client', e.target.value)}
                   placeholder="Client name / corporate entity"
@@ -419,8 +379,7 @@ export const NewCaseModal: React.FC = () => {
               {/* 4. Case Title */}
               <div className="space-y-1.5">
                 <label htmlFor="title" className="block font-medium text-slate-700">
-                  {getField('title', 'Case Title').label}
-                  {getField('title', 'Case Title').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                  {getField('title', 'Case Title').label} *
                 </label>
                 <input
                   id="title"
@@ -428,16 +387,15 @@ export const NewCaseModal: React.FC = () => {
                   required
                   value={form.title}
                   onChange={(e) => set('title', e.target.value)}
-                  placeholder="Brief subject of the matter (e.g. Stanbic Bank (U) Ltd v. Equator Agro-Industries)"
+                  placeholder="Brief subject of the matter"
                   className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 font-medium"
                 />
               </div>
 
-              {/* 5. Nature of case */}
+              {/* 5. Nature of case (case_type) */}
               <div className="space-y-1.5">
                 <label className="block font-medium text-slate-700">
-                  {getField('caseType', 'Nature of case').label}
-                  {getField('caseType', 'Nature of case').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                  {getField('caseType', 'Nature of case').label} *
                 </label>
                 <select
                   value={form.case_type}
@@ -458,8 +416,7 @@ export const NewCaseModal: React.FC = () => {
               {/* 6. Status */}
               <div className="space-y-1.5">
                 <label className="block font-medium text-slate-700">
-                  {getField('status', 'Status').label}
-                  {getField('status', 'Status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                  {getField('status', 'Status').label} *
                 </label>
                 <select
                   value={form.status}
@@ -477,7 +434,6 @@ export const NewCaseModal: React.FC = () => {
               <div className="space-y-1.5">
                 <label htmlFor="doi" className="block font-medium text-slate-700">
                   {getField('dateOfInstructions', 'Date of instructions').label}
-                  {getField('dateOfInstructions', 'Date of instructions').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                 </label>
                 <input
                   id="doi"
@@ -488,41 +444,18 @@ export const NewCaseModal: React.FC = () => {
                 />
               </div>
 
-              {!getField('nextHearingDate', 'Hearing date').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="hearing" className="block font-medium text-slate-700">
-                    {getField('nextHearingDate', 'Hearing date').label}
-                    {getField('nextHearingDate', 'Hearing date').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <input
-                    id="hearing"
-                    type="date"
-                    value={form.hearing_date}
-                    onChange={(e) => set('hearing_date', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
-
               <div className="space-y-1.5">
                 <label htmlFor="court" className="block font-medium text-slate-700">
-                  {getField('court', 'Court').label}
-                  {getField('court', 'Court').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
+                  {getField('court', 'Court').label} *
                 </label>
                 <input
                   id="court"
                   type="text"
-                  list="court-options-list"
                   value={form.court}
                   onChange={(e) => set('court', e.target.value)}
                   placeholder="e.g. High Court (Commercial Division)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
-                <datalist id="court-options-list">
-                  {(systemSettings?.courtList || []).map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
               </div>
 
               <div className="space-y-1.5">
@@ -562,39 +495,33 @@ export const NewCaseModal: React.FC = () => {
               />
 
               <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100">
-                {!getField('fileLocation', 'Location of physical file').isHidden && (
-                  <div className="space-y-1.5">
-                    <label htmlFor="file_loc" className="block font-medium text-slate-700">
-                      {getField('fileLocation', 'Location of physical file').label}
-                      {getField('fileLocation', 'Location of physical file').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                    </label>
-                    <input
-                      id="file_loc"
-                      type="text"
-                      value={form.file_location}
-                      onChange={(e) => set('file_location', e.target.value)}
-                      placeholder="e.g. KAMPALA OFFICE / CAB-2"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                    />
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <label htmlFor="file_loc" className="block font-medium text-slate-700">
+                    Location of physical file
+                  </label>
+                  <input
+                    id="file_loc"
+                    type="text"
+                    value={form.file_location}
+                    onChange={(e) => set('file_location', e.target.value)}
+                    placeholder="e.g. KAMPALA OFFICE / CAB-2"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  />
+                </div>
 
-                {!getField('target', 'Target').isHidden && (
-                  <div className="space-y-1.5">
-                    <label htmlFor="target" className="block font-medium text-slate-700">
-                      {getField('target', 'Target').label}
-                      {getField('target', 'Target').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                    </label>
-                    <input
-                      id="target"
-                      type="text"
-                      value={form.target}
-                      onChange={(e) => set('target', e.target.value)}
-                      placeholder="e.g. Obtain stay of execution, Recovery of UGX 1.2B, or filing joint submissions"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                    />
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <label htmlFor="target" className="block font-medium text-slate-700">
+                    Target
+                  </label>
+                  <input
+                    id="target"
+                    type="text"
+                    value={form.target}
+                    onChange={(e) => set('target', e.target.value)}
+                    placeholder="e.g. Recovery of UGX 1.2B"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -607,66 +534,35 @@ export const NewCaseModal: React.FC = () => {
             </div>
 
             <div className="grid gap-4">
-              {!getField('subjectMatter', 'Subject matter').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="subject" className="block font-medium text-slate-700">
-                    {getField('subjectMatter', 'Subject matter').label}
-                    {getField('subjectMatter', 'Subject matter').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <textarea
-                    id="subject"
-                    rows={3}
-                    value={form.subject_matter}
-                    onChange={(e) => set('subject_matter', e.target.value)}
-                    placeholder="Detailed summary of facts, claims, or dispute context..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label htmlFor="subject" className="block font-medium text-slate-700">
+                  Subject matter
+                </label>
+                <textarea
+                  id="subject"
+                  rows={3}
+                  value={form.subject_matter}
+                  onChange={(e) => set('subject_matter', e.target.value)}
+                  placeholder="Detailed summary of facts, claims, or dispute context..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                />
+              </div>
 
-              {!getField('notes', 'Notes').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="notes" className="block font-medium text-slate-700">
-                    {getField('notes', 'Notes').label}
-                    {getField('notes', 'Notes').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <textarea
-                    id="notes"
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) => set('notes', e.target.value)}
-                    placeholder="Internal notes, procedural milestones, or client instructions..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label htmlFor="notes" className="block font-medium text-slate-700">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => set('notes', e.target.value)}
+                  placeholder="Internal notes or client instructions..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                />
+              </div>
             </div>
           </div>
-
-          {/* Section: Custom Firm Matter Fields */}
-          {systemSettings?.customFields && systemSettings.customFields.length > 0 && (
-            <div className="border border-purple-200 rounded-lg p-4 bg-purple-50/20 shadow-2xs space-y-4">
-              <div className="flex items-center gap-2 text-purple-950 font-bold border-b border-purple-100 pb-2 text-sm">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                <span>Custom Firm Intake Fields</span>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                {systemSettings.customFields.map((cf) => (
-                  <div key={cf.id} className="space-y-1.5">
-                    <label className="block font-medium text-slate-700">
-                      {cf.name}
-                      {cf.requirement === 'mandatory' && <span className="text-rose-600 font-bold ml-1">*</span>}
-                    </label>
-                    <input
-                      type={cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'}
-                      placeholder={cf.helpText || `Enter ${cf.name.toLowerCase()}...`}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:outline-none focus:border-purple-600 text-xs"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Section 4: Closure & billing */}
           <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
@@ -675,73 +571,33 @@ export const NewCaseModal: React.FC = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {!getField('yearOfClosure', 'Year of closure').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="yoc" className="block font-medium text-slate-700">
-                    {getField('yearOfClosure', 'Year of closure').label}
-                    {getField('yearOfClosure', 'Year of closure').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <input
-                    id="yoc"
-                    type="number"
-                    value={form.year_of_closure}
-                    onChange={(e) => set('year_of_closure', e.target.value)}
-                    placeholder="e.g. 2026"
-                    className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label htmlFor="billing" className="block font-medium text-slate-700">
+                  Billing status
+                </label>
+                <input
+                  id="billing"
+                  type="text"
+                  value={form.billing_status}
+                  onChange={(e) => set('billing_status', e.target.value)}
+                  placeholder="e.g. unbilled, Billed, Retainer"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                />
+              </div>
 
-              {!getField('billingStatus', 'Billing status').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="billing" className="block font-medium text-slate-700">
-                    {getField('billingStatus', 'Billing status').label}
-                    {getField('billingStatus', 'Billing status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <input
-                    id="billing"
-                    type="text"
-                    value={form.billing_status}
-                    onChange={(e) => set('billing_status', e.target.value)}
-                    placeholder="e.g. Retainer, Billed, Pending Invoice"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
-
-              {!getField('paymentStatus', 'Payment status').isHidden && (
-                <div className="space-y-1.5">
-                  <label htmlFor="payment" className="block font-medium text-slate-700">
-                    {getField('paymentStatus', 'Payment status').label}
-                    {getField('paymentStatus', 'Payment status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <input
-                    id="payment"
-                    type="text"
-                    value={form.payment_status}
-                    onChange={(e) => set('payment_status', e.target.value)}
-                    placeholder="e.g. Paid, 50% Advance Received, Overdue"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
-
-              {!getField('verdict', 'Verdict').isHidden && (
-                <div className="space-y-1.5 md:col-span-2">
-                  <label htmlFor="verdict" className="block font-medium text-slate-700">
-                    {getField('verdict', 'Verdict').label}
-                    {getField('verdict', 'Verdict').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
-                  </label>
-                  <textarea
-                    id="verdict"
-                    rows={2}
-                    value={form.verdict}
-                    onChange={(e) => set('verdict', e.target.value)}
-                    placeholder="Outcome, judgment summary, decree terms, or settlement reached..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
-                  />
-                </div>
-              )}
+              <div className="space-y-1.5">
+                <label htmlFor="payment" className="block font-medium text-slate-700">
+                  Payment status
+                </label>
+                <input
+                  id="payment"
+                  type="text"
+                  value={form.payment_status}
+                  onChange={(e) => set('payment_status', e.target.value)}
+                  placeholder="e.g. Paid, 50% Advance Received"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                />
+              </div>
             </div>
           </div>
 
