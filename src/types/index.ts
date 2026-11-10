@@ -418,3 +418,18 @@ export interface AuditLog {
   changes?: Record<string, any>;
   created_at: string;
 }
+
+export interface CaseAuditLog {
+  id: string;
+  case_id?: string;
+  case_number?: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  user_id?: string;
+  user_email?: string;
+  user_role?: string;
+  timestamp: string;
+  old_data?: Record<string, any> | null;
+  new_data?: Record<string, any> | null;
+  modified_fields?: Record<string, { old: any; new: any }> | null;
+  created_at: string;
+}

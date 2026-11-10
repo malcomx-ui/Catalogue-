@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { CaseItem, CourtHearing, PleadingDocument, Branch, User, AuditLog } from '../types';
+import { CaseItem, CourtHearing, PleadingDocument, Branch, User, AuditLog, CaseAuditLog } from '../types';
 
 export const DEFAULT_SUPABASE_URL = 'https://kidaxoubrzbvnrtuinff.supabase.co';
 export const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpZGF4b3Vicnpidm5ydHVpbmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM1ODE0NjAsImV4cCI6MjEwOTE1NzQ2MH0.eDf8euIyXDj5CEzZbW3Dy8irKqGWC-0scvftzfwMS5g';
@@ -579,6 +579,33 @@ export const SupabaseService = {
       return data || [];
     } catch (e) {
       console.warn('[Supabase Audit] fetchAuditLogs exception:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Fetches automated case change audit logs from Supabase 'case_audit_logs' table
+   */
+  async fetchCaseAuditLogs(caseId?: string): Promise<CaseAuditLog[]> {
+    try {
+      let query = supabase
+        .from('case_audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(200);
+
+      if (caseId) {
+        query = query.eq('case_id', caseId);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn('[Supabase Audit] fetchCaseAuditLogs notice:', error.message);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.warn('[Supabase Audit] fetchCaseAuditLogs exception:', e);
       return [];
     }
   },

@@ -472,6 +472,10 @@ export const AccessRolesManager: React.FC = () => {
           onSave={async (updates) => {
             await updateUser(editTargetUser.id, updates);
             const res = await secureUpdateStaff(editTargetUser.id, updates);
+            // CRITICAL: Force parent component / table to refetch data immediately from Supabase
+            if (refreshStaffFromSupabase) {
+              await refreshStaffFromSupabase();
+            }
             setEditTargetUser(null);
             return res;
           }}
