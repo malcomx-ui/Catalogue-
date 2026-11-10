@@ -74,6 +74,7 @@ interface AppContextType {
   toggleSuspendUser: (userId: string, reason?: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<boolean>;
   refreshStaffFromSupabase: () => Promise<void>;
+  fetchUserProfile: (targetUserId?: string) => Promise<User | null>;
 
   // Central Server & Multi-Device Sync
   isServerConnected: boolean;
@@ -1222,6 +1223,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err) {
       console.warn('Error refreshing staff from Supabase profiles:', err);
+    }
+  };
+
+  // Explicitly fetch user profile directly from Supabase 'profiles' table
+  const fetchUserProfile = async (targetUserId?: string): Promise<User | null> => {
+    try {
+      const targetId = targetUserId || currentUser?.id;
+      const targetEmail = currentUser?.email;
+
+      let freshProfile: any = null;
+      if (targetId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId)) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', targetId)
+          .maybeSingle();
+        if (data && !error) freshProfile = data;
+      }
+
+      if (!freshProfile && targetEmail) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', targetEmail.trim().toLowerCase())
+          .maybeSingle();
+        if (data && !error) freshProfile = data;
+      }
+
+      if (freshProfile) {
+        const bMeta = resolveBranchMeta(freshProfile.branch_id, freshProfile.branch_name || freshProfile.branch);
+        const rMeta = resolveUserRoleMeta(freshProfile.role, freshProfile.role_id, Boolean(freshProfile.is_super_admin), freshProfile.email);
+
+        const updatedUser: User = {
+          id: freshProfile.id,
+          name: freshProfile.full_name || freshProfile.name || currentUser.name,
+          email: freshProfile.email || currentUser.email,
+          role: rMeta.role as any,
+          roleId: rMeta.roleId,
+          roleTitle: freshProfile.role_title || rMeta.roleTitle,
+          branchId: bMeta.id,
+          branchName: bMeta.name,
+          isSuperAdmin: rMeta.isSuperAdmin,
+          isBranchAdmin: rMeta.isBranchAdmin,
+          advocateRollNo: freshProfile.advocate_roll_no,
+        };
+
+        if (!targetUserId || targetUserId === currentUser.id) {
+          setCurrentUser(updatedUser);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updatedUser));
+          } catch (e) {}
+        }
+
+        await refreshStaffFromSupabase();
+        return updatedUser;
+      } else {
+        await refreshStaffFromSupabase();
+        return currentUser;
+      }
+    } catch (err) {
+      console.warn('Error in fetchUserProfile from Supabase:', err);
+      await refreshStaffFromSupabase();
+      return currentUser;
     }
   };
 
@@ -2689,6 +2753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCase,
         refreshCasesFromSupabase,
         refreshStaffFromSupabase,
+        fetchUserProfile,
         updateCaseStage,
         transferCaseToBranch,
         addHearing,
