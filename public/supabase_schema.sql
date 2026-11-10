@@ -213,3 +213,46 @@ INSERT INTO public.firm_users (id, name, email, role, role_title, branch_id, bra
 ('user-admin', 'Firm Administrator', 'infosightug@gmail.com', 'partner', 'Sole Managing Partner & Super Admin', 'kla-hq', 'Kampala Office', true, true, 'MK/ADV/001'),
 ('user-advocate-ftp', 'Adv. Sarah Namatovu', 'sarah.namatovu@mkadvocates.ug', 'lawyer', 'Regional Trial Advocate', 'ftp-reg', 'Fort Portal Office', false, false, 'MK/ADV/022')
 ON CONFLICT (id) DO NOTHING;
+
+-- ------------------------------------------------------------------------------
+-- 10. AUTOMATIC BRANCH ASSIGNMENT ON NEW CASE CREATION
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.set_case_branch()
+RETURNS TRIGGER AS $$
+DECLARE
+  user_branch TEXT;
+  user_role TEXT;
+BEGIN
+  -- Fetch the current user's role and branch_id from their profile
+  SELECT role, branch_id INTO user_role, user_branch
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  -- Allow global partners and super admins to assign any branch they choose
+  IF user_role IN ('partner', 'super_admin') THEN
+    RETURN NEW;
+  END IF;
+
+  -- Automatically lock regular staff members to their own assigned branch
+  IF user_branch IS NOT NULL THEN
+    NEW.branch_id := user_branch;
+  ELSE
+    RAISE EXCEPTION 'Access Denied: Your user profile does not have an assigned branch.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Drop trigger if it already exists to prevent duplicate execution
+DROP TRIGGER IF EXISTS tr_set_case_branch ON public.cases;
+
+-- Create trigger to execute before any insert on cases table
+CREATE TRIGGER tr_set_case_branch
+  BEFORE INSERT ON public.cases
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_case_branch();
+
+-- Refresh PostgREST schema cache
+NOTIFY pgrst, 'reload schema';
+
