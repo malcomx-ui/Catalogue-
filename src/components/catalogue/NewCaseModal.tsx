@@ -307,9 +307,9 @@ export const NewCaseModal: React.FC = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {/* Branch Field: Locked to user's branch for regular staff, dropdown for admin */}
+              {/* Branch Field: Locked to the user's assigned branch for staff, dropdown for admins */}
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">Branch *</label>
+                <label className="block text-sm font-medium text-gray-700">Assigned Branch</label>
                 {isGlobalAdmin ? (
                   <select
                     className="mt-1 block w-full border border-slate-300 rounded-md p-2 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
@@ -334,8 +334,8 @@ export const NewCaseModal: React.FC = () => {
                 )}
                 <p className="text-xs text-gray-500 mt-1">
                   {isGlobalAdmin 
-                    ? "Global Admin: You can override the branch selection." 
-                    : "Cases are automatically locked to your assigned branch."}
+                    ? "Global Admin: You have permission to override the branch selection." 
+                    : "This case is automatically locked and assigned to your branch."}
                 </p>
               </div>
 
