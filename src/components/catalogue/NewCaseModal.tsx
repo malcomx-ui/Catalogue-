@@ -52,6 +52,7 @@ export const NewCaseModal: React.FC = () => {
   } = useApp();
 
   const canSelectAnyBranch = userPermissions.canViewAllBranches;
+  const isGlobalAdmin = ['partner', 'super_admin'].includes(currentUser?.role) || userPermissions.canViewAllBranches;
 
   const intake = systemSettings?.intakeFields || {};
   const getField = (id: string, fallbackLabel: string) => {
@@ -191,7 +192,13 @@ export const NewCaseModal: React.FC = () => {
         suitNumber: finalCaseNumber,
         suit_no: form.suit_no.trim(),
         title: form.title.trim(),
-        branch: form.branch,
+        branch: isGlobalAdmin ? form.branch : (currentUser.branchName || form.branch),
+        branch_id: isGlobalAdmin 
+          ? (branches.find((b) => b.name === form.branch)?.id || form.branch)
+          : (currentUser.branchId || branches.find((b) => b.name === currentUser.branchName)?.id),
+        branchId: isGlobalAdmin 
+          ? (branches.find((b) => b.name === form.branch)?.id || form.branch)
+          : (currentUser.branchId || branches.find((b) => b.name === currentUser.branchName)?.id),
         client: form.client.trim(),
         clientName: form.client.trim(),
         case_type: form.case_type, // <--- Explicitly included to resolve Supabase cache error
@@ -299,23 +306,38 @@ export const NewCaseModal: React.FC = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {/* 1. Branch */}
+              {/* 1. Branch: Visible to everyone, locked/read-only for regular staff */}
               <div className="space-y-1.5">
                 <label className="block font-medium text-slate-700">
                   {getField('branch', 'Branch').label} *
                 </label>
-                <select
-                  value={canSelectAnyBranch ? form.branch : (currentUser.branchName || branches[0]?.name)}
-                  onChange={(e) => set('branch', e.target.value)}
-                  disabled={!canSelectAnyBranch}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-85 disabled:bg-slate-100"
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                {isGlobalAdmin ? (
+                  <select
+                    value={form.branch}
+                    onChange={(e) => set('branch', e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  >
+                    <option value="" disabled>Select branch (Admin Override)</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    disabled
+                    className="w-full bg-slate-100 border border-slate-300 rounded-md px-3 py-1.5 text-slate-700 font-medium cursor-not-allowed"
+                    value={currentUser.branchName || currentUser.branchId || 'Assigned Branch'}
+                  />
+                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {isGlobalAdmin 
+                    ? "Global Admin: You can override the branch selection." 
+                    : "This case is automatically assigned to your branch."}
+                </p>
               </div>
 
               {/* 2. MK Case No. */}
