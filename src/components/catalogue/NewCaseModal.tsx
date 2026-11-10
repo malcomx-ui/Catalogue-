@@ -52,7 +52,8 @@ export const NewCaseModal: React.FC = () => {
   } = useApp();
 
   const canSelectAnyBranch = userPermissions.canViewAllBranches;
-  const isGlobalAdmin = ['partner', 'super_admin'].includes(currentUser?.role) || userPermissions.canViewAllBranches;
+  const currentUserProfile = currentUser;
+  const isGlobalAdmin = ['partner', 'super_admin'].includes(currentUserProfile?.role) || userPermissions.canViewAllBranches;
 
   const intake = systemSettings?.intakeFields || {};
   const getField = (id: string, fallbackLabel: string) => {
@@ -306,17 +307,15 @@ export const NewCaseModal: React.FC = () => {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {/* 1. Branch: Visible to everyone, locked/read-only for regular staff */}
+              {/* Branch Field: Locked to user's branch for regular staff, dropdown for admin */}
               <div className="space-y-1.5">
-                <label className="block font-medium text-slate-700">
-                  {getField('branch', 'Branch').label} *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Branch *</label>
                 {isGlobalAdmin ? (
                   <select
+                    className="mt-1 block w-full border border-slate-300 rounded-md p-2 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                     value={form.branch}
                     onChange={(e) => set('branch', e.target.value)}
                     required
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   >
                     <option value="" disabled>Select branch (Admin Override)</option>
                     {branches.map((b) => (
@@ -329,14 +328,14 @@ export const NewCaseModal: React.FC = () => {
                   <input
                     type="text"
                     disabled
-                    className="w-full bg-slate-100 border border-slate-300 rounded-md px-3 py-1.5 text-slate-700 font-medium cursor-not-allowed"
-                    value={currentUser.branchName || currentUser.branchId || 'Assigned Branch'}
+                    className="mt-1 block w-full border border-slate-300 rounded-md p-2 bg-gray-100 text-gray-700 font-medium cursor-not-allowed"
+                    value={currentUserProfile?.branchName || (currentUserProfile as any)?.branch_name || currentUserProfile?.branchId || (currentUserProfile as any)?.branch_id || 'Your Assigned Branch'}
                   />
                 )}
-                <p className="text-[11px] text-slate-500 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   {isGlobalAdmin 
                     ? "Global Admin: You can override the branch selection." 
-                    : "This case is automatically assigned to your branch."}
+                    : "Cases are automatically locked to your assigned branch."}
                 </p>
               </div>
 
