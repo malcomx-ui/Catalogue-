@@ -228,6 +228,13 @@ export const NewCaseModal: React.FC = () => {
       };
 
       const newCaseObject = mapCaseToRow(payload as any, true);
+
+      // Omit branch_id completely for regular staff — let the backend trigger assign it automatically!
+      const isPartnerOrSuperAdmin = currentUserProfile?.role === 'partner' || currentUserProfile?.role === 'super_admin';
+      if (!isPartnerOrSuperAdmin) {
+        delete newCaseObject.branch_id;
+      }
+
       let { data, error } = await supabase
         .from('cases')
         .insert([newCaseObject])
