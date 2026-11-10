@@ -2,16 +2,30 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 
 export interface HeaderProps {
+  title?: string;
+  subtitle?: string;
   date?: string;
   station?: string;
+  showFilteredScope?: boolean;
 }
 
-export default function Header({ date, station }: HeaderProps) {
-  let userBranch = 'Masaka Regional Office';
+export default function Header({
+  title,
+  subtitle,
+  date,
+  station,
+  showFilteredScope,
+}: HeaderProps) {
+  let userBranch = 'Kampala Central (Head Office)';
+  let isFiltered = true;
+
   try {
-    const { currentUser } = useApp();
+    const { currentUser, selectedBranchFilter } = useApp();
     if (currentUser?.branchName) {
       userBranch = currentUser.branchName;
+    }
+    if (selectedBranchFilter !== undefined) {
+      isFiltered = selectedBranchFilter !== 'all';
     }
   } catch (e) {
     // Graceful fallback if outside provider
@@ -30,17 +44,20 @@ export default function Header({ date, station }: HeaderProps) {
     }
   }, []);
 
+  const displayTitle = title || 'Muhumuza-Kiiza (UGANDA)';
+  const displaySubtitle = subtitle || 'ADVOCATES & LEGAL CONSULTANTS';
   const displayDate = date || formattedToday || 'Tue, 10 Nov 2026';
-  const displayStation = station || userBranch || 'Masaka Regional Office';
+  const displayStation = station || userBranch || 'Kampala Central (Head Office)';
+  const displayFiltered = showFilteredScope !== undefined ? showFilteredScope : true;
 
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center px-6 py-4 bg-white border-b border-gray-200">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-gray-900">
-          Muhumuza-Kiiza
+          {displayTitle}
         </h1>
         <p className="text-sm font-medium text-gray-600">
-          ADVOCATES &amp; LEGAL CONSULTANTS
+          {displaySubtitle}
         </p>
       </div>
 
@@ -48,6 +65,14 @@ export default function Header({ date, station }: HeaderProps) {
         <span>{displayDate}</span>
         <span>·</span>
         <span>Station: {displayStation}</span>
+        {displayFiltered && (
+          <>
+            <span>·</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+              Filtered Scope
+            </span>
+          </>
+        )}
       </div>
     </header>
   );
