@@ -15,6 +15,8 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
     }
   };
 
+  const activeNav = activeTab;
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar Navigation */}
@@ -26,7 +28,7 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
           <button 
             onClick={() => handleNavClick('dashboard')}
             className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${
-              activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+              activeNav === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
             📊 Dashboard
@@ -35,7 +37,7 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
           <button 
             onClick={() => handleNavClick('mortgages')}
             className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${
-              activeTab === 'mortgages' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+              activeNav === 'mortgages' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
             }`}
           >
             🏛️ Mortgages
@@ -44,13 +46,13 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
       </aside>
 
       {/* Main Content Viewport */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto w-full h-full min-h-[500px] flex flex-col">
         {/* VIEW A: General Dashboard */}
-        {activeTab === 'dashboard' && (
+        {activeNav === 'dashboard' && (
           children ? (
-            <div className="p-8">{children}</div>
+            <div className="p-8 flex-1">{children}</div>
           ) : (
-            <div className="p-8">
+            <div className="p-8 flex-1">
               <h1 className="text-2xl font-bold text-gray-900">General Dashboard</h1>
               <p className="text-gray-500 mt-1">Welcome back, {currentUser?.name || 'Administrator'}</p>
             </div>
@@ -58,8 +60,8 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
         )}
 
         {/* VIEW B: Mortgages Module */}
-        {activeTab === 'mortgages' && (
-          <div className="w-full h-full min-h-[500px] flex flex-col">
+        {activeNav === 'mortgages' && (
+          <div className="w-full h-full min-h-[500px] flex flex-col flex-1">
             {!selectedBank ? (
               <BankHubPage 
                 onSelectBank={(bankName) => {
