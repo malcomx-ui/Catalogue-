@@ -434,5 +434,12 @@ export interface CaseAuditLog {
   created_at: string;
 }
 
-export { isSuperAdmin, isBranchAdmin, canManageFirm } from '../utils/permissions';
+export { 
+  type UserProfile,
+  isSystemAdmin,
+  isSuperAdmin, 
+  isBranchAdmin, 
+  canAccessGlobalSettings,
+  canManageFirm 
+} from '../utils/permissions';
 

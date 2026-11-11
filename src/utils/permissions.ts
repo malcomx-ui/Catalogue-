@@ -1,24 +1,52 @@
-import { User } from '../types';
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  roleId?: string;
+  branchId?: string;
+  branchName?: string;
+  isSuperAdmin?: boolean;
+  isBranchAdmin?: boolean;
+}
 
 /**
- * Helper to check if a user is a Global System / Super Admin
+ * Checks if user is a Global System Administrator
  */
-export function isSuperAdmin(user: User | null): boolean {
+export function isSystemAdmin(user: UserProfile | null): boolean {
   if (!user) return false;
-  return Boolean(user.isSuperAdmin || user.role === 'super_admin' || user.role === 'managing_partner');
+  return Boolean(
+    user.isSuperAdmin || 
+    user.roleId === 'system_admin' || 
+    user.role === 'super_admin' || 
+    user.role === 'managing_partner'
+  );
 }
 
 /**
- * Helper to check if a user is a Branch Admin (restricted to their branch)
+ * Backward-compatible alias for isSystemAdmin
  */
-export function isBranchAdmin(user: User | null): boolean {
+export const isSuperAdmin = isSystemAdmin;
+
+/**
+ * Checks if user is strictly a Branch Administrator (restricted to their branch)
+ */
+export function isBranchAdmin(user: UserProfile | null): boolean {
   if (!user) return false;
-  return Boolean(user.isBranchAdmin && !isSuperAdmin(user));
+  return Boolean(
+    (user.isBranchAdmin || user.roleId === 'branch_admin' || user.role === 'branch_admin') && 
+    !isSystemAdmin(user)
+  );
 }
 
 /**
- * Helper to check if a user has permission to manage global firm settings or all users
+ * Permission guard for global firm settings / user management
  */
-export function canManageFirm(user: User | null): boolean {
-  return isSuperAdmin(user); // Branch admins should NOT be able to manage firm-wide settings
+export function canAccessGlobalSettings(user: UserProfile | null): boolean {
+  return isSystemAdmin(user); // Branch admins cannot access global settings
 }
+
+/**
+ * Backward-compatible alias for canAccessGlobalSettings
+ */
+export const canManageFirm = canAccessGlobalSettings;
