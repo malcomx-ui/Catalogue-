@@ -7,22 +7,26 @@ export const MortgagesModule: React.FC = () => {
   const { currentUser } = useApp();
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
-  if (selectedBank) {
-    return (
-      <BankWorkspace
-        bankName={selectedBank}
-        currentUser={currentUser}
-        onBack={() => setSelectedBank(null)}
-      />
-    );
-  }
-
   return (
-    <BankHubPage
-      onSelectBank={(bankName) => {
-        setSelectedBank(bankName);
-      }}
-    />
+    <div className="w-full h-full min-h-[500px] flex flex-col">
+      {!selectedBank ? (
+        <BankHubPage
+          onSelectBank={(bankName) => {
+            console.log('[MortgagesModule] Bank selected:', bankName);
+            setSelectedBank(bankName);
+          }}
+        />
+      ) : (
+        <BankWorkspace
+          bankName={selectedBank}
+          currentUser={currentUser}
+          onBack={() => {
+            console.log('[MortgagesModule] Returned back to portfolio list');
+            setSelectedBank(null);
+          }}
+        />
+      )}
+    </div>
   );
 };
 

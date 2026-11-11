@@ -7,6 +7,10 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
   const [selectedYear, setSelectedYear] = useState<number>(2026);
 
   useEffect(() => {
+    console.log('[BankHubPage] Mounted successfully with year:', selectedYear);
+  }, []);
+
+  useEffect(() => {
     fetchPortfolios();
   }, [selectedYear]);
 
@@ -44,7 +48,7 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 w-full h-full min-h-[500px]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mortgages & Securities Portfolios</h1>

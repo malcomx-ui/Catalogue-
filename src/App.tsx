@@ -24,7 +24,7 @@ import { ImportExcelModal } from './components/catalogue/ImportExcelModal';
 import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
 import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceholder';
-import { MortgagesPlaceholder } from './components/modules/MortgagesPlaceholder';
+import { MortgagesModule } from './components/modules/MortgagesModule';
 import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
 import { isUserAdmin, supabase } from './lib/supabase';
 
@@ -103,7 +103,11 @@ const MainLayout: React.FC = () => {
           {activeTab === 'catalogue' && <CaseList />}
           {activeTab === 'causelist' && <CauseListDiary />}
           {activeTab === 'debt_recovery' && <DebtRecoveryPlaceholder />}
-          {activeTab === 'mortgages' && <MortgagesPlaceholder />}
+          {activeTab === 'mortgages' && (
+            <div className="w-full h-full min-h-[500px]">
+              <MortgagesModule />
+            </div>
+          )}
           {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : <FirmDashboard />)}
           {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : <FirmDashboard />)}
           {activeTab === 'documents' && <DocumentRepository />}

@@ -58,21 +58,23 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
         )}
 
         {/* VIEW B: Mortgages Module */}
-        {activeTab === 'mortgages' && !selectedBank && (
-          <BankHubPage 
-            onSelectBank={(bankName) => {
-              console.log('Selected bank:', bankName);
-              setSelectedBank(bankName);
-            }} 
-          />
-        )}
-
-        {activeTab === 'mortgages' && selectedBank && (
-          <BankWorkspace 
-            bankName={selectedBank} 
-            currentUser={currentUser} 
-            onBack={() => setSelectedBank(null)} 
-          />
+        {activeTab === 'mortgages' && (
+          <div className="w-full h-full min-h-[500px] flex flex-col">
+            {!selectedBank ? (
+              <BankHubPage 
+                onSelectBank={(bankName) => {
+                  console.log('Selected bank:', bankName);
+                  setSelectedBank(bankName);
+                }} 
+              />
+            ) : (
+              <BankWorkspace 
+                bankName={selectedBank} 
+                currentUser={currentUser} 
+                onBack={() => setSelectedBank(null)} 
+              />
+            )}
+          </div>
         )}
       </main>
     </div>

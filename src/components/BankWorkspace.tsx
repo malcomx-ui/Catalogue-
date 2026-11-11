@@ -14,6 +14,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
+    console.log('[BankWorkspace] Mounted for bank:', bankName);
+  }, [bankName]);
+
+  useEffect(() => {
     fetchMortgages();
   }, [bankName]);
 
@@ -53,7 +57,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const totalValue = mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 w-full h-full min-h-[500px]">
       {/* Header with Back Button */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-xs">
         <div className="flex items-center space-x-4">
