@@ -433,3 +433,6 @@ export interface CaseAuditLog {
   modified_fields?: Record<string, { old: any; new: any }> | null;
   created_at: string;
 }
+
+export { isSuperAdmin, isBranchAdmin, canManageFirm } from '../utils/permissions';
+
