@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { AddMortgageModal } from './AddMortgageModal';
+import { EditMortgageModal } from './EditMortgageModal';
+import { MortgageFilterBar } from './MortgageFilterBar';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -11,9 +13,19 @@ export interface BankWorkspaceProps {
 export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentUser, onBack }) => {
   const [mortgages, setMortgages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<any | null>(null);
+
+  // 1. Filter state hook for search query, department, status, and assigned lawyer ID
+  const [filters, setFilters] = useState({
+    search: '',
+    department: '',
+    status: '',
+    lawyerId: ''
+  });
+
+  // 2. Lawyers list for advocate filtering dropdown
+  const [lawyersList, setLawyersList] = useState<any[]>([]);
 
   useEffect(() => {
     console.log('[BankWorkspace] Mounted for bank:', bankName);
@@ -22,6 +34,33 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   useEffect(() => {
     loadBankData();
   }, [bankName]);
+
+  useEffect(() => {
+    async function loadLawyers() {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, name, role, email')
+          .order('full_name', { ascending: true });
+
+        if (!error && data && data.length > 0) {
+          setLawyersList(data);
+        } else {
+          // Fallback to firm users or default legal counsel
+          const { data: userData } = await supabase
+            .from('firm_users')
+            .select('id, name, email')
+            .order('name', { ascending: true });
+          if (userData && userData.length > 0) {
+            setLawyersList(userData.map(u => ({ id: u.id, full_name: u.name, email: u.email })));
+          }
+        }
+      } catch (err) {
+        console.warn('Notice loading lawyers for filter bar:', err);
+      }
+    }
+    loadLawyers();
+  }, []);
 
   const loadBankData = async () => {
     setLoading(true);
@@ -48,17 +87,38 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
   const fetchMortgages = loadBankData;
 
+  // 3. Filtered mortgages logic against fetched records
   const filteredMortgages = mortgages.filter((m) => {
+    const searchQ = (filters.search || '').trim().toLowerCase();
     const matchesSearch =
-      !searchTerm ||
-      m.borrower_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.mortgagor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.title_deed_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.property_description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.file_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.rim_no?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || m.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      !searchQ ||
+      m.borrower_name?.toLowerCase().includes(searchQ) ||
+      m.mortgagor_name?.toLowerCase().includes(searchQ) ||
+      m.title_deed_no?.toLowerCase().includes(searchQ) ||
+      m.property_description?.toLowerCase().includes(searchQ) ||
+      m.file_number?.toLowerCase().includes(searchQ) ||
+      m.rim_no?.toLowerCase().includes(searchQ) ||
+      m.bank_branch?.toLowerCase().includes(searchQ) ||
+      m.department?.toLowerCase().includes(searchQ) ||
+      m.assigned_lawyer_name?.toLowerCase().includes(searchQ) ||
+      m.comments?.toLowerCase().includes(searchQ);
+
+    const matchesDept =
+      !filters.department ||
+      filters.department === 'ALL' ||
+      m.department === filters.department;
+
+    const matchesStatus =
+      !filters.status ||
+      filters.status === 'ALL' ||
+      m.status === filters.status;
+
+    const matchesLawyer =
+      !filters.lawyerId ||
+      filters.lawyerId === 'ALL' ||
+      String(m.assigned_lawyer_id || '') === String(filters.lawyerId);
+
+    return matchesSearch && matchesDept && matchesStatus && matchesLawyer;
   });
 
   const totalValue = mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0);
@@ -106,33 +166,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-        <div className="relative flex-1 max-w-md">
-          <input
-            type="text"
-            placeholder="Search by mortgagor, RIM no, title deed number, or file ref..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-3 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500 font-medium text-gray-700"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="Under Preparation">Under Preparation</option>
-            <option value="Sent for Registration">Sent for Registration</option>
-            <option value="Registered">Registered (Custody Safe)</option>
-            <option value="Pending Release">Pending Release</option>
-            <option value="Released / Discharged">Released / Discharged</option>
-          </select>
-        </div>
-      </div>
+      {/* Mortgage Filter Bar */}
+      <MortgageFilterBar
+        filters={filters}
+        onChange={setFilters}
+        lawyers={lawyersList}
+        onOpenAddModal={() => setIsModalOpen(true)}
+      />
 
       {/* Table Content */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
@@ -169,6 +209,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   <th className="py-3 px-4 font-semibold">Grand Total</th>
                   <th className="py-3 px-4 font-semibold">Property Description</th>
                   <th className="py-3 px-4 font-semibold">Status</th>
+                  <th className="py-3 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-800">
@@ -181,7 +222,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                         {m.rim_no || m.file_number || `MORT-${idx + 1}`}
                       </td>
                       <td className="py-3 px-4 font-semibold text-gray-900">
-                        {m.mortgagor_name || m.borrower_name || 'N/A'}
+                        <div>{m.mortgagor_name || m.borrower_name || 'N/A'}</div>
+                        {(m.department || m.assigned_lawyer_name) && (
+                          <div className="text-[10px] font-normal text-gray-500 mt-0.5">
+                            {m.department || 'Banking & Securities'}
+                            {m.assigned_lawyer_name ? ` · ${m.assigned_lawyer_name}` : ''}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-gray-600">
                         {m.bank_branch || m.branch_name || 'Main Branch'}
@@ -203,6 +250,15 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                           {m.status || 'Registered'}
                         </span>
                       </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecordForEdit(m)}
+                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition"
+                        >
+                          Edit / Transfer
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -218,6 +274,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           bankName={bankName} 
           currentUser={currentUser} 
           onClose={() => setIsModalOpen(false)} 
+          onSuccess={() => loadBankData()} 
+        />
+      )}
+
+      {/* Conditionally rendered EditMortgageModal */}
+      {selectedRecordForEdit && (
+        <EditMortgageModal 
+          record={selectedRecordForEdit} 
+          currentUser={currentUser} 
+          onClose={() => setSelectedRecordForEdit(null)} 
           onSuccess={() => loadBankData()} 
         />
       )}

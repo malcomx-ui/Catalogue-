@@ -1,0 +1,242 @@
+import React from 'react';
+
+export interface MortgageFilters {
+  search: string;
+  department: string;
+  status: string;
+  lawyerId: string;
+}
+
+export interface LawyerOption {
+  id: string;
+  full_name?: string;
+  name?: string;
+  email?: string;
+  role_title?: string;
+}
+
+export interface MortgageFilterBarProps {
+  filters: MortgageFilters;
+  onChange: React.Dispatch<React.SetStateAction<MortgageFilters>> | ((updated: MortgageFilters | ((prev: MortgageFilters) => MortgageFilters)) => void);
+  lawyers?: LawyerOption[];
+  onOpenAddModal?: () => void;
+  className?: string;
+}
+
+const DEPARTMENTS = [
+  'Banking & Securities',
+  'Commercial & Corporate',
+  'Litigation & Debt Recovery',
+  'Real Estate & Conveyancing',
+  'Legal Audit & Compliance',
+];
+
+const STATUSES = [
+  'Under Preparation',
+  'Sent for Registration',
+  'Registered',
+  'Pending Release',
+  'Released / Discharged',
+];
+
+export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
+  filters,
+  onChange,
+  lawyers = [],
+  onOpenAddModal,
+  className = '',
+}) => {
+  const updateFilter = (key: keyof MortgageFilters, value: string) => {
+    onChange((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleReset = () => {
+    onChange({
+      search: '',
+      department: '',
+      status: '',
+      lawyerId: '',
+    });
+  };
+
+  const hasActiveFilters = Boolean(
+    filters.search || filters.department || filters.status || filters.lawyerId
+  );
+
+  return (
+    <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3 ${className}`}>
+      {/* Top Controls Row */}
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+        {/* Search input with live clear */}
+        <div className="relative flex-1 min-w-[240px]">
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            🔍
+          </span>
+          <input
+            type="text"
+            placeholder="Search by mortgagor, RIM no, deed, or notes..."
+            value={filters.search}
+            onChange={(e) => updateFilter('search', e.target.value)}
+            className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-xs md:text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 bg-gray-50/50 hover:bg-white transition"
+          />
+          {filters.search && (
+            <button
+              type="button"
+              onClick={() => updateFilter('search', '')}
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-xs text-gray-400 hover:text-gray-700"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Filter Dropdowns Grid */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Department Filter */}
+          <div className="flex items-center min-w-[140px] flex-1 sm:flex-initial">
+            <select
+              value={filters.department}
+              onChange={(e) => updateFilter('department', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="">All Departments</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center min-w-[130px] flex-1 sm:flex-initial">
+            <select
+              value={filters.status}
+              onChange={(e) => updateFilter('status', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="">All Statuses</option>
+              {STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assigned Lawyer / Advocate Filter */}
+          <div className="flex items-center min-w-[140px] flex-1 sm:flex-initial">
+            <select
+              value={filters.lawyerId}
+              onChange={(e) => updateFilter('lawyerId', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="">All Advocates</option>
+              {lawyers.map((lawyer) => {
+                const displayName =
+                  lawyer.full_name ||
+                  lawyer.name ||
+                  lawyer.email ||
+                  `Advocate (${lawyer.id.slice(0, 6)})`;
+                return (
+                  <option key={lawyer.id} value={lawyer.id}>
+                    {displayName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Reset Filters Button */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="px-2.5 py-2 text-xs font-medium text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition flex items-center gap-1"
+              title="Reset all active filters"
+            >
+              <span>↺</span>
+              <span>Reset</span>
+            </button>
+          )}
+
+          {/* Quick Action: Add Mortgage (if callback provided) */}
+          {onOpenAddModal && (
+            <button
+              type="button"
+              onClick={onOpenAddModal}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition shrink-0"
+            >
+              <span>+</span>
+              <span>New File</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Active Filter Pills (if any filter is selected) */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-100 text-[11px] text-gray-500">
+          <span className="font-semibold text-gray-600">Active Filters:</span>
+          {filters.search && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Query: &ldquo;{filters.search}&rdquo;
+              <button
+                type="button"
+                onClick={() => updateFilter('search', '')}
+                className="hover:text-blue-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filters.department && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+              Dept: {filters.department}
+              <button
+                type="button"
+                onClick={() => updateFilter('department', '')}
+                className="hover:text-indigo-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filters.status && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Status: {filters.status}
+              <button
+                type="button"
+                onClick={() => updateFilter('status', '')}
+                className="hover:text-emerald-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filters.lawyerId && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              Advocate:{' '}
+              {lawyers.find((l) => l.id === filters.lawyerId)?.full_name ||
+                lawyers.find((l) => l.id === filters.lawyerId)?.name ||
+                'Selected'}
+              <button
+                type="button"
+                onClick={() => updateFilter('lawyerId', '')}
+                className="hover:text-amber-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MortgageFilterBar;
