@@ -141,17 +141,29 @@ CREATE POLICY "Allow service role on centenary_mortgage_cases"
 CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bank_name TEXT NOT NULL DEFAULT 'Centenary Bank',
+  date_of_receipt DATE DEFAULT CURRENT_DATE,
   branch TEXT,
   client_name TEXT NOT NULL,
+  name TEXT,
   rim_no TEXT,
   property_description TEXT,
+  description TEXT,
   loan_amount NUMERIC(18,2) DEFAULT 0,
+  stamp_duty NUMERIC(18,2) DEFAULT 0,
+  extra_copies NUMERIC(18,2) DEFAULT 0,
+  registration NUMERIC(18,2) DEFAULT 0,
+  other NUMERIC(18,2) DEFAULT 0,
   bank_charges NUMERIC(18,2) DEFAULT 0,
   transport NUMERIC(18,2) DEFAULT 0,
+  total_disbursements NUMERIC(18,2) DEFAULT 0,
+  legal_fees NUMERIC(18,2) DEFAULT 0,
+  vat_18 NUMERIC(18,2) DEFAULT 0,
+  grand_total NUMERIC(18,2) DEFAULT 0,
+  date_of_payment DATE,
+  date_of_return DATE,
+  comments TEXT DEFAULT '',
   linkage_fees NUMERIC(18,2) DEFAULT 0,
   other_disbursements NUMERIC(18,2) DEFAULT 0,
-  grand_total NUMERIC(18,2) DEFAULT 0,
-  comments TEXT DEFAULT '',
   source_sheet TEXT,
   record_year INTEGER DEFAULT 2026,
   status TEXT DEFAULT 'Active / Processing',
@@ -161,6 +173,19 @@ CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Idempotent column additions for existing live table
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_receipt DATE;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS name TEXT;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS stamp_duty NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS extra_copies NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS registration NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS total_disbursements NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS legal_fees NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS vat_18 NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_payment DATE;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_return DATE;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other_disbursements NUMERIC(18,2) DEFAULT 0;
 
 -- Fast lookup indexes

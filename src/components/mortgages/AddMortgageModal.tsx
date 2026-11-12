@@ -1,7 +1,18 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { MortgageService } from '../../services/mortgageService';
-import { Building2, X, AlertCircle, CheckCircle2, DollarSign, Calculator, FileText } from 'lucide-react';
+import {
+  Building2,
+  X,
+  AlertCircle,
+  CheckCircle2,
+  DollarSign,
+  Calendar,
+  Calculator,
+  FileText,
+  Receipt,
+  RotateCcw,
+} from 'lucide-react';
 
 export interface AddMortgageModalProps {
   bankName?: string;
@@ -10,127 +21,169 @@ export interface AddMortgageModalProps {
   onSuccess: () => void;
 }
 
-const BANK_OPTIONS = [
-  'Centenary Bank',
-  'Stanbic Bank',
-  'DFCU Bank',
-  'Absa Bank',
-  'Equity Bank',
-];
-
-const STATUS_OPTIONS = [
-  'Active / Processing',
-  'Completed / Cleared',
-  'Pending Valuation',
-  'On Hold',
-];
-
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
-  bankName: initialBankName,
+  bankName = 'Centenary Bank',
   currentUser,
   onClose,
   onSuccess,
 }) => {
-  // 1. Form state fields matching exact schema of mortgage_cases table:
-  const [bankName, setBankName] = useState<string>(
-    initialBankName && BANK_OPTIONS.includes(initialBankName)
-      ? initialBankName
-      : 'Centenary Bank'
+  // 1. Exactly 19 Columns from the tracker sheet and live Supabase table `mortgage_cases`:
+  // 1) date_of_receipt (Date)
+  const [dateOfReceipt, setDateOfReceipt] = useState<string>(
+    () => new Date().toISOString().slice(0, 10)
   );
+  // 2) branch (Text)
   const [branch, setBranch] = useState<string>('');
+  // 3) client_name / name (Text, Required)
   const [clientName, setClientName] = useState<string>('');
+  // 4) rim_no (Text)
   const [rimNo, setRimNo] = useState<string>('');
+  // 5) property_description / description (Textarea)
   const [propertyDescription, setPropertyDescription] = useState<string>('');
 
-  // Numeric fields
+  // 6) loan_amount (Number)
   const [loanAmount, setLoanAmount] = useState<string>('');
+  // 7) stamp_duty (Number)
+  const [stampDuty, setStampDuty] = useState<string>('');
+  // 8) extra_copies (Number)
+  const [extraCopies, setExtraCopies] = useState<string>('');
+  // 9) registration (Number)
+  const [registration, setRegistration] = useState<string>('');
+  // 10) other (Number)
+  const [other, setOther] = useState<string>('');
+  // 11) bank_charges (Number)
   const [bankCharges, setBankCharges] = useState<string>('');
+  // 12) transport (Number)
   const [transport, setTransport] = useState<string>('');
-  const [linkageFees, setLinkageFees] = useState<string>('');
-  const [otherDisbursements, setOtherDisbursements] = useState<string>('');
-  const [grandTotalManual, setGrandTotalManual] = useState<string>('');
-  const [autoCalculateTotal, setAutoCalculateTotal] = useState<boolean>(true);
 
-  // Status & comments
+  // 13) total_disbursements (Number) - auto-sum or manual
+  const [manualDisbursements, setManualDisbursements] = useState<string>('');
+  const [autoCalcDisbursements, setAutoCalcDisbursements] = useState<boolean>(true);
+
+  // 14) legal_fees (Number)
+  const [legalFees, setLegalFees] = useState<string>('');
+  // 15) vat_18 (Number) - 18% of legal_fees or manual
+  const [manualVat, setManualVat] = useState<string>('');
+  const [autoCalcVat, setAutoCalcVat] = useState<boolean>(true);
+
+  // 16) grand_total (Number)
+  const [manualGrandTotal, setManualGrandTotal] = useState<string>('');
+  const [autoCalcGrandTotal, setAutoCalcGrandTotal] = useState<boolean>(true);
+
+  // 17) date_of_payment (Date)
+  const [dateOfPayment, setDateOfPayment] = useState<string>('');
+  // 18) date_of_return (Date)
+  const [dateOfReturn, setDateOfReturn] = useState<string>('');
+  // 19) comments (Text)
   const [comments, setComments] = useState<string>('');
-  const [status, setStatus] = useState<string>('Active / Processing');
 
   // UI state
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Automatic calculation of grand_total if desired:
-  // grand_total = bank_charges + transport + linkage_fees + other_disbursements
-  const calculatedGrandTotal = useMemo(() => {
-    const charges = parseFloat(bankCharges) || 0;
-    const trans = parseFloat(transport) || 0;
-    const linkage = parseFloat(linkageFees) || 0;
-    const other = parseFloat(otherDisbursements) || 0;
-    return charges + trans + linkage + other;
-  }, [bankCharges, transport, linkageFees, otherDisbursements]);
-
-  const effectiveGrandTotal = autoCalculateTotal
-    ? calculatedGrandTotal
-    : parseFloat(grandTotalManual) || 0;
-
-  // Helper to parse numeric values safely
-  const parseNumber = (val: string): number => {
-    if (!val || val.trim() === '') return 0;
-    const cleaned = val.replace(/,/g, '').trim();
+  // Safe numeric parsing helper
+  const cleanFloat = (val: string | number | undefined | null): number => {
+    if (val === null || val === undefined || val === '') return 0.0;
+    if (typeof val === 'number') return isNaN(val) ? 0.0 : val;
+    const cleaned = String(val).replace(/,/g, '').trim();
     const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? 0 : parsed;
+    return isNaN(parsed) ? 0.0 : parsed;
   };
+
+  // 13. Auto-calculate total_disbursements:
+  // total_disbursements = stamp_duty + extra_copies + registration + other + bank_charges + transport
+  const calculatedDisbursements = useMemo(() => {
+    return (
+      cleanFloat(stampDuty) +
+      cleanFloat(extraCopies) +
+      cleanFloat(registration) +
+      cleanFloat(other) +
+      cleanFloat(bankCharges) +
+      cleanFloat(transport)
+    );
+  }, [stampDuty, extraCopies, registration, other, bankCharges, transport]);
+
+  const effectiveTotalDisbursements = autoCalcDisbursements
+    ? calculatedDisbursements
+    : cleanFloat(manualDisbursements);
+
+  // 15. Auto-calculate vat_18: 18% of legal_fees
+  const calculatedVat = useMemo(() => {
+    const fees = cleanFloat(legalFees);
+    return Math.round(fees * 0.18);
+  }, [legalFees]);
+
+  const effectiveVat = autoCalcVat ? calculatedVat : cleanFloat(manualVat);
+
+  // 16. Auto-calculate grand_total:
+  // grand_total = total_disbursements + legal_fees + vat_18
+  const calculatedGrandTotal = useMemo(() => {
+    return effectiveTotalDisbursements + cleanFloat(legalFees) + effectiveVat;
+  }, [effectiveTotalDisbursements, legalFees, effectiveVat]);
+
+  const effectiveGrandTotal = autoCalcGrandTotal
+    ? calculatedGrandTotal
+    : cleanFloat(manualGrandTotal);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    // Validation: client_name is Required
+    // Form Validation: client_name is Required
     if (!clientName.trim()) {
-      setErrorMessage('Client Name is required.');
+      setErrorMessage('Client Name / Name is required.');
       return;
     }
 
     setLoading(true);
 
+    // Exact 19 database column mapping:
     const payload = {
       bank_name: bankName,
-      branch: branch.trim(),
-      client_name: clientName.trim(),
-      rim_no: rimNo.trim(),
-      property_description: propertyDescription.trim(),
-      loan_amount: parseNumber(loanAmount),
-      bank_charges: parseNumber(bankCharges),
-      transport: parseNumber(transport),
-      linkage_fees: parseNumber(linkageFees),
-      other_disbursements: parseNumber(otherDisbursements),
-      grand_total: effectiveGrandTotal,
-      comments: comments.trim(),
-      status: status,
-      source_sheet: 'Manual Entry',
+      date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10), // 1
+      branch: branch.trim(),                                                 // 2
+      client_name: clientName.trim(),                                        // 3
+      name: clientName.trim(),                                               // 3 (alias)
+      rim_no: rimNo.trim(),                                                  // 4
+      property_description: propertyDescription.trim(),                      // 5
+      description: propertyDescription.trim(),                               // 5 (alias)
+      loan_amount: cleanFloat(loanAmount),                                   // 6
+      stamp_duty: cleanFloat(stampDuty),                                     // 7
+      extra_copies: cleanFloat(extraCopies),                                 // 8
+      registration: cleanFloat(registration),                                // 9
+      other: cleanFloat(other),                                              // 10
+      bank_charges: cleanFloat(bankCharges),                                 // 11
+      transport: cleanFloat(transport),                                      // 12
+      total_disbursements: effectiveTotalDisbursements,                      // 13
+      legal_fees: cleanFloat(legalFees),                                     // 14
+      vat_18: effectiveVat,                                                  // 15
+      grand_total: effectiveGrandTotal,                                      // 16
+      date_of_payment: dateOfPayment || null,                                // 17
+      date_of_return: dateOfReturn || null,                                  // 18
+      comments: comments.trim(),                                             // 19
+      status: dateOfReturn ? 'Completed / Cleared' : 'Active / Processing',
+      source_sheet: 'Tracker Entry',
       record_year: new Date().getFullYear(),
       department: 'Banking & Securities',
       assigned_lawyer_name: currentUser?.name || '',
-      assigned_lawyer_id: currentUser?.id && !currentUser.id.startsWith('user-') ? currentUser.id : null,
+      assigned_lawyer_id:
+        currentUser?.id && !currentUser.id.startsWith('user-') ? currentUser.id : null,
     };
 
     try {
-      // 1. Direct insert to Supabase table mortgage_cases
-      let cloudInserted = false;
+      // 1. Direct Supabase insert into `mortgage_cases` table
       const { data, error } = await supabase
         .from('mortgage_cases')
         .insert([payload])
         .select('*');
 
-      if (!error && data && data.length > 0) {
-        cloudInserted = true;
-      } else if (error) {
-        console.warn('Direct mortgage_cases insert note:', error.message);
+      if (error) {
+        console.warn('Supabase direct insert notice:', error.message);
       }
 
-      // 2. Also register into unified mortgageService to ensure multi-workstation sync & local fallback
+      // 2. Also sync to central multi-workstation backend
       await MortgageService.insertMortgage({
         ...payload,
         client_bank_name: payload.bank_name,
@@ -141,7 +194,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         file_number: payload.rim_no || `MORT-${Date.now().toString().slice(-6)}`,
       });
 
-      setSuccessMessage('Mortgage record saved successfully!');
+      setSuccessMessage('Mortgage tracker record saved successfully to Supabase!');
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -149,7 +202,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
     } catch (err: any) {
       console.error('Submit error:', err);
-      setErrorMessage(err?.message || 'Failed to save mortgage record to database. Please try again.');
+      setErrorMessage(err?.message || 'Failed to save mortgage record to database.');
     } finally {
       setLoading(false);
     }
@@ -157,33 +210,36 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300">
+            <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/40 flex items-center justify-center text-blue-300">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white tracking-wide">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                  {bankName}
+                </span>
+                <span className="text-[11px] text-slate-300">19-Column Tracker Register</span>
+              </div>
+              <h2 className="text-base font-bold text-white tracking-wide mt-0.5">
                 New Mortgage Case Registration
               </h2>
-              <p className="text-xs text-slate-300">
-                Register a new file into the <code className="text-cyan-300 font-mono">mortgage_cases</code> database
-              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Alerts / Feedback */}
+        {/* Feedback Alerts */}
         {errorMessage && (
           <div className="mx-6 mt-4 p-3 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-xs text-rose-800">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -197,104 +253,101 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
         )}
 
-        {/* Form Body */}
+        {/* Form Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
-          {/* Section 1: Bank & Client Identity */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          {/* Section 1: Identification & Core Particulars */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
             <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
               <FileText className="w-3.5 h-3.5 text-blue-600" />
-              <span>1. Lending Partner &amp; Borrower Particulars</span>
+              <span>1. Basic File Particulars &amp; Receipt</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {/* bank_name */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+              {/* 1. date_of_receipt */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Bank Name <span className="text-rose-500">*</span>
+                  Date of Receipt <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
+                <input
+                  type="date"
+                  required
+                  value={dateOfReceipt}
+                  onChange={(e) => setDateOfReceipt(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {BANK_OPTIONS.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
 
-              {/* branch */}
+              {/* 2. branch */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Bank Branch
+                  Branch Station
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Mbarara Main Branch"
+                  placeholder="e.g. Mbarara Branch"
                   value={branch}
                   onChange={(e) => setBranch(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              {/* rim_no */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  RIM / Customer No.
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. RIM-902482"
-                  value={rimNo}
-                  onChange={(e) => setRimNo(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              {/* client_name (Required) */}
+              {/* 3. client_name / name (Required) */}
               <div className="sm:col-span-2">
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Client / Mortgagor Name <span className="text-rose-500">* (Required)</span>
+                  Client Name / Name <span className="text-rose-500">* (Required)</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Full legal name of the borrower / mortgagor"
+                  placeholder="Borrower / Mortgagor full legal name"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              {/* status */}
+              {/* 4. rim_no */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Case Status
+                  RIM NO.
                 </label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {STATUS_OPTIONS.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  placeholder="e.g. 1029482"
+                  value={rimNo}
+                  onChange={(e) => setRimNo(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
               </div>
 
-              {/* property_description */}
-              <div className="sm:col-span-3">
+              {/* 6. loan_amount */}
+              <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Property Description &amp; Title Particulars
+                  Loan Amount (UGX)
                 </label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Kyadondo Block 214 Plot 892, Land situated at Kyanja, Kampala..."
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-slate-400 font-mono text-[10px]">UGX</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={loanAmount}
+                    onChange={(e) => setLoanAmount(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-3 py-2 font-mono text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* 5. property_description / description */}
+              <div className="sm:col-span-2">
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Property Description / Description
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kyadondo Block 214 Plot 892 situated at Kyanja..."
                   value={propertyDescription}
                   onChange={(e) => setPropertyDescription(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -303,49 +356,84 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Financials & Disbursements */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          {/* Section 2: Itemized Disbursements (Columns 7 - 13) */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-                <DollarSign className="w-3.5 h-3.5 text-amber-600" />
-                <span>2. Facility Valuation &amp; Financial Ledger</span>
+                <Receipt className="w-3.5 h-3.5 text-amber-600" />
+                <span>2. Statutory Fees &amp; Registry Disbursements</span>
               </div>
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600 select-none">
                 <input
                   type="checkbox"
-                  checked={autoCalculateTotal}
-                  onChange={(e) => setAutoCalculateTotal(e.target.checked)}
+                  checked={autoCalcDisbursements}
+                  onChange={(e) => setAutoCalcDisbursements(e.target.checked)}
                   className="rounded text-blue-600 focus:ring-blue-500"
                 />
-                <span>Auto-calculate Grand Total</span>
+                <span>Auto-Sum Disbursements</span>
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-              {/* loan_amount */}
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+              {/* 7. stamp_duty */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Loan Facility Amount (UGX)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-slate-400 font-mono text-[11px]">UGX</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="0"
-                    value={loanAmount}
-                    onChange={(e) => setLoanAmount(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg pl-11 pr-3 py-2 font-mono text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                </div>
+                <label className="block font-semibold text-slate-700 mb-1">Stamp Duty</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={stampDuty}
+                  onChange={(e) => setStampDuty(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
               </div>
 
-              {/* bank_charges */}
+              {/* 8. extra_copies */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Bank Charges (UGX)
-                </label>
+                <label className="block font-semibold text-slate-700 mb-1">Extra Copies</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={extraCopies}
+                  onChange={(e) => setExtraCopies(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 9. registration */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Registration</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={registration}
+                  onChange={(e) => setRegistration(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 10. other */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Other</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={other}
+                  onChange={(e) => setOther(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 11. bank_charges */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Bank Charges</label>
                 <input
                   type="number"
                   min="0"
@@ -353,15 +441,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={bankCharges}
                   onChange={(e) => setBankCharges(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              {/* transport */}
+              {/* 12. transport */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Transport (UGX)
-                </label>
+                <label className="block font-semibold text-slate-700 mb-1">Transport</label>
                 <input
                   type="number"
                   min="0"
@@ -369,87 +455,169 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={transport}
                   onChange={(e) => setTransport(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              {/* linkage_fees */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Linkage Fees (UGX)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  placeholder="0"
-                  value={linkageFees}
-                  onChange={(e) => setLinkageFees(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              {/* other_disbursements */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Other Disbursements (UGX)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  placeholder="0"
-                  value={otherDisbursements}
-                  onChange={(e) => setOtherDisbursements(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
-              {/* grand_total */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Grand Total (UGX)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  disabled={autoCalculateTotal}
-                  value={autoCalculateTotal ? calculatedGrandTotal : grandTotalManual}
-                  onChange={(e) => setGrandTotalManual(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 font-mono font-bold text-slate-900 focus:outline-none ${
-                    autoCalculateTotal
-                      ? 'bg-slate-100 border-slate-300 text-blue-700 cursor-not-allowed'
-                      : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
-                  }`}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
 
-            {/* Quick summary strip */}
-            <div className="bg-slate-900 text-white rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* 13. total_disbursements */}
+            <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
+              <span className="font-semibold text-slate-700">13. Total Disbursements:</span>
               <div className="flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-cyan-400" />
-                <span className="text-slate-300">Total Disbursements &amp; Expenses:</span>
-              </div>
-              <div className="font-mono text-sm font-bold text-cyan-300">
-                UGX {effectiveGrandTotal.toLocaleString()}
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={autoCalcDisbursements}
+                  value={autoCalcDisbursements ? calculatedDisbursements : manualDisbursements}
+                  onChange={(e) => setManualDisbursements(e.target.value)}
+                  className={`w-36 text-right border rounded-lg px-3 py-1 font-mono font-bold ${
+                    autoCalcDisbursements
+                      ? 'bg-amber-50 border-amber-300 text-amber-900'
+                      : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
+                  }`}
+                />
+                <span className="text-slate-500 font-mono text-[11px]">UGX</span>
               </div>
             </div>
           </div>
 
-          {/* Section 3: Comments */}
-          <div className="space-y-1.5">
-            <label className="block font-semibold text-slate-700">
-              Operational Comments &amp; Notes
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Valuation report approved; title submitted for registration search"
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
+          {/* Section 3: Legal Fees, VAT & Grand Total (Columns 14 - 16) */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
+                <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                <span>3. Legal Fees, VAT 18% &amp; Grand Total</span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-600 select-none">
+                <label className="inline-flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoCalcVat}
+                    onChange={(e) => setAutoCalcVat(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Auto 18% VAT</span>
+                </label>
+                <label className="inline-flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoCalcGrandTotal}
+                    onChange={(e) => setAutoCalcGrandTotal(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Auto Grand Total</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* 14. legal_fees */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  14. Legal Fees (UGX)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="0"
+                  value={legalFees}
+                  onChange={(e) => setLegalFees(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 15. vat_18 */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  15. VAT 18% (UGX)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={autoCalcVat}
+                  value={autoCalcVat ? calculatedVat : manualVat}
+                  onChange={(e) => setManualVat(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 font-mono font-medium focus:outline-none ${
+                    autoCalcVat
+                      ? 'bg-slate-100 border-slate-300 text-slate-700'
+                      : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
+                  }`}
+                />
+              </div>
+
+              {/* 16. grand_total */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  16. Grand Total (UGX)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={autoCalcGrandTotal}
+                  value={autoCalcGrandTotal ? calculatedGrandTotal : manualGrandTotal}
+                  onChange={(e) => setManualGrandTotal(e.target.value)}
+                  className={`w-full border rounded-lg px-3 py-2 font-mono font-bold text-base focus:outline-none ${
+                    autoCalcGrandTotal
+                      ? 'bg-gradient-to-r from-blue-900 to-indigo-900 text-white border-blue-700'
+                      : 'bg-white border-blue-400 text-blue-900 focus:ring-2 focus:ring-blue-500'
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Settlement Dates & Comments (Columns 17 - 19) */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+            <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+              <span>4. Payment, Return Dates &amp; Comments</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* 17. date_of_payment */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  17. Date of Payment
+                </label>
+                <input
+                  type="date"
+                  value={dateOfPayment}
+                  onChange={(e) => setDateOfPayment(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 18. date_of_return */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  18. Date of Return
+                </label>
+                <input
+                  type="date"
+                  value={dateOfReturn}
+                  onChange={(e) => setDateOfReturn(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 19. comments */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  19. Comments
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Cleared and returned to bank registry"
+                  value={comments}
+                  onChange={(e) => setComments(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Actions */}
@@ -465,10 +633,10 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition flex items-center gap-1.5"
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition flex items-center gap-1.5"
             >
               {loading && <span className="animate-spin text-sm">⏳</span>}
-              <span>{loading ? 'Saving Record...' : 'Save to mortgage_cases'}</span>
+              <span>{loading ? 'Saving Record...' : 'Save Mortgage Record'}</span>
             </button>
           </div>
         </form>
