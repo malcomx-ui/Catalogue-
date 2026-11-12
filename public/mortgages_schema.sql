@@ -132,4 +132,63 @@ DROP POLICY IF EXISTS "Allow service role on centenary_mortgage_cases" ON public
 CREATE POLICY "Allow service role on centenary_mortgage_cases"
   ON public.centenary_mortgage_cases FOR ALL TO service_role USING (true);
 
+-- ==============================================================================
+-- UNIVERSAL MORTGAGE CASES IMPORT TABLE (mortgage_cases)
+-- Matches bulk import script schema for mortgage_cases table
+-- Columns: bank_name, branch, client_name, rim_no, property_description,
+--          loan_amount, bank_charges, transport, linkage_fees, grand_total, comments, source_sheet
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.mortgage_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bank_name TEXT NOT NULL DEFAULT 'Centenary Bank',
+  branch TEXT,
+  client_name TEXT NOT NULL,
+  rim_no TEXT,
+  property_description TEXT,
+  loan_amount NUMERIC(18,2) DEFAULT 0,
+  bank_charges NUMERIC(18,2) DEFAULT 0,
+  transport NUMERIC(18,2) DEFAULT 0,
+  linkage_fees NUMERIC(18,2) DEFAULT 0,
+  grand_total NUMERIC(18,2) DEFAULT 0,
+  comments TEXT DEFAULT '',
+  source_sheet TEXT,
+  record_year INTEGER DEFAULT 2026,
+  status TEXT DEFAULT 'Under Preparation',
+  department TEXT DEFAULT 'Banking & Securities',
+  assigned_lawyer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  assigned_lawyer_name TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Fast lookup indexes
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_bank ON public.mortgage_cases(bank_name);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_branch ON public.mortgage_cases(branch);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_client ON public.mortgage_cases(client_name);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_rim ON public.mortgage_cases(rim_no);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_sheet ON public.mortgage_cases(source_sheet);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_year ON public.mortgage_cases(record_year);
+
+-- RLS Policies for mortgage_cases
+ALTER TABLE public.mortgage_cases ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated read on mortgage_cases" ON public.mortgage_cases;
+CREATE POLICY "Allow authenticated read on mortgage_cases"
+  ON public.mortgage_cases FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases;
+CREATE POLICY "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases
+  FOR INSERT
+  WITH CHECK (
+    auth.jwt() ->> 'role' IN ('super_admin', 'branch_admin_finance')
+    OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('super_admin', 'branch_admin_finance')
+  );
+
+DROP POLICY IF EXISTS "Allow service role on mortgage_cases" ON public.mortgage_cases;
+CREATE POLICY "Allow service role on mortgage_cases"
+  ON public.mortgage_cases FOR ALL TO service_role USING (true);
+
+DROP POLICY IF EXISTS "Allow public write on mortgage_cases" ON public.mortgage_cases;
+CREATE POLICY "Allow public write on mortgage_cases"
+  ON public.mortgage_cases FOR ALL USING (true);
+
 NOTIFY pgrst, 'reload schema';

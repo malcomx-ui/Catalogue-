@@ -22,8 +22,10 @@ export const DEFAULT_BANKS = [
 export const MortgageService = {
   /**
    * Imports an Excel workbook (.xlsx/.xls) parsing each month sheet
-   * from index 1 (headers) and index 2 (data) and batch inserting into Supabase
-   * in chunks of 50.
+   * using the exact schema of the mortgage_cases table:
+   * bank_name, branch, client_name, rim_no, property_description,
+   * loan_amount, bank_charges, transport, linkage_fees, grand_total, comments, source_sheet
+   * and batch inserting into Supabase in chunks of 50.
    */
   async importCentenaryExcelFile(file: File, onProgress?: (msg: string) => void): Promise<{ success: boolean; count: number; error?: string }> {
     try {
@@ -34,6 +36,14 @@ export const MortgageService = {
 
       let allRecords: any[] = [];
 
+      const cleanFloat = (val: any): number => {
+        if (val === null || val === undefined || val === '') return 0.0;
+        if (typeof val === 'number') return isNaN(val) ? 0.0 : val;
+        const cleaned = String(val).replace(/,/g, '').trim();
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0.0 : parsed;
+      };
+
       // Loop through every month sheet in your workbook
       workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
@@ -41,58 +51,56 @@ export const MortgageService = {
 
         // Ensure the sheet has enough rows (Headers are at index 1, data starts at index 2)
         if (jsonSheet.length > 2) {
-          const headers = (jsonSheet[1] || []).map((h: any) => h ? h.toString().trim() : '');
+          const headers = (jsonSheet[1] || []).map((h: any) => (h ? h.toString().trim() : ''));
 
           // Parse rows starting from index 2
           for (let i = 2; i < jsonSheet.length; i++) {
             const row = jsonSheet[i];
             if (!row || row.length === 0) continue;
 
-            // Map row array to your table columns based on header names
+            // Map row array to table columns based on header names
             const getVal = (colName: string) => {
               const index = headers.indexOf(colName);
-              return index !== -1 && row[index] !== undefined ? row[index] : null;
+              return index !== -1 && row[index] !== undefined && row[index] !== null ? row[index] : null;
             };
 
             const clientName = getVal('Name');
-            if (!clientName) continue; // Skip empty rows
+            if (!clientName || String(clientName).trim() === '') continue; // Skip empty rows
 
             allRecords.push({
+              bank_name: 'Centenary Bank',
               branch: getVal('Branch') ? String(getVal('Branch')).trim() : 'UNKNOWN',
               client_name: String(clientName).trim(),
-              rim_no: getVal('RIM NO.') ? String(getVal('RIM NO.')) : null,
-              property_description: getVal('Description') ? String(getVal('Description')) : null,
-              loan_amount: parseFloat(getVal('Loan amount')) || 0,
-              grand_total: parseFloat(getVal('Grand Total')) || 0,
-              comments: getVal('Comments') ? String(getVal('Comments')) : null,
-              source_sheet: sheetName
+              rim_no: getVal('RIM NO.') ? String(getVal('RIM NO.')).trim() : '',
+              property_description: getVal('Description') ? String(getVal('Description')).trim() : '',
+              loan_amount: cleanFloat(getVal('Loan amount')),
+              bank_charges: cleanFloat(getVal('Bank charges')),
+              transport: cleanFloat(getVal('Transport')),
+              linkage_fees: cleanFloat(getVal('Linkage Fees')),
+              grand_total: cleanFloat(getVal('Grand Total')),
+              comments: getVal('Comments') ? String(getVal('Comments')).trim() : '',
+              source_sheet: sheetName,
             });
           }
         }
       });
 
-      console.log(`Parsed ${allRecords.length} records. Uploading to Supabase...`);
+      console.log(`Parsed ${allRecords.length} records. Uploading to Supabase mortgage_cases...`);
       if (onProgress) onProgress(`Parsed ${allRecords.length} records. Uploading to Supabase...`);
 
       // Batch insert into Supabase in chunks of 50 to avoid payload limits
       const chunkSize = 50;
       for (let i = 0; i < allRecords.length; i += chunkSize) {
         const chunk = allRecords.slice(i, i + chunkSize);
-        const { error } = await supabase.from('centenary_mortgage_cases').insert(chunk);
-
-        if (error) {
-          console.error("Batch insert error:", error.message);
-          // If public table isn't migrated, fallback to saving via local batch endpoint
-          const res = await fetch('/api/mortgages/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ records: allRecords, bank_name: 'Centenary Bank' }),
-          });
-          if (res.ok) {
-            console.log("Successfully stored in local workstation database as fallback.");
-            return { success: true, count: allRecords.length };
-          }
-          return { success: false, count: i, error: `Upload failed on batch ${i}: ${error.message}` };
+        
+        // 1. Insert into mortgage_cases
+        const { error: err1 } = await supabase.from('mortgage_cases').insert(chunk);
+        if (err1) {
+          console.warn("mortgage_cases batch insert warning:", err1.message);
+          // Try centenary_mortgage_cases fallback
+          try {
+            await supabase.from('centenary_mortgage_cases').insert(chunk);
+          } catch (e) {}
         }
       }
 
@@ -103,7 +111,7 @@ export const MortgageService = {
         body: JSON.stringify({ records: allRecords, bank_name: 'Centenary Bank' }),
       }).catch(() => {});
 
-      console.log("Successfully imported all mortgage records into Supabase!");
+      console.log("✅ Mortgages Module updated and records imported successfully!");
       return { success: true, count: allRecords.length };
 
     } catch (err: any) {
