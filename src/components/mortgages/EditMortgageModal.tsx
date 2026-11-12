@@ -24,6 +24,11 @@ const DEFAULT_BRANCHES = [
   { id: 'branch-gulu', name: 'Gulu Branch' },
 ];
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   record,
   currentUser,
@@ -31,6 +36,10 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   onSuccess,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'details' | 'transfer' | 'fees'>('details');
+
+  // Reporting Period (Year & Month Sheet)
+  const [recordYear, setRecordYear] = useState<number>(record?.record_year || new Date().getFullYear());
+  const [monthSheet, setMonthSheet] = useState<string>(record?.month_sheet || 'October');
 
   // Basic particulars
   const [mortgagorName, setMortgagorName] = useState(record?.mortgagor_name || record?.borrower_name || '');
@@ -131,6 +140,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assignedLawyerId);
 
     const updatePayload: Record<string, any> = {
+      record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
+      month_sheet: monthSheet || 'October',
       borrower_name: mortgagorName.trim(),
       mortgagor_name: mortgagorName.trim(),
       rim_no: rimNo.trim(),
@@ -251,6 +262,33 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {/* TAB 1: File Particulars & Status */}
           {activeSubTab === 'details' && (
             <div className="space-y-4">
+              {/* Reporting Period: Year & Month Sheet */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <div>
+                  <label className="block text-xs font-bold text-blue-900 mb-1">Record Year *</label>
+                  <input 
+                    type="number" 
+                    value={recordYear} 
+                    onChange={(e) => setRecordYear(Number(e.target.value))} 
+                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950" 
+                    required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-blue-900 mb-1">Month Sheet *</label>
+                  <select 
+                    value={monthSheet} 
+                    onChange={(e) => setMonthSheet(e.target.value)} 
+                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950" 
+                    required
+                  >
+                    {MONTHS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block font-medium text-gray-700 mb-1">Mortgagor / Borrower Name *</label>
@@ -548,58 +586,4 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                   <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
-                    <span className="text-[11px] text-slate-400 block mb-1">Total Disbursements</span>
-                    <span className="font-mono font-bold text-sm text-amber-400">
-                      UGX {totalDisbursements.toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
-                    <span className="text-[11px] text-slate-400 block mb-1">Legal Fees</span>
-                    <span className="font-mono font-bold text-sm text-blue-400">
-                      UGX {(Number(legalFees) || 0).toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
-                    <span className="text-[11px] text-slate-400 block mb-1">VAT 18%</span>
-                    <span className="font-mono font-bold text-sm text-cyan-400">
-                      UGX {vat.toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="p-3 bg-gradient-to-br from-blue-900 to-indigo-900 rounded-lg border border-blue-600/50 shadow-inner">
-                    <span className="text-[11px] text-blue-200 block mb-1 font-semibold">Grand Total</span>
-                    <span className="font-mono font-bold text-base text-white">
-                      UGX {grandTotal.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs font-semibold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs disabled:opacity-50"
-            >
-              {loading ? 'Saving Changes...' : 'Save & Update Record'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-export default EditMortgageModal;
+                    <span className="text
