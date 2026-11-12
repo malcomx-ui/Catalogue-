@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
+import { MortgageService } from '../services/mortgageService';
 import { AddMortgageModal } from './AddMortgageModal';
 import { EditMortgageModal } from './EditMortgageModal';
 import { MortgageFilterBar } from './MortgageFilterBar';
@@ -65,18 +66,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const loadBankData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('mortgages')
-        .select('*')
-        .eq('client_bank_name', bankName)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.warn('Mortgages fetch warning:', error.message);
-        setMortgages([]);
-      } else {
-        setMortgages(data || []);
-      }
+      const data = await MortgageService.fetchMortgages(bankName);
+      setMortgages(data || []);
     } catch (err) {
       console.error('Error loading bank data:', err);
       setMortgages([]);

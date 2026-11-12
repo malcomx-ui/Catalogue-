@@ -48,6 +48,7 @@ const DEFAULT_DATABASE = {
   cases: [],
   hearings: [],
   documents: [],
+  mortgages: [],
   branches: [
     {
       id: 'kla-hq',
@@ -307,6 +308,7 @@ function readDatabase(): typeof DEFAULT_DATABASE {
         cases: Array.isArray(parsed.cases) ? parsed.cases : [],
         hearings: Array.isArray(parsed.hearings) ? parsed.hearings : [],
         documents: Array.isArray(parsed.documents) ? parsed.documents : [],
+        mortgages: Array.isArray(parsed.mortgages) ? parsed.mortgages : [],
         branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : DEFAULT_DATABASE.branches,
         users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : DEFAULT_DATABASE.users,
         roles: Array.isArray(parsed.roles) && parsed.roles.length > 0 ? parsed.roles : DEFAULT_DATABASE.roles,
@@ -432,7 +434,7 @@ app.get('/api/database', (req: Request, res: Response) => {
 });
 
 app.post('/api/database', (req: Request, res: Response) => {
-  const { cases, hearings, documents, branches, users, roles, systemSettings } = req.body;
+  const { cases, hearings, documents, mortgages, branches, users, roles, systemSettings } = req.body;
   const current = readDatabase();
 
   const updated = {
@@ -440,6 +442,7 @@ app.post('/api/database', (req: Request, res: Response) => {
     cases: Array.isArray(cases) ? cases : current.cases,
     hearings: Array.isArray(hearings) ? hearings : current.hearings,
     documents: Array.isArray(documents) ? documents : current.documents,
+    mortgages: Array.isArray(mortgages) ? mortgages : (current as any).mortgages || [],
     branches: Array.isArray(branches) ? branches : current.branches,
     users: Array.isArray(users) ? users : current.users,
     roles: Array.isArray(roles) ? roles : current.roles,
@@ -453,9 +456,123 @@ app.post('/api/database', (req: Request, res: Response) => {
       message: 'Central database updated successfully across all workstations.',
       lastUpdated: updated.lastUpdated,
       caseCount: updated.cases.length,
+      mortgageCount: ((updated as any).mortgages || []).length,
     });
   } else {
     res.status(500).json({ success: false, error: 'Failed to write central database file.' });
+  }
+});
+
+// ==============================================================================
+// Mortgages Register API Endpoints (Local Workstation & Cloud Dual-Sync)
+// ==============================================================================
+app.get('/api/mortgages', (req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    let records: any[] = (db as any).mortgages || [];
+
+    const { record_year, client_bank_name } = req.query;
+    if (record_year) {
+      records = records.filter((m) => String(m.record_year) === String(record_year));
+    }
+    if (client_bank_name) {
+      records = records.filter(
+        (m) => String(m.client_bank_name || '').toLowerCase() === String(client_bank_name).toLowerCase()
+      );
+    }
+
+    res.json({
+      success: true,
+      data: records,
+      total: records.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, data: [] });
+  }
+});
+
+app.post('/api/mortgages', (req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    const currentList: any[] = (db as any).mortgages || [];
+    const payload = req.body;
+
+    const id = payload.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const newRecord = {
+      ...payload,
+      id,
+      created_at: payload.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Check if record already exists by ID
+    const existingIndex = currentList.findIndex((m) => m.id === id);
+    if (existingIndex >= 0) {
+      currentList[existingIndex] = { ...currentList[existingIndex], ...newRecord };
+    } else {
+      currentList.unshift(newRecord);
+    }
+
+    (db as any).mortgages = currentList;
+    writeDatabase(db);
+
+    res.json({
+      success: true,
+      data: newRecord,
+      message: 'Mortgage record saved successfully in workstation database.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/mortgages/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    const db = readDatabase();
+    const currentList: any[] = (db as any).mortgages || [];
+
+    const index = currentList.findIndex((m) => String(m.id) === String(id));
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: 'Mortgage file not found' });
+    }
+
+    currentList[index] = {
+      ...currentList[index],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    (db as any).mortgages = currentList;
+    writeDatabase(db);
+
+    res.json({
+      success: true,
+      data: currentList[index],
+      message: 'Mortgage record updated successfully.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const db = readDatabase();
+    const currentList: any[] = (db as any).mortgages || [];
+
+    const filtered = currentList.filter((m) => String(m.id) !== String(id));
+    (db as any).mortgages = filtered;
+    writeDatabase(db);
+
+    res.json({
+      success: true,
+      message: 'Mortgage record deleted successfully.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

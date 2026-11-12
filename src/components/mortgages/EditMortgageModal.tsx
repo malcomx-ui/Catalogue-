@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
+import { MortgageService } from '../../services/mortgageService';
 
 export interface EditMortgageModalProps {
   record: any;
@@ -164,33 +165,10 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     };
 
     try {
-      let { error: updateErr } = await supabase
-        .from('mortgages')
-        .update(updatePayload)
-        .eq('id', record.id);
+      const res = await MortgageService.updateMortgage(record.id, updatePayload);
 
-      if (updateErr) {
-        console.warn('Initial update notice, retrying with core columns:', updateErr.message);
-        const fallback = {
-          borrower_name: mortgagorName.trim(),
-          loan_amount: Number(loanAmount) || 0,
-          title_deed_no: propertyDescription.trim(),
-          status: status,
-          branch_name: branchName,
-          legal_fees: Number(legalFees) || 0,
-          total_disbursements: totalDisbursements,
-          vat: vat,
-          grand_total: grandTotal,
-          notes: comments.trim(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const retry = await supabase.from('mortgages').update(fallback).eq('id', record.id);
-        updateErr = retry.error;
-      }
-
-      if (updateErr) {
-        throw updateErr;
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to update mortgage record.');
       }
 
       onSuccess();

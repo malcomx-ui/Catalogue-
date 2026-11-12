@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
+import { MortgageService } from '../../services/mortgageService';
 
 export interface AddMortgageModalProps {
   bankName: string;
@@ -130,44 +131,10 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
     };
 
     try {
-      let { error: insertErr } = await supabase
-        .from('mortgages')
-        .insert([payload]);
+      const res = await MortgageService.insertMortgage(payload);
 
-      // If specific custom columns are not yet recognized by PostgREST schema cache, sanitize and retry
-      if (insertErr) {
-        console.warn('Initial insert notice:', insertErr.message);
-        const fallbackPayload = {
-          client_bank_name: bankName,
-          record_year: year,
-          file_number: generatedFileNo,
-          borrower_name: mortgagorName.trim(),
-          loan_amount: Number(loanAmount) || 0,
-          title_deed_no: propertyDescription.trim(),
-          branch_id: currentUser?.branchId || null,
-          branch_name: currentUser?.branchName || 'Kampala Head Office',
-          status: status,
-          date_instructed: dateInstructed || null,
-          legal_fees: Number(legalFees) || 0,
-          search_fee: Number(searchFee) || 0,
-          stamp_duty: Number(stampDuty) || 0,
-          registration_fee: Number(registrationFee) || 0,
-          filing_fee: Number(filingFee) || 0,
-          valuation_fee: Number(valuationFee) || 0,
-          courier_fee: Number(courierFee) || 0,
-          other_disbursements: Number(otherDisbursements) || 0,
-          total_disbursements: totalDisbursements,
-          vat: vat,
-          grand_total: grandTotal,
-          notes: comments.trim(),
-        };
-
-        const retry = await supabase.from('mortgages').insert([fallbackPayload]);
-        insertErr = retry.error;
-      }
-
-      if (insertErr) {
-        throw insertErr;
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to save mortgage file.');
       }
 
       onSuccess();

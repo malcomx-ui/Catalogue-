@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
+import { MortgageService } from '../../services/mortgageService';
 
 export interface MortgageEntryModalProps {
   isOpen: boolean;
@@ -102,12 +103,10 @@ export const MortgageEntryModal: React.FC<MortgageEntryModalProps> = ({
     };
 
     try {
-      const { error: insertError } = await supabase
-        .from('mortgages')
-        .insert([payload]);
+      const res = await MortgageService.insertMortgage(payload);
 
-      if (insertError) {
-        throw insertError;
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to save mortgage entry');
       }
 
       if (onSuccess) {
