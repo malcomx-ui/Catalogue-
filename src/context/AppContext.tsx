@@ -127,6 +127,7 @@ interface AppContextType {
   // Actions
   triggerManualSync: (branchId?: string) => Promise<void>;
   refreshCasesFromSupabase: () => Promise<void>;
+  fetchFreshDataFromSupabase: () => Promise<void>;
   addCase: (caseData: any) => Promise<CaseItem | null>;
   updateCase: (caseId: string, updatedData: Partial<CaseItem>) => Promise<CaseItem | null>;
   deleteCase: (caseId: string) => Promise<boolean>;
@@ -789,26 +790,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     let isMounted = true;
     async function loadCentralDatabase() {
-      // 1. Fetch live data from Supabase using .select('*')
+      console.log("Page refreshed. Clearing stale local storage and fetching fresh data...");
+
+      // 1. Clear out old cached case lists
       try {
-        const { data, error } = await supabase.from('cases').select('*');
+        localStorage.removeItem('cached_cases');
+        localStorage.removeItem(LOCAL_STORAGE_KEY_CASES);
+      } catch (e) {}
+
+      // 2. Clear IndexedDB local caches
+      if (typeof window !== 'undefined' && window.indexedDB) {
+        try {
+          indexedDB.deleteDatabase('your-app-offline-db');
+          indexedDB.deleteDatabase('mk_advocates_offline_db');
+          indexedDB.deleteDatabase('cached_cases_db');
+        } catch (e) {
+          console.warn('IndexedDB deleteDatabase notice:', e);
+        }
+      }
+
+      // 3. Force an immediate fetch of live data from Supabase
+      try {
+        const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
         if (error) {
           console.error('Error fetching cases from Supabase:', error);
         } else if (isMounted) {
           const liveCases = (data || []).map(mapRowToCase);
-          setCases((prev) => {
-            if (!liveCases || liveCases.length === 0) {
-              return prev;
-            }
-            const liveMap = new Map(liveCases.map((c) => [c.id, c]));
-            // Retain any locally created cases that haven't synchronized to Supabase yet
-            const localOnly = prev.filter((c) => !liveMap.has(c.id));
-            const merged = [...liveCases, ...localOnly];
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(merged));
-            } catch (e) {}
-            return merged;
-          });
+          setCases(liveCases);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
+          } catch (e) {}
           setIsServerConnected(true);
           setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
@@ -2121,19 +2132,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateCase(caseId, { stage: newStage });
   };
 
-  const refreshCasesFromSupabase = async () => {
+  const fetchFreshDataFromSupabase = async () => {
     try {
+      console.log('[Supabase Sync] Fetching fresh live case records from Supabase...');
       const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
       if (error) {
-        console.error('refreshCasesFromSupabase error:', error);
-      } else {
-        setCases((data || []).map(mapRowToCase));
+        console.error('Error fetching cases from Supabase:', error);
+      } else if (data) {
+        const liveCases = (data || []).map(mapRowToCase);
+        setCases(liveCases);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
+        } catch (e) {}
         setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        console.log(`[Supabase Sync] Successfully loaded ${liveCases.length} fresh case records from Supabase.`);
       }
     } catch (err) {
-      console.warn('refreshCasesFromSupabase error:', err);
+      console.warn('fetchFreshDataFromSupabase error:', err);
     }
   };
+
+  const refreshCasesFromSupabase = fetchFreshDataFromSupabase;
 
   // Transfer Case to Branch
   const transferCaseToBranch = (caseId: string, targetBranchId: string, reason: string) => {
@@ -2753,6 +2772,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCase,
         deleteCase,
         refreshCasesFromSupabase,
+        fetchFreshDataFromSupabase,
         refreshStaffFromSupabase,
         fetchUsers: refreshStaffFromSupabase,
         fetchUserProfile,

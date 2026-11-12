@@ -29,8 +29,32 @@ import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordMod
 import { isUserAdmin, supabase } from './lib/supabase';
 
 const MainLayout: React.FC = () => {
-  const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser } = useApp();
+  const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser, fetchFreshDataFromSupabase } = useApp();
   const [isFirstLoginModalOpen, setIsFirstLoginModalOpen] = React.useState(false);
+
+  // Main app startup / mount routine
+  React.useEffect(() => {
+    console.log("Page refreshed. Clearing stale local storage and fetching fresh data...");
+
+    // 1. Clear out old cached case lists
+    try {
+      localStorage.removeItem('cached_cases');
+      localStorage.removeItem('mk_case_catalogue_cases_v2');
+    } catch (e) {}
+
+    // 2. Clear IndexedDB local caches
+    if (typeof window !== 'undefined' && window.indexedDB) {
+      try {
+        indexedDB.deleteDatabase('your-app-offline-db');
+        indexedDB.deleteDatabase('mk_advocates_offline_db');
+      } catch (e) {
+        console.warn('IndexedDB clear notice:', e);
+      }
+    }
+
+    // 3. Force an immediate fetch of live data from Supabase
+    fetchFreshDataFromSupabase();
+  }, [fetchFreshDataFromSupabase]);
 
   React.useEffect(() => {
     if (isAuthenticated && currentUser.mustChangePassword) {
