@@ -3,7 +3,39 @@ import { supabase } from '../../services/supabaseClient';
 import { MortgageService } from '../../services/mortgageService';
 
 export interface MortgageCaseFormProps {
+  onSuccess?: () => voimport React from 'react';
+import MortgageCaseForm from './MortgageCaseForm'; // Adjust path if your folder structure differs
+
+interface MortgageEntryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
   onSuccess?: () => void;
+  defaultBank?: string;
+}
+
+export default function MortgageEntryModal({
+  isOpen,
+  onClose,
+  onSuccess,
+  defaultBank = 'Centenary Bank'
+}: MortgageEntryModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+        <MortgageCaseForm
+          defaultBank={defaultBank}
+          onClose={onClose}
+          onSuccess={() => {
+            if (onSuccess) onSuccess();
+            onClose();
+          }}
+        />
+      </div>
+    </div>
+  );
+}id;
   onClose?: () => void;
   defaultBank?: string;
 }
