@@ -17,7 +17,16 @@ import {
 } from 'lucide-react';
 
 export const LitigationAnalytics: React.FC = () => {
-  const { cases, branches, hearings } = useApp();
+  const { cases, branches, hearings, currentUser } = useApp();
+
+  // Role check: super_admin or branch_admin_finance (and general admin/partner roles in system)
+  const isAdminOrFinance =
+    currentUser?.role === 'super_admin' ||
+    currentUser?.role === 'branch_admin_finance' ||
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'partner' ||
+    Boolean(currentUser?.isSuperAdmin) ||
+    Boolean(currentUser?.isBranchAdmin);
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [reportData, setReportData] = useState<CaseReportSummary | null>(null);
@@ -85,9 +94,245 @@ export const LitigationAnalytics: React.FC = () => {
     ? 'All Regional Circuits'
     : branches.find(b => b.id === selectedBranchId)?.name || 'Selected Branch';
 
+  // Export report to CSV
+  const exportReportToCSV = () => {
+    if (!isAdminOrFinance) {
+      console.warn('Access denied: Export is restricted to Administrators and Finance Officers.');
+      return;
+    }
+
+    const reportHeaders = [
+      'Report Metric / Dimension',
+      'Value / Count',
+      'Additional Notes',
+    ];
+
+    const reportRows = [
+      ['Report Name', 'Case Summary Report', `Branch: ${selectedBranchName}`],
+      ['Generated At', new Date().toLocaleString(), `User: ${currentUser?.name || currentUser?.email || 'Staff'}`],
+      ['Total Matters', String(totalCasesCount), 'All docketed cases in scope'],
+      ['Active Matters', String(activeCasesCount), 'Ongoing trials and hearings'],
+      ['Pending & Reserved Matters', String(pendingCasesCount), 'Awaiting rulings or scheduled'],
+      ['Closed & Concluded Matters', String(closedCasesCount), 'Decrees and concluded files'],
+      ['Urgent / Injunction Matters', String(urgentCount), 'Expedited applications'],
+      ['Total Claim Valuation (UGX)', String(totalValueUGX), `Approx USD $${(totalValueUSD / 1000000).toFixed(2)}M`],
+    ];
+
+    // Add Division Breakdown
+    Object.entries(divisionCounts).forEach(([div, data]) => {
+      reportRows.push([`Division: ${div}`, `${data.count} suits`, `UGX ${data.value.toLocaleString()}`]);
+    });
+
+    // Add Stage Funnel
+    Object.entries(stageCounts).forEach(([stage, count]) => {
+      reportRows.push([`Stage: ${stage}`, `${count} suits`, 'Procedural stage count']);
+    });
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [reportHeaders.join(','), ...reportRows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    const branchSlug = selectedBranchId === 'all' ? 'firm_wide' : selectedBranchId;
+    link.setAttribute('download', `Case_Summary_Report_${branchSlug}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Download report directly as a formatted printable PDF
+  const downloadReportAsPDF = () => {
+    if (!isAdminOrFinance) {
+      console.warn('Access denied: PDF downloads are restricted to Administrators and Finance Officers.');
+      return;
+    }
+
+    // Direct, pristine PDF generation via print-to-PDF / specialized iframe print
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      // Fallback to window.print if popup blocked
+      window.print();
+      return;
+    }
+
+    const reportHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Case Summary Report - ${selectedBranchName}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 30px; color: #0f172a; margin: 0; }
+            h1 { font-size: 24px; color: #0f172a; margin: 0 0 6px 0; border-bottom: 2px solid #b45309; padding-bottom: 8px; }
+            .meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+            .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+            .kpi-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background: #f8fafc; }
+            .kpi-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; }
+            .kpi-val { font-size: 20px; font-weight: bold; color: #0f172a; margin-top: 4px; }
+            .section-title { font-size: 16px; font-weight: bold; margin: 20px 0 10px 0; color: #1e293b; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
+            th { background-color: #f1f5f9; color: #475569; text-transform: uppercase; font-size: 10px; }
+            .footer { margin-top: 30px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; text-align: center; }
+            @media print {
+              body { padding: 15mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Case Summary Report</h1>
+          <div class="meta">
+            Scope: <strong>${selectedBranchName}</strong> &nbsp;|&nbsp; 
+            Generated: <strong>${new Date().toLocaleString()}</strong> &nbsp;|&nbsp; 
+            Generated By: <strong>${currentUser?.name || currentUser?.email || 'Authorized Officer'}</strong>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Total Claim Valuation</div>
+              <div class="kpi-val">UGX ${(totalValueUGX / 1000000000).toFixed(2)}B</div>
+              <small style="color: #64748b;">≈ USD $${(totalValueUSD / 1000000).toFixed(2)}M</small>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Case Docket Summary</div>
+              <div class="kpi-val">${totalCasesCount} Matters</div>
+              <small style="color: #059669;">${activeCasesCount} Active</small>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Pending & Reserved</div>
+              <div class="kpi-val">${pendingCasesCount} Suits</div>
+              <small style="color: #4338ca;">${closedCasesCount} Closed</small>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Injunctions & Expedited</div>
+              <div class="kpi-val" style="color: #be123c;">${urgentCount} Urgent</div>
+              <small style="color: #64748b;">Interim Relief</small>
+            </div>
+          </div>
+
+          <div class="section-title">Judicial Division Distribution</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Judicial Division</th>
+                <th>Suits Count</th>
+                <th>Estimated Claim Valuation</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${Object.entries(divisionCounts).map(([div, data]) => `
+                <tr>
+                  <td><strong>${div}</strong></td>
+                  <td>${data.count} suits</td>
+                  <td>${data.value > 0 ? `UGX ${data.value.toLocaleString()}` : 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="section-title">Procedural Stage Funnel</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Procedural Stage</th>
+                <th>Caseload Count</th>
+                <th>Pipeline Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${[
+                'Pleadings & Defense',
+                'Mediation & Scheduling',
+                'Trial (Plaintiff Stage)',
+                'Trial (Defense Stage)',
+                'Final Legal Submissions',
+                'Judgment / Ruling Reserved',
+                'Decree & Execution',
+              ].map(stg => {
+                const count = stageCounts[stg] || 0;
+                const pct = totalCasesCount > 0 ? Math.round((count / totalCasesCount) * 100) : 0;
+                return `
+                  <tr>
+                    <td>${stg}</td>
+                    <td><strong>${count}</strong> suits</td>
+                    <td>${pct}%</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            CONFIDENTIAL LEGAL WORK PRODUCT · SUPABASE RPC DATA INTEGRATION (get_case_summary) · GENERATED FOR LAW FIRM PRACTICE RECORD
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.close();
+  };
+
+  // Expose on window for convenience and console testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).exportReportToCSV = exportReportToCSV;
+      (window as any).downloadReportAsPDF = downloadReportAsPDF;
+    }
+  }, [selectedBranchName, totalCasesCount, activeCasesCount, pendingCasesCount, closedCasesCount, urgentCount, totalValueUGX, divisionCounts, stageCounts, isAdminOrFinance]);
+
+  // Render Report Actions function matching the exact user specification
+  const renderReportActions = (user: typeof currentUser) => {
+    const isAllowed = user?.role === 'super_admin' || user?.role === 'branch_admin_finance' || user?.role === 'admin' || user?.role === 'partner' || Boolean(user?.isSuperAdmin) || Boolean(user?.isBranchAdmin);
+
+    if (!isAllowed) {
+      return (
+        <p className="text-muted text-xs text-slate-500 italic">
+          Printing and PDF downloads are restricted to Administrators and Finance Officers.
+        </p>
+      );
+    }
+
+    return (
+      <div className="admin-report-actions flex flex-wrap items-center gap-2">
+        {/* 1. Print directly using browser print stylesheet */}
+        <button
+          onClick={() => window.print()}
+          className="btn-print px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+        >
+          🖨️ Print Report
+        </button>
+
+        {/* 2. Download directly as a PDF */}
+        <button
+          onClick={downloadReportAsPDF}
+          className="btn-pdf px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+        >
+          📄 Download PDF
+        </button>
+
+        {/* 3. Export CSV */}
+        <button
+          onClick={exportReportToCSV}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+        >
+          Export CSV
+        </button>
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-5">
-      {/* Top Banner with Branch Report Filter */}
+    <div className="report-container space-y-5">
+      {/* Top Banner with Branch Report Filter and Admin Actions */}
       <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
@@ -96,16 +341,16 @@ export const LitigationAnalytics: React.FC = () => {
             <span className="text-slate-300">·</span>
             <span>Managing Partner Overview</span>
           </div>
-          <h1 className="font-serif-legal text-2xl font-bold text-slate-900 mt-1">
-            Litigation Portfolio &amp; Division Analytics
-          </h1>
+          <h2 className="font-serif-legal text-2xl font-bold text-slate-900 mt-1">
+            Case Summary Report
+          </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             Real-time practice performance metrics, claim valuation, and branch caseload summary generated via <code className="bg-slate-100 text-slate-700 px-1 py-0.5 rounded font-mono">get_case_summary</code>.
           </p>
         </div>
 
-        {/* Branch Report Filter & Refresh */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Branch Report Filter & Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
           <div className="flex items-center bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 shadow-2xs">
             <Building2 className="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0" />
             <select
@@ -125,7 +370,7 @@ export const LitigationAnalytics: React.FC = () => {
           <button
             onClick={() => handleFetchReport(selectedBranchId)}
             disabled={loadingReport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
             title="Execute Supabase RPC get_case_summary"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingReport ? 'animate-spin' : ''}`} />
@@ -145,6 +390,18 @@ export const LitigationAnalytics: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Role-based Export / Print Action Header */}
+      <div className="bg-slate-50 rounded-lg border border-slate-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="text-xs text-slate-600">
+          <span className="font-semibold text-slate-800">Current Scope:</span> {selectedBranchName} · <span className="font-mono-legal text-slate-700">{totalCasesCount} matters</span>
+        </div>
+
+        {renderReportActions(currentUser)}
+      </div>
+
+      {/* Report charts and tables display here for everyone */}
+      <div id="report-content" className="space-y-5">
 
       {/* KPI Metric Cards Loaded from Case Report */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -365,6 +622,7 @@ export const LitigationAnalytics: React.FC = () => {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );
