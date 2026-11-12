@@ -322,19 +322,39 @@ export function mapHearingToRow(h: Partial<CourtHearing>): any {
 export const SupabaseService = {
   /**
    * Fetches all cases permanently stored in Supabase 'cases' table.
+   * Resilient against browser sandbox fetch failures by falling back to /api/cases.
    */
   async fetchCases(): Promise<CaseItem[] | null> {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-      .from('cases')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // 1. Try browser client fetch
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('cases')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-    if (error) {
-      console.warn('Supabase fetchCases error:', error);
-      return null;
+        if (!error && Array.isArray(data)) {
+          return data.map(mapRowToCase);
+        }
+      } catch (err) {
+        console.info('[SupabaseService] Browser direct fetch unavailable, routing to backend proxy...');
+      }
     }
-    return (data || []).map(mapRowToCase);
+
+    // 2. Fallback to /api/cases proxy
+    try {
+      const res = await fetch('/api/cases');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          return json.data.map(mapRowToCase);
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[SupabaseService] /api/cases proxy notice:', apiErr);
+    }
+
+    return null;
   },
 
   /**

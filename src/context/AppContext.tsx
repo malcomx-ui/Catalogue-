@@ -809,13 +809,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 3. Force an immediate fetch of live data from Supabase
+      // 3. Force an immediate fetch of live data from Supabase (with resilient fallback to /api/cases)
       try {
-        const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
-        if (error) {
-          console.error('Error fetching cases from Supabase:', error);
-        } else if (isMounted) {
-          const liveCases = (data || []).map(mapRowToCase);
+        let liveCases: CaseItem[] | null = null;
+        try {
+          const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+          if (!error && Array.isArray(data)) {
+            liveCases = data.map(mapRowToCase);
+          } else if (error) {
+            console.info('[Supabase Sync] Direct query note:', error.message);
+          }
+        } catch (e) {
+          // Direct fetch failed (e.g. cross-origin/sandbox network block), will use SupabaseService fallback
+        }
+
+        if (!liveCases || liveCases.length === 0) {
+          liveCases = await SupabaseService.fetchCases();
+        }
+
+        if (liveCases && isMounted) {
           setCases(liveCases);
           try {
             localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
@@ -824,7 +836,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
       } catch (err) {
-        console.error('Supabase query error:', err);
+        console.warn('Initial case fetch notice:', err);
       }
 
       // 2. Fetch supporting hearings, branches, and staff accounts from Supabase
@@ -2135,17 +2147,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchFreshDataFromSupabase = async () => {
     try {
       console.log('[Supabase Sync] Fetching fresh live case records from Supabase...');
-      const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
-      if (error) {
-        console.error('Error fetching cases from Supabase:', error);
-      } else if (data) {
-        const liveCases = (data || []).map(mapRowToCase);
+      let liveCases: CaseItem[] | null = null;
+      try {
+        const { data, error } = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+        if (!error && Array.isArray(data)) {
+          liveCases = data.map(mapRowToCase);
+        } else if (error) {
+          console.info('[Supabase Sync] Direct fetch note:', error.message);
+        }
+      } catch (e) {
+        // Direct browser network error
+      }
+
+      if (!liveCases || liveCases.length === 0) {
+        liveCases = await SupabaseService.fetchCases();
+      }
+
+      if (liveCases) {
         setCases(liveCases);
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
         } catch (e) {}
         setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        console.log(`[Supabase Sync] Successfully loaded ${liveCases.length} fresh case records from Supabase.`);
+        console.log(`[Supabase Sync] Successfully loaded ${liveCases.length} fresh case records.`);
       }
     } catch (err) {
       console.warn('fetchFreshDataFromSupabase error:', err);

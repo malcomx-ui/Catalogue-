@@ -463,6 +463,34 @@ app.post('/api/database', (req: Request, res: Response) => {
   }
 });
 
+// Proxy endpoint for live cases fetching to bridge browser restrictions/CORS if any
+app.get('/api/cases', async (req: Request, res: Response) => {
+  try {
+    // 1. Try querying remote Supabase directly via server-side client
+    const { data, error } = await supabaseAdmin
+      .from('cases')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      // Also cache in local database
+      const db = readDatabase();
+      if (data.length > 0) {
+        (db as any).cases = data;
+        writeDatabase(db);
+      }
+      return res.json({ success: true, data, source: 'supabase' });
+    }
+
+    // 2. Fallback to local workstation database
+    const db = readDatabase();
+    res.json({ success: true, data: db.cases || [], source: 'local_database' });
+  } catch (err: any) {
+    const db = readDatabase();
+    res.json({ success: true, data: db.cases || [], source: 'local_database', warning: err.message });
+  }
+});
+
 // ==============================================================================
 // Mortgages Register API Endpoints (Local Workstation & Cloud Dual-Sync)
 // ==============================================================================
