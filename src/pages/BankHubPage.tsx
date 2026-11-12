@@ -10,7 +10,6 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
   ]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [cloudNotice, setCloudNotice] = useState<string | null>(null);
 
   useEffect(() => {
     console.log('[BankHubPage] Mounted successfully with year:', selectedYear);
@@ -26,11 +25,6 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
       const result = await MortgageService.fetchBankSummaries(selectedYear);
       if (result.summaries && result.summaries.length > 0) {
         setBanksSummary(result.summaries);
-      }
-      if (!result.hasCloudTable && result.errorNotice) {
-        setCloudNotice(result.errorNotice);
-      } else {
-        setCloudNotice(null);
       }
     } catch (err: any) {
       console.warn('[BankHubPage] Notice loading bank summaries:', err?.message || err);
@@ -62,20 +56,6 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
           </select>
         </div>
       </div>
-
-      {/* Cloud / Workstation Status Banner */}
-      {cloudNotice && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-amber-900">
-          <span className="text-base leading-none">💡</span>
-          <div className="flex-1">
-            <span className="font-semibold block">Multi-Computer Workstation Mode Active</span>
-            <span>
-              Mortgage records are saved and synced across all firm workstations via the backend database.
-              To link with your remote Supabase cloud project, run <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">public/mortgages_schema.sql</code> in your Supabase SQL editor.
-            </span>
-          </div>
-        </div>
-      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
