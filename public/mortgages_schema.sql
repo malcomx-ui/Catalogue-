@@ -84,4 +84,44 @@ DROP POLICY IF EXISTS "Allow public write on mortgages" ON public.mortgages;
 CREATE POLICY "Allow public write on mortgages"
   ON public.mortgages FOR ALL USING (true);
 
+-- ==============================================================================
+-- CENTENARY BANK MORTGAGE CASES IMPORT TABLE
+-- Matches bulk import script schema for 20260108-EXCEL CENT (1).xlsx
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.centenary_mortgage_cases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  branch TEXT,
+  client_name TEXT NOT NULL,
+  rim_no TEXT,
+  property_description TEXT,
+  loan_amount NUMERIC(18,2) DEFAULT 0,
+  grand_total NUMERIC(18,2) DEFAULT 0,
+  comments TEXT,
+  source_sheet TEXT,
+  record_year INTEGER DEFAULT 2026,
+  status TEXT DEFAULT 'Pending Review',
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Fast lookup indexes
+CREATE INDEX IF NOT EXISTS idx_centenary_mortgages_branch ON public.centenary_mortgage_cases(branch);
+CREATE INDEX IF NOT EXISTS idx_centenary_mortgages_client ON public.centenary_mortgage_cases(client_name);
+CREATE INDEX IF NOT EXISTS idx_centenary_mortgages_rim ON public.centenary_mortgage_cases(rim_no);
+CREATE INDEX IF NOT EXISTS idx_centenary_mortgages_sheet ON public.centenary_mortgage_cases(source_sheet);
+
+-- RLS Policies
+ALTER TABLE public.centenary_mortgage_cases ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated read on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow authenticated read on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow authenticated write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow authenticated write on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR ALL TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow public write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow public write on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR ALL USING (true);
+
 NOTIFY pgrst, 'reload schema';

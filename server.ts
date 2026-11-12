@@ -576,6 +576,83 @@ app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
   }
 });
 
+// Bulk batch insert endpoint for centenary_mortgage_cases / mortgages
+app.post('/api/mortgages/batch', (req: Request, res: Response) => {
+  try {
+    const { records, bank_name } = req.body;
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({ success: false, error: 'Records array is required' });
+    }
+
+    const db = readDatabase();
+    const currentMortgages: any[] = (db as any).mortgages || [];
+    const centenaryCases: any[] = (db as any).centenary_mortgage_cases || [];
+
+    const now = new Date().toISOString();
+    const normalizedNewMortgages: any[] = [];
+    const normalizedCentenary: any[] = [];
+
+    records.forEach((r: any) => {
+      const id = r.id || `cent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
+      const branchName = r.branch || 'Head Office';
+      const loanAmount = Number(r.loan_amount) || 0;
+      const grandTotal = Number(r.grand_total) || loanAmount;
+      const rimNo = String(r.rim_no || '');
+      const propDesc = String(r.property_description || r.description || '');
+      const comments = String(r.comments || '');
+      const sourceSheet = String(r.source_sheet || 'Bulk Import');
+
+      normalizedCentenary.push({
+        id,
+        branch: branchName,
+        client_name: clientName,
+        rim_no: rimNo,
+        property_description: propDesc,
+        loan_amount: loanAmount,
+        grand_total: grandTotal,
+        comments,
+        source_sheet: sourceSheet,
+        record_year: r.record_year || 2026,
+        status: r.status || 'Pending Review',
+        created_at: r.created_at || now,
+      });
+
+      // Also register into central mortgages table under Centenary Bank
+      normalizedNewMortgages.push({
+        id,
+        client_bank_name: bank_name || 'Centenary Bank',
+        record_year: r.record_year || 2026,
+        bank_branch: branchName,
+        branch_name: branchName,
+        file_number: rimNo || `CENT-${Date.now().toString().slice(-5)}`,
+        rim_no: rimNo,
+        borrower_name: clientName,
+        mortgagor_name: clientName,
+        loan_amount: loanAmount,
+        property_description: propDesc,
+        department: 'Banking & Securities',
+        status: 'Under Preparation',
+        grand_total: grandTotal,
+        comments,
+        created_at: r.created_at || now,
+      });
+    });
+
+    (db as any).mortgages = [...normalizedNewMortgages, ...currentMortgages];
+    (db as any).centenary_mortgage_cases = [...normalizedCentenary, ...centenaryCases];
+    writeDatabase(db);
+
+    res.json({
+      success: true,
+      count: records.length,
+      message: `Successfully batch inserted ${records.length} mortgage records into database.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ==============================================================================
 // User Update API Route: Syncs BOTH Supabase Auth user_metadata AND public profiles table
 // ==============================================================================
