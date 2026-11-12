@@ -149,16 +149,19 @@ CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   bank_charges NUMERIC(18,2) DEFAULT 0,
   transport NUMERIC(18,2) DEFAULT 0,
   linkage_fees NUMERIC(18,2) DEFAULT 0,
+  other_disbursements NUMERIC(18,2) DEFAULT 0,
   grand_total NUMERIC(18,2) DEFAULT 0,
   comments TEXT DEFAULT '',
   source_sheet TEXT,
   record_year INTEGER DEFAULT 2026,
-  status TEXT DEFAULT 'Under Preparation',
+  status TEXT DEFAULT 'Active / Processing',
   department TEXT DEFAULT 'Banking & Securities',
   assigned_lawyer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   assigned_lawyer_name TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other_disbursements NUMERIC(18,2) DEFAULT 0;
 
 -- Fast lookup indexes
 CREATE INDEX IF NOT EXISTS idx_mortgage_cases_bank ON public.mortgage_cases(bank_name);

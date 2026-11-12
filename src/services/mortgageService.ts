@@ -136,30 +136,38 @@ export const MortgageService = {
     let hasCloudTable = true;
     let errorNotice: string | undefined = undefined;
 
-    // 1. Try Supabase cloud query
+    // 1. Try Supabase cloud query from both mortgages and mortgage_cases
     try {
-      const { data, error } = await supabase
+      // Query central mortgages
+      const { data: mData } = await supabase
         .from('mortgages')
         .select('client_bank_name, loan_amount')
         .eq('record_year', year);
 
-      if (error) {
-        // PostgREST code PGRST205 means table not yet created in the Supabase schema
-        if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
-          hasCloudTable = false;
-          errorNotice = "The 'public.mortgages' table is not yet in Supabase schema cache. Running in local workstation database mode.";
-          console.info('[MortgageService] Notice: Supabase table public.mortgages not in schema cache. Using workstation database fallback.');
-        } else {
-          console.warn('[MortgageService] Supabase fetch notice:', error.message);
-        }
-      } else if (Array.isArray(data)) {
-        data.forEach((item) => {
+      if (Array.isArray(mData)) {
+        mData.forEach((item) => {
           const bank = item.client_bank_name || 'Centenary Bank';
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
           grouped[bank].totalLoan += Number(item.loan_amount || 0);
         });
+      }
 
+      // Query mortgage_cases table populated by the Python bulk script
+      const { data: mcData } = await supabase
+        .from('mortgage_cases')
+        .select('bank_name, loan_amount');
+
+      if (Array.isArray(mcData) && mcData.length > 0) {
+        mcData.forEach((item) => {
+          const bank = item.bank_name || 'Centenary Bank';
+          if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
+          grouped[bank].count += 1;
+          grouped[bank].totalLoan += Number(item.loan_amount || 0);
+        });
+      }
+
+      if ((Array.isArray(mData) && mData.length > 0) || (Array.isArray(mcData) && mcData.length > 0)) {
         return {
           summaries: Object.keys(grouped).map((bank) => ({
             bank_name: bank,
@@ -170,8 +178,7 @@ export const MortgageService = {
         };
       }
     } catch (e: any) {
-      hasCloudTable = false;
-      console.info('[MortgageService] Falling back to local backend:', e?.message);
+      console.info('[MortgageService] Cloud summary notice:', e?.message);
     }
 
     // 2. Fallback to local server API (/api/mortgages)
@@ -181,7 +188,7 @@ export const MortgageService = {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           json.data.forEach((item: any) => {
-            const bank = item.client_bank_name || 'Centenary Bank';
+            const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
             if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
             grouped[bank].count += 1;
             grouped[bank].totalLoan += Number(item.loan_amount || 0);
@@ -205,9 +212,52 @@ export const MortgageService = {
 
   /**
    * Fetches mortgage registers for a specific bank.
+   * Seamlessly unifies records from 'mortgage_cases', 'mortgages', and local backend.
    */
   async fetchMortgages(bankName: string): Promise<any[]> {
-    // 1. Try Supabase cloud query
+    const combined: any[] = [];
+    const seenIds = new Set<string>();
+
+    // 1. Try Supabase cloud query on mortgage_cases
+    try {
+      const { data: mcData } = await supabase
+        .from('mortgage_cases')
+        .select('*')
+        .ilike('bank_name', `%${bankName}%`)
+        .order('created_at', { ascending: false });
+
+      if (Array.isArray(mcData) && mcData.length > 0) {
+        mcData.forEach((row) => {
+          const id = row.id || `mc-${row.rim_no || Math.random()}`;
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            combined.push({
+              id,
+              client_bank_name: row.bank_name || bankName,
+              borrower_name: row.client_name,
+              mortgagor_name: row.client_name,
+              bank_branch: row.branch,
+              branch_name: row.branch,
+              file_number: row.rim_no || '',
+              rim_no: row.rim_no || '',
+              property_description: row.property_description || '',
+              loan_amount: Number(row.loan_amount || 0),
+              bank_charges: Number(row.bank_charges || 0),
+              transport: Number(row.transport || 0),
+              linkage_fees: Number(row.linkage_fees || 0),
+              grand_total: Number(row.grand_total || row.loan_amount || 0),
+              comments: row.comments || '',
+              source_sheet: row.source_sheet || '',
+              status: row.status || 'Under Preparation',
+              department: row.department || 'Banking & Securities',
+              created_at: row.created_at,
+            });
+          }
+        });
+      }
+    } catch (err) {}
+
+    // 2. Also fetch from public.mortgages
     try {
       const { data, error } = await supabase
         .from('mortgages')
@@ -216,30 +266,32 @@ export const MortgageService = {
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        return data;
+        data.forEach((row) => {
+          if (!seenIds.has(row.id)) {
+            seenIds.add(row.id);
+            combined.push(row);
+          }
+        });
       }
+    } catch (err) {}
 
-      if (error && error.code !== 'PGRST205') {
-        console.warn('[MortgageService] Cloud fetch warning:', error.message);
-      }
-    } catch (err) {
-      // Fallback
-    }
-
-    // 2. Fallback to local workstation backend (/api/mortgages)
+    // 3. Fallback to local workstation backend (/api/mortgages)
     try {
       const res = await fetch(`/api/mortgages?client_bank_name=${encodeURIComponent(bankName)}`);
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
-          return json.data;
+          json.data.forEach((row: any) => {
+            if (!seenIds.has(row.id)) {
+              seenIds.add(row.id);
+              combined.push(row);
+            }
+          });
         }
       }
-    } catch (err) {
-      console.error('[MortgageService] Error loading local mortgages:', err);
-    }
+    } catch (err) {}
 
-    return [];
+    return combined;
   },
 
   /**
@@ -311,11 +363,40 @@ export const MortgageService = {
 
   /**
    * Updates an existing mortgage file.
+   * Syncs to both mortgage_cases, mortgages, and local server.
    */
   async updateMortgage(id: string, updates: any): Promise<{ success: boolean; data?: any; error?: string }> {
     let updatedRecord: any = null;
 
-    // 1. Try Supabase update
+    // 1. Try Supabase update on mortgage_cases
+    try {
+      const mcPayload: any = {};
+      if (updates.bank_name) mcPayload.bank_name = updates.bank_name;
+      if (updates.branch || updates.bank_branch) mcPayload.branch = updates.branch || updates.bank_branch;
+      if (updates.client_name || updates.borrower_name) mcPayload.client_name = updates.client_name || updates.borrower_name;
+      if (updates.rim_no) mcPayload.rim_no = updates.rim_no;
+      if (updates.property_description) mcPayload.property_description = updates.property_description;
+      if (updates.loan_amount !== undefined) mcPayload.loan_amount = Number(updates.loan_amount);
+      if (updates.bank_charges !== undefined) mcPayload.bank_charges = Number(updates.bank_charges);
+      if (updates.transport !== undefined) mcPayload.transport = Number(updates.transport);
+      if (updates.linkage_fees !== undefined) mcPayload.linkage_fees = Number(updates.linkage_fees);
+      if (updates.other_disbursements !== undefined) mcPayload.other_disbursements = Number(updates.other_disbursements);
+      if (updates.grand_total !== undefined) mcPayload.grand_total = Number(updates.grand_total);
+      if (updates.comments !== undefined) mcPayload.comments = updates.comments;
+      if (updates.status !== undefined) mcPayload.status = updates.status;
+
+      const { data: mcData, error: mcErr } = await supabase
+        .from('mortgage_cases')
+        .update(mcPayload)
+        .eq('id', id)
+        .select('*');
+
+      if (!mcErr && mcData && mcData.length > 0) {
+        updatedRecord = mcData[0];
+      }
+    } catch (e) {}
+
+    // 2. Try Supabase update on mortgages
     try {
       const { data, error } = await supabase
         .from('mortgages')
@@ -324,13 +405,13 @@ export const MortgageService = {
         .select('*');
 
       if (!error && data && data.length > 0) {
-        updatedRecord = data[0];
+        updatedRecord = updatedRecord || data[0];
       }
     } catch (err) {
       // Continue to local sync
     }
 
-    // 2. Update local workstation backend
+    // 3. Update local workstation backend
     try {
       const res = await fetch(`/api/mortgages/${id}`, {
         method: 'PUT',
@@ -358,6 +439,10 @@ export const MortgageService = {
    * Deletes a mortgage file.
    */
   async deleteMortgage(id: string): Promise<boolean> {
+    try {
+      await supabase.from('mortgage_cases').delete().eq('id', id);
+    } catch (e) {}
+
     try {
       await supabase.from('mortgages').delete().eq('id', id);
     } catch (e) {}

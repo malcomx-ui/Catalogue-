@@ -213,22 +213,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                         {m.rim_no || m.file_number || `MORT-${idx + 1}`}
                       </td>
                       <td className="py-3 px-4 font-semibold text-gray-900">
-                        <div>{m.mortgagor_name || m.borrower_name || 'N/A'}</div>
-                        {(m.department || m.assigned_lawyer_name) && (
+                        <div>{m.client_name || m.mortgagor_name || m.borrower_name || 'N/A'}</div>
+                        {(m.department || m.assigned_lawyer_name || m.comments) && (
                           <div className="text-[10px] font-normal text-gray-500 mt-0.5">
                             {m.department || 'Banking & Securities'}
                             {m.assigned_lawyer_name ? ` · ${m.assigned_lawyer_name}` : ''}
+                            {m.comments ? ` · ${m.comments}` : ''}
                           </div>
                         )}
                       </td>
                       <td className="py-3 px-4 text-gray-600">
-                        {m.bank_branch || m.branch_name || 'Main Branch'}
+                        {m.branch || m.bank_branch || m.branch_name || 'Main Branch'}
                       </td>
                       <td className="py-3 px-4 font-mono font-semibold">
                         UGX {Number(m.loan_amount || 0).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 font-mono text-amber-600 font-medium">
-                        {disbursementsVal > 0 ? `UGX ${disbursementsVal.toLocaleString()}` : '-'}
+                        {disbursementsVal > 0 ? `UGX ${disbursementsVal.toLocaleString()}` : (Number(m.bank_charges || 0) + Number(m.transport || 0) + Number(m.linkage_fees || 0) > 0 ? `UGX ${(Number(m.bank_charges || 0) + Number(m.transport || 0) + Number(m.linkage_fees || 0) + Number(m.other_disbursements || 0)).toLocaleString()}` : '-')}
                       </td>
                       <td className="py-3 px-4 font-mono text-blue-700 font-bold">
                         {grandTotalVal > 0 ? `UGX ${grandTotalVal.toLocaleString()}` : '-'}
@@ -237,8 +238,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                         {m.property_description || m.title_deed_no || 'Freehold Title Pending'}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          {m.status || 'Registered'}
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
+                          (m.status || '').includes('Active') || (m.status || '').includes('Processing')
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : (m.status || '').includes('Completed') || (m.status || '').includes('Cleared') || (m.status || '').includes('Registered')
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : (m.status || '').includes('Valuation')
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
+                          {m.status || 'Active / Processing'}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right">
