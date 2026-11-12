@@ -26,7 +26,11 @@ import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
 import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceholder';
 import { MortgagesModule } from './components/modules/MortgagesModule';
 import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
+import { NotificationToast } from './components/common/NotificationToast';
 import { isUserAdmin, supabase } from './lib/supabase';
+import './utils/testRls';
+import './services/caseService';
+import './services/reportService';
 
 const MainLayout: React.FC = () => {
   const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser, fetchFreshDataFromSupabase } = useApp();
@@ -144,7 +148,8 @@ const MainLayout: React.FC = () => {
       {/* Mobile Bottom Navigation Bar (app-like bottom bar on phones/tablets) */}
       <MobileBottomNav />
 
-      {/* Interactive Global Modals */}
+      {/* Interactive Global Modals & Notifications */}
+      <NotificationToast />
       <CaseDetailModal />
       <NewCaseModal />
       <ImportExcelModal />

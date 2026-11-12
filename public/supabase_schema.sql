@@ -182,7 +182,88 @@ CREATE POLICY "Allow public read on firm_users" ON public.firm_users FOR SELECT 
 CREATE POLICY "Allow public write on firm_users" ON public.firm_users FOR ALL USING (true);
 
 CREATE POLICY "Allow public read on cases" ON public.cases FOR SELECT USING (true);
-CREATE POLICY "Allow public write on cases" ON public.cases FOR ALL USING (true);
+
+-- Strict Branch-Isolation RLS on Cases (Blocks unauthorized cross-branch inserts)
+DROP POLICY IF EXISTS "Allow public write on cases" ON public.cases;
+DROP POLICY IF EXISTS "Enforce branch isolation on case insert" ON public.cases;
+DROP POLICY IF EXISTS "Enforce branch isolation on case update" ON public.cases;
+DROP POLICY IF EXISTS "Enforce branch isolation on case delete" ON public.cases;
+
+CREATE POLICY "Enforce branch isolation on case insert"
+ON public.cases
+FOR INSERT
+WITH CHECK (
+  -- Super Admins and Partners can insert for any branch
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+      AND (
+        role IN ('partner', 'super_admin', 'superadmin', 'admin')
+        OR is_super_admin = true
+        OR email = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  -- Branch staff can ONLY insert records matching their own assigned branch_id
+  (
+    branch_id IS NOT NULL AND
+    branch_id IN (
+      SELECT branch_id FROM public.profiles
+      WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+    )
+  )
+);
+
+CREATE POLICY "Enforce branch isolation on case update"
+ON public.cases
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+      AND (
+        role IN ('partner', 'super_admin', 'superadmin')
+        OR is_super_admin = true
+        OR email = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  branch_id IN (
+    SELECT branch_id FROM public.profiles
+    WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+      AND (
+        role IN ('partner', 'super_admin', 'superadmin')
+        OR is_super_admin = true
+        OR email = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  branch_id IN (
+    SELECT branch_id FROM public.profiles
+    WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+  )
+);
+
+CREATE POLICY "Enforce partner only on case delete"
+ON public.cases
+FOR DELETE
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+      AND (
+        role IN ('partner', 'super_admin', 'superadmin')
+        OR is_super_admin = true
+        OR email = 'infosightug@gmail.com'
+      )
+  )
+);
 
 CREATE POLICY "Allow public read on court_hearings" ON public.court_hearings FOR SELECT USING (true);
 CREATE POLICY "Allow public write on court_hearings" ON public.court_hearings FOR ALL USING (true);
@@ -222,21 +303,27 @@ RETURNS TRIGGER AS $$
 DECLARE
   user_branch TEXT;
   user_role TEXT;
+  user_is_super BOOLEAN;
 BEGIN
   -- Fetch the current user's role and branch_id from their profile
-  SELECT role, branch_id INTO user_role, user_branch
+  SELECT role, branch_id, is_super_admin INTO user_role, user_branch, user_is_super
   FROM public.profiles
-  WHERE id = auth.uid();
+  WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email';
 
   -- Allow global partners and super admins to assign any branch they choose
-  IF user_role IN ('partner', 'super_admin') THEN
+  IF user_role IN ('partner', 'super_admin', 'superadmin') OR user_is_super = true THEN
     RETURN NEW;
   END IF;
 
-  -- Automatically lock regular staff members to their own assigned branch
-  IF user_branch IS NOT NULL THEN
+  -- Block any non-superadmin attempting to insert into a foreign branch
+  IF NEW.branch_id IS NOT NULL AND user_branch IS NOT NULL AND NEW.branch_id <> user_branch THEN
+    RAISE EXCEPTION 'RLS Policy Violation: You cannot insert cases into branch %, only into your assigned branch %.', NEW.branch_id, user_branch;
+  END IF;
+
+  -- Automatically lock regular staff members to their own assigned branch if omitted
+  IF NEW.branch_id IS NULL AND user_branch IS NOT NULL THEN
     NEW.branch_id := user_branch;
-  ELSE
+  ELSIF NEW.branch_id IS NULL AND user_branch IS NULL THEN
     RAISE EXCEPTION 'Access Denied: Your user profile does not have an assigned branch.';
   END IF;
 
@@ -459,6 +546,55 @@ CREATE POLICY "Allow authenticated write on mortgages"
 DROP POLICY IF EXISTS "Allow public write on mortgages" ON public.mortgages;
 CREATE POLICY "Allow public write on mortgages"
   ON public.mortgages FOR ALL USING (true);
+
+-- ------------------------------------------------------------------------------
+-- 13. CASE REPORT SUMMARY DATABASE FUNCTION (RPC: get_case_summary)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.get_case_summary(p_branch_id TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  SELECT jsonb_build_object(
+    'branch_id', COALESCE(p_branch_id, 'all'),
+    'total_cases', COUNT(*),
+    'active_cases', COUNT(*) FILTER (WHERE lower(COALESCE(status, '')) IN ('active', 'ongoing', 'mention', 'instructions')),
+    'pending_cases', COUNT(*) FILTER (WHERE lower(COALESCE(status, '')) IN ('pending', 'pending ruling', 'pending ruling / judgment', 'dormant', 'inactive', 'stayed')),
+    'closed_cases', COUNT(*) FILTER (WHERE lower(COALESCE(status, '')) IN ('closed', 'concluded', 'resolved') OR year_of_closure IS NOT NULL),
+    'archived_cases', COUNT(*) FILTER (WHERE lower(COALESCE(status, '')) = 'archived' OR lower(COALESCE(file_location, '')) LIKE '%archive%'),
+    'urgent_cases', COUNT(*) FILTER (WHERE priority ILIKE '%urgent%' OR priority ILIKE '%injunction%'),
+    'total_claim_value', COALESCE(SUM(claim_value_ugx), 0),
+    'stages', (
+      SELECT COALESCE(jsonb_object_agg(stage_name, stage_count), '{}'::jsonb)
+      FROM (
+        SELECT COALESCE(NULLIF(TRIM(stage), ''), 'Pleadings & Defense') AS stage_name, COUNT(*) AS stage_count
+        FROM public.cases
+        WHERE (p_branch_id IS NULL OR p_branch_id = 'all' OR branch_id = p_branch_id)
+        GROUP BY 1
+      ) s
+    ),
+    'divisions', (
+      SELECT COALESCE(jsonb_object_agg(div_name, div_count), '{}'::jsonb)
+      FROM (
+        SELECT COALESCE(NULLIF(TRIM(division), ''), 'General Civil') AS div_name, COUNT(*) AS div_count
+        FROM public.cases
+        WHERE (p_branch_id IS NULL OR p_branch_id = 'all' OR branch_id = p_branch_id)
+        GROUP BY 1
+      ) d
+    )
+  ) INTO v_result
+  FROM public.cases
+  WHERE (p_branch_id IS NULL OR p_branch_id = 'all' OR branch_id = p_branch_id);
+
+  RETURN v_result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_case_summary(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_case_summary(TEXT) TO anon;
 
 NOTIFY pgrst, 'reload schema';
 

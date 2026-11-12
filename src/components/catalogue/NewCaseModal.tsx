@@ -14,6 +14,7 @@ import {
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
 import { supabase, mapCaseToRow, mapRowToCase } from '../../lib/supabase';
+import { showCleanMessage } from '../../utils/notification';
 
 const empty = {
   case_number: '',
@@ -251,8 +252,24 @@ export const NewCaseModal: React.FC = () => {
       }
 
       if (error) {
-        throw new Error(error.message || 'Failed to insert case into Supabase.');
+        console.error("Supabase Error Object:", error);
+
+        // Check if it's an RLS permission denied error (PostgreSQL code 42501)
+        if (
+          error.code === '42501' ||
+          error.message?.toLowerCase().includes('row-level security') ||
+          error.message?.toLowerCase().includes('rls') ||
+          error.message?.toLowerCase().includes('permission denied')
+        ) {
+          showCleanMessage("Permission Denied: You do not have authorization to modify cases for this branch.", 'error');
+          throw new Error("Permission Denied: You do not have authorization to modify cases for this branch.");
+        } else {
+          showCleanMessage(`An error occurred: ${error.message}`, 'error');
+          throw new Error(`An error occurred: ${error.message}`);
+        }
       }
+
+      showCleanMessage("Success! Record saved securely.", 'success');
 
       const insertedRecord = (data && data.length > 0) ? mapRowToCase(data[0]) : mapRowToCase(newCaseObject);
       await addCase(insertedRecord);
