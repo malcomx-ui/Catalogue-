@@ -8,8 +8,15 @@ export interface MortgageCaseFormProps {
   defaultBank?: string;
 }
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Centenary Bank' }: MortgageCaseFormProps) {
   const [formData, setFormData] = useState({
+    record_year: new Date().getFullYear(), // Defaults to current year (e.g. 2026)
+    month_sheet: 'October',                 // Default active reporting month
     date_of_receipt: '',
     branch: '',
     name: '',
@@ -34,7 +41,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     // If legal_fees changes, automatically calculate VAT (18% of legal fees)
@@ -58,6 +65,8 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
     setFeedback(null);
 
     const payload = {
+      record_year: formData.record_year ? parseInt(String(formData.record_year), 10) : new Date().getFullYear(),
+      month_sheet: formData.month_sheet || 'October',
       bank_name: defaultBank,
       date_of_receipt: formData.date_of_receipt || null,
       branch: formData.branch || null,
@@ -102,7 +111,8 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           file_number: payload.rim_no || `MORT-${Date.now().toString().slice(-6)}`,
         }).catch(() => {});
 
-        setFormData({
+        setFormData((prev) => ({
+          ...prev,
           date_of_receipt: '',
           branch: '',
           name: '',
@@ -122,7 +132,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           date_of_payment: '',
           date_of_return: '',
           comments: ''
-        });
+        }));
 
         if (onSuccess) {
           setTimeout(onSuccess, 800);
@@ -160,6 +170,35 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Reporting Period: Year & Month Sheet */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+          <div>
+            <label className="block text-xs font-bold text-blue-900 mb-1">Record Year</label>
+            <input 
+              type="number" 
+              name="record_year" 
+              value={formData.record_year} 
+              onChange={handleChange} 
+              className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+              required 
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-blue-900 mb-1">Month Sheet</label>
+            <select 
+              name="month_sheet" 
+              value={formData.month_sheet} 
+              onChange={handleChange} 
+              className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+              required
+            >
+              {MONTHS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Receipt</label>
