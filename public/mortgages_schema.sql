@@ -116,12 +116,20 @@ DROP POLICY IF EXISTS "Allow authenticated read on centenary_mortgage_cases" ON 
 CREATE POLICY "Allow authenticated read on centenary_mortgage_cases"
   ON public.centenary_mortgage_cases FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "Allow authenticated write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
-CREATE POLICY "Allow authenticated write on centenary_mortgage_cases"
-  ON public.centenary_mortgage_cases FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Admin and Finance insert policy" ON public.centenary_mortgage_cases;
+CREATE POLICY "Admin and Finance insert policy" ON public.centenary_mortgage_cases
+  FOR INSERT
+  WITH CHECK (
+    auth.jwt() ->> 'role' IN ('super_admin', 'branch_admin_finance')
+    OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('super_admin', 'branch_admin_finance')
+  );
 
-DROP POLICY IF EXISTS "Allow public write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
-CREATE POLICY "Allow public write on centenary_mortgage_cases"
-  ON public.centenary_mortgage_cases FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow authenticated update on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow authenticated update on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR UPDATE TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow service role on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow service role on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR ALL TO service_role USING (true);
 
 NOTIFY pgrst, 'reload schema';

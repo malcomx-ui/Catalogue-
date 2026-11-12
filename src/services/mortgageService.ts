@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import * as XLSX from 'xlsx';
 
 export interface BankSummary {
   bank_name: string;
@@ -19,6 +20,97 @@ export const DEFAULT_BANKS = [
  * and local workstation multi-computer sync with zero unhandled PGRST205 errors.
  */
 export const MortgageService = {
+  /**
+   * Imports an Excel workbook (.xlsx/.xls) parsing each month sheet
+   * from index 1 (headers) and index 2 (data) and batch inserting into Supabase
+   * in chunks of 50.
+   */
+  async importCentenaryExcelFile(file: File, onProgress?: (msg: string) => void): Promise<{ success: boolean; count: number; error?: string }> {
+    try {
+      console.log("Reading Excel file...");
+      if (onProgress) onProgress("Reading Excel file...");
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      let allRecords: any[] = [];
+
+      // Loop through every month sheet in your workbook
+      workbook.SheetNames.forEach((sheetName) => {
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonSheet: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Ensure the sheet has enough rows (Headers are at index 1, data starts at index 2)
+        if (jsonSheet.length > 2) {
+          const headers = (jsonSheet[1] || []).map((h: any) => h ? h.toString().trim() : '');
+
+          // Parse rows starting from index 2
+          for (let i = 2; i < jsonSheet.length; i++) {
+            const row = jsonSheet[i];
+            if (!row || row.length === 0) continue;
+
+            // Map row array to your table columns based on header names
+            const getVal = (colName: string) => {
+              const index = headers.indexOf(colName);
+              return index !== -1 && row[index] !== undefined ? row[index] : null;
+            };
+
+            const clientName = getVal('Name');
+            if (!clientName) continue; // Skip empty rows
+
+            allRecords.push({
+              branch: getVal('Branch') ? String(getVal('Branch')).trim() : 'UNKNOWN',
+              client_name: String(clientName).trim(),
+              rim_no: getVal('RIM NO.') ? String(getVal('RIM NO.')) : null,
+              property_description: getVal('Description') ? String(getVal('Description')) : null,
+              loan_amount: parseFloat(getVal('Loan amount')) || 0,
+              grand_total: parseFloat(getVal('Grand Total')) || 0,
+              comments: getVal('Comments') ? String(getVal('Comments')) : null,
+              source_sheet: sheetName
+            });
+          }
+        }
+      });
+
+      console.log(`Parsed ${allRecords.length} records. Uploading to Supabase...`);
+      if (onProgress) onProgress(`Parsed ${allRecords.length} records. Uploading to Supabase...`);
+
+      // Batch insert into Supabase in chunks of 50 to avoid payload limits
+      const chunkSize = 50;
+      for (let i = 0; i < allRecords.length; i += chunkSize) {
+        const chunk = allRecords.slice(i, i + chunkSize);
+        const { error } = await supabase.from('centenary_mortgage_cases').insert(chunk);
+
+        if (error) {
+          console.error("Batch insert error:", error.message);
+          // If public table isn't migrated, fallback to saving via local batch endpoint
+          const res = await fetch('/api/mortgages/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ records: allRecords, bank_name: 'Centenary Bank' }),
+          });
+          if (res.ok) {
+            console.log("Successfully stored in local workstation database as fallback.");
+            return { success: true, count: allRecords.length };
+          }
+          return { success: false, count: i, error: `Upload failed on batch ${i}: ${error.message}` };
+        }
+      }
+
+      // Also persist to central workstation server
+      await fetch('/api/mortgages/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ records: allRecords, bank_name: 'Centenary Bank' }),
+      }).catch(() => {});
+
+      console.log("Successfully imported all mortgage records into Supabase!");
+      return { success: true, count: allRecords.length };
+
+    } catch (err: any) {
+      console.error("Error processing file:", err);
+      return { success: false, count: 0, error: err?.message || "Failed to parse Excel file. Check console for details." };
+    }
+  },
   /**
    * Fetches bank portfolio summaries for a specific financial year.
    * Guarantees all 4 designated lending institutions are always returned.

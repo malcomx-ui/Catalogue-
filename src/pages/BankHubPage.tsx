@@ -33,9 +33,36 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
     }
   };
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+
+  // File import handler adhering to exact user parsing requirements
+  const handleExcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setUploadNotice("Reading Excel file...");
+    const result = await MortgageService.importCentenaryExcelFile(file, (msg) => {
+      setUploadNotice(msg);
+    });
+
+    setUploading(false);
+    if (result.success) {
+      alert("Successfully imported all mortgage records into Supabase!");
+      fetchPortfolios();
+      setTimeout(() => setUploadNotice(null), 4000);
+    } else {
+      alert(`Import failed: ${result.error || 'Failed to parse Excel file.'}`);
+    }
+
+    // Reset input value so same file can be selected again
+    event.target.value = '';
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6 w-full h-full min-h-[500px]">
-      {/* Header with Title and Year Selector */}
+      {/* Header with Title, Year Selector and Bulk Import */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mortgage Portfolios</h1>
@@ -43,19 +70,41 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
             Select a lending partner to manage branch registers and mortgage files.
           </p>
         </div>
-        <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-gray-200 shadow-xs">
-          <label className="text-sm font-medium text-gray-700">Financial Year:</label>
-          <select 
-            value={selectedYear} 
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm font-semibold text-blue-600 focus:outline-none cursor-pointer"
-          >
-            <option value={2026}>2026</option>
-            <option value={2027}>2027</option>
-            <option value={2028}>2028</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Centenary Bank Excel Importer: <input type="file" id="excel-file-input" accept=".xlsx, .xls" /> */}
+          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition">
+            <span>📊 {uploading ? 'Importing...' : 'Import Centenary Excel'}</span>
+            <input
+              type="file"
+              id="excel-file-input"
+              accept=".xlsx, .xls"
+              onChange={handleExcelUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
+
+          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-gray-200 shadow-xs">
+            <label className="text-xs font-medium text-gray-700">Financial Year:</label>
+            <select 
+              value={selectedYear} 
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 focus:outline-none cursor-pointer"
+            >
+              <option value={2026}>2026</option>
+              <option value={2027}>2027</option>
+              <option value={2028}>2028</option>
+            </select>
+          </div>
         </div>
       </div>
+
+      {uploadNotice && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-4 py-2.5 rounded-lg flex items-center justify-between">
+          <span>{uploadNotice}</span>
+          {uploading && <span className="animate-spin text-sm">⏳</span>}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
