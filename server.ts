@@ -501,12 +501,15 @@ app.get('/api/mortgages', (req: Request, res: Response) => {
 
     const { record_year, client_bank_name } = req.query;
     if (record_year) {
-      records = records.filter((m) => String(m.record_year) === String(record_year));
+      records = records.filter((m) => !m.record_year || String(m.record_year) === String(record_year));
     }
     if (client_bank_name) {
-      records = records.filter(
-        (m) => String(m.client_bank_name || '').toLowerCase() === String(client_bank_name).toLowerCase()
-      );
+      const targetBank = String(client_bank_name).trim().toLowerCase();
+      records = records.filter((m) => {
+        const cb = String(m.client_bank_name || '').trim().toLowerCase();
+        const bn = String(m.bank_name || '').trim().toLowerCase();
+        return cb === targetBank || bn === targetBank || cb.includes(targetBank) || bn.includes(targetBank);
+      });
     }
 
     res.json({
@@ -526,9 +529,20 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     const payload = req.body;
 
     const id = payload.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
+    const clientName = payload.client_name || payload.mortgagor_name || payload.borrower_name || payload.name || '';
+    const branchName = payload.branch || payload.bank_branch || payload.branch_name || '';
+
     const newRecord = {
       ...payload,
       id,
+      client_bank_name: targetBank,
+      bank_name: targetBank,
+      client_name: clientName,
+      mortgagor_name: clientName,
+      borrower_name: clientName,
+      branch: branchName,
+      bank_branch: branchName,
       created_at: payload.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

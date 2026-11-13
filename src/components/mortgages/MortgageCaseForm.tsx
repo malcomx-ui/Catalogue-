@@ -68,48 +68,38 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       record_year: formData.record_year ? parseInt(String(formData.record_year), 10) : new Date().getFullYear(),
       month_sheet: formData.month_sheet || MONTHS[new Date().getMonth()],
       bank_name: defaultBank,
+      client_bank_name: defaultBank,
       date_of_receipt: formData.date_of_receipt || null,
       branch: formData.branch || null,
       client_name: formData.name,
-      name: formData.name,
+      mortgagor_name: formData.name,
       rim_no: formData.rim_no || null,
       property_description: formData.description || null,
-      description: formData.description || null,
-      loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : null,
+      loan_amount: formData.loan_amount ? parseFloat(formData.loan_amount) : 0,
       stamp_duty: formData.stamp_duty ? parseFloat(formData.stamp_duty) : 0,
       extra_copies: formData.extra_copies ? parseFloat(formData.extra_copies) : 0,
-      registration: formData.registration ? parseFloat(formData.registration) : 0,
-      other: formData.other ? parseFloat(formData.other) : 0,
+      registration_fee: formData.registration ? parseFloat(formData.registration) : 0,
+      other_fees: formData.other ? parseFloat(formData.other) : 0,
+      other_disbursements: formData.other ? parseFloat(formData.other) : 0,
       bank_charges: formData.bank_charges ? parseFloat(formData.bank_charges) : 0,
       transport: formData.transport ? parseFloat(formData.transport) : 0,
       total_disbursements: formData.total_disbursements ? parseFloat(formData.total_disbursements) : 0,
       legal_fees: formData.legal_fees ? parseFloat(formData.legal_fees) : 0,
       vat_18: formData.vat_18 ? parseFloat(formData.vat_18) : 0,
-      grand_total: formData.grand_total ? parseFloat(formData.grand_total) : null,
+      grand_total: formData.grand_total ? parseFloat(formData.grand_total) : 0,
       date_of_payment: formData.date_of_payment || null,
       date_of_return: formData.date_of_return || null,
-      comments: formData.comments || null
+      comments: formData.comments || '',
+      source_sheet: 'Tracker Entry',
     };
 
     try {
-      const { error } = await supabase
-        .from('mortgage_cases')
-        .insert([payload]);
+      const res = await MortgageService.insertMortgage(payload);
 
-      if (error) {
-        setFeedback({ type: 'error', text: 'Error saving record: ' + error.message });
+      if (!res.success) {
+        setFeedback({ type: 'error', text: 'Error saving record: ' + (res.error || 'Unknown error') });
       } else {
         setFeedback({ type: 'success', text: '✅ Mortgage case saved successfully!' });
-        
-        // Also sync with central workstation database
-        await MortgageService.insertMortgage({
-          ...payload,
-          client_bank_name: defaultBank,
-          borrower_name: payload.client_name,
-          mortgagor_name: payload.client_name,
-          bank_branch: payload.branch,
-          file_number: payload.rim_no || `MORT-${Date.now().toString().slice(-6)}`,
-        }).catch(() => {});
 
         setFormData((prev) => ({
           ...prev,
@@ -135,7 +125,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
         }));
 
         if (onSuccess) {
-          setTimeout(onSuccess, 800);
+          setTimeout(onSuccess, 500);
         }
       }
     } catch (err: any) {

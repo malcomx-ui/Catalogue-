@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-11-12T08:37:26.817Z",
+  "lastUpdated": "2026-11-13T20:41:06.500Z",
   "cases": [],
   "hearings": [],
   "documents": [],
@@ -104,34 +104,20 @@
   ],
   "users": [
     {
-      "id": "user-1794221094770",
-      "name": "Test Health Check",
-      "email": "healthcheck.test@mkfirm.ug",
-      "role": "advocate",
-      "roleId": "role-advocate",
-      "roleTitle": "Litigation Lawyer / Associate",
-      "branchId": "ftp-reg",
-      "branchName": "Kampala Central (Head Office)",
-      "isSuperAdmin": false,
-      "isBranchAdmin": false,
-      "password": "TestPassword2026",
-      "temporaryPassword": "TestPassword2026",
-      "mustChangePassword": true,
-      "advocateRollNo": ""
-    },
-    {
       "id": "user-admin",
-      "name": "Sole Managing Partner",
+      "name": "Firm Administrator",
       "email": "infosightug@gmail.com",
       "role": "partner",
       "roleId": "role-super-admin",
-      "roleTitle": "Managing Partner (Super Admin)",
+      "roleTitle": "Sole Managing Partner & Super Admin",
       "branchId": "kla-hq",
       "branchName": "Kampala Central (Head Office)",
       "isSuperAdmin": true,
       "isBranchAdmin": false,
+      "isSuspended": false,
+      "advocateRollNo": "",
       "password": "Admin@2026",
-      "advocateRollNo": ""
+      "mustChangePassword": false
     }
   ],
   "roles": [

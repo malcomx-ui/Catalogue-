@@ -316,10 +316,26 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       {/* Conditionally rendered AddMortgageModal */}
       {isModalOpen && (
         <AddMortgageModal 
-          bankName={bankName} 
+          bankName={bankName}
+          defaultMonth={filters.month || undefined}
           currentUser={currentUser} 
           onClose={() => setIsModalOpen(false)} 
-          onSuccess={() => loadBankData()} 
+          onSuccess={(savedRecord) => {
+            if (savedRecord) {
+              setMortgages((prev) => {
+                const exists = prev.some((item) => item.id && item.id === savedRecord.id);
+                return exists ? prev : [savedRecord, ...prev];
+              });
+              if (
+                filters.month &&
+                savedRecord.month_sheet &&
+                savedRecord.month_sheet.toLowerCase() !== filters.month.toLowerCase()
+              ) {
+                setFilters((prev) => ({ ...prev, month: savedRecord.month_sheet }));
+              }
+            }
+            loadBankData();
+          }} 
         />
       )}
 

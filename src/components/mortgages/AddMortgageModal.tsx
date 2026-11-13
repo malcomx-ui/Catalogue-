@@ -16,9 +16,10 @@ import {
 
 export interface AddMortgageModalProps {
   bankName?: string;
+  defaultMonth?: string;
   currentUser?: any;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedRecord?: any) => void;
 }
 
 const MONTHS = [
@@ -28,13 +29,16 @@ const MONTHS = [
 
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   bankName = 'Centenary Bank',
+  defaultMonth,
   currentUser,
   onClose,
   onSuccess,
 }) => {
-  // Reporting Period (defaults to current year and current month)
+  // Reporting Period (defaults to selected month if provided, else current year and current month)
   const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
-  const [monthSheet, setMonthSheet] = useState<string>(() => MONTHS[new Date().getMonth()]);
+  const [monthSheet, setMonthSheet] = useState<string>(() =>
+    defaultMonth && MONTHS.includes(defaultMonth) ? defaultMonth : MONTHS[new Date().getMonth()]
+  );
 
   // 1. Exactly 19 Columns from the tracker sheet and live Supabase table `mortgage_cases`:
   // 1) date_of_receipt (Date)
@@ -148,30 +152,31 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
     setLoading(true);
 
-    // Exact 19 database column mapping:
+    // Exact live database column mapping (without non-existent PGRST204 columns):
     const payload = {
       bank_name: bankName,
-      date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10), // 1
-      branch: branch.trim(),                                                 // 2
-      client_name: clientName.trim(),                                        // 3
-      name: clientName.trim(),                                               // 3 (alias)
-      rim_no: rimNo.trim(),                                                  // 4
-      property_description: propertyDescription.trim(),                      // 5
-      description: propertyDescription.trim(),                               // 5 (alias)
-      loan_amount: cleanFloat(loanAmount),                                   // 6
-      stamp_duty: cleanFloat(stampDuty),                                     // 7
-      extra_copies: cleanFloat(extraCopies),                                 // 8
-      registration: cleanFloat(registration),                                // 9
-      other: cleanFloat(other),                                              // 10
-      bank_charges: cleanFloat(bankCharges),                                 // 11
-      transport: cleanFloat(transport),                                      // 12
-      total_disbursements: effectiveTotalDisbursements,                      // 13
-      legal_fees: cleanFloat(legalFees),                                     // 14
-      vat_18: effectiveVat,                                                  // 15
-      grand_total: effectiveGrandTotal,                                      // 16
-      date_of_payment: dateOfPayment || null,                                // 17
-      date_of_return: dateOfReturn || null,                                  // 18
-      comments: comments.trim(),                                             // 19
+      client_bank_name: bankName,
+      date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10),
+      branch: branch.trim(),
+      client_name: clientName.trim(),
+      mortgagor_name: clientName.trim(),
+      rim_no: rimNo.trim(),
+      property_description: propertyDescription.trim(),
+      loan_amount: cleanFloat(loanAmount),
+      stamp_duty: cleanFloat(stampDuty),
+      extra_copies: cleanFloat(extraCopies),
+      registration_fee: cleanFloat(registration),
+      other_fees: cleanFloat(other),
+      other_disbursements: cleanFloat(other),
+      bank_charges: cleanFloat(bankCharges),
+      transport: cleanFloat(transport),
+      total_disbursements: effectiveTotalDisbursements,
+      legal_fees: cleanFloat(legalFees),
+      vat_18: effectiveVat,
+      grand_total: effectiveGrandTotal,
+      date_of_payment: dateOfPayment || null,
+      date_of_return: dateOfReturn || null,
+      comments: comments.trim(),
       status: dateOfReturn ? 'Completed / Cleared' : 'Active / Processing',
       source_sheet: 'Tracker Entry',
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
@@ -179,37 +184,22 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       department: 'Banking & Securities',
       assigned_lawyer_name: currentUser?.name || '',
       assigned_lawyer_id:
-        currentUser?.id && !currentUser.id.startsWith('user-') ? currentUser.id : null,
+        currentUser?.id && !String(currentUser.id).startsWith('user-') ? currentUser.id : null,
     };
 
     try {
-      // 1. Direct Supabase insert into `mortgage_cases` table
-      const { data, error } = await supabase
-        .from('mortgage_cases')
-        .insert([payload])
-        .select('*');
+      const res = await MortgageService.insertMortgage(payload);
 
-      if (error) {
-        console.warn('Supabase direct insert notice:', error.message);
+      if (!res.success) {
+        setErrorMessage(res.error || 'Failed to save mortgage record to database.');
+        return;
       }
 
-      // 2. Also sync to central multi-workstation backend
-      await MortgageService.insertMortgage({
-        ...payload,
-        client_bank_name: payload.bank_name,
-        borrower_name: payload.client_name,
-        mortgagor_name: payload.client_name,
-        bank_branch: payload.branch,
-        branch_name: payload.branch,
-        file_number: payload.rim_no || `MORT-${Date.now().toString().slice(-6)}`,
-      });
-
-      setSuccessMessage('Mortgage tracker record saved successfully to Supabase!');
+      setSuccessMessage('Mortgage tracker record saved successfully!');
+      onSuccess(res.data || payload);
       setTimeout(() => {
-        onSuccess();
         onClose();
-      }, 700);
-
+      }, 450);
     } catch (err: any) {
       console.error('Submit error:', err);
       setErrorMessage(err?.message || 'Failed to save mortgage record to database.');

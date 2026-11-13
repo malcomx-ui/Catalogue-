@@ -193,6 +193,125 @@ const extractRecordsFromWorkbook = (
 };
 
 /**
+ * Builds a clean payload matching the exact columns of live `public.mortgage_cases`
+ * so PostgREST never rejects inserts/updates with PGRST204 unknown column errors.
+ */
+export const buildMortgageCasesRow = (r: any) => ({
+  bank_name: r.bank_name || r.client_bank_name || 'Centenary Bank',
+  client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
+  record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
+  month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
+  source_sheet: r.source_sheet || 'Tracker Entry',
+  date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
+  branch: r.branch || r.bank_branch || '',
+  client_name: r.client_name || r.mortgagor_name || r.borrower_name || r.name || '',
+  mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
+  rim_no: r.rim_no || r.file_number || '',
+  property_description: r.property_description || r.description || '',
+  loan_amount: Number(r.loan_amount) || 0,
+  stamp_duty: Number(r.stamp_duty) || 0,
+  extra_copies: Number(r.extra_copies) || 0,
+  registration_fee: Number(r.registration_fee ?? r.registration ?? 0),
+  other_fees: Number(r.other_fees ?? r.other ?? 0),
+  other_disbursements: Number(r.other_disbursements ?? r.other_fees ?? r.other ?? 0),
+  bank_charges: Number(r.bank_charges) || 0,
+  transport: Number(r.transport) || 0,
+  linkage_fees: Number(r.linkage_fees) || 0,
+  total_disbursements: Number(r.total_disbursements) || 0,
+  legal_fees: Number(r.legal_fees) || 0,
+  vat_18: Number(r.vat_18 ?? r.vat ?? 0),
+  grand_total: Number(r.grand_total) || 0,
+  date_of_payment: r.date_of_payment || null,
+  date_of_return: r.date_of_return || null,
+  comments: r.comments || '',
+  status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+});
+
+/**
+ * Builds a clean payload matching the exact columns of live `public.mortgages`.
+ */
+export const buildMortgagesRow = (r: any) => {
+  const isUUID =
+    typeof r.assigned_lawyer_id === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.assigned_lawyer_id);
+
+  const row: Record<string, any> = {
+    client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
+    record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
+    month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
+    date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
+    mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
+    rim_no: r.rim_no || r.file_number || '',
+    property_description: r.property_description || r.description || '',
+    loan_amount: Number(r.loan_amount) || 0,
+    stamp_duty: Number(r.stamp_duty) || 0,
+    extra_copies: Number(r.extra_copies) || 0,
+    registration_fee: Number(r.registration_fee ?? r.registration ?? 0),
+    bank_charges: Number(r.bank_charges) || 0,
+    transport: Number(r.transport) || 0,
+    other_disbursements: Number(r.other_disbursements ?? r.other_fees ?? r.other ?? 0),
+    total_disbursements: Number(r.total_disbursements) || 0,
+    legal_fees: Number(r.legal_fees) || 0,
+    vat_18: Number(r.vat_18 ?? r.vat ?? 0),
+    grand_total: Number(r.grand_total) || 0,
+    date_of_payment: r.date_of_payment || null,
+    date_of_return: r.date_of_return || null,
+    comments: r.comments || '',
+    status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+    department: r.department || 'Banking & Securities',
+    assigned_lawyer_id: isUUID ? r.assigned_lawyer_id : null,
+  };
+
+  if (r.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(r.id))) {
+    row.id = r.id;
+  }
+  return row;
+};
+
+const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => ({
+  ...row,
+  id: row.id || `mc-${row.rim_no || Math.random()}`,
+  client_bank_name: row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank',
+  bank_name: row.bank_name || row.client_bank_name || fallbackBankName || 'Centenary Bank',
+  date_of_receipt: row.date_of_receipt || null,
+  branch: row.branch || row.bank_branch || row.branch_name || '',
+  bank_branch: row.bank_branch || row.branch || '',
+  branch_name: row.branch_name || row.branch || '',
+  client_name: row.client_name || row.mortgagor_name || row.borrower_name || row.name || '',
+  name: row.name || row.client_name || row.mortgagor_name || row.borrower_name || '',
+  borrower_name: row.borrower_name || row.client_name || row.mortgagor_name || '',
+  mortgagor_name: row.mortgagor_name || row.client_name || row.borrower_name || '',
+  file_number: row.file_number || row.rim_no || '',
+  rim_no: row.rim_no || row.file_number || '',
+  property_description: row.property_description || row.description || row.title_deed_no || '',
+  description: row.description || row.property_description || '',
+  loan_amount: Number(row.loan_amount || 0),
+  stamp_duty: Number(row.stamp_duty || 0),
+  extra_copies: Number(row.extra_copies || 0),
+  registration: Number(row.registration ?? row.registration_fee ?? 0),
+  registration_fee: Number(row.registration_fee ?? row.registration ?? 0),
+  other: Number(row.other ?? row.other_fees ?? row.other_disbursements ?? 0),
+  other_fees: Number(row.other_fees ?? row.other ?? row.other_disbursements ?? 0),
+  other_disbursements: Number(row.other_disbursements ?? row.other_fees ?? row.other ?? 0),
+  bank_charges: Number(row.bank_charges || 0),
+  transport: Number(row.transport || 0),
+  linkage_fees: Number(row.linkage_fees || 0),
+  total_disbursements: Number(row.total_disbursements || 0),
+  legal_fees: Number(row.legal_fees || 0),
+  vat_18: Number(row.vat_18 ?? row.vat ?? 0),
+  grand_total: Number(row.grand_total || row.loan_amount || 0),
+  date_of_payment: row.date_of_payment || null,
+  date_of_return: row.date_of_return || null,
+  comments: row.comments || row.notes || '',
+  source_sheet: row.source_sheet || '',
+  record_year: row.record_year || new Date().getFullYear(),
+  month_sheet: row.month_sheet || '',
+  status: row.status || (row.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+  department: row.department || 'Banking & Securities',
+  created_at: row.created_at,
+});
+
+/**
  * MortgageService:
  * Unified, resilient service supporting both Supabase PostgreSQL cloud database
  * and local workstation multi-computer sync with zero unhandled PGRST205 errors.
@@ -236,7 +355,8 @@ export const MortgageService = {
 
       const chunkSize = 50;
       for (let i = 0; i < records.length; i += chunkSize) {
-        const chunk = records.slice(i, i + chunkSize);
+        const rawChunk = records.slice(i, i + chunkSize);
+        const chunk = rawChunk.map((r) => buildMortgageCasesRow(r));
         const batchIndex = Math.floor(i / chunkSize) + 1;
         const totalBatches = Math.ceil(records.length / chunkSize);
         if (onProgress) {
@@ -246,22 +366,21 @@ export const MortgageService = {
         const { error: err1 } = await supabase.from('mortgage_cases').insert(chunk);
         if (err1) {
           console.warn('mortgage_cases batch insert warning:', err1.message);
-          // Retry with core compatible column set if live Supabase table has partial columns
-          const coreChunk = chunk.map((r) => ({
-            bank_name: r.bank_name,
-            branch: r.branch,
-            client_name: r.client_name,
-            rim_no: r.rim_no,
-            property_description: r.property_description,
-            loan_amount: r.loan_amount,
-            bank_charges: r.bank_charges,
-            transport: r.transport,
-            linkage_fees: r.linkage_fees,
-            grand_total: r.grand_total,
-            comments: r.comments,
-            source_sheet: r.source_sheet,
-            record_year: r.record_year,
-            month_sheet: r.month_sheet,
+          const coreChunk = rawChunk.map((r) => ({
+            bank_name: r.bank_name || bankName,
+            branch: r.branch || '',
+            client_name: r.client_name || '',
+            rim_no: r.rim_no || '',
+            property_description: r.property_description || '',
+            loan_amount: Number(r.loan_amount) || 0,
+            bank_charges: Number(r.bank_charges) || 0,
+            transport: Number(r.transport) || 0,
+            linkage_fees: Number(r.linkage_fees) || 0,
+            grand_total: Number(r.grand_total) || 0,
+            comments: r.comments || '',
+            source_sheet: r.source_sheet || '',
+            record_year: r.record_year || new Date().getFullYear(),
+            month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
           }));
           const { error: err2 } = await supabase.from('mortgage_cases').insert(coreChunk);
           if (err2) {
@@ -335,17 +454,18 @@ export const MortgageService = {
 
     let hasCloudTable = true;
     let errorNotice: string | undefined = undefined;
+    const seenIds = new Set<string>();
 
     // 1. Try Supabase cloud query from both mortgages and mortgage_cases
     try {
-      // Query central mortgages
       const { data: mData } = await supabase
         .from('mortgages')
-        .select('client_bank_name, loan_amount')
+        .select('id, client_bank_name, loan_amount, record_year')
         .eq('record_year', year);
 
       if (Array.isArray(mData)) {
         mData.forEach((item) => {
+          if (item.id) seenIds.add(String(item.id));
           const bank = item.client_bank_name || 'Centenary Bank';
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
@@ -353,42 +473,34 @@ export const MortgageService = {
         });
       }
 
-      // Query mortgage_cases table
       const { data: mcData } = await supabase
         .from('mortgage_cases')
-        .select('bank_name, loan_amount, record_year');
+        .select('id, bank_name, client_bank_name, loan_amount, record_year');
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((item) => {
           if (item.record_year && Number(item.record_year) !== year) return;
-          const bank = item.bank_name || 'Centenary Bank';
+          if (item.id && seenIds.has(String(item.id))) return;
+          if (item.id) seenIds.add(String(item.id));
+          const bank = item.bank_name || item.client_bank_name || 'Centenary Bank';
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
           grouped[bank].totalLoan += Number(item.loan_amount || 0);
         });
       }
-
-      if ((Array.isArray(mData) && mData.length > 0) || (Array.isArray(mcData) && mcData.length > 0)) {
-        return {
-          summaries: Object.keys(grouped).map((bank) => ({
-            bank_name: bank,
-            file_count: grouped[bank].count,
-            total_loan: grouped[bank].totalLoan,
-          })),
-          hasCloudTable: true,
-        };
-      }
     } catch (e: any) {
       console.info('[MortgageService] Cloud summary notice:', e?.message);
     }
 
-    // 2. Fallback to local server API (/api/mortgages)
+    // 2. Always merge local server API (/api/mortgages) deduplicating by id
     try {
       const res = await fetch(`/api/mortgages?record_year=${year}`);
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           json.data.forEach((item: any) => {
+            if (item.id && seenIds.has(String(item.id))) return;
+            if (item.id) seenIds.add(String(item.id));
             const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
             if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
             grouped[bank].count += 1;
@@ -429,45 +541,10 @@ export const MortgageService = {
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((row) => {
-          const id = row.id || `mc-${row.rim_no || Math.random()}`;
-          if (!seenIds.has(id)) {
-            seenIds.add(id);
-            combined.push({
-              id,
-              client_bank_name: row.bank_name || bankName,
-              date_of_receipt: row.date_of_receipt || null,
-              branch: row.branch || '',
-              bank_branch: row.branch || '',
-              branch_name: row.branch || '',
-              client_name: row.client_name || row.name || '',
-              name: row.name || row.client_name || '',
-              borrower_name: row.client_name || row.name || '',
-              mortgagor_name: row.client_name || row.name || '',
-              file_number: row.rim_no || '',
-              rim_no: row.rim_no || '',
-              property_description: row.property_description || row.description || '',
-              description: row.description || row.property_description || '',
-              loan_amount: Number(row.loan_amount || 0),
-              stamp_duty: Number(row.stamp_duty || 0),
-              extra_copies: Number(row.extra_copies || 0),
-              registration: Number(row.registration || 0),
-              other: Number(row.other || 0),
-              bank_charges: Number(row.bank_charges || 0),
-              transport: Number(row.transport || 0),
-              total_disbursements: Number(row.total_disbursements || 0),
-              legal_fees: Number(row.legal_fees || 0),
-              vat_18: Number(row.vat_18 || 0),
-              grand_total: Number(row.grand_total || row.loan_amount || 0),
-              date_of_payment: row.date_of_payment || null,
-              date_of_return: row.date_of_return || null,
-              comments: row.comments || '',
-              source_sheet: row.source_sheet || '',
-              record_year: row.record_year || new Date().getFullYear(),
-              month_sheet: row.month_sheet || '',
-              status: row.status || (row.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
-              department: row.department || 'Banking & Securities',
-              created_at: row.created_at,
-            });
+          const normalized = normalizeMortgageRecord(row, bankName);
+          if (!seenIds.has(normalized.id)) {
+            seenIds.add(normalized.id);
+            combined.push(normalized);
           }
         });
       }
@@ -478,29 +555,31 @@ export const MortgageService = {
       const { data, error } = await supabase
         .from('mortgages')
         .select('*')
-        .eq('client_bank_name', bankName)
+        .ilike('client_bank_name', `%${bankName}%`)
         .order('created_at', { ascending: false });
 
       if (!error && Array.isArray(data)) {
         data.forEach((row) => {
-          if (!seenIds.has(row.id)) {
-            seenIds.add(row.id);
-            combined.push(row);
+          const normalized = normalizeMortgageRecord(row, bankName);
+          if (!seenIds.has(normalized.id)) {
+            seenIds.add(normalized.id);
+            combined.push(normalized);
           }
         });
       }
     } catch (err) {}
 
-    // 3. Fallback to local workstation backend (/api/mortgages)
+    // 3. Fallback / dual-sync merge from local workstation backend (/api/mortgages)
     try {
       const res = await fetch(`/api/mortgages?client_bank_name=${encodeURIComponent(bankName)}`);
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           json.data.forEach((row: any) => {
-            if (!seenIds.has(row.id)) {
-              seenIds.add(row.id);
-              combined.push(row);
+            const normalized = normalizeMortgageRecord(row, bankName);
+            if (!seenIds.has(normalized.id)) {
+              seenIds.add(normalized.id);
+              combined.push(normalized);
             }
           });
         }
@@ -511,69 +590,98 @@ export const MortgageService = {
   },
 
   /**
-   * Inserts a new mortgage file, syncing to both Supabase and local backend.
+   * Inserts a new mortgage file, syncing to Supabase `mortgage_cases`, `mortgages`, and local backend.
    */
-  async insertMortgage(payload: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  async insertMortgage(
+    payload: any
+  ): Promise<{ success: boolean; data?: any; error?: string; cloudSaved?: boolean; localSaved?: boolean }> {
     let savedRecord: any = null;
-    let cloudSuccess = false;
+    let cloudSaved = false;
+    let localSaved = false;
+    let lastError: string | undefined;
 
-    // 1. Try Supabase cloud insert
+    // 1. Insert into Supabase `mortgage_cases` using exact live columns
     try {
-      const { data, error } = await supabase
-        .from('mortgages')
-        .insert([payload])
+      const mcRow = buildMortgageCasesRow(payload);
+      const { data: mcData, error: mcError } = await supabase
+        .from('mortgage_cases')
+        .insert([mcRow])
         .select('*');
 
-      if (!error && data && data.length > 0) {
-        savedRecord = data[0];
-        cloudSuccess = true;
-      } else if (error && error.code !== 'PGRST205') {
-        // Attempt sanitized insert without custom columns
-        const sanitized = {
-          client_bank_name: payload.client_bank_name,
-          record_year: payload.record_year,
-          file_number: payload.file_number,
-          borrower_name: payload.borrower_name || payload.mortgagor_name,
-          mortgagor_name: payload.mortgagor_name || payload.borrower_name,
-          loan_amount: payload.loan_amount,
-          status: payload.status,
-        };
-        const retry = await supabase.from('mortgages').insert([sanitized]).select('*');
-        if (!retry.error && retry.data && retry.data.length > 0) {
-          savedRecord = retry.data[0];
-          cloudSuccess = true;
-        }
+      if (!mcError && mcData && mcData.length > 0) {
+        savedRecord = normalizeMortgageRecord(mcData[0], mcRow.bank_name);
+        cloudSaved = true;
+      } else if (mcError) {
+        lastError = mcError.message;
+        console.warn('[MortgageService] mortgage_cases insert notice:', mcError.message);
       }
-    } catch (err) {
-      // Continue to local sync
+    } catch (err: any) {
+      lastError = err?.message;
     }
 
-    // 2. Always persist to local workstation backend
+    // 2. Also insert into Supabase `mortgages` using exact live columns (preserving same UUID if available)
     try {
+      const mRow = buildMortgagesRow({
+        ...payload,
+        id: savedRecord?.id || payload.id,
+      });
+      const { data: mData, error: mError } = await supabase
+        .from('mortgages')
+        .insert([mRow])
+        .select('*');
+
+      if (!mError && mData && mData.length > 0) {
+        if (!savedRecord) {
+          savedRecord = normalizeMortgageRecord(mData[0], mRow.client_bank_name);
+        }
+        cloudSaved = true;
+      } else if (mError) {
+        lastError = lastError || mError.message;
+        console.warn('[MortgageService] mortgages insert notice:', mError.message);
+      }
+    } catch (err: any) {
+      lastError = lastError || err?.message;
+    }
+
+    // 3. Always persist to local workstation backend so records show even offline/unauthenticated
+    try {
+      const localBody = normalizeMortgageRecord(
+        {
+          ...payload,
+          ...(savedRecord || {}),
+        },
+        payload.client_bank_name || payload.bank_name
+      );
       const res = await fetch('/api/mortgages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(savedRecord || payload),
+        body: JSON.stringify(localBody),
       });
 
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
-          savedRecord = savedRecord || json.data;
-          return { success: true, data: savedRecord };
+          savedRecord = savedRecord || normalizeMortgageRecord(json.data, localBody.bank_name);
+          localSaved = true;
         }
       }
-    } catch (localErr) {
+    } catch (localErr: any) {
       console.warn('[MortgageService] Local save notice:', localErr);
+      lastError = lastError || localErr?.message;
     }
 
-    if (savedRecord || cloudSuccess) {
-      return { success: true, data: savedRecord };
+    if (cloudSaved || localSaved) {
+      return {
+        success: true,
+        data: savedRecord,
+        cloudSaved,
+        localSaved,
+      };
     }
 
     return {
       success: false,
-      error: 'Failed to persist mortgage file. Please check server status.',
+      error: lastError || 'Failed to persist mortgage file. Please check server status.',
     };
   },
 
@@ -584,26 +692,48 @@ export const MortgageService = {
   async updateMortgage(id: string, updates: any): Promise<{ success: boolean; data?: any; error?: string }> {
     let updatedRecord: any = null;
 
-    // 1. Try Supabase update on mortgage_cases
+    // 1. Try Supabase update on mortgage_cases (only live columns)
     try {
       const mcPayload: any = {};
       if (updates.record_year !== undefined) mcPayload.record_year = parseInt(String(updates.record_year), 10);
       if (updates.month_sheet !== undefined) mcPayload.month_sheet = updates.month_sheet;
-      if (updates.bank_name) mcPayload.bank_name = updates.bank_name;
-      if (updates.branch || updates.bank_branch) mcPayload.branch = updates.branch || updates.bank_branch;
-      if (updates.client_name || updates.borrower_name) mcPayload.client_name = updates.client_name || updates.borrower_name;
-      if (updates.rim_no) mcPayload.rim_no = updates.rim_no;
-      if (updates.property_description) mcPayload.property_description = updates.property_description;
+      if (updates.bank_name || updates.client_bank_name) {
+        mcPayload.bank_name = updates.bank_name || updates.client_bank_name;
+        mcPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
+      }
+      if (updates.branch !== undefined || updates.bank_branch !== undefined) {
+        mcPayload.branch = updates.branch ?? updates.bank_branch;
+      }
+      if (updates.client_name || updates.mortgagor_name || updates.borrower_name) {
+        const cname = updates.client_name || updates.mortgagor_name || updates.borrower_name;
+        mcPayload.client_name = cname;
+        mcPayload.mortgagor_name = cname;
+      }
+      if (updates.rim_no !== undefined) mcPayload.rim_no = updates.rim_no;
+      if (updates.property_description !== undefined) mcPayload.property_description = updates.property_description;
       if (updates.loan_amount !== undefined) mcPayload.loan_amount = Number(updates.loan_amount);
       if (updates.stamp_duty !== undefined) mcPayload.stamp_duty = Number(updates.stamp_duty);
+      if (updates.extra_copies !== undefined) mcPayload.extra_copies = Number(updates.extra_copies);
+      if (updates.registration_fee !== undefined || updates.registration !== undefined) {
+        mcPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
+      }
       if (updates.bank_charges !== undefined) mcPayload.bank_charges = Number(updates.bank_charges);
       if (updates.transport !== undefined) mcPayload.transport = Number(updates.transport);
       if (updates.linkage_fees !== undefined) mcPayload.linkage_fees = Number(updates.linkage_fees);
-      if (updates.other_disbursements !== undefined) mcPayload.other_disbursements = Number(updates.other_disbursements);
+      if (updates.other_disbursements !== undefined || updates.other_fees !== undefined || updates.other !== undefined) {
+        const otherVal = Number(updates.other_disbursements ?? updates.other_fees ?? updates.other ?? 0);
+        mcPayload.other_disbursements = otherVal;
+        mcPayload.other_fees = otherVal;
+      }
       if (updates.total_disbursements !== undefined) mcPayload.total_disbursements = Number(updates.total_disbursements);
       if (updates.legal_fees !== undefined) mcPayload.legal_fees = Number(updates.legal_fees);
-      if (updates.vat !== undefined) mcPayload.vat_18 = Number(updates.vat);
+      if (updates.vat_18 !== undefined || updates.vat !== undefined) {
+        mcPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
+      }
       if (updates.grand_total !== undefined) mcPayload.grand_total = Number(updates.grand_total);
+      if (updates.date_of_receipt !== undefined) mcPayload.date_of_receipt = updates.date_of_receipt || null;
+      if (updates.date_of_payment !== undefined) mcPayload.date_of_payment = updates.date_of_payment || null;
+      if (updates.date_of_return !== undefined) mcPayload.date_of_return = updates.date_of_return || null;
       if (updates.comments !== undefined) mcPayload.comments = updates.comments;
       if (updates.status !== undefined) mcPayload.status = updates.status;
 
@@ -618,11 +748,47 @@ export const MortgageService = {
       }
     } catch (e) {}
 
-    // 2. Try Supabase update on mortgages
+    // 2. Try Supabase update on mortgages (only live columns)
     try {
+      const mPayload: any = {};
+      if (updates.record_year !== undefined) mPayload.record_year = parseInt(String(updates.record_year), 10);
+      if (updates.month_sheet !== undefined) mPayload.month_sheet = updates.month_sheet;
+      if (updates.client_bank_name || updates.bank_name) {
+        mPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
+      }
+      if (updates.mortgagor_name || updates.client_name || updates.borrower_name) {
+        mPayload.mortgagor_name = updates.mortgagor_name || updates.client_name || updates.borrower_name;
+      }
+      if (updates.rim_no !== undefined) mPayload.rim_no = updates.rim_no;
+      if (updates.property_description !== undefined) mPayload.property_description = updates.property_description;
+      if (updates.loan_amount !== undefined) mPayload.loan_amount = Number(updates.loan_amount);
+      if (updates.stamp_duty !== undefined) mPayload.stamp_duty = Number(updates.stamp_duty);
+      if (updates.extra_copies !== undefined) mPayload.extra_copies = Number(updates.extra_copies);
+      if (updates.registration_fee !== undefined || updates.registration !== undefined) {
+        mPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
+      }
+      if (updates.bank_charges !== undefined) mPayload.bank_charges = Number(updates.bank_charges);
+      if (updates.transport !== undefined) mPayload.transport = Number(updates.transport);
+      if (updates.other_disbursements !== undefined || updates.other !== undefined) {
+        mPayload.other_disbursements = Number(updates.other_disbursements ?? updates.other ?? 0);
+      }
+      if (updates.total_disbursements !== undefined) mPayload.total_disbursements = Number(updates.total_disbursements);
+      if (updates.legal_fees !== undefined) mPayload.legal_fees = Number(updates.legal_fees);
+      if (updates.vat_18 !== undefined || updates.vat !== undefined) {
+        mPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
+      }
+      if (updates.grand_total !== undefined) mPayload.grand_total = Number(updates.grand_total);
+      if (updates.date_of_receipt !== undefined) mPayload.date_of_receipt = updates.date_of_receipt || null;
+      if (updates.date_of_payment !== undefined) mPayload.date_of_payment = updates.date_of_payment || null;
+      if (updates.date_of_return !== undefined) mPayload.date_of_return = updates.date_of_return || null;
+      if (updates.comments !== undefined) mPayload.comments = updates.comments;
+      if (updates.status !== undefined) mPayload.status = updates.status;
+      if (updates.department !== undefined) mPayload.department = updates.department;
+      if (updates.assigned_lawyer_id !== undefined) mPayload.assigned_lawyer_id = updates.assigned_lawyer_id || null;
+
       const { data, error } = await supabase
         .from('mortgages')
-        .update(updates)
+        .update(mPayload)
         .eq('id', id)
         .select('*');
 
