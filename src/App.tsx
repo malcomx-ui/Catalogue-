@@ -119,14 +119,14 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans-legal">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans-legal print:bg-white">
       {/* Main Body */}
       <div className="flex-1 w-full flex">
         {/* Left Navigation Sidebar with Branch Registries & Roles */}
         <Sidebar />
 
         {/* Center Content Viewport with mobile bottom bar clearance */}
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 min-w-0 pb-24 lg:pb-8">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 min-w-0 pb-24 lg:pb-8 print:p-0">
           {activeTab === 'dashboard' && <FirmDashboard />}
           {activeTab === 'catalogue' && <CaseList />}
           {activeTab === 'causelist' && <CauseListDiary />}

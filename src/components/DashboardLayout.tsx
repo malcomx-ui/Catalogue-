@@ -18,9 +18,9 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
   const activeNav = activeTab;
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-100 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
+      <aside className="no-print w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
         <div className="p-6 font-bold text-xl text-gray-900 border-b border-gray-100">
           Infosight Portal
         </div>

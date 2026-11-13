@@ -607,13 +607,13 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 min-h-screen sticky top-0 h-screen overflow-hidden shadow-2xs z-30">
+      <aside className="no-print hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 min-h-screen sticky top-0 h-screen overflow-hidden shadow-2xs z-30">
         {renderSidebarBody(false)}
       </aside>
 
       {/* Mobile Slide-Over Drawer */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div className="no-print fixed inset-0 z-50 lg:hidden flex">
           {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"

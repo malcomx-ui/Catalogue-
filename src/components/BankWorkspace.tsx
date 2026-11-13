@@ -11,6 +11,7 @@ import {
   Table2,
   ChevronLeft,
   ChevronRight,
+  Printer,
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { MortgageService, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
@@ -190,10 +191,118 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
     );
   }, [filteredMortgages]);
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const generatedReportDate = useMemo(
+    () =>
+      new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    []
+  );
+
   return (
-    <div className="p-3 sm:p-5 lg:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-5 w-full min-w-0 h-full min-h-[500px]">
+    <div className="mortgage-print-root p-3 sm:p-5 lg:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-5 w-full min-w-0 h-full min-h-[500px]">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 10mm;
+          }
+          html, body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .print-only {
+            display: block !important;
+          }
+          .mortgage-print-root {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+          }
+          .mortgage-print-summary {
+            display: grid !important;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+            gap: 6px !important;
+            margin-bottom: 10px !important;
+          }
+          .mortgage-print-table-wrap {
+            overflow: visible !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          .mortgage-print-table {
+            width: 100% !important;
+            min-width: 0 !important;
+            table-layout: fixed !important;
+            zoom: 0.85;
+            font-size: 9pt !important;
+            border-collapse: collapse !important;
+          }
+          .mortgage-print-table th,
+          .mortgage-print-table td {
+            padding: 5px 6px !important;
+            font-size: 9pt !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+          }
+          .mortgage-print-table thead {
+            display: table-header-group;
+          }
+          .mortgage-print-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+
+      {/* Formal Print-Only Monthly Report Header */}
+      <div className="hidden print:block print-only pb-3 mb-3 border-b-2 border-slate-900">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              MK Advocates · Banking &amp; Securities Practice
+            </p>
+            <h1 className="text-lg font-bold text-slate-900 mt-0.5">
+              {bankName} — Monthly Mortgage Register
+            </h1>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Period: <span className="font-semibold text-slate-900">{filters.month || 'All Months'} {new Date().getFullYear()}</span>
+              {' · '}
+              Branch Scope: <span className="font-semibold text-slate-900">{currentUser?.branchName || 'All Branch Stations'}</span>
+              {filters.status ? ` · Status: ${filters.status}` : ''}
+            </p>
+          </div>
+          <div className="text-right text-xs text-slate-600 space-y-0.5">
+            <div>
+              Generated: <span className="font-semibold text-slate-900">{generatedReportDate}</span>
+            </div>
+            <div>
+              Total Records: <span className="font-mono font-bold text-slate-900">{filteredMortgages.length}</span>
+            </div>
+            <div>
+              Grand Total Billed:{' '}
+              <span className="font-mono font-bold text-blue-800">
+                UGX {filteredTotals.grandTotal.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Header with Back Button & Record Action */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs w-full min-w-0">
+      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs w-full min-w-0">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
           <button
             onClick={onBack}
@@ -225,6 +334,15 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
           <button
             type="button"
+            onClick={handlePrint}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer"
+          >
+            <Printer className="w-3.5 h-3.5" />
+            <span>Print Monthly Report</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsImportModalOpen(true)}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
           >
@@ -245,7 +363,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
       {/* Supabase RLS Non-Blocking Sync Notice */}
       {cloudRlsNotice && (
-        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-950 shadow-xs space-y-2.5">
+        <div className="no-print bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-950 shadow-xs space-y-2.5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -293,16 +411,18 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       )}
 
       {/* Mortgage Filter Bar */}
-      <MortgageFilterBar
-        filters={filters}
-        onChange={setFilters}
-        lawyers={lawyersList}
-        onOpenAddModal={() => setIsModalOpen(true)}
-      />
+      <div className="no-print">
+        <MortgageFilterBar
+          filters={filters}
+          onChange={setFilters}
+          lawyers={lawyersList}
+          onOpenAddModal={() => setIsModalOpen(true)}
+        />
+      </div>
 
       {/* Filtered Summary Strip */}
       {!loading && mortgages.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
+        <div className="mortgage-print-summary grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
             <span className="text-base font-bold text-gray-900 font-mono truncate block">
@@ -337,9 +457,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       )}
 
       {/* Full Register Container (Table + All-Fields Cards View) */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden w-full min-w-0">
+      <div className="mortgage-print-table-wrap bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden w-full min-w-0">
         {!loading && filteredMortgages.length > 0 && (
-          <div className="px-4 py-2.5 bg-slate-50/80 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="no-print px-4 py-2.5 bg-slate-50/80 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-2xs">
                 <button
@@ -410,7 +530,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <p className="text-xs text-gray-500 max-w-md mx-auto">
               There are currently no mortgage or security files recorded under {bankName} matching your search filter.
             </p>
-            <div className="flex items-center justify-center gap-2.5 mt-2">
+            <div className="no-print flex items-center justify-center gap-2.5 mt-2">
               <button
                 type="button"
                 onClick={() => setIsImportModalOpen(true)}
@@ -428,8 +548,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               </button>
             </div>
           </div>
-        ) : viewMode === 'cards' ? (
-          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40">
+        ) : (
+          <>
+            {viewMode === 'cards' && (
+              <div className="no-print p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40">
             {filteredMortgages.map((m, idx) => (
               <div
                 key={m.id || idx}
@@ -564,13 +686,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                 )}
               </div>
             ))}
-          </div>
-        ) : (
-          <div
-            ref={tableScrollRef}
-            className="w-full max-w-full overflow-x-auto overscroll-x-contain scroll-smooth"
-          >
-            <table className="table-fixed w-full min-w-[1180px] text-left border-collapse">
+              </div>
+            )}
+
+            <div
+              ref={tableScrollRef}
+              className={`mortgage-print-table-wrap w-full max-w-full overflow-x-auto overscroll-x-contain scroll-smooth ${
+                viewMode === 'cards' ? 'hidden print:block' : ''
+              }`}
+            >
+              <table className="mortgage-print-table table-fixed w-full min-w-[1180px] text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="w-[110px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
@@ -670,14 +795,31 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   );
                 })}
               </tbody>
+              <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-slate-400 font-bold text-slate-900">
+                <tr>
+                  <td colSpan={5} className="py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
+                    Totals ({filteredMortgages.length} Records)
+                  </td>
+                  <td className="py-2.5 px-3.5 text-right text-xs font-mono">
+                    {filteredTotals.loan.toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-3.5 text-right text-xs font-mono text-amber-800">
+                    {filteredTotals.disbursements.toLocaleString()}
+                  </td>
+                  <td className="py-2.5 px-3.5 text-right text-xs font-mono text-blue-800">
+                    {filteredTotals.grandTotal.toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
+          </>
         )}
       </div>
 
       {/* Full Record Detail View Modal (All Fields) */}
       {selectedRecordForView && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="no-print fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
             <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white flex items-center justify-between shrink-0">
               <div>
@@ -888,61 +1030,67 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
       {/* Conditionally rendered AddMortgageModal */}
       {isModalOpen && (
-        <AddMortgageModal 
-          bankName={bankName}
-          defaultMonth={filters.month || undefined}
-          currentUser={currentUser} 
-          onClose={() => setIsModalOpen(false)} 
-          onSuccess={(savedRecord, meta) => {
-            if (savedRecord) {
-              setMortgages((prev) => {
-                const exists = prev.some((item) => item.id && item.id === savedRecord.id);
-                return exists ? prev : [savedRecord, ...prev];
-              });
-              if (
-                filters.month &&
-                savedRecord.month_sheet &&
-                savedRecord.month_sheet.toLowerCase() !== filters.month.toLowerCase()
-              ) {
-                setFilters((prev) => ({ ...prev, month: savedRecord.month_sheet }));
+        <div className="no-print">
+          <AddMortgageModal 
+            bankName={bankName}
+            defaultMonth={filters.month || undefined}
+            currentUser={currentUser} 
+            onClose={() => setIsModalOpen(false)} 
+            onSuccess={(savedRecord, meta) => {
+              if (savedRecord) {
+                setMortgages((prev) => {
+                  const exists = prev.some((item) => item.id && item.id === savedRecord.id);
+                  return exists ? prev : [savedRecord, ...prev];
+                });
+                if (
+                  filters.month &&
+                  savedRecord.month_sheet &&
+                  savedRecord.month_sheet.toLowerCase() !== filters.month.toLowerCase()
+                ) {
+                  setFilters((prev) => ({ ...prev, month: savedRecord.month_sheet }));
+                }
               }
-            }
-            if (meta && meta.cloudSaved === false && meta.cloudError) {
-              setCloudRlsNotice(meta.cloudError);
-            } else if (meta?.cloudSaved) {
-              setCloudRlsNotice(null);
-            }
-            loadBankData();
-          }} 
-        />
+              if (meta && meta.cloudSaved === false && meta.cloudError) {
+                setCloudRlsNotice(meta.cloudError);
+              } else if (meta?.cloudSaved) {
+                setCloudRlsNotice(null);
+              }
+              loadBankData();
+            }} 
+          />
+        </div>
       )}
 
       {/* Conditionally rendered EditMortgageModal */}
       {selectedRecordForEdit && (
-        <EditMortgageModal 
-          record={selectedRecordForEdit} 
-          currentUser={currentUser} 
-          onClose={() => setSelectedRecordForEdit(null)} 
-          onSuccess={() => loadBankData()} 
-        />
+        <div className="no-print">
+          <EditMortgageModal 
+            record={selectedRecordForEdit} 
+            currentUser={currentUser} 
+            onClose={() => setSelectedRecordForEdit(null)} 
+            onSuccess={() => loadBankData()} 
+          />
+        </div>
       )}
 
       {/* Conditionally rendered ImportMortgagesModal */}
       {isImportModalOpen && (
-        <ImportMortgagesModal
-          defaultBank={bankName}
-          defaultMonth={filters.month || MONTHS[new Date().getMonth()]}
-          defaultYear={new Date().getFullYear()}
-          onClose={() => setIsImportModalOpen(false)}
-          onSuccess={(meta) => {
-            if (meta && meta.cloudSaved === false && meta.cloudError) {
-              setCloudRlsNotice(meta.cloudError);
-            } else if (meta?.cloudSaved) {
-              setCloudRlsNotice(null);
-            }
-            loadBankData();
-          }}
-        />
+        <div className="no-print">
+          <ImportMortgagesModal
+            defaultBank={bankName}
+            defaultMonth={filters.month || MONTHS[new Date().getMonth()]}
+            defaultYear={new Date().getFullYear()}
+            onClose={() => setIsImportModalOpen(false)}
+            onSuccess={(meta) => {
+              if (meta && meta.cloudSaved === false && meta.cloudError) {
+                setCloudRlsNotice(meta.cloudError);
+              } else if (meta?.cloudSaved) {
+                setCloudRlsNotice(null);
+              }
+              loadBankData();
+            }}
+          />
+        </div>
       )}
     </div>
   );
