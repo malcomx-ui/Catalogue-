@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   FileSpreadsheet,
   AlertTriangle,
@@ -43,6 +44,33 @@ const formatDate = (val: any): string => {
   const str = String(val).trim();
   if (!str) return '-';
   return str.slice(0, 10);
+};
+
+const formatPrintTimestamp = (date: Date = new Date()): string => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'Africa/Kampala',
+    }).formatToParts(date);
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((p) => p.type === type)?.value || '';
+    return `${get('day')} ${get('month')} ${get('year')}, ${get('hour')}:${get('minute')} EAT`;
+  } catch {
+    return `${date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })}, ${date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })} EAT`;
+  }
 };
 
 export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentUser, onBack }) => {
@@ -191,19 +219,63 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
     );
   }, [filteredMortgages]);
 
+  const [printedTimestamp, setPrintedTimestamp] = useState<string>(() =>
+    formatPrintTimestamp()
+  );
+
+  useEffect(() => {
+    const updateTimestamp = () => setPrintedTimestamp(formatPrintTimestamp());
+    window.addEventListener('beforeprint', updateTimestamp);
+    return () => window.removeEventListener('beforeprint', updateTimestamp);
+  }, []);
+
   const handlePrint = () => {
+    flushSync(() => {
+      setPrintedTimestamp(formatPrintTimestamp());
+    });
     window.print();
   };
 
-  const generatedReportDate = useMemo(
-    () =>
-      new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
-    []
-  );
+  const reportPeriodTitle = useMemo(() => {
+    const years = Array.from(
+      new Set(
+        (filteredMortgages.length > 0 ? filteredMortgages : mortgages)
+          .map((m) => Number(m.record_year))
+          .filter((y) => !isNaN(y) && y > 1900)
+      )
+    ).sort((a, b) => a - b);
+
+    const yearLabel =
+      years.length === 1
+        ? String(years[0])
+        : years.length > 1
+        ? `${years[0]}–${years[years.length - 1]}`
+        : String(new Date().getFullYear());
+
+    if (filters.month && filters.month.trim()) {
+      return `${filters.month.trim().toUpperCase()} ${yearLabel}`;
+    }
+
+    const distinctMonths = Array.from(
+      new Set(
+        filteredMortgages
+          .map((m) => String(m.month_sheet || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (distinctMonths.length === 1) {
+      return `${distinctMonths[0].toUpperCase()} ${yearLabel}`;
+    }
+
+    return `ALL MONTHS ${yearLabel}`;
+  }, [filters.month, filteredMortgages, mortgages]);
+
+  const activeLawyerName = useMemo(() => {
+    if (!filters.lawyerId || filters.lawyerId === 'ALL') return '';
+    const found = lawyersList.find((l) => String(l.id) === String(filters.lawyerId));
+    return found?.full_name || found?.name || found?.email || 'Selected Advocate';
+  }, [filters.lawyerId, lawyersList]);
 
   return (
     <div className="mortgage-print-root p-3 sm:p-5 lg:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-5 w-full min-w-0 h-full min-h-[500px]">
@@ -217,6 +289,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             background: #ffffff !important;
             margin: 0 !important;
             padding: 0 !important;
+            width: 100% !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .no-print {
             display: none !important;
@@ -230,12 +305,6 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             max-width: 100% !important;
             width: 100% !important;
           }
-          .mortgage-print-summary {
-            display: grid !important;
-            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-            gap: 6px !important;
-            margin-bottom: 10px !important;
-          }
           .mortgage-print-table-wrap {
             overflow: visible !important;
             max-width: 100% !important;
@@ -246,56 +315,96 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           .mortgage-print-table {
             width: 100% !important;
             min-width: 0 !important;
+            max-width: 100% !important;
             table-layout: fixed !important;
-            zoom: 0.85;
-            font-size: 9pt !important;
+            font-size: 8.5pt !important;
             border-collapse: collapse !important;
-          }
-          .mortgage-print-table th,
-          .mortgage-print-table td {
-            padding: 5px 6px !important;
-            font-size: 9pt !important;
-            border-bottom: 1px solid #e2e8f0 !important;
           }
           .mortgage-print-table thead {
             display: table-header-group;
+          }
+          .mortgage-print-table tfoot {
+            display: table-footer-group;
           }
           .mortgage-print-table tr {
             break-inside: avoid;
             page-break-inside: avoid;
           }
+          .mortgage-print-table th,
+          .mortgage-print-table td {
+            font-size: 8.5pt !important;
+            line-height: 1.3 !important;
+            padding: 4px 6px !important;
+            border-bottom: 1px solid #cbd5e1 !important;
+            vertical-align: top !important;
+          }
+          .mortgage-print-table th {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-word !important;
+            font-size: 8pt !important;
+            font-weight: 700 !important;
+            background-color: #f8fafc !important;
+            color: #334155 !important;
+          }
+          .mortgage-print-table td.print-col-text {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+            text-align: left !important;
+          }
+          .mortgage-print-table th.print-col-num,
+          .mortgage-print-table td.print-col-num {
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            text-align: right !important;
+          }
+          .mortgage-print-table thead tr th:nth-child(1),
+          .mortgage-print-table tbody tr td:nth-child(1) { width: 9% !important; }
+          .mortgage-print-table thead tr th:nth-child(2),
+          .mortgage-print-table tbody tr td:nth-child(2) { width: 10% !important; }
+          .mortgage-print-table thead tr th:nth-child(3),
+          .mortgage-print-table tbody tr td:nth-child(3) { width: 16% !important; }
+          .mortgage-print-table thead tr th:nth-child(4),
+          .mortgage-print-table tbody tr td:nth-child(4) { width: 9% !important; }
+          .mortgage-print-table thead tr th:nth-child(5),
+          .mortgage-print-table tbody tr td:nth-child(5) { width: 24% !important; }
+          .mortgage-print-table thead tr th:nth-child(6),
+          .mortgage-print-table tbody tr td:nth-child(6) { width: 10.5% !important; }
+          .mortgage-print-table thead tr th:nth-child(7),
+          .mortgage-print-table tbody tr td:nth-child(7) { width: 10.5% !important; }
+          .mortgage-print-table thead tr th:nth-child(8),
+          .mortgage-print-table tbody tr td:nth-child(8) { width: 11% !important; }
         }
       `}</style>
 
       {/* Formal Print-Only Monthly Report Header */}
-      <div className="hidden print:block print-only pb-3 mb-3 border-b-2 border-slate-900">
+      <div className="hidden print:block print-only pb-2.5 mb-3 border-b-2 border-slate-900">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              MK Advocates · Banking &amp; Securities Practice
-            </p>
-            <h1 className="text-lg font-bold text-slate-900 mt-0.5">
-              {bankName} — Monthly Mortgage Register
+            <h1 className="text-lg font-bold text-slate-900 uppercase tracking-wide">
+              MONTHLY MORTGAGE REGISTER — {reportPeriodTitle}
             </h1>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Period: <span className="font-semibold text-slate-900">{filters.month || 'All Months'} {new Date().getFullYear()}</span>
+            <p className="text-xs text-slate-600 mt-1">
+              Bank Portfolio: <span className="font-semibold text-slate-900">{bankName}</span>
               {' · '}
               Branch Scope: <span className="font-semibold text-slate-900">{currentUser?.branchName || 'All Branch Stations'}</span>
+              {filters.department ? ` · Dept: ${filters.department}` : ''}
               {filters.status ? ` · Status: ${filters.status}` : ''}
+              {activeLawyerName ? ` · Advocate: ${activeLawyerName}` : ''}
+              {filters.search ? ` · Filter: "${filters.search}"` : ''}
             </p>
           </div>
-          <div className="text-right text-xs text-slate-600 space-y-0.5">
+          <div className="text-right text-xs text-slate-600 space-y-0.5 shrink-0">
             <div>
-              Generated: <span className="font-semibold text-slate-900">{generatedReportDate}</span>
+              Date Printed: <span className="font-semibold text-slate-900">{printedTimestamp}</span>
             </div>
             <div>
               Total Records: <span className="font-mono font-bold text-slate-900">{filteredMortgages.length}</span>
-            </div>
-            <div>
-              Grand Total Billed:{' '}
-              <span className="font-mono font-bold text-blue-800">
-                UGX {filteredTotals.grandTotal.toLocaleString()}
-              </span>
             </div>
           </div>
         </div>
@@ -420,9 +529,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         />
       </div>
 
-      {/* Filtered Summary Strip */}
+      {/* Filtered Summary Strip (Screen only; hidden when printing) */}
       {!loading && mortgages.length > 0 && (
-        <div className="mortgage-print-summary grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
+        <div className="no-print grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
             <span className="text-base font-bold text-gray-900 font-mono truncate block">
@@ -713,13 +822,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   <th className="w-[240px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Description
                   </th>
-                  <th className="w-[130px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[130px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Loan Amount
                   </th>
-                  <th className="w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Total Disb.
                   </th>
-                  <th className="w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Grand Total
                   </th>
                 </tr>
@@ -744,49 +853,49 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                       className="hover:bg-blue-50/50 transition-colors cursor-pointer"
                     >
                       <td
-                        className="py-3 px-3.5 text-left text-xs font-mono text-gray-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3 px-3.5 text-left text-xs font-mono text-gray-600 truncate whitespace-nowrap"
                         title={receiptText}
                       >
                         {receiptText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-left text-xs font-medium text-gray-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3 px-3.5 text-left text-xs font-medium text-gray-700 truncate whitespace-nowrap"
                         title={branchText}
                       >
                         {branchText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-left text-xs font-semibold text-gray-900 truncate whitespace-nowrap"
+                        className="print-col-text py-3 px-3.5 text-left text-xs font-semibold text-gray-900 truncate whitespace-nowrap"
                         title={clientText}
                       >
                         {clientText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-left text-xs font-mono font-medium text-blue-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3 px-3.5 text-left text-xs font-mono font-medium text-blue-600 truncate whitespace-nowrap"
                         title={rimText}
                       >
                         {rimText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-left text-xs text-gray-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3 px-3.5 text-left text-xs text-gray-700 truncate whitespace-nowrap"
                         title={descText || 'No description'}
                       >
                         {descText || <span className="text-gray-400 italic">-</span>}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-right text-xs font-mono font-semibold text-gray-900 truncate whitespace-nowrap"
+                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-semibold text-gray-900 truncate whitespace-nowrap"
                         title={formatUGX(m.loan_amount, false)}
                       >
                         {loanText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-right text-xs font-mono font-semibold text-amber-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-semibold text-amber-700 truncate whitespace-nowrap"
                         title={formatUGX(m.total_disbursements, false)}
                       >
                         {disbText}
                       </td>
                       <td
-                        className="py-3 px-3.5 text-right text-xs font-mono font-bold text-blue-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-bold text-blue-700 truncate whitespace-nowrap"
                         title={formatUGX(m.grand_total, false)}
                       >
                         {grandText}
@@ -797,21 +906,32 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               </tbody>
               <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-slate-400 font-bold text-slate-900">
                 <tr>
-                  <td colSpan={5} className="py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
+                  <td colSpan={5} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
                     Totals ({filteredMortgages.length} Records)
                   </td>
-                  <td className="py-2.5 px-3.5 text-right text-xs font-mono">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono">
                     {filteredTotals.loan.toLocaleString()}
                   </td>
-                  <td className="py-2.5 px-3.5 text-right text-xs font-mono text-amber-800">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono text-amber-800">
                     {filteredTotals.disbursements.toLocaleString()}
                   </td>
-                  <td className="py-2.5 px-3.5 text-right text-xs font-mono text-blue-800">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono text-blue-800">
                     {filteredTotals.grandTotal.toLocaleString()}
                   </td>
                 </tr>
               </tfoot>
             </table>
+          </div>
+          {/* Formal Print-Only Report Footer */}
+          <div className="hidden print:block print-only mt-4 pt-2 border-t border-slate-300 text-[10px] text-slate-600">
+            <div className="flex items-center justify-between">
+              <span>
+                {bankName} — Monthly Mortgage Register ({reportPeriodTitle})
+              </span>
+              <span>
+                Date Printed: <strong className="text-slate-900">{printedTimestamp}</strong>
+              </span>
+            </div>
           </div>
           </>
         )}
