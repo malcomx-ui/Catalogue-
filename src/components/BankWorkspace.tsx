@@ -564,160 +564,174 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             ref={tableScrollRef}
             className="w-full max-w-full overflow-x-auto overscroll-x-contain scroll-smooth"
           >
-            <table className="w-full min-w-max text-left text-[11px] border-collapse">
+            <table className="table-fixed w-[3200px] min-w-full text-left text-[11px] border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-gray-200 whitespace-nowrap">
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Receipt</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Branch</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Client Name</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">RIM No</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap min-w-[240px]">Description</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Loan Amount</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Total Disbursement</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Grand Total</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Period (Month / Year)</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Stamp Duty</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Extra Copies</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Registration</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Other</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Bank Charges</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Transport</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Linkage Fees</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Legal Fees</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">VAT 18%</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Payment</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Return</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Comments</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Status</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right sticky right-0 z-10 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                  <th className="w-[115px] py-3 px-3.5 font-bold truncate">Date of Receipt</th>
+                  <th className="w-[130px] py-3 px-3.5 font-bold truncate">Branch</th>
+                  <th className="w-[200px] py-3 px-3.5 font-bold truncate">Client Name</th>
+                  <th className="w-[110px] py-3 px-3.5 font-bold truncate">RIM No</th>
+                  <th className="w-[260px] py-3 px-3.5 font-bold truncate">Description</th>
+                  <th className="w-[140px] py-3 px-3.5 font-bold truncate text-right">Loan Amount</th>
+                  <th className="w-[145px] py-3 px-3.5 font-bold truncate text-right">Total Disbursement</th>
+                  <th className="w-[140px] py-3 px-3.5 font-bold truncate text-right">Grand Total</th>
+                  <th className="w-[145px] py-3 px-3.5 font-bold truncate">Period (Month / Year)</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">Stamp Duty</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">Extra Copies</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">Registration</th>
+                  <th className="w-[110px] py-3 px-3.5 font-bold truncate text-right">Other</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">Bank Charges</th>
+                  <th className="w-[115px] py-3 px-3.5 font-bold truncate text-right">Transport</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">Linkage Fees</th>
+                  <th className="w-[130px] py-3 px-3.5 font-bold truncate text-right">Legal Fees</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate text-right">VAT 18%</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate">Date of Payment</th>
+                  <th className="w-[120px] py-3 px-3.5 font-bold truncate">Date of Return</th>
+                  <th className="w-[210px] py-3 px-3.5 font-bold truncate">Comments</th>
+                  <th className="w-[145px] py-3 px-3.5 font-bold truncate">Status</th>
+                  <th className="w-[145px] py-3 px-3.5 font-bold whitespace-nowrap text-right sticky right-0 z-10 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-800">
-                {filteredMortgages.map((m, idx) => (
-                  <tr
-                    key={m.id || idx}
-                    onClick={() => setSelectedRecordForView(m)}
-                    className="hover:bg-blue-50/40 transition whitespace-nowrap group cursor-pointer"
-                  >
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
-                      {formatDate(m.date_of_receipt)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 font-medium">
-                      {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-semibold text-gray-900">
-                      {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-medium text-blue-600">
-                      {m.rim_no || m.file_number || '-'}
-                    </td>
-                    <td
-                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 min-w-[240px]"
-                      title={m.property_description || m.description || m.title_deed_no}
+                {filteredMortgages.map((m, idx) => {
+                  const branchText = m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-';
+                  const clientText = m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A';
+                  const rimText = m.rim_no || m.file_number || '-';
+                  const descText = m.property_description || m.description || m.title_deed_no || '';
+                  const commentsText = m.comments || '-';
+                  return (
+                    <tr
+                      key={m.id || idx}
+                      onClick={() => setSelectedRecordForView(m)}
+                      className="hover:bg-blue-50/40 transition whitespace-nowrap group cursor-pointer"
                     >
-                      {m.property_description || m.description || m.title_deed_no || (
-                        <span className="text-gray-400 italic">-</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-semibold text-right text-gray-900">
-                      {formatUGX(m.loan_amount)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-semibold text-amber-700">
-                      {formatUGX(m.total_disbursements)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-bold text-blue-700">
-                      {formatUGX(m.grand_total)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 whitespace-nowrap">
-                        {m.month_sheet || m.source_sheet || '-'}
-                        {m.record_year ? ` ${m.record_year}` : ''}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.stamp_duty)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.extra_copies)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.registration_fee ?? m.registration)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.bank_charges)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.transport)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
-                      {formatUGX(m.linkage_fees)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-medium text-indigo-700">
-                      {formatUGX(m.legal_fees)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-slate-700">
-                      {formatUGX(m.vat_18 ?? m.vat)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
-                      {formatDate(m.date_of_payment)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
-                      {formatDate(m.date_of_return)}
-                    </td>
-                    <td
-                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-600"
-                      title={m.comments}
-                    >
-                      {m.comments || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border whitespace-nowrap ${
-                          (m.status || '').includes('Active') || (m.status || '').includes('Processing')
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : (m.status || '').includes('Completed') ||
-                              (m.status || '').includes('Cleared') ||
-                              (m.status || '').includes('Registered')
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : (m.status || '').includes('Valuation')
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
+                      <td className="py-2.5 px-3.5 truncate font-mono text-gray-600">
+                        {formatDate(m.date_of_receipt)}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate max-w-[130px] text-gray-700 font-medium"
+                        title={branchText}
                       >
-                        {m.status || 'Active / Processing'}
-                      </span>
-                    </td>
-                    <td
-                      className="py-2.5 px-3.5 whitespace-nowrap text-right sticky right-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="inline-flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRecordForView(m)}
-                          className="px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-[11px] border border-slate-200 inline-flex items-center gap-1 transition"
-                          title="View all fields"
+                        {branchText}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate max-w-[200px] font-semibold text-gray-900"
+                        title={clientText}
+                      >
+                        {clientText}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate max-w-[110px] font-mono font-medium text-blue-600"
+                        title={rimText}
+                      >
+                        {rimText}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate max-w-[260px] text-gray-700"
+                        title={descText}
+                      >
+                        {descText || <span className="text-gray-400 italic">-</span>}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono font-semibold text-right text-gray-900">
+                        {formatUGX(m.loan_amount)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right font-semibold text-amber-700">
+                        {formatUGX(m.total_disbursements)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right font-bold text-blue-700">
+                        {formatUGX(m.grand_total)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 whitespace-nowrap">
+                          {m.month_sheet || m.source_sheet || '-'}
+                          {m.record_year ? ` ${m.record_year}` : ''}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.stamp_duty)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.extra_copies)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.registration_fee ?? m.registration)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.bank_charges)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.transport)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-gray-700">
+                        {formatUGX(m.linkage_fees)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right font-medium text-indigo-700">
+                        {formatUGX(m.legal_fees)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-right text-slate-700">
+                        {formatUGX(m.vat_18 ?? m.vat)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-gray-600">
+                        {formatDate(m.date_of_payment)}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate font-mono text-gray-600">
+                        {formatDate(m.date_of_return)}
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate max-w-[210px] text-gray-600"
+                        title={m.comments}
+                      >
+                        {commentsText}
+                      </td>
+                      <td className="py-2.5 px-3.5 truncate max-w-[145px]">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border whitespace-nowrap ${
+                            (m.status || '').includes('Active') || (m.status || '').includes('Processing')
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : (m.status || '').includes('Completed') ||
+                                (m.status || '').includes('Cleared') ||
+                                (m.status || '').includes('Registered')
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : (m.status || '').includes('Valuation')
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
                         >
-                          <Eye className="w-3 h-3" />
-                          <span>View</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRecordForEdit(m)}
-                          className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 inline-flex items-center gap-1 transition"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span>Edit</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {m.status || 'Active / Processing'}
+                        </span>
+                      </td>
+                      <td
+                        className="py-2.5 px-3.5 truncate text-right sticky right-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRecordForView(m)}
+                            className="px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-[11px] border border-slate-200 inline-flex items-center gap-1 transition"
+                            title="View all fields"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRecordForEdit(m)}
+                            className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 inline-flex items-center gap-1 transition"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
