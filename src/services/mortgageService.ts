@@ -261,6 +261,8 @@ export const MortgageService = {
               date_of_return: row.date_of_return || null,
               comments: row.comments || '',
               source_sheet: row.source_sheet || '',
+              record_year: row.record_year || new Date().getFullYear(),
+              month_sheet: row.month_sheet || '',
               status: row.status || (row.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
               department: row.department || 'Banking & Securities',
               created_at: row.created_at,
@@ -384,16 +386,22 @@ export const MortgageService = {
     // 1. Try Supabase update on mortgage_cases
     try {
       const mcPayload: any = {};
+      if (updates.record_year !== undefined) mcPayload.record_year = parseInt(String(updates.record_year), 10);
+      if (updates.month_sheet !== undefined) mcPayload.month_sheet = updates.month_sheet;
       if (updates.bank_name) mcPayload.bank_name = updates.bank_name;
       if (updates.branch || updates.bank_branch) mcPayload.branch = updates.branch || updates.bank_branch;
       if (updates.client_name || updates.borrower_name) mcPayload.client_name = updates.client_name || updates.borrower_name;
       if (updates.rim_no) mcPayload.rim_no = updates.rim_no;
       if (updates.property_description) mcPayload.property_description = updates.property_description;
       if (updates.loan_amount !== undefined) mcPayload.loan_amount = Number(updates.loan_amount);
+      if (updates.stamp_duty !== undefined) mcPayload.stamp_duty = Number(updates.stamp_duty);
       if (updates.bank_charges !== undefined) mcPayload.bank_charges = Number(updates.bank_charges);
       if (updates.transport !== undefined) mcPayload.transport = Number(updates.transport);
       if (updates.linkage_fees !== undefined) mcPayload.linkage_fees = Number(updates.linkage_fees);
       if (updates.other_disbursements !== undefined) mcPayload.other_disbursements = Number(updates.other_disbursements);
+      if (updates.total_disbursements !== undefined) mcPayload.total_disbursements = Number(updates.total_disbursements);
+      if (updates.legal_fees !== undefined) mcPayload.legal_fees = Number(updates.legal_fees);
+      if (updates.vat !== undefined) mcPayload.vat_18 = Number(updates.vat);
       if (updates.grand_total !== undefined) mcPayload.grand_total = Number(updates.grand_total);
       if (updates.comments !== undefined) mcPayload.comments = updates.comments;
       if (updates.status !== undefined) mcPayload.status = updates.status;

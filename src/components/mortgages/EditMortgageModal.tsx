@@ -39,7 +39,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
   // Reporting Period (Year & Month Sheet)
   const [recordYear, setRecordYear] = useState<number>(record?.record_year || new Date().getFullYear());
-  const [monthSheet, setMonthSheet] = useState<string>(record?.month_sheet || 'October');
+  const [monthSheet, setMonthSheet] = useState<string>(record?.month_sheet || MONTHS[new Date().getMonth()]);
 
   // Basic particulars
   const [mortgagorName, setMortgagorName] = useState(record?.mortgagor_name || record?.borrower_name || '');
@@ -141,7 +141,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
     const updatePayload: Record<string, any> = {
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
-      month_sheet: monthSheet || 'October',
+      month_sheet: monthSheet || MONTHS[new Date().getMonth()],
       borrower_name: mortgagorName.trim(),
       mortgagor_name: mortgagorName.trim(),
       rim_no: rimNo.trim(),
@@ -586,4 +586,56 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                   <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
-                    <span className="text
+                    <span className="text-[11px] text-slate-400 block mb-1">Total Disbursements</span>
+                    <span className="font-mono font-bold text-sm text-amber-300">
+                      UGX {totalDisbursements.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                    <span className="text-[11px] text-slate-400 block mb-1">Legal Fees</span>
+                    <span className="font-mono font-bold text-sm text-blue-300">
+                      UGX {(Number(legalFees) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                    <span className="text-[11px] text-slate-400 block mb-1">VAT 18%</span>
+                    <span className="font-mono font-bold text-sm text-indigo-300">
+                      UGX {vat.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-blue-600/20 rounded-lg border border-blue-500/40">
+                    <span className="text-[11px] text-blue-200 block mb-1">Grand Total</span>
+                    <span className="font-mono font-bold text-base text-white">
+                      UGX {grandTotal.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 shrink-0">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition"
+            >
+              {loading ? 'Saving Changes...' : 'Save & Update Record'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default EditMortgageModal;

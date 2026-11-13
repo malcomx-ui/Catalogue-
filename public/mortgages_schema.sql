@@ -166,6 +166,7 @@ CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   other_disbursements NUMERIC(18,2) DEFAULT 0,
   source_sheet TEXT,
   record_year INTEGER DEFAULT 2026,
+  month_sheet TEXT,
   status TEXT DEFAULT 'Active / Processing',
   department TEXT DEFAULT 'Banking & Securities',
   assigned_lawyer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
@@ -187,6 +188,8 @@ ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS vat_18 NUMERIC(18,2) 
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_payment DATE;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_return DATE;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other_disbursements NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS record_year INTEGER DEFAULT 2026;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS month_sheet TEXT;
 
 -- Fast lookup indexes
 CREATE INDEX IF NOT EXISTS idx_mortgage_cases_bank ON public.mortgage_cases(bank_name);
@@ -195,6 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_mortgage_cases_client ON public.mortgage_cases(cl
 CREATE INDEX IF NOT EXISTS idx_mortgage_cases_rim ON public.mortgage_cases(rim_no);
 CREATE INDEX IF NOT EXISTS idx_mortgage_cases_sheet ON public.mortgage_cases(source_sheet);
 CREATE INDEX IF NOT EXISTS idx_mortgage_cases_year ON public.mortgage_cases(record_year);
+CREATE INDEX IF NOT EXISTS idx_mortgage_cases_month ON public.mortgage_cases(month_sheet);
 
 -- RLS Policies for mortgage_cases
 ALTER TABLE public.mortgage_cases ENABLE ROW LEVEL SECURITY;

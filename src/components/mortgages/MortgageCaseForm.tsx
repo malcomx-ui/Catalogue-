@@ -16,7 +16,7 @@ const MONTHS = [
 export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Centenary Bank' }: MortgageCaseFormProps) {
   const [formData, setFormData] = useState({
     record_year: new Date().getFullYear(), // Defaults to current year (e.g. 2026)
-    month_sheet: 'October',                 // Default active reporting month
+    month_sheet: MONTHS[new Date().getMonth()], // Defaults to current month
     date_of_receipt: '',
     branch: '',
     name: '',
@@ -66,7 +66,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
 
     const payload = {
       record_year: formData.record_year ? parseInt(String(formData.record_year), 10) : new Date().getFullYear(),
-      month_sheet: formData.month_sheet || 'October',
+      month_sheet: formData.month_sheet || MONTHS[new Date().getMonth()],
       bank_name: defaultBank,
       date_of_receipt: formData.date_of_receipt || null,
       branch: formData.branch || null,

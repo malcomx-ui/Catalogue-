@@ -21,12 +21,21 @@ export interface AddMortgageModalProps {
   onSuccess: () => void;
 }
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   bankName = 'Centenary Bank',
   currentUser,
   onClose,
   onSuccess,
 }) => {
+  // Reporting Period (defaults to current year and current month)
+  const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
+  const [monthSheet, setMonthSheet] = useState<string>(() => MONTHS[new Date().getMonth()]);
+
   // 1. Exactly 19 Columns from the tracker sheet and live Supabase table `mortgage_cases`:
   // 1) date_of_receipt (Date)
   const [dateOfReceipt, setDateOfReceipt] = useState<string>(
@@ -165,7 +174,8 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       comments: comments.trim(),                                             // 19
       status: dateOfReturn ? 'Completed / Cleared' : 'Active / Processing',
       source_sheet: 'Tracker Entry',
-      record_year: new Date().getFullYear(),
+      record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
+      month_sheet: monthSheet || MONTHS[new Date().getMonth()],
       department: 'Banking & Securities',
       assigned_lawyer_name: currentUser?.name || '',
       assigned_lawyer_id:
@@ -256,6 +266,41 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         {/* Form Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
+          {/* Reporting Period: Record Year & Month Sheet */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-xl border border-blue-100">
+            <div>
+              <label className="block font-bold text-blue-900 mb-1">
+                Record Year <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="record_year"
+                required
+                value={recordYear}
+                onChange={(e) => setRecordYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
+                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-blue-900 mb-1">
+                Month Sheet <span className="text-rose-500">*</span>
+              </label>
+              <select
+                name="month_sheet"
+                required
+                value={monthSheet}
+                onChange={(e) => setMonthSheet(e.target.value)}
+                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                {MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Section 1: Identification & Core Particulars */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
             <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
