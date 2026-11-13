@@ -621,18 +621,22 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
     const normalizedCentenary: any[] = [];
 
     records.forEach((r: any) => {
-      const id = r.id || `cent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const id = r.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
-      const branchName = r.branch || 'Head Office';
+      const branchName = r.branch || r.bank_branch || 'Head Office';
+      const targetBank = r.bank_name || bank_name || 'Centenary Bank';
       const loanAmount = Number(r.loan_amount) || 0;
       const grandTotal = Number(r.grand_total) || loanAmount;
       const rimNo = String(r.rim_no || '');
       const propDesc = String(r.property_description || r.description || '');
       const comments = String(r.comments || '');
       const sourceSheet = String(r.source_sheet || 'Bulk Import');
+      const monthSheet = String(r.month_sheet || '');
+      const recordYear = Number(r.record_year) || new Date().getFullYear();
 
       normalizedCentenary.push({
         id,
+        bank_name: targetBank,
         branch: branchName,
         client_name: clientName,
         rim_no: rimNo,
@@ -641,27 +645,48 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
         grand_total: grandTotal,
         comments,
         source_sheet: sourceSheet,
-        record_year: r.record_year || 2026,
-        status: r.status || 'Pending Review',
+        month_sheet: monthSheet,
+        record_year: recordYear,
+        status: r.status || 'Active / Processing',
         created_at: r.created_at || now,
       });
 
-      // Also register into central mortgages table under Centenary Bank
+      // Also register into central mortgages table under the selected bank
       normalizedNewMortgages.push({
         id,
-        client_bank_name: bank_name || 'Centenary Bank',
-        record_year: r.record_year || 2026,
+        client_bank_name: targetBank,
+        bank_name: targetBank,
+        record_year: recordYear,
+        month_sheet: monthSheet,
+        source_sheet: sourceSheet,
+        date_of_receipt: r.date_of_receipt || null,
         bank_branch: branchName,
+        branch: branchName,
         branch_name: branchName,
-        file_number: rimNo || `CENT-${Date.now().toString().slice(-5)}`,
+        file_number: rimNo || `MORT-${Date.now().toString().slice(-5)}`,
         rim_no: rimNo,
         borrower_name: clientName,
         mortgagor_name: clientName,
+        client_name: clientName,
+        name: clientName,
         loan_amount: loanAmount,
-        property_description: propDesc,
-        department: 'Banking & Securities',
-        status: 'Under Preparation',
+        stamp_duty: Number(r.stamp_duty) || 0,
+        extra_copies: Number(r.extra_copies) || 0,
+        registration: Number(r.registration) || 0,
+        other: Number(r.other) || 0,
+        bank_charges: Number(r.bank_charges) || 0,
+        transport: Number(r.transport) || 0,
+        linkage_fees: Number(r.linkage_fees) || 0,
+        total_disbursements: Number(r.total_disbursements) || 0,
+        legal_fees: Number(r.legal_fees) || 0,
+        vat_18: Number(r.vat_18) || 0,
         grand_total: grandTotal,
+        date_of_payment: r.date_of_payment || null,
+        date_of_return: r.date_of_return || null,
+        property_description: propDesc,
+        description: propDesc,
+        department: r.department || 'Banking & Securities',
+        status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
         comments,
         created_at: r.created_at || now,
       });

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
-import { MortgageService } from '../services/mortgageService';
+import { MortgageService, MONTHS } from '../services/mortgageService';
 import { AddMortgageModal } from './AddMortgageModal';
 import { EditMortgageModal } from './EditMortgageModal';
-import { MortgageFilterBar } from './MortgageFilterBar';
+import { ImportMortgagesModal } from './ImportMortgagesModal';
+import { MortgageFilterBar, MortgageFilters } from './MortgageFilterBar';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -15,11 +17,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const [mortgages, setMortgages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<any | null>(null);
 
-  // 1. Filter state hook for search query, department, status, and assigned lawyer ID
-  const [filters, setFilters] = useState({
+  // 1. Filter state hook for search query, month, department, status, and assigned lawyer ID
+  const [filters, setFilters] = useState<MortgageFilters>({
     search: '',
+    month: '',
     department: '',
     status: '',
     lawyerId: ''
@@ -94,6 +98,21 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       m.assigned_lawyer_name?.toLowerCase().includes(searchQ) ||
       m.comments?.toLowerCase().includes(searchQ);
 
+    const matchesMonth = (() => {
+      if (!filters.month) return true;
+      const targetFull = filters.month.toLowerCase();
+      const targetShort = targetFull.slice(0, 3);
+      const ms = String(m.month_sheet || '').trim().toLowerCase();
+      const ss = String(m.source_sheet || '').trim().toLowerCase();
+      return (
+        ms === targetFull ||
+        ms === targetShort ||
+        ss === targetFull ||
+        ss === targetShort ||
+        ss.includes(targetFull)
+      );
+    })();
+
     const matchesDept =
       !filters.department ||
       filters.department === 'ALL' ||
@@ -109,7 +128,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       filters.lawyerId === 'ALL' ||
       String(m.assigned_lawyer_id || '') === String(filters.lawyerId);
 
-    return matchesSearch && matchesDept && matchesStatus && matchesLawyer;
+    return matchesSearch && matchesMonth && matchesDept && matchesStatus && matchesLawyer;
   });
 
   const totalValue = mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0);
@@ -139,7 +158,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-right border-r border-gray-200 pr-4">
             <span className="text-xs text-gray-500 block">Total Portfolio Value</span>
             <span className="text-sm font-bold text-blue-700 font-mono">
@@ -148,6 +167,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           </div>
 
           <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Import Excel</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
           >
@@ -180,12 +209,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <p className="text-xs text-gray-500 max-w-md mx-auto">
               There are currently no mortgage or security files recorded under {bankName} matching your search filter.
             </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
-            >
-              + Add Mortgage File
-            </button>
+            <div className="flex items-center justify-center gap-2.5 mt-2">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Import Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
+              >
+                + Add Mortgage File
+              </button>
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -210,7 +250,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   return (
                     <tr key={m.id || idx} className="hover:bg-blue-50/40 transition">
                       <td className="py-3 px-4 font-mono font-medium text-blue-600">
-                        {m.rim_no || m.file_number || `MORT-${idx + 1}`}
+                        <div>{m.rim_no || m.file_number || `MORT-${idx + 1}`}</div>
+                        {(m.month_sheet || m.source_sheet) && (
+                          <div className="text-[10px] font-sans font-medium text-emerald-700 mt-0.5">
+                            {m.month_sheet || m.source_sheet}{m.record_year ? ` ${m.record_year}` : ''}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 font-semibold text-gray-900">
                         <div>{m.client_name || m.mortgagor_name || m.borrower_name || 'N/A'}</div>
@@ -285,6 +330,17 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           currentUser={currentUser} 
           onClose={() => setSelectedRecordForEdit(null)} 
           onSuccess={() => loadBankData()} 
+        />
+      )}
+
+      {/* Conditionally rendered ImportMortgagesModal */}
+      {isImportModalOpen && (
+        <ImportMortgagesModal
+          defaultBank={bankName}
+          defaultMonth={filters.month || MONTHS[new Date().getMonth()]}
+          defaultYear={new Date().getFullYear()}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => loadBankData()}
         />
       )}
     </div>

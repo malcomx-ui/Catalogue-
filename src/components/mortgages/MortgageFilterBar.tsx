@@ -1,7 +1,10 @@
 import React from 'react';
 
+import { MONTHS } from '../../services/mortgageService';
+
 export interface MortgageFilters {
   search: string;
+  month: string;
   department: string;
   status: string;
   lawyerId: string;
@@ -56,6 +59,7 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   const handleReset = () => {
     onChange({
       search: '',
+      month: '',
       department: '',
       status: '',
       lawyerId: '',
@@ -63,7 +67,7 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   };
 
   const hasActiveFilters = Boolean(
-    filters.search || filters.department || filters.status || filters.lawyerId
+    filters.search || filters.month || filters.department || filters.status || filters.lawyerId
   );
 
   return (
@@ -96,6 +100,23 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
 
         {/* Filter Dropdowns Grid */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Month Filter */}
+          <div className="flex items-center min-w-[130px] flex-1 sm:flex-initial">
+            <select
+              value={filters.month || ''}
+              onChange={(e) => updateFilter('month', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              aria-label="Filter by Month"
+            >
+              <option value="">All Months</option>
+              {MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Department Filter */}
           <div className="flex items-center min-w-[140px] flex-1 sm:flex-initial">
             <select
@@ -189,6 +210,18 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
                 type="button"
                 onClick={() => updateFilter('search', '')}
                 className="hover:text-blue-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filters.month && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+              Month: {filters.month}
+              <button
+                type="button"
+                onClick={() => updateFilter('month', '')}
+                className="hover:text-teal-900"
               >
                 ×
               </button>

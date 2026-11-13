@@ -14,6 +14,184 @@ export const DEFAULT_BANKS = [
   'Opportunity Bank',
 ];
 
+export const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const cleanFloat = (val: any): number => {
+  if (val === null || val === undefined || val === '') return 0.0;
+  if (typeof val === 'number') return isNaN(val) ? 0.0 : val;
+  const cleaned = String(val).replace(/,/g, '').trim();
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0.0 : parsed;
+};
+
+const parseExcelDate = (val: any): string | null => {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') {
+    try {
+      const parsed = XLSX.SSF.parse_date_code(val);
+      if (parsed && parsed.y && parsed.m && parsed.d) {
+        const y = String(parsed.y).padStart(4, '0');
+        const m = String(parsed.m).padStart(2, '0');
+        const d = String(parsed.d).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+    } catch {
+      return null;
+    }
+  }
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return val.toISOString().slice(0, 10);
+  }
+  const str = String(val).trim();
+  if (!str) return null;
+  // Handle DD/MM/YYYY or DD-MM-YYYY
+  const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (dmy) {
+    const day = dmy[1].padStart(2, '0');
+    const month = dmy[2].padStart(2, '0');
+    const year = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
+    return `${year}-${month}-${day}`;
+  }
+  // Handle YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return str.slice(0, 10);
+  }
+  const parsedDate = new Date(str);
+  if (!isNaN(parsedDate.getTime())) {
+    return parsedDate.toISOString().slice(0, 10);
+  }
+  return null;
+};
+
+const extractRecordsFromWorkbook = (
+  workbook: XLSX.WorkBook,
+  options: {
+    bankName: string;
+    monthSheet: string;
+    recordYear: number;
+    sheetSelection?: string;
+  }
+): any[] => {
+  const allRecords: any[] = [];
+  const targetSheets =
+    options.sheetSelection && options.sheetSelection !== 'ALL'
+      ? workbook.SheetNames.filter((s) => s === options.sheetSelection)
+      : workbook.SheetNames;
+
+  targetSheets.forEach((sheetName) => {
+    const worksheet = workbook.Sheets[sheetName];
+    if (!worksheet) return;
+    const jsonSheet: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    if (!jsonSheet || jsonSheet.length < 2) return;
+
+    // Detect header row among first 5 rows
+    let headerRowIndex = jsonSheet.length > 2 ? 1 : 0;
+    const nameKeys = ['name', 'client name', 'client_name', 'borrower', 'borrower name', 'mortgagor', 'customer name'];
+    for (let r = 0; r < Math.min(5, jsonSheet.length); r++) {
+      const rowVals = (jsonSheet[r] || []).map((c: any) =>
+        c ? String(c).trim().toLowerCase() : ''
+      );
+      if (rowVals.some((cell) => nameKeys.includes(cell))) {
+        headerRowIndex = r;
+        break;
+      }
+    }
+
+    const headers = (jsonSheet[headerRowIndex] || []).map((h: any) =>
+      h ? String(h).trim() : ''
+    );
+    const lowerHeaders = headers.map((h) => h.toLowerCase());
+
+    for (let i = headerRowIndex + 1; i < jsonSheet.length; i++) {
+      const row = jsonSheet[i];
+      if (!row || row.length === 0) continue;
+
+      const getVal = (...candidates: string[]) => {
+        for (const candidate of candidates) {
+          const idx = lowerHeaders.indexOf(candidate.toLowerCase());
+          if (idx !== -1 && row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
+            return row[idx];
+          }
+        }
+        return null;
+      };
+
+      const rawName = getVal('Name', 'Client Name', 'client_name', 'Borrower', 'Borrower Name', 'Mortgagor', 'Customer Name');
+      if (!rawName || String(rawName).trim() === '') continue;
+
+      const clientName = String(rawName).trim();
+      // Skip summary / total rows
+      if (/^(total|grand total|sub ?total)$/i.test(clientName)) continue;
+
+      const branchVal = getVal('Branch', 'Bank Branch', 'Branch Station', 'bank_branch');
+      const rimVal = getVal('RIM NO.', 'RIM NO', 'RIM', 'rim_no', 'File No', 'File Number');
+      const descVal = getVal('Description', 'Property Description', 'property_description', 'Title', 'Particulars');
+      const dateReceipt = parseExcelDate(getVal('Date of Receipt', 'date_of_receipt', 'Date Received', 'Receipt Date', 'Date'));
+      const datePayment = parseExcelDate(getVal('Date of Payment', 'date_of_payment', 'Payment Date'));
+      const dateReturn = parseExcelDate(getVal('Date of Return', 'date_of_return', 'Return Date'));
+
+      const loanAmount = cleanFloat(getVal('Loan amount', 'Loan Amount', 'loan_amount', 'Facility Amount', 'Principal'));
+      const stampDuty = cleanFloat(getVal('Stamp Duty', 'stamp_duty'));
+      const extraCopies = cleanFloat(getVal('Extra Copies', 'extra_copies'));
+      const registration = cleanFloat(getVal('Registration', 'registration', 'Registration Fee'));
+      const other = cleanFloat(getVal('Other', 'other', 'Other Disbursements'));
+      const bankCharges = cleanFloat(getVal('Bank charges', 'Bank Charges', 'bank_charges'));
+      const transport = cleanFloat(getVal('Transport', 'transport', 'Logistics'));
+      const linkageFees = cleanFloat(getVal('Linkage Fees', 'linkage_fees', 'Linkage'));
+
+      const rawTotalDisb = getVal('Total Disbursements', 'total_disbursements', 'Disbursements');
+      const computedDisb = stampDuty + extraCopies + registration + other + bankCharges + transport + linkageFees;
+      const totalDisbursements = rawTotalDisb !== null ? cleanFloat(rawTotalDisb) : computedDisb;
+
+      const legalFees = cleanFloat(getVal('Legal Fees', 'legal_fees', 'Fees'));
+      const rawVat = getVal('VAT 18%', 'VAT (18%)', 'VAT', 'vat_18');
+      const vat18 = rawVat !== null ? cleanFloat(rawVat) : (legalFees > 0 ? Math.round(legalFees * 0.18) : 0);
+
+      const rawGrandTotal = getVal('Grand Total', 'grand_total', 'Total');
+      const computedGrand = totalDisbursements + legalFees + vat18;
+      const grandTotal = rawGrandTotal !== null ? cleanFloat(rawGrandTotal) : (computedGrand > 0 ? computedGrand : 0);
+
+      const commentsVal = getVal('Comments', 'Comment', 'comments', 'Remarks', 'Notes');
+
+      allRecords.push({
+        bank_name: options.bankName,
+        record_year: options.recordYear,
+        month_sheet: options.monthSheet,
+        source_sheet: sheetName,
+        date_of_receipt: dateReceipt || new Date().toISOString().slice(0, 10),
+        branch: branchVal ? String(branchVal).trim() : '',
+        client_name: clientName,
+        name: clientName,
+        rim_no: rimVal ? String(rimVal).trim() : '',
+        property_description: descVal ? String(descVal).trim() : '',
+        description: descVal ? String(descVal).trim() : '',
+        loan_amount: loanAmount,
+        stamp_duty: stampDuty,
+        extra_copies: extraCopies,
+        registration,
+        other,
+        bank_charges: bankCharges,
+        transport,
+        linkage_fees: linkageFees,
+        total_disbursements: totalDisbursements,
+        legal_fees: legalFees,
+        vat_18: vat18,
+        grand_total: grandTotal,
+        date_of_payment: datePayment,
+        date_of_return: dateReturn,
+        comments: commentsVal ? String(commentsVal).trim() : '',
+        status: dateReturn ? 'Completed / Cleared' : 'Active / Processing',
+        department: 'Banking & Securities',
+      });
+    }
+  });
+
+  return allRecords;
+};
+
 /**
  * MortgageService:
  * Unified, resilient service supporting both Supabase PostgreSQL cloud database
@@ -21,102 +199,124 @@ export const DEFAULT_BANKS = [
  */
 export const MortgageService = {
   /**
-   * Imports an Excel workbook (.xlsx/.xls) parsing each month sheet
-   * using the exact schema of the mortgage_cases table:
-   * bank_name, branch, client_name, rim_no, property_description,
-   * loan_amount, bank_charges, transport, linkage_fees, grand_total, comments, source_sheet
-   * and batch inserting into Supabase in chunks of 50.
+   * Reads an Excel file client-side and returns sheet names + a parser bound to the workbook.
    */
-  async importCentenaryExcelFile(file: File, onProgress?: (msg: string) => void): Promise<{ success: boolean; count: number; error?: string }> {
+  async readExcelWorkbook(file: File): Promise<{
+    sheetNames: string[];
+    extractRecords: (options: {
+      bankName: string;
+      monthSheet: string;
+      recordYear: number;
+      sheetSelection?: string;
+    }) => any[];
+  }> {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    return {
+      sheetNames: workbook.SheetNames,
+      extractRecords: (options) => extractRecordsFromWorkbook(workbook, options),
+    };
+  },
+
+  /**
+   * Imports pre-parsed Excel mortgage records for a selected bank, month, and year.
+   * Uploads in chunks of 50 to Supabase `mortgage_cases` and syncs to `/api/mortgages/batch`.
+   */
+  async importExcelMortgages(
+    records: any[],
+    bankName: string,
+    onProgress?: (msg: string) => void
+  ): Promise<{ success: boolean; count: number; error?: string }> {
     try {
-      console.log("Reading Excel file...");
-      if (onProgress) onProgress("Reading Excel file...");
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
+      if (!records || records.length === 0) {
+        return { success: false, count: 0, error: 'No valid mortgage rows found to import.' };
+      }
 
-      let allRecords: any[] = [];
+      if (onProgress) onProgress(`Uploading ${records.length} records to ${bankName}...`);
 
-      const cleanFloat = (val: any): number => {
-        if (val === null || val === undefined || val === '') return 0.0;
-        if (typeof val === 'number') return isNaN(val) ? 0.0 : val;
-        const cleaned = String(val).replace(/,/g, '').trim();
-        const parsed = parseFloat(cleaned);
-        return isNaN(parsed) ? 0.0 : parsed;
-      };
-
-      // Loop through every month sheet in your workbook
-      workbook.SheetNames.forEach((sheetName) => {
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonSheet: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        // Ensure the sheet has enough rows (Headers are at index 1, data starts at index 2)
-        if (jsonSheet.length > 2) {
-          const headers = (jsonSheet[1] || []).map((h: any) => (h ? h.toString().trim() : ''));
-
-          // Parse rows starting from index 2
-          for (let i = 2; i < jsonSheet.length; i++) {
-            const row = jsonSheet[i];
-            if (!row || row.length === 0) continue;
-
-            // Map row array to table columns based on header names
-            const getVal = (colName: string) => {
-              const index = headers.indexOf(colName);
-              return index !== -1 && row[index] !== undefined && row[index] !== null ? row[index] : null;
-            };
-
-            const clientName = getVal('Name');
-            if (!clientName || String(clientName).trim() === '') continue; // Skip empty rows
-
-            allRecords.push({
-              bank_name: 'Centenary Bank',
-              branch: getVal('Branch') ? String(getVal('Branch')).trim() : 'UNKNOWN',
-              client_name: String(clientName).trim(),
-              rim_no: getVal('RIM NO.') ? String(getVal('RIM NO.')).trim() : '',
-              property_description: getVal('Description') ? String(getVal('Description')).trim() : '',
-              loan_amount: cleanFloat(getVal('Loan amount')),
-              bank_charges: cleanFloat(getVal('Bank charges')),
-              transport: cleanFloat(getVal('Transport')),
-              linkage_fees: cleanFloat(getVal('Linkage Fees')),
-              grand_total: cleanFloat(getVal('Grand Total')),
-              comments: getVal('Comments') ? String(getVal('Comments')).trim() : '',
-              source_sheet: sheetName,
-            });
-          }
-        }
-      });
-
-      console.log(`Parsed ${allRecords.length} records. Uploading to Supabase mortgage_cases...`);
-      if (onProgress) onProgress(`Parsed ${allRecords.length} records. Uploading to Supabase...`);
-
-      // Batch insert into Supabase in chunks of 50 to avoid payload limits
       const chunkSize = 50;
-      for (let i = 0; i < allRecords.length; i += chunkSize) {
-        const chunk = allRecords.slice(i, i + chunkSize);
-        
-        // 1. Insert into mortgage_cases
+      for (let i = 0; i < records.length; i += chunkSize) {
+        const chunk = records.slice(i, i + chunkSize);
+        const batchIndex = Math.floor(i / chunkSize) + 1;
+        const totalBatches = Math.ceil(records.length / chunkSize);
+        if (onProgress) {
+          onProgress(`Importing batch ${batchIndex} of ${totalBatches} (${Math.min(i + chunkSize, records.length)}/${records.length})...`);
+        }
+
         const { error: err1 } = await supabase.from('mortgage_cases').insert(chunk);
         if (err1) {
-          console.warn("mortgage_cases batch insert warning:", err1.message);
-          // Try centenary_mortgage_cases fallback
-          try {
-            await supabase.from('centenary_mortgage_cases').insert(chunk);
-          } catch (e) {}
+          console.warn('mortgage_cases batch insert warning:', err1.message);
+          // Retry with core compatible column set if live Supabase table has partial columns
+          const coreChunk = chunk.map((r) => ({
+            bank_name: r.bank_name,
+            branch: r.branch,
+            client_name: r.client_name,
+            rim_no: r.rim_no,
+            property_description: r.property_description,
+            loan_amount: r.loan_amount,
+            bank_charges: r.bank_charges,
+            transport: r.transport,
+            linkage_fees: r.linkage_fees,
+            grand_total: r.grand_total,
+            comments: r.comments,
+            source_sheet: r.source_sheet,
+            record_year: r.record_year,
+            month_sheet: r.month_sheet,
+          }));
+          const { error: err2 } = await supabase.from('mortgage_cases').insert(coreChunk);
+          if (err2) {
+            console.warn('mortgage_cases core retry warning:', err2.message);
+          }
         }
       }
 
-      // Also persist to central workstation server
+      // Persist to central workstation server as well
       await fetch('/api/mortgages/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records: allRecords, bank_name: 'Centenary Bank' }),
+        body: JSON.stringify({ records, bank_name: bankName }),
       }).catch(() => {});
 
-      console.log("✅ Mortgages Module updated and records imported successfully!");
-      return { success: true, count: allRecords.length };
-
+      return { success: true, count: records.length };
     } catch (err: any) {
-      console.error("Error processing file:", err);
-      return { success: false, count: 0, error: err?.message || "Failed to parse Excel file. Check console for details." };
+      console.error('Error importing Excel records:', err);
+      return {
+        success: false,
+        count: 0,
+        error: err?.message || 'Failed to import Excel mortgage records.',
+      };
+    }
+  },
+
+  /**
+   * Imports an Excel workbook (.xlsx/.xls) parsing each month sheet
+   * and batch inserting into Supabase in chunks of 50.
+   */
+  async importCentenaryExcelFile(
+    file: File,
+    onProgress?: (msg: string) => void,
+    bankName: string = 'Centenary Bank',
+    monthSheet?: string,
+    recordYear: number = new Date().getFullYear()
+  ): Promise<{ success: boolean; count: number; error?: string }> {
+    try {
+      if (onProgress) onProgress('Reading Excel file...');
+      const wb = await this.readExcelWorkbook(file);
+      const targetMonth = monthSheet || MONTHS[new Date().getMonth()];
+      const allRecords = wb.extractRecords({
+        bankName,
+        monthSheet: targetMonth,
+        recordYear,
+        sheetSelection: 'ALL',
+      });
+      return await this.importExcelMortgages(allRecords, bankName, onProgress);
+    } catch (err: any) {
+      console.error('Error processing file:', err);
+      return {
+        success: false,
+        count: 0,
+        error: err?.message || 'Failed to parse Excel file. Check console for details.',
+      };
     }
   },
   /**
@@ -153,13 +353,14 @@ export const MortgageService = {
         });
       }
 
-      // Query mortgage_cases table populated by the Python bulk script
+      // Query mortgage_cases table
       const { data: mcData } = await supabase
         .from('mortgage_cases')
-        .select('bank_name, loan_amount');
+        .select('bank_name, loan_amount, record_year');
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((item) => {
+          if (item.record_year && Number(item.record_year) !== year) return;
           const bank = item.bank_name || 'Centenary Bank';
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
