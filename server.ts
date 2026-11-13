@@ -637,16 +637,18 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
     records.forEach((r: any) => {
       const id = r.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
-      const branchName = r.branch || r.bank_branch || 'Head Office';
-      const targetBank = r.bank_name || bank_name || 'Centenary Bank';
+      const branchName = r.branch || r.client_branch_location || r.bank_branch || 'Head Office';
+      const targetBank = r.bank_name || r.client_bank_name || bank_name || 'Centenary Bank';
       const loanAmount = Number(r.loan_amount) || 0;
-      const grandTotal = Number(r.grand_total) || loanAmount;
+      const grandTotal = Number(r.grand_total) || 0;
       const rimNo = String(r.rim_no || '');
-      const propDesc = String(r.property_description || r.description || '');
+      const propDesc = String(r.property_description || r.description || r.property || '');
       const comments = String(r.comments || '');
       const sourceSheet = String(r.source_sheet || 'Bulk Import');
       const monthSheet = String(r.month_sheet || '');
       const recordYear = Number(r.record_year) || new Date().getFullYear();
+      const regVal = Number(r.registration_fee ?? r.registration ?? 0);
+      const otherVal = Number(r.other_fees ?? r.other_disbursements ?? r.other ?? 0);
 
       normalizedCentenary.push({
         id,
@@ -676,6 +678,7 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
         date_of_receipt: r.date_of_receipt || null,
         bank_branch: branchName,
         branch: branchName,
+        client_branch_location: branchName,
         branch_name: branchName,
         file_number: rimNo || `MORT-${Date.now().toString().slice(-5)}`,
         rim_no: rimNo,
@@ -686,8 +689,11 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
         loan_amount: loanAmount,
         stamp_duty: Number(r.stamp_duty) || 0,
         extra_copies: Number(r.extra_copies) || 0,
-        registration: Number(r.registration) || 0,
-        other: Number(r.other) || 0,
+        registration: regVal,
+        registration_fee: regVal,
+        other: otherVal,
+        other_fees: otherVal,
+        other_disbursements: otherVal,
         bank_charges: Number(r.bank_charges) || 0,
         transport: Number(r.transport) || 0,
         linkage_fees: Number(r.linkage_fees) || 0,

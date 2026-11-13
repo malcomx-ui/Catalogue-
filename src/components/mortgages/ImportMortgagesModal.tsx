@@ -359,26 +359,44 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                 <div className="overflow-x-auto border border-slate-200 rounded-lg">
                   <table className="w-full text-left text-[11px] border-collapse">
                     <thead>
-                      <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                      <tr className="bg-slate-100 text-slate-600 border-b border-slate-200 whitespace-nowrap">
                         <th className="py-2 px-3 font-semibold">Client Name</th>
                         <th className="py-2 px-3 font-semibold">Branch</th>
                         <th className="py-2 px-3 font-semibold">RIM No.</th>
+                        <th className="py-2 px-3 font-semibold min-w-[200px]">Property Description</th>
                         <th className="py-2 px-3 font-semibold text-right">Loan Amount</th>
+                        <th className="py-2 px-3 font-semibold text-right">Disbursements</th>
+                        <th className="py-2 px-3 font-semibold text-right">Legal Fees</th>
+                        <th className="py-2 px-3 font-semibold text-right">VAT 18%</th>
                         <th className="py-2 px-3 font-semibold text-right">Grand Total</th>
+                        <th className="py-2 px-3 font-semibold">Comments</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
                       {parsedRecords.slice(0, 5).map((rec, i) => (
                         <tr key={i} className="hover:bg-slate-50">
-                          <td className="py-1.5 px-3 font-semibold text-slate-900">{rec.client_name}</td>
-                          <td className="py-1.5 px-3">{rec.branch || '-'}</td>
-                          <td className="py-1.5 px-3 font-mono">{rec.rim_no || '-'}</td>
-                          <td className="py-1.5 px-3 font-mono text-right">
+                          <td className="py-1.5 px-3 font-semibold text-slate-900 whitespace-nowrap">{rec.client_name}</td>
+                          <td className="py-1.5 px-3 whitespace-nowrap">{rec.branch || '-'}</td>
+                          <td className="py-1.5 px-3 font-mono whitespace-nowrap">{rec.rim_no || '-'}</td>
+                          <td className="py-1.5 px-3 text-slate-700 min-w-[200px]">
+                            {rec.property_description || '-'}
+                          </td>
+                          <td className="py-1.5 px-3 font-mono text-right whitespace-nowrap">
                             UGX {Number(rec.loan_amount || 0).toLocaleString()}
                           </td>
-                          <td className="py-1.5 px-3 font-mono text-right font-semibold text-blue-700">
+                          <td className="py-1.5 px-3 font-mono text-right whitespace-nowrap">
+                            UGX {Number(rec.total_disbursements || 0).toLocaleString()}
+                          </td>
+                          <td className="py-1.5 px-3 font-mono text-right whitespace-nowrap">
+                            UGX {Number(rec.legal_fees || 0).toLocaleString()}
+                          </td>
+                          <td className="py-1.5 px-3 font-mono text-right whitespace-nowrap">
+                            UGX {Number(rec.vat_18 || 0).toLocaleString()}
+                          </td>
+                          <td className="py-1.5 px-3 font-mono text-right font-semibold text-blue-700 whitespace-nowrap">
                             UGX {Number(rec.grand_total || 0).toLocaleString()}
                           </td>
+                          <td className="py-1.5 px-3 text-slate-600">{rec.comments || '-'}</td>
                         </tr>
                       ))}
                     </tbody>

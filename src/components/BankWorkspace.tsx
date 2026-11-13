@@ -1,5 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { FileSpreadsheet, AlertTriangle, Copy, Check, X, Eye, Edit3 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  FileSpreadsheet,
+  AlertTriangle,
+  Copy,
+  Check,
+  X,
+  Eye,
+  Edit3,
+  LayoutGrid,
+  Table2,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { MortgageService, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { AddMortgageModal } from './AddMortgageModal';
@@ -35,6 +47,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const [selectedRecordForView, setSelectedRecordForView] = useState<any | null>(null);
   const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
 
   // 1. Filter state hook for search query, month, department, status, and assigned lawyer ID
   const [filters, setFilters] = useState<MortgageFilters>({
@@ -316,8 +330,67 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         </div>
       )}
 
-      {/* Full 19-Column Tracker Table Content */}
+      {/* Full Register Container (Table + All-Fields Cards View) */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+        {!loading && filteredMortgages.length > 0 && (
+          <div className="px-4 py-2.5 bg-slate-50/80 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                    viewMode === 'table'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Table2 className="w-3.5 h-3.5" />
+                  <span>Spreadsheet Table</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cards')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                    viewMode === 'cards'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>All-Fields Cards</span>
+                </button>
+              </div>
+              <span className="text-[11px] text-gray-500 hidden sm:inline">
+                All 22 columns loaded · Click any row or card to inspect full record
+              </span>
+            </div>
+
+            {viewMode === 'table' && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => tableScrollRef.current?.scrollBy({ left: -360, behavior: 'smooth' })}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-[11px] font-medium text-gray-700 transition"
+                  title="Scroll table left"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Scroll Left</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => tableScrollRef.current?.scrollBy({ left: 360, behavior: 'smooth' })}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-[11px] font-medium text-gray-700 transition"
+                  title="Scroll table right for fees, dates & comments"
+                >
+                  <span>More Columns</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="p-12 text-center text-gray-500 text-sm">
             Loading {bankName} mortgage registers...
@@ -349,18 +422,154 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               </button>
             </div>
           </div>
+        ) : viewMode === 'cards' ? (
+          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40">
+            {filteredMortgages.map((m, idx) => (
+              <div
+                key={m.id || idx}
+                onClick={() => setSelectedRecordForView(m)}
+                className="bg-white rounded-xl border border-gray-200 shadow-2xs hover:border-blue-300 hover:shadow-sm transition p-4 space-y-3 cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span className="font-mono text-gray-400">#{idx + 1}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                        {m.month_sheet || m.source_sheet || '-'}
+                        {m.record_year ? ` ${m.record_year}` : ''}
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                        {m.branch || m.client_branch_location || m.bank_branch || 'No Branch'}
+                      </span>
+                      {m.rim_no && (
+                        <span className="font-mono font-semibold text-blue-600">
+                          RIM: {m.rim_no}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-sm font-bold text-gray-900 mt-1.5 truncate">
+                      {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRecordForView(m)}
+                      className="px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-[11px] border border-slate-200 inline-flex items-center gap-1 transition"
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>View</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRecordForEdit(m)}
+                      className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 inline-flex items-center gap-1 transition"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Prominent Property Description */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                    Property Description
+                  </span>
+                  <p className="text-xs text-slate-800 font-medium mt-0.5 whitespace-normal leading-relaxed">
+                    {m.property_description || m.description || m.title_deed_no || (
+                      <span className="italic text-slate-400">Not recorded in source data</span>
+                    )}
+                  </p>
+                </div>
+
+                {/* Financial Breakdown Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Loan Amount</span>
+                    <span className="font-mono font-bold text-gray-900">{formatUGX(m.loan_amount)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Stamp Duty</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.stamp_duty)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Extra Copies</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.extra_copies)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Registration</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.registration_fee ?? m.registration)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Other Fees</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Bank Charges</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.bank_charges)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Transport</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.transport)}</span>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded p-2">
+                    <span className="text-gray-400 block">Linkage Fees</span>
+                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.linkage_fees)}</span>
+                  </div>
+                </div>
+
+                {/* Totals Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-blue-50/50 border border-blue-100 rounded-lg p-2.5">
+                  <div>
+                    <span className="text-gray-500 block">Total Disb.</span>
+                    <span className="font-mono font-bold text-amber-700">{formatUGX(m.total_disbursements)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Legal Fees</span>
+                    <span className="font-mono font-bold text-indigo-700">{formatUGX(m.legal_fees)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">VAT 18%</span>
+                    <span className="font-mono font-semibold text-slate-800">{formatUGX(m.vat_18 ?? m.vat)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block">Grand Total</span>
+                    <span className="font-mono font-bold text-blue-700">{formatUGX(m.grand_total)}</span>
+                  </div>
+                </div>
+
+                {/* Dates, Status & Comments */}
+                <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-600">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span>Receipt: <strong className="font-mono text-gray-800">{formatDate(m.date_of_receipt)}</strong></span>
+                    <span>Payment: <strong className="font-mono text-gray-800">{formatDate(m.date_of_payment)}</strong></span>
+                    <span>Return: <strong className="font-mono text-gray-800">{formatDate(m.date_of_return)}</strong></span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[10px]">
+                    {m.status || 'Active / Processing'}
+                  </span>
+                </div>
+                {m.comments && (
+                  <p className="text-[11px] text-gray-600 bg-amber-50/50 border border-amber-100 rounded px-2.5 py-1.5">
+                    <span className="font-semibold text-gray-700">Comments:</span> {m.comments}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div ref={tableScrollRef} className="overflow-x-auto">
             <table className="w-full text-left text-[11px] border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-gray-200 whitespace-nowrap">
                   <th className="py-3 px-3 font-bold">#</th>
                   <th className="py-3 px-3 font-bold">Period (Month / Year)</th>
-                  <th className="py-3 px-3 font-bold">Date of Receipt</th>
+                  <th className="py-3 px-3 font-bold min-w-[160px]">Client Name</th>
+                  <th className="py-3 px-3 font-bold min-w-[230px]">Property Description</th>
                   <th className="py-3 px-3 font-bold">Branch</th>
-                  <th className="py-3 px-3 font-bold min-w-[180px]">Client Name</th>
                   <th className="py-3 px-3 font-bold">RIM NO.</th>
-                  <th className="py-3 px-3 font-bold min-w-[220px]">Property Description</th>
                   <th className="py-3 px-3 font-bold text-right">Loan Amount</th>
                   <th className="py-3 px-3 font-bold text-right">Stamp Duty</th>
                   <th className="py-3 px-3 font-bold text-right">Extra Copies</th>
@@ -373,6 +582,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   <th className="py-3 px-3 font-bold text-right">Legal Fees</th>
                   <th className="py-3 px-3 font-bold text-right">VAT 18%</th>
                   <th className="py-3 px-3 font-bold text-right">Grand Total</th>
+                  <th className="py-3 px-3 font-bold">Date of Receipt</th>
                   <th className="py-3 px-3 font-bold">Date of Payment</th>
                   <th className="py-3 px-3 font-bold">Date of Return</th>
                   <th className="py-3 px-3 font-bold min-w-[160px]">Comments</th>
@@ -386,7 +596,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                 {filteredMortgages.map((m, idx) => (
                   <tr
                     key={m.id || idx}
-                    className="hover:bg-blue-50/40 transition whitespace-nowrap group"
+                    onClick={() => setSelectedRecordForView(m)}
+                    className="hover:bg-blue-50/40 transition whitespace-nowrap group cursor-pointer"
                   >
                     <td className="py-2.5 px-3 font-mono text-gray-400">{idx + 1}</td>
                     <td className="py-2.5 px-3">
@@ -395,23 +606,22 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                         {m.record_year ? ` ${m.record_year}` : ''}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-gray-600">
-                      {formatDate(m.date_of_receipt)}
+                    <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-normal min-w-[160px] max-w-[210px]">
+                      {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-700 whitespace-normal min-w-[230px] max-w-[320px] leading-snug"
+                      title={m.property_description || m.description || m.title_deed_no}
+                    >
+                      {m.property_description || m.description || m.title_deed_no || (
+                        <span className="text-gray-400 italic">-</span>
+                      )}
                     </td>
                     <td className="py-2.5 px-3 text-gray-700 font-medium">
                       {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-normal min-w-[180px]">
-                      {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
-                    </td>
                     <td className="py-2.5 px-3 font-mono font-medium text-blue-600">
                       {m.rim_no || m.file_number || '-'}
-                    </td>
-                    <td
-                      className="py-2.5 px-3 text-gray-600 whitespace-normal min-w-[220px] max-w-xs"
-                      title={m.property_description || m.title_deed_no}
-                    >
-                      {m.property_description || m.title_deed_no || '-'}
                     </td>
                     <td className="py-2.5 px-3 font-mono font-semibold text-right text-gray-900">
                       {formatUGX(m.loan_amount)}
@@ -450,6 +660,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                       {formatUGX(m.grand_total)}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-gray-600">
+                      {formatDate(m.date_of_receipt)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-gray-600">
                       {formatDate(m.date_of_payment)}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-gray-600">
@@ -478,7 +691,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                         {m.status || 'Active / Processing'}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                    <td
+                      className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="inline-flex items-center gap-1.5">
                         <button
                           type="button"

@@ -161,6 +161,16 @@ const parseExcelDate = (val: any): string | null => {
   return null;
 };
 
+const normalizeHeader = (h: any): string =>
+  h === null || h === undefined
+    ? ''
+    : String(h)
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/[.:]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
 const extractRecordsFromWorkbook = (
   workbook: XLSX.WorkBook,
   options: {
@@ -182,31 +192,48 @@ const extractRecordsFromWorkbook = (
     const jsonSheet: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
     if (!jsonSheet || jsonSheet.length < 2) return;
 
-    // Detect header row among first 5 rows
+    // Detect header row among first 20 rows
     let headerRowIndex = jsonSheet.length > 2 ? 1 : 0;
-    const nameKeys = ['name', 'client name', 'client_name', 'borrower', 'borrower name', 'mortgagor', 'customer name'];
-    for (let r = 0; r < Math.min(5, jsonSheet.length); r++) {
-      const rowVals = (jsonSheet[r] || []).map((c: any) =>
-        c ? String(c).trim().toLowerCase() : ''
-      );
-      if (rowVals.some((cell) => nameKeys.includes(cell))) {
+    const nameKeys = [
+      'name',
+      'client name',
+      'client_name',
+      'clients name',
+      "client's name",
+      'name of client',
+      'borrower',
+      'borrower name',
+      'borrowers',
+      'mortgagor',
+      'mortgagor name',
+      'customer name',
+      'applicant',
+      'applicant name',
+    ];
+    for (let r = 0; r < Math.min(20, jsonSheet.length); r++) {
+      const rowVals = (jsonSheet[r] || []).map((c: any) => normalizeHeader(c));
+      if (rowVals.some((cell) => nameKeys.includes(cell) || (cell.includes('client') && cell.includes('name')))) {
         headerRowIndex = r;
         break;
       }
     }
 
-    const headers = (jsonSheet[headerRowIndex] || []).map((h: any) =>
-      h ? String(h).trim() : ''
-    );
-    const lowerHeaders = headers.map((h) => h.toLowerCase());
+    const lowerHeaders = (jsonSheet[headerRowIndex] || []).map((h: any) => normalizeHeader(h));
 
     for (let i = headerRowIndex + 1; i < jsonSheet.length; i++) {
       const row = jsonSheet[i];
       if (!row || row.length === 0) continue;
 
-      const getVal = (...candidates: string[]) => {
-        for (const candidate of candidates) {
-          const idx = lowerHeaders.indexOf(candidate.toLowerCase());
+      const getVal = (exactCandidates: string[], partialKeywords: string[] = []) => {
+        for (const candidate of exactCandidates) {
+          const target = normalizeHeader(candidate);
+          const idx = lowerHeaders.indexOf(target);
+          if (idx !== -1 && row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
+            return row[idx];
+          }
+        }
+        for (const kw of partialKeywords) {
+          const idx = lowerHeaders.findIndex((h) => h && h.includes(kw));
           if (idx !== -1 && row[idx] !== undefined && row[idx] !== null && String(row[idx]).trim() !== '') {
             return row[idx];
           }
@@ -214,60 +241,122 @@ const extractRecordsFromWorkbook = (
         return null;
       };
 
-      const rawName = getVal('Name', 'Client Name', 'client_name', 'Borrower', 'Borrower Name', 'Mortgagor', 'Customer Name');
+      const rawName = getVal(
+        [
+          'Name',
+          'Client Name',
+          'client_name',
+          "Client's Name",
+          'Name of Client',
+          'Borrower',
+          'Borrower Name',
+          'Mortgagor',
+          'Mortgagor Name',
+          'Customer Name',
+          'Applicant',
+          'Applicant Name',
+        ],
+        ['mortgagor', 'borrower', 'client name']
+      );
       if (!rawName || String(rawName).trim() === '') continue;
 
       const clientName = String(rawName).trim();
       // Skip summary / total rows
-      if (/^(total|grand total|sub ?total)$/i.test(clientName)) continue;
+      if (/^(total|grand total|sub ?total|totals)$/i.test(clientName)) continue;
 
-      const branchVal = getVal('Branch', 'Bank Branch', 'Branch Station', 'bank_branch');
-      const rimVal = getVal('RIM NO.', 'RIM NO', 'RIM', 'rim_no', 'File No', 'File Number');
-      const descVal = getVal('Description', 'Property Description', 'property_description', 'Title', 'Particulars');
-      const dateReceipt = parseExcelDate(getVal('Date of Receipt', 'date_of_receipt', 'Date Received', 'Receipt Date', 'Date'));
-      const datePayment = parseExcelDate(getVal('Date of Payment', 'date_of_payment', 'Payment Date'));
-      const dateReturn = parseExcelDate(getVal('Date of Return', 'date_of_return', 'Return Date'));
+      const branchVal = getVal(
+        ['Branch', 'Bank Branch', 'Branch Name', 'Branch Station', 'Client Branch', 'Branch Location', 'bank_branch', 'client_branch_location'],
+        ['branch']
+      );
+      const rimVal = getVal(
+        ['RIM NO', 'RIM NO.', 'RIM Number', 'RIM #', 'RIM', 'rim_no', 'File No', 'File Number', 'CIF'],
+        ['rim']
+      );
+      const descVal = getVal(
+        [
+          'Property Description',
+          'property_description',
+          'Description',
+          'Description of Property',
+          'Property / Description',
+          'Security Description',
+          'Description of Security',
+          'Title Description',
+          'Title Particulars',
+          'Particulars of Property',
+          'Land Description',
+          'Collateral',
+          'Property',
+          'Title',
+          'Particulars',
+        ],
+        ['property', 'description', 'security', 'collateral', 'particular']
+      );
+      const dateReceipt = parseExcelDate(
+        getVal(['Date of Receipt', 'date_of_receipt', 'Date Received', 'Receipt Date', 'Date'], ['receipt'])
+      );
+      const datePayment = parseExcelDate(
+        getVal(['Date of Payment', 'date_of_payment', 'Payment Date', 'Date Paid'], ['payment'])
+      );
+      const dateReturn = parseExcelDate(
+        getVal(['Date of Return', 'date_of_return', 'Return Date', 'Date Returned'], ['return'])
+      );
 
-      const loanAmount = cleanFloat(getVal('Loan amount', 'Loan Amount', 'loan_amount', 'Facility Amount', 'Principal'));
-      const stampDuty = cleanFloat(getVal('Stamp Duty', 'stamp_duty'));
-      const extraCopies = cleanFloat(getVal('Extra Copies', 'extra_copies'));
-      const registration = cleanFloat(getVal('Registration', 'registration', 'Registration Fee'));
-      const other = cleanFloat(getVal('Other', 'other', 'Other Disbursements'));
-      const bankCharges = cleanFloat(getVal('Bank charges', 'Bank Charges', 'bank_charges'));
-      const transport = cleanFloat(getVal('Transport', 'transport', 'Logistics'));
-      const linkageFees = cleanFloat(getVal('Linkage Fees', 'linkage_fees', 'Linkage'));
+      const loanAmount = cleanFloat(
+        getVal(['Loan amount', 'Loan Amount', 'loan_amount', 'Facility Amount', 'Principal', 'Amount'], ['loan'])
+      );
+      const stampDuty = cleanFloat(getVal(['Stamp Duty', 'stamp_duty'], ['stamp']));
+      const extraCopies = cleanFloat(getVal(['Extra Copies', 'extra_copies'], ['extra cop']));
+      const registration = cleanFloat(
+        getVal(['Registration', 'registration', 'Registration Fee', 'Registration Fees', 'Reg Fee', 'registration_fee'], ['registrat'])
+      );
+      const other = cleanFloat(
+        getVal(['Other', 'other', 'Other Fees', 'Other Disbursements', 'other_fees', 'other_disbursements', 'Sundry'], ['other'])
+      );
+      const bankCharges = cleanFloat(getVal(['Bank charges', 'Bank Charges', 'Bank Charge', 'bank_charges'], ['bank charge']));
+      const transport = cleanFloat(getVal(['Transport', 'transport', 'Logistics'], ['transport']));
+      const linkageFees = cleanFloat(getVal(['Linkage Fees', 'Linkage', 'linkage_fees'], ['linkage']));
 
-      const rawTotalDisb = getVal('Total Disbursements', 'total_disbursements', 'Disbursements');
+      const rawTotalDisb = getVal(['Total Disbursements', 'total_disbursements', 'Total Disb', 'Disbursements'], ['disbursement']);
       const computedDisb = stampDuty + extraCopies + registration + other + bankCharges + transport + linkageFees;
       const totalDisbursements = rawTotalDisb !== null ? cleanFloat(rawTotalDisb) : computedDisb;
 
-      const legalFees = cleanFloat(getVal('Legal Fees', 'legal_fees', 'Fees'));
-      const rawVat = getVal('VAT 18%', 'VAT (18%)', 'VAT', 'vat_18');
+      const legalFees = cleanFloat(getVal(['Legal Fees', 'Legal Fee', 'legal_fees', 'Fees'], ['legal fee']));
+      const rawVat = getVal(['VAT 18%', 'VAT (18%)', '18% VAT', 'VAT@18%', 'VAT', 'vat_18'], ['vat']);
       const vat18 = rawVat !== null ? cleanFloat(rawVat) : (legalFees > 0 ? Math.round(legalFees * 0.18) : 0);
 
-      const rawGrandTotal = getVal('Grand Total', 'grand_total', 'Total');
+      const rawGrandTotal = getVal(['Grand Total', 'grand_total', 'Total Bill', 'Total'], ['grand total']);
       const computedGrand = totalDisbursements + legalFees + vat18;
       const grandTotal = rawGrandTotal !== null ? cleanFloat(rawGrandTotal) : (computedGrand > 0 ? computedGrand : 0);
 
-      const commentsVal = getVal('Comments', 'Comment', 'comments', 'Remarks', 'Notes');
+      const commentsVal = getVal(['Comments', 'Comment', 'comments', 'Remarks', 'Notes'], ['comment', 'remark', 'note']);
+
+      const branchStr = branchVal ? String(branchVal).trim() : '';
+      const descStr = descVal ? String(descVal).trim() : '';
 
       allRecords.push({
         bank_name: options.bankName,
+        client_bank_name: options.bankName,
         record_year: options.recordYear,
         month_sheet: options.monthSheet,
         source_sheet: sheetName,
-        date_of_receipt: dateReceipt || new Date().toISOString().slice(0, 10),
-        branch: branchVal ? String(branchVal).trim() : '',
+        date_of_receipt: dateReceipt || null,
+        branch: branchStr,
+        client_branch_location: branchStr,
         client_name: clientName,
+        mortgagor_name: clientName,
         name: clientName,
         rim_no: rimVal ? String(rimVal).trim() : '',
-        property_description: descVal ? String(descVal).trim() : '',
-        description: descVal ? String(descVal).trim() : '',
+        property_description: descStr,
+        description: descStr,
         loan_amount: loanAmount,
         stamp_duty: stampDuty,
         extra_copies: extraCopies,
         registration,
+        registration_fee: registration,
         other,
+        other_fees: other,
+        other_disbursements: other,
         bank_charges: bankCharges,
         transport,
         linkage_fees: linkageFees,
@@ -408,8 +497,21 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     mortgagor_name: row.mortgagor_name || resolvedClient,
     file_number: row.file_number || row.rim_no || '',
     rim_no: row.rim_no || row.file_number || '',
-    property_description: row.property_description || row.description || row.title_deed_no || '',
-    description: row.description || row.property_description || '',
+    property_description:
+      row.property_description ||
+      row.description ||
+      row.property ||
+      row.security_description ||
+      row.particulars ||
+      row.title_deed_no ||
+      '',
+    description:
+      row.description ||
+      row.property_description ||
+      row.property ||
+      row.security_description ||
+      row.particulars ||
+      '',
     loan_amount: Number(row.loan_amount || 0),
     stamp_duty: stampDuty,
     extra_copies: extraCopies,
