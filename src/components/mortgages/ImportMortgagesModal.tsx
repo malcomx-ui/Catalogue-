@@ -15,7 +15,7 @@ export interface ImportMortgagesModalProps {
   defaultMonth?: string;
   defaultYear?: number;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (meta?: { count?: number; cloudSaved?: boolean; cloudError?: string }) => void;
 }
 
 export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
@@ -152,12 +152,18 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
 
     if (result.success) {
       setSuccessMsg(
-        `Successfully imported ${result.count} mortgage records to ${selectedBank} for ${selectedMonth} ${recordYear}.`
+        result.cloudSaved
+          ? `Successfully imported ${result.count} mortgage records to ${selectedBank} for ${selectedMonth} ${recordYear}.`
+          : `Imported ${result.count} mortgage records to workstation register for ${selectedBank} (${selectedMonth} ${recordYear}).`
       );
       setTimeout(() => {
-        onSuccess();
+        onSuccess({
+          count: result.count,
+          cloudSaved: result.cloudSaved,
+          cloudError: result.cloudError,
+        });
         onClose();
-      }, 900);
+      }, 850);
     } else {
       setErrorMsg(result.error || 'Import failed. Please check the Excel format and try again.');
     }

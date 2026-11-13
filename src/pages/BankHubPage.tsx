@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet } from 'lucide-react';
-import { MortgageService, BankSummary, MONTHS } from '../services/mortgageService';
+import { FileSpreadsheet, AlertTriangle, Copy, Check, X } from 'lucide-react';
+import { MortgageService, BankSummary, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
 
 export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }> = ({ onSelectBank }) => {
@@ -14,6 +14,8 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => MONTHS[new Date().getMonth()]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
     fetchPortfolios();
@@ -83,6 +85,51 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
         </div>
       </div>
 
+      {cloudRlsNotice && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 text-xs text-amber-950 shadow-xs space-y-2.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900">
+                  Imported to Workstation Register · Supabase Cloud RLS Policy Blocked Direct Cloud Write
+                </p>
+                <p className="text-amber-800 mt-0.5">
+                  Records are saved locally and counted below, but Supabase returned:{' '}
+                  <span className="font-mono font-semibold">{cloudRlsNotice}</span>. Run the SQL fix once in your Supabase SQL Editor to enable cloud sync.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(MORTGAGE_RLS_FIX_SQL);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                  } catch {
+                    // ignore
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition"
+              >
+                {copiedSql ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSql ? 'Copied SQL!' : 'Copy Supabase RLS Fix SQL'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCloudRlsNotice(null)}
+                className="p-1 text-amber-700 hover:text-amber-950 rounded-lg hover:bg-amber-100 transition"
+                aria-label="Dismiss notice"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-12 text-gray-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
       ) : (
@@ -124,7 +171,14 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
           defaultMonth={selectedMonth}
           defaultYear={selectedYear}
           onClose={() => setIsImportModalOpen(false)}
-          onSuccess={() => fetchPortfolios()}
+          onSuccess={(meta) => {
+            if (meta && meta.cloudSaved === false && meta.cloudError) {
+              setCloudRlsNotice(meta.cloudError);
+            } else if (meta?.cloudSaved) {
+              setCloudRlsNotice(null);
+            }
+            fetchPortfolios();
+          }}
         />
       )}
     </div>

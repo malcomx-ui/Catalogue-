@@ -19,7 +19,10 @@ export interface AddMortgageModalProps {
   defaultMonth?: string;
   currentUser?: any;
   onClose: () => void;
-  onSuccess: (savedRecord?: any) => void;
+  onSuccess: (
+    savedRecord?: any,
+    meta?: { cloudSaved?: boolean; cloudError?: string }
+  ) => void;
 }
 
 const MONTHS = [
@@ -195,8 +198,15 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         return;
       }
 
-      setSuccessMessage('Mortgage tracker record saved successfully!');
-      onSuccess(res.data || payload);
+      setSuccessMessage(
+        res.cloudSaved
+          ? 'Mortgage tracker record saved to Supabase & workstation register!'
+          : 'Mortgage record saved to workstation register (Supabase cloud RLS notice shown).'
+      );
+      onSuccess(res.data || payload, {
+        cloudSaved: res.cloudSaved,
+        cloudError: res.cloudError,
+      });
       setTimeout(() => {
         onClose();
       }, 450);

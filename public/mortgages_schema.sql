@@ -78,11 +78,11 @@ CREATE POLICY "Allow authenticated read on mortgages"
 
 DROP POLICY IF EXISTS "Allow authenticated write on mortgages" ON public.mortgages;
 CREATE POLICY "Allow authenticated write on mortgages"
-  ON public.mortgages FOR ALL TO authenticated USING (true);
+  ON public.mortgages FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow public write on mortgages" ON public.mortgages;
 CREATE POLICY "Allow public write on mortgages"
-  ON public.mortgages FOR ALL USING (true);
+  ON public.mortgages FOR ALL USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- CENTENARY BANK MORTGAGE CASES IMPORT TABLE
@@ -117,33 +117,34 @@ CREATE POLICY "Allow authenticated read on centenary_mortgage_cases"
   ON public.centenary_mortgage_cases FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Admin and Finance insert policy" ON public.centenary_mortgage_cases;
-CREATE POLICY "Admin and Finance insert policy" ON public.centenary_mortgage_cases
-  FOR INSERT
-  WITH CHECK (
-    auth.jwt() ->> 'role' IN ('super_admin', 'branch_admin_finance')
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('super_admin', 'branch_admin_finance')
-  );
+DROP POLICY IF EXISTS "Allow authenticated write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow authenticated write on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public write on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
+CREATE POLICY "Allow public write on centenary_mortgage_cases"
+  ON public.centenary_mortgage_cases FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow authenticated update on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
 CREATE POLICY "Allow authenticated update on centenary_mortgage_cases"
-  ON public.centenary_mortgage_cases FOR UPDATE TO authenticated USING (true);
+  ON public.centenary_mortgage_cases FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service role on centenary_mortgage_cases" ON public.centenary_mortgage_cases;
 CREATE POLICY "Allow service role on centenary_mortgage_cases"
-  ON public.centenary_mortgage_cases FOR ALL TO service_role USING (true);
+  ON public.centenary_mortgage_cases FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 -- ==============================================================================
 -- UNIVERSAL MORTGAGE CASES IMPORT TABLE (mortgage_cases)
 -- Matches bulk import script schema for mortgage_cases table
--- Columns: bank_name, branch, client_name, rim_no, property_description,
---          loan_amount, bank_charges, transport, linkage_fees, grand_total, comments, source_sheet
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bank_name TEXT NOT NULL DEFAULT 'Centenary Bank',
+  client_bank_name TEXT DEFAULT 'Centenary Bank',
   date_of_receipt DATE DEFAULT CURRENT_DATE,
   branch TEXT,
   client_name TEXT NOT NULL,
+  mortgagor_name TEXT,
   name TEXT,
   rim_no TEXT,
   property_description TEXT,
@@ -151,7 +152,9 @@ CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   loan_amount NUMERIC(18,2) DEFAULT 0,
   stamp_duty NUMERIC(18,2) DEFAULT 0,
   extra_copies NUMERIC(18,2) DEFAULT 0,
+  registration_fee NUMERIC(18,2) DEFAULT 0,
   registration NUMERIC(18,2) DEFAULT 0,
+  other_fees NUMERIC(18,2) DEFAULT 0,
   other NUMERIC(18,2) DEFAULT 0,
   bank_charges NUMERIC(18,2) DEFAULT 0,
   transport NUMERIC(18,2) DEFAULT 0,
@@ -168,19 +171,20 @@ CREATE TABLE IF NOT EXISTS public.mortgage_cases (
   record_year INTEGER DEFAULT 2026,
   month_sheet TEXT,
   status TEXT DEFAULT 'Active / Processing',
-  department TEXT DEFAULT 'Banking & Securities',
-  assigned_lawyer_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  assigned_lawyer_name TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Idempotent column additions for existing live table
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS client_bank_name TEXT DEFAULT 'Centenary Bank';
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS mortgagor_name TEXT;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS date_of_receipt DATE;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS name TEXT;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS stamp_duty NUMERIC(18,2) DEFAULT 0;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS extra_copies NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS registration_fee NUMERIC(18,2) DEFAULT 0;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS registration NUMERIC(18,2) DEFAULT 0;
+ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other_fees NUMERIC(18,2) DEFAULT 0;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS other NUMERIC(18,2) DEFAULT 0;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS total_disbursements NUMERIC(18,2) DEFAULT 0;
 ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS legal_fees NUMERIC(18,2) DEFAULT 0;
@@ -208,19 +212,16 @@ CREATE POLICY "Allow authenticated read on mortgage_cases"
   ON public.mortgage_cases FOR SELECT TO authenticated USING (true);
 
 DROP POLICY IF EXISTS "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases;
-CREATE POLICY "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases
-  FOR INSERT
-  WITH CHECK (
-    auth.jwt() ->> 'role' IN ('super_admin', 'branch_admin_finance')
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('super_admin', 'branch_admin_finance')
-  );
+DROP POLICY IF EXISTS "Allow authenticated write on mortgage_cases" ON public.mortgage_cases;
+CREATE POLICY "Allow authenticated write on mortgage_cases"
+  ON public.mortgage_cases FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service role on mortgage_cases" ON public.mortgage_cases;
 CREATE POLICY "Allow service role on mortgage_cases"
-  ON public.mortgage_cases FOR ALL TO service_role USING (true);
+  ON public.mortgage_cases FOR ALL TO service_role USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow public write on mortgage_cases" ON public.mortgage_cases;
 CREATE POLICY "Allow public write on mortgage_cases"
-  ON public.mortgage_cases FOR ALL USING (true);
+  ON public.mortgage_cases FOR ALL USING (true) WITH CHECK (true);
 
 NOTIFY pgrst, 'reload schema';

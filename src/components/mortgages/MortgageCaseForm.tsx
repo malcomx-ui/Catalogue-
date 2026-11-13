@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { MortgageService } from '../../services/mortgageService';
+import { MortgageService, MORTGAGE_RLS_FIX_SQL } from '../../services/mortgageService';
 
 export interface MortgageCaseFormProps {
   onSuccess?: () => void;
@@ -39,7 +39,12 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
   });
 
   const [loading, setLoading] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [feedback, setFeedback] = useState<{
+    type: 'error' | 'success';
+    text: string;
+    cloudError?: string;
+  } | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -99,7 +104,13 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       if (!res.success) {
         setFeedback({ type: 'error', text: 'Error saving record: ' + (res.error || 'Unknown error') });
       } else {
-        setFeedback({ type: 'success', text: '✅ Mortgage case saved successfully!' });
+        setFeedback({
+          type: 'success',
+          text: res.cloudSaved
+            ? '✅ Mortgage case saved successfully!'
+            : '✅ Mortgage case saved to workstation register (Supabase cloud RLS policy needs update for cloud sync).',
+          cloudError: res.cloudError,
+        });
 
         setFormData((prev) => ({
           ...prev,
@@ -154,8 +165,36 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       </div>
 
       {feedback && (
-        <div className={`p-4 mb-6 rounded-lg text-sm font-medium ${feedback.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-          {feedback.text}
+        <div
+          className={`p-4 mb-6 rounded-lg text-sm font-medium space-y-2 ${
+            feedback.type === 'error'
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}
+        >
+          <div>{feedback.text}</div>
+          {feedback.cloudError && (
+            <div className="pt-2 border-t border-green-200 text-xs text-amber-900 bg-amber-50 p-3 rounded border border-amber-200 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span>Supabase notice: {feedback.cloudError}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(MORTGAGE_RLS_FIX_SQL);
+                      setCopiedSql(true);
+                      setTimeout(() => setCopiedSql(false), 2500);
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold shrink-0"
+                >
+                  {copiedSql ? 'Copied SQL!' : 'Copy RLS Fix SQL'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
