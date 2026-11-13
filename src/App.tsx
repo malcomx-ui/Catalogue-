@@ -132,7 +132,7 @@ const MainLayout: React.FC = () => {
           {activeTab === 'causelist' && <CauseListDiary />}
           {activeTab === 'debt_recovery' && <DebtRecoveryPlaceholder />}
           {activeTab === 'mortgages' && (
-            <div className="w-full h-full min-h-[500px]">
+            <div className="w-full min-w-0 h-full min-h-[500px]">
               <MortgagesModule />
             </div>
           )}

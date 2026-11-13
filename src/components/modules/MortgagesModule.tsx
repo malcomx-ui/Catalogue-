@@ -8,7 +8,7 @@ export const MortgagesModule: React.FC = () => {
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
   return (
-    <div className="w-full h-full min-h-[500px] flex flex-col">
+    <div className="w-full min-w-0 h-full min-h-[500px] flex flex-col">
       {!selectedBank ? (
         <BankHubPage
           onSelectBank={(bankName) => {

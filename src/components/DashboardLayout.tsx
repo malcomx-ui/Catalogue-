@@ -46,7 +46,7 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
       </aside>
 
       {/* Main Content Viewport */}
-      <main className="flex-1 overflow-y-auto w-full h-full min-h-[500px] flex flex-col">
+      <main className="flex-1 min-w-0 overflow-y-auto w-full h-full min-h-[500px] flex flex-col">
         {/* VIEW A: General Dashboard */}
         {activeNav === 'dashboard' && (
           children ? (
@@ -61,7 +61,7 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
 
         {/* VIEW B: Mortgages Module */}
         {activeNav === 'mortgages' && (
-          <div className="w-full h-full min-h-[500px] flex flex-col flex-1">
+          <div className="w-full min-w-0 h-full min-h-[500px] flex flex-col flex-1">
             {!selectedBank ? (
               <BankHubPage 
                 onSelectBank={(bankName) => {

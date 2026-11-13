@@ -75,11 +75,11 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   );
 
   return (
-    <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3 ${className}`}>
+    <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3 w-full min-w-0 ${className}`}>
       {/* Top Controls Row */}
-      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+      <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between min-w-0">
         {/* Search input with live clear */}
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative w-full flex-1 min-w-0">
           <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
             🔍
           </span>

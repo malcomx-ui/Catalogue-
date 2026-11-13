@@ -185,21 +185,21 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   }, [filteredMortgages]);
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto space-y-5 w-full h-full min-h-[500px]">
+    <div className="p-3 sm:p-5 lg:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-5 w-full min-w-0 h-full min-h-[500px]">
       {/* Header with Back Button & Record Action */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-xs">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs w-full min-w-0">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
           <button
             onClick={onBack}
-            className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5 transition"
+            className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5 transition shrink-0"
           >
             <span>←</span>
             <span>Back to Portfolios</span>
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900">{bankName}</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{bankName}</h1>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold whitespace-nowrap">
                 {mortgages.length} Files Loaded
               </span>
             </div>
@@ -209,10 +209,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-right border-r border-gray-200 pr-4">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto lg:justify-end">
+          <div className="text-left sm:text-right sm:border-r sm:border-gray-200 sm:pr-4 mr-auto lg:mr-0">
             <span className="text-xs text-gray-500 block">Total Portfolio Value</span>
-            <span className="text-sm font-bold text-blue-700 font-mono">
+            <span className="text-sm font-bold text-blue-700 font-mono whitespace-nowrap">
               {totalValue > 0 ? `UGX ${(totalValue / 1e9).toFixed(2)}B` : 'UGX 0'}
             </span>
           </div>
@@ -220,7 +220,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           <button
             type="button"
             onClick={() => setIsImportModalOpen(true)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Import Excel</span>
@@ -229,7 +229,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
           >
             <span>+</span>
             <span>Add Mortgage File</span>
@@ -296,34 +296,34 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
       {/* Filtered Summary Strip */}
       {!loading && mortgages.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
-            <span className="text-base font-bold text-gray-900 font-mono">
+            <span className="text-base font-bold text-gray-900 font-mono truncate block">
               {filteredMortgages.length} <span className="text-xs font-normal text-gray-400">/ {mortgages.length}</span>
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Loan Facilities</span>
-            <span className="text-sm font-bold text-slate-900 font-mono">
+            <span className="text-sm font-bold text-slate-900 font-mono truncate block">
               UGX {filteredTotals.loan.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Total Disbursements</span>
-            <span className="text-sm font-bold text-amber-700 font-mono">
+            <span className="text-sm font-bold text-amber-700 font-mono truncate block">
               UGX {filteredTotals.disbursements.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Legal Fees + 18% VAT</span>
-            <span className="text-sm font-bold text-indigo-700 font-mono">
+            <span className="text-sm font-bold text-indigo-700 font-mono truncate block">
               UGX {(filteredTotals.legalFees + filteredTotals.vat).toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0 sm:col-span-2 md:col-span-1">
             <span className="text-[11px] font-semibold text-gray-500 block">Grand Total Billed</span>
-            <span className="text-sm font-bold text-blue-700 font-mono">
+            <span className="text-sm font-bold text-blue-700 font-mono truncate block">
               UGX {filteredTotals.grandTotal.toLocaleString()}
             </span>
           </div>
@@ -331,7 +331,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
       )}
 
       {/* Full Register Container (Table + All-Fields Cards View) */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden w-full min-w-0">
         {!loading && filteredMortgages.length > 0 && (
           <div className="px-4 py-2.5 bg-slate-50/80 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -560,34 +560,37 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             ))}
           </div>
         ) : (
-          <div ref={tableScrollRef} className="overflow-x-auto">
-            <table className="w-full text-left text-[11px] border-collapse">
+          <div
+            ref={tableScrollRef}
+            className="w-full max-w-full overflow-x-auto overscroll-x-contain scroll-smooth"
+          >
+            <table className="w-full min-w-max text-left text-[11px] border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-gray-200 whitespace-nowrap">
-                  <th className="py-3 px-3 font-bold">#</th>
-                  <th className="py-3 px-3 font-bold">Period (Month / Year)</th>
-                  <th className="py-3 px-3 font-bold min-w-[160px]">Client Name</th>
-                  <th className="py-3 px-3 font-bold min-w-[230px]">Property Description</th>
-                  <th className="py-3 px-3 font-bold">Branch</th>
-                  <th className="py-3 px-3 font-bold">RIM NO.</th>
-                  <th className="py-3 px-3 font-bold text-right">Loan Amount</th>
-                  <th className="py-3 px-3 font-bold text-right">Stamp Duty</th>
-                  <th className="py-3 px-3 font-bold text-right">Extra Copies</th>
-                  <th className="py-3 px-3 font-bold text-right">Registration</th>
-                  <th className="py-3 px-3 font-bold text-right">Other</th>
-                  <th className="py-3 px-3 font-bold text-right">Bank Charges</th>
-                  <th className="py-3 px-3 font-bold text-right">Transport</th>
-                  <th className="py-3 px-3 font-bold text-right">Linkage Fees</th>
-                  <th className="py-3 px-3 font-bold text-right">Total Disb.</th>
-                  <th className="py-3 px-3 font-bold text-right">Legal Fees</th>
-                  <th className="py-3 px-3 font-bold text-right">VAT 18%</th>
-                  <th className="py-3 px-3 font-bold text-right">Grand Total</th>
-                  <th className="py-3 px-3 font-bold">Date of Receipt</th>
-                  <th className="py-3 px-3 font-bold">Date of Payment</th>
-                  <th className="py-3 px-3 font-bold">Date of Return</th>
-                  <th className="py-3 px-3 font-bold min-w-[160px]">Comments</th>
-                  <th className="py-3 px-3 font-bold">Status</th>
-                  <th className="py-3 px-3 font-bold text-right sticky right-0 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">#</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Period (Month / Year)</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Client Name</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Property Description</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Branch</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">RIM NO.</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Loan Amount</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Stamp Duty</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Extra Copies</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Registration</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Other</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Bank Charges</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Transport</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Linkage Fees</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Total Disb.</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Legal Fees</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">VAT 18%</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Grand Total</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Receipt</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Payment</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Return</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Comments</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Status</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right sticky right-0 z-10 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
                     Actions
                   </th>
                 </tr>
@@ -599,84 +602,84 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     onClick={() => setSelectedRecordForView(m)}
                     className="hover:bg-blue-50/40 transition whitespace-nowrap group cursor-pointer"
                   >
-                    <td className="py-2.5 px-3 font-mono text-gray-400">{idx + 1}</td>
-                    <td className="py-2.5 px-3">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-400">{idx + 1}</td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 whitespace-nowrap">
                         {m.month_sheet || m.source_sheet || '-'}
                         {m.record_year ? ` ${m.record_year}` : ''}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-normal min-w-[160px] max-w-[210px]">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-semibold text-gray-900">
                       {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
                     </td>
                     <td
-                      className="py-2.5 px-3 text-gray-700 whitespace-normal min-w-[230px] max-w-[320px] leading-snug"
+                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-700"
                       title={m.property_description || m.description || m.title_deed_no}
                     >
                       {m.property_description || m.description || m.title_deed_no || (
                         <span className="text-gray-400 italic">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3 text-gray-700 font-medium">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 font-medium">
                       {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
                     </td>
-                    <td className="py-2.5 px-3 font-mono font-medium text-blue-600">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-medium text-blue-600">
                       {m.rim_no || m.file_number || '-'}
                     </td>
-                    <td className="py-2.5 px-3 font-mono font-semibold text-right text-gray-900">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-semibold text-right text-gray-900">
                       {formatUGX(m.loan_amount)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.stamp_duty)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.extra_copies)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.registration_fee ?? m.registration)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.bank_charges)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.transport)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.linkage_fees)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right font-semibold text-amber-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-semibold text-amber-700">
                       {formatUGX(m.total_disbursements)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right font-medium text-indigo-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-medium text-indigo-700">
                       {formatUGX(m.legal_fees)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right text-slate-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-slate-700">
                       {formatUGX(m.vat_18 ?? m.vat)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-right font-bold text-blue-700">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-bold text-blue-700">
                       {formatUGX(m.grand_total)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
                       {formatDate(m.date_of_receipt)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
                       {formatDate(m.date_of_payment)}
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
                       {formatDate(m.date_of_return)}
                     </td>
                     <td
-                      className="py-2.5 px-3 text-gray-600 whitespace-normal min-w-[160px] max-w-xs"
+                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-600"
                       title={m.comments}
                     >
                       {m.comments || '-'}
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3.5 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border whitespace-nowrap ${
                           (m.status || '').includes('Active') || (m.status || '').includes('Processing')
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
                             : (m.status || '').includes('Completed') ||
@@ -692,7 +695,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                       </span>
                     </td>
                     <td
-                      className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]"
+                      className="py-2.5 px-3.5 whitespace-nowrap text-right sticky right-0 z-10 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="inline-flex items-center gap-1.5">
