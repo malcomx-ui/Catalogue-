@@ -35,6 +35,10 @@ const DEPARTMENTS = [
 ];
 
 const STATUSES = [
+  'Active / Processing',
+  'Completed / Cleared',
+  'Pending Valuation',
+  'On Hold',
   'Under Preparation',
   'Sent for Registration',
   'Registered',

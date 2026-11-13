@@ -37,19 +37,43 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'details' | 'transfer' | 'fees'>('details');
 
+  const normalizeMonthValue = (raw?: string) => {
+    if (!raw) return MONTHS[new Date().getMonth()];
+    const clean = String(raw).trim().toLowerCase();
+    const matched = MONTHS.find((m) => m.toLowerCase() === clean || m.toLowerCase().startsWith(clean.slice(0, 3)));
+    return matched || MONTHS[new Date().getMonth()];
+  };
+
   // Reporting Period (Year & Month Sheet)
-  const [recordYear, setRecordYear] = useState<number>(record?.record_year || new Date().getFullYear());
-  const [monthSheet, setMonthSheet] = useState<string>(record?.month_sheet || MONTHS[new Date().getMonth()]);
+  const [recordYear, setRecordYear] = useState<number>(
+    record?.record_year ? Number(record.record_year) : new Date().getFullYear()
+  );
+  const [monthSheet, setMonthSheet] = useState<string>(() => normalizeMonthValue(record?.month_sheet));
 
   // Basic particulars
-  const [mortgagorName, setMortgagorName] = useState(record?.mortgagor_name || record?.borrower_name || '');
+  const [mortgagorName, setMortgagorName] = useState(
+    record?.client_name || record?.mortgagor_name || record?.borrower_name || ''
+  );
   const [rimNo, setRimNo] = useState(record?.rim_no || record?.file_number || '');
-  const [bankBranch, setBankBranch] = useState(record?.bank_branch || record?.branch_name || '');
-  const [propertyDescription, setPropertyDescription] = useState(record?.property_description || record?.title_deed_no || '');
+  const [bankBranch, setBankBranch] = useState(
+    record?.branch || record?.client_branch_location || record?.bank_branch || record?.branch_name || ''
+  );
+  const [propertyDescription, setPropertyDescription] = useState(
+    record?.property_description || record?.description || record?.title_deed_no || ''
+  );
   const [loanAmount, setLoanAmount] = useState<number | ''>(record?.loan_amount ?? '');
-  const [status, setStatus] = useState<string>(record?.status || 'Under Preparation');
+  const [status, setStatus] = useState<string>(record?.status || 'Active / Processing');
 
   // Dates
+  const [dateOfReceipt, setDateOfReceipt] = useState<string>(
+    record?.date_of_receipt ? String(record.date_of_receipt).slice(0, 10) : ''
+  );
+  const [dateOfPayment, setDateOfPayment] = useState<string>(
+    record?.date_of_payment ? String(record.date_of_payment).slice(0, 10) : ''
+  );
+  const [dateOfReturn, setDateOfReturn] = useState<string>(
+    record?.date_of_return ? String(record.date_of_return).slice(0, 10) : ''
+  );
   const [dateInstructed, setDateInstructed] = useState<string>(record?.date_instructed || '');
   const [dateSentRegistration, setDateSentRegistration] = useState<string>(record?.date_sent_registration || '');
   const [dateRegistered, setDateRegistered] = useState<string>(record?.date_registered || '');
@@ -68,11 +92,19 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   const [legalFees, setLegalFees] = useState<number | ''>(record?.legal_fees ?? '');
   const [searchFee, setSearchFee] = useState<number | ''>(record?.search_fee ?? '');
   const [stampDuty, setStampDuty] = useState<number | ''>(record?.stamp_duty ?? '');
-  const [registrationFee, setRegistrationFee] = useState<number | ''>(record?.registration_fee ?? '');
+  const [extraCopies, setExtraCopies] = useState<number | ''>(record?.extra_copies ?? '');
+  const [registrationFee, setRegistrationFee] = useState<number | ''>(
+    record?.registration_fee ?? record?.registration ?? ''
+  );
+  const [bankCharges, setBankCharges] = useState<number | ''>(record?.bank_charges ?? '');
+  const [transport, setTransport] = useState<number | ''>(record?.transport ?? '');
+  const [linkageFees, setLinkageFees] = useState<number | ''>(record?.linkage_fees ?? '');
   const [filingFee, setFilingFee] = useState<number | ''>(record?.filing_fee ?? '');
   const [valuationFee, setValuationFee] = useState<number | ''>(record?.valuation_fee ?? '');
   const [courierFee, setCourierFee] = useState<number | ''>(record?.courier_fee ?? '');
-  const [otherDisbursements, setOtherDisbursements] = useState<number | ''>(record?.other_disbursements ?? '');
+  const [otherDisbursements, setOtherDisbursements] = useState<number | ''>(
+    record?.other_fees ?? record?.other_disbursements ?? record?.other ?? ''
+  );
 
   const [comments, setComments] = useState<string>(record?.comments || record?.notes || '');
   const [loading, setLoading] = useState(false);
@@ -102,13 +134,29 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     return (
       (Number(searchFee) || 0) +
       (Number(stampDuty) || 0) +
+      (Number(extraCopies) || 0) +
       (Number(registrationFee) || 0) +
+      (Number(bankCharges) || 0) +
+      (Number(transport) || 0) +
+      (Number(linkageFees) || 0) +
       (Number(filingFee) || 0) +
       (Number(valuationFee) || 0) +
       (Number(courierFee) || 0) +
       (Number(otherDisbursements) || 0)
     );
-  }, [searchFee, stampDuty, registrationFee, filingFee, valuationFee, courierFee, otherDisbursements]);
+  }, [
+    searchFee,
+    stampDuty,
+    extraCopies,
+    registrationFee,
+    bankCharges,
+    transport,
+    linkageFees,
+    filingFee,
+    valuationFee,
+    courierFee,
+    otherDisbursements,
+  ]);
 
   // 2. AUTO-CALCULATION: VAT 18%
   const vat = useMemo(() => {
@@ -142,10 +190,13 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     const updatePayload: Record<string, any> = {
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
       month_sheet: monthSheet || MONTHS[new Date().getMonth()],
+      client_name: mortgagorName.trim(),
       borrower_name: mortgagorName.trim(),
       mortgagor_name: mortgagorName.trim(),
       rim_no: rimNo.trim(),
       file_number: rimNo.trim() || record.file_number,
+      branch: bankBranch.trim(),
+      client_branch_location: bankBranch.trim(),
       bank_branch: bankBranch.trim(),
       property_description: propertyDescription.trim(),
       title_deed_no: propertyDescription.trim(),
@@ -156,19 +207,28 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
       assigned_lawyer_id: isUUID ? assignedLawyerId : null,
       assigned_lawyer_name: assignedLawyerName.trim(),
       transfer_reason: transferReason.trim(),
+      date_of_receipt: dateOfReceipt || null,
+      date_of_payment: dateOfPayment || null,
+      date_of_return: dateOfReturn || null,
       date_instructed: dateInstructed || null,
       date_sent_registration: dateSentRegistration || null,
       date_registered: dateRegistered || null,
       legal_fees: Number(legalFees) || 0,
       search_fee: Number(searchFee) || 0,
       stamp_duty: Number(stampDuty) || 0,
+      extra_copies: Number(extraCopies) || 0,
       registration_fee: Number(registrationFee) || 0,
+      bank_charges: Number(bankCharges) || 0,
+      transport: Number(transport) || 0,
+      linkage_fees: Number(linkageFees) || 0,
       filing_fee: Number(filingFee) || 0,
       valuation_fee: Number(valuationFee) || 0,
       courier_fee: Number(courierFee) || 0,
+      other_fees: Number(otherDisbursements) || 0,
       other_disbursements: Number(otherDisbursements) || 0,
       total_disbursements: totalDisbursements,
       vat: vat,
+      vat_18: vat,
       grand_total: grandTotal,
       comments: comments.trim(),
       notes: comments.trim(),
@@ -341,6 +401,10 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg p-2 bg-white focus:outline-none focus:border-blue-500 font-medium"
                   >
+                    <option value="Active / Processing">Active / Processing</option>
+                    <option value="Completed / Cleared">Completed / Cleared</option>
+                    <option value="Pending Valuation">Pending Valuation</option>
+                    <option value="On Hold">On Hold</option>
                     <option value="Under Preparation">Under Preparation</option>
                     <option value="Sent for Registration">Sent for Registration</option>
                     <option value="Registered">Registered (Custody Safe)</option>
@@ -357,6 +421,36 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     value={propertyDescription}
                     onChange={(e) => setPropertyDescription(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Date of Receipt</label>
+                  <input
+                    type="date"
+                    value={dateOfReceipt}
+                    onChange={(e) => setDateOfReceipt(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Date of Payment</label>
+                  <input
+                    type="date"
+                    value={dateOfPayment}
+                    onChange={(e) => setDateOfPayment(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Date of Return</label>
+                  <input
+                    type="date"
+                    value={dateOfReturn}
+                    onChange={(e) => setDateOfReturn(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
@@ -496,17 +590,6 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Search Fee</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={searchFee}
-                    onChange={(e) => setSearchFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
-                  />
-                </div>
-
-                <div>
                   <label className="block font-medium text-gray-700 mb-1">Stamp Duty</label>
                   <input
                     type="number"
@@ -518,12 +601,78 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                 </div>
 
                 <div>
+                  <label className="block font-medium text-gray-700 mb-1">Extra Copies</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={extraCopies}
+                    onChange={(e) => setExtraCopies(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
                   <label className="block font-medium text-gray-700 mb-1">Registration Fee</label>
                   <input
                     type="number"
                     min="0"
                     value={registrationFee}
                     onChange={(e) => setRegistrationFee(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Other Fees</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={otherDisbursements}
+                    onChange={(e) => setOtherDisbursements(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Bank Charges</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bankCharges}
+                    onChange={(e) => setBankCharges(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Transport</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={transport}
+                    onChange={(e) => setTransport(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Linkage Fees</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={linkageFees}
+                    onChange={(e) => setLinkageFees(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Search Fee</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={searchFee}
+                    onChange={(e) => setSearchFee(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
                   />
                 </div>
@@ -550,24 +699,13 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block font-medium text-gray-700 mb-1">Courier / Logistics</label>
                   <input
                     type="number"
                     min="0"
                     value={courierFee}
                     onChange={(e) => setCourierFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-medium text-gray-700 mb-1">Other Sundry Disbursements</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={otherDisbursements}
-                    onChange={(e) => setOtherDisbursements(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
                   />
                 </div>

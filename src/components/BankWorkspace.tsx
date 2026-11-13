@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, AlertTriangle, Copy, Check, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileSpreadsheet, AlertTriangle, Copy, Check, X, Eye, Edit3 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { MortgageService, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { AddMortgageModal } from './AddMortgageModal';
@@ -13,12 +13,26 @@ export interface BankWorkspaceProps {
   onBack: () => void;
 }
 
+const formatUGX = (val: any, dashIfZero = true): string => {
+  const num = Number(val || 0);
+  if (dashIfZero && num === 0) return '-';
+  return `UGX ${num.toLocaleString()}`;
+};
+
+const formatDate = (val: any): string => {
+  if (!val) return '-';
+  const str = String(val).trim();
+  if (!str) return '-';
+  return str.slice(0, 10);
+};
+
 export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentUser, onBack }) => {
   const [mortgages, setMortgages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<any | null>(null);
+  const [selectedRecordForView, setSelectedRecordForView] = useState<any | null>(null);
   const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
 
@@ -53,7 +67,6 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         if (!error && data && data.length > 0) {
           setLawyersList(data);
         } else {
-          // Fallback to firm users or default legal counsel
           const { data: userData } = await supabase
             .from('firm_users')
             .select('id, name, email')
@@ -82,61 +95,83 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
     }
   };
 
-  const fetchMortgages = loadBankData;
+  // 3. Filtered mortgages logic against fetched records (covering all bank/branch/client aliases)
+  const filteredMortgages = useMemo(() => {
+    return mortgages.filter((m) => {
+      const searchQ = (filters.search || '').trim().toLowerCase();
+      const matchesSearch =
+        !searchQ ||
+        m.client_name?.toLowerCase().includes(searchQ) ||
+        m.borrower_name?.toLowerCase().includes(searchQ) ||
+        m.mortgagor_name?.toLowerCase().includes(searchQ) ||
+        m.title_deed_no?.toLowerCase().includes(searchQ) ||
+        m.property_description?.toLowerCase().includes(searchQ) ||
+        m.file_number?.toLowerCase().includes(searchQ) ||
+        m.rim_no?.toLowerCase().includes(searchQ) ||
+        m.branch?.toLowerCase().includes(searchQ) ||
+        m.client_branch_location?.toLowerCase().includes(searchQ) ||
+        m.bank_branch?.toLowerCase().includes(searchQ) ||
+        m.month_sheet?.toLowerCase().includes(searchQ) ||
+        m.source_sheet?.toLowerCase().includes(searchQ) ||
+        m.department?.toLowerCase().includes(searchQ) ||
+        m.assigned_lawyer_name?.toLowerCase().includes(searchQ) ||
+        m.comments?.toLowerCase().includes(searchQ);
 
-  // 3. Filtered mortgages logic against fetched records
-  const filteredMortgages = mortgages.filter((m) => {
-    const searchQ = (filters.search || '').trim().toLowerCase();
-    const matchesSearch =
-      !searchQ ||
-      m.borrower_name?.toLowerCase().includes(searchQ) ||
-      m.mortgagor_name?.toLowerCase().includes(searchQ) ||
-      m.title_deed_no?.toLowerCase().includes(searchQ) ||
-      m.property_description?.toLowerCase().includes(searchQ) ||
-      m.file_number?.toLowerCase().includes(searchQ) ||
-      m.rim_no?.toLowerCase().includes(searchQ) ||
-      m.bank_branch?.toLowerCase().includes(searchQ) ||
-      m.department?.toLowerCase().includes(searchQ) ||
-      m.assigned_lawyer_name?.toLowerCase().includes(searchQ) ||
-      m.comments?.toLowerCase().includes(searchQ);
+      const matchesMonth = (() => {
+        if (!filters.month) return true;
+        const targetFull = filters.month.toLowerCase();
+        const targetShort = targetFull.slice(0, 3);
+        const ms = String(m.month_sheet || '').trim().toLowerCase();
+        const ss = String(m.source_sheet || '').trim().toLowerCase();
+        return (
+          ms === targetFull ||
+          ms === targetShort ||
+          ss === targetFull ||
+          ss === targetShort ||
+          ss.includes(targetFull)
+        );
+      })();
 
-    const matchesMonth = (() => {
-      if (!filters.month) return true;
-      const targetFull = filters.month.toLowerCase();
-      const targetShort = targetFull.slice(0, 3);
-      const ms = String(m.month_sheet || '').trim().toLowerCase();
-      const ss = String(m.source_sheet || '').trim().toLowerCase();
-      return (
-        ms === targetFull ||
-        ms === targetShort ||
-        ss === targetFull ||
-        ss === targetShort ||
-        ss.includes(targetFull)
-      );
-    })();
+      const matchesDept =
+        !filters.department ||
+        filters.department === 'ALL' ||
+        m.department === filters.department;
 
-    const matchesDept =
-      !filters.department ||
-      filters.department === 'ALL' ||
-      m.department === filters.department;
+      const matchesStatus =
+        !filters.status ||
+        filters.status === 'ALL' ||
+        (m.status || '').toLowerCase() === filters.status.toLowerCase();
 
-    const matchesStatus =
-      !filters.status ||
-      filters.status === 'ALL' ||
-      m.status === filters.status;
+      const matchesLawyer =
+        !filters.lawyerId ||
+        filters.lawyerId === 'ALL' ||
+        String(m.assigned_lawyer_id || '') === String(filters.lawyerId);
 
-    const matchesLawyer =
-      !filters.lawyerId ||
-      filters.lawyerId === 'ALL' ||
-      String(m.assigned_lawyer_id || '') === String(filters.lawyerId);
+      return matchesSearch && matchesMonth && matchesDept && matchesStatus && matchesLawyer;
+    });
+  }, [mortgages, filters]);
 
-    return matchesSearch && matchesMonth && matchesDept && matchesStatus && matchesLawyer;
-  });
+  const totalValue = useMemo(
+    () => mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0),
+    [mortgages]
+  );
 
-  const totalValue = mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0);
+  const filteredTotals = useMemo(() => {
+    return filteredMortgages.reduce(
+      (acc, m) => {
+        acc.loan += Number(m.loan_amount || 0);
+        acc.disbursements += Number(m.total_disbursements || 0);
+        acc.legalFees += Number(m.legal_fees || 0);
+        acc.vat += Number(m.vat_18 ?? m.vat ?? 0);
+        acc.grandTotal += Number(m.grand_total || 0);
+        return acc;
+      },
+      { loan: 0, disbursements: 0, legalFees: 0, vat: 0, grandTotal: 0 }
+    );
+  }, [filteredMortgages]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 w-full h-full min-h-[500px]">
+    <div className="p-6 max-w-[1600px] mx-auto space-y-5 w-full h-full min-h-[500px]">
       {/* Header with Back Button & Record Action */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-xs">
         <div className="flex items-center space-x-4">
@@ -151,11 +186,11 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-gray-900">{bankName}</h1>
               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold">
-                Lending Partner Workspace
+                {mortgages.length} Files Loaded
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Active Securities &amp; Mortgage Register · Scoped to {currentUser?.branchName || 'All Branch Stations'}
+              Active Securities &amp; 19-Column Mortgage Register · Scoped to {currentUser?.branchName || 'All Branch Stations'}
             </p>
           </div>
         </div>
@@ -245,7 +280,43 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         onOpenAddModal={() => setIsModalOpen(true)}
       />
 
-      {/* Table Content */}
+      {/* Filtered Summary Strip */}
+      {!loading && mortgages.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+            <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
+            <span className="text-base font-bold text-gray-900 font-mono">
+              {filteredMortgages.length} <span className="text-xs font-normal text-gray-400">/ {mortgages.length}</span>
+            </span>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+            <span className="text-[11px] font-semibold text-gray-500 block">Loan Facilities</span>
+            <span className="text-sm font-bold text-slate-900 font-mono">
+              UGX {filteredTotals.loan.toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+            <span className="text-[11px] font-semibold text-gray-500 block">Total Disbursements</span>
+            <span className="text-sm font-bold text-amber-700 font-mono">
+              UGX {filteredTotals.disbursements.toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+            <span className="text-[11px] font-semibold text-gray-500 block">Legal Fees + 18% VAT</span>
+            <span className="text-sm font-bold text-indigo-700 font-mono">
+              UGX {(filteredTotals.legalFees + filteredTotals.vat).toLocaleString()}
+            </span>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs">
+            <span className="text-[11px] font-semibold text-gray-500 block">Grand Total Billed</span>
+            <span className="text-sm font-bold text-blue-700 font-mono">
+              UGX {filteredTotals.grandTotal.toLocaleString()}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Full 19-Column Tracker Table Content */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-500 text-sm">
@@ -280,89 +351,372 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[11px] border-collapse">
               <thead>
-                <tr className="bg-gray-50 text-gray-600 border-b border-gray-200">
-                  <th className="py-3 px-4 font-semibold">File / RIM Ref</th>
-                  <th className="py-3 px-4 font-semibold">Mortgagor Name</th>
-                  <th className="py-3 px-4 font-semibold">Bank Branch</th>
-                  <th className="py-3 px-4 font-semibold">Loan Facility</th>
-                  <th className="py-3 px-4 font-semibold">Disbursements</th>
-                  <th className="py-3 px-4 font-semibold">Grand Total</th>
-                  <th className="py-3 px-4 font-semibold">Property Description</th>
-                  <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold text-right">Actions</th>
+                <tr className="bg-slate-50 text-slate-700 border-b border-gray-200 whitespace-nowrap">
+                  <th className="py-3 px-3 font-bold">#</th>
+                  <th className="py-3 px-3 font-bold">Period (Month / Year)</th>
+                  <th className="py-3 px-3 font-bold">Date of Receipt</th>
+                  <th className="py-3 px-3 font-bold">Branch</th>
+                  <th className="py-3 px-3 font-bold min-w-[180px]">Client Name</th>
+                  <th className="py-3 px-3 font-bold">RIM NO.</th>
+                  <th className="py-3 px-3 font-bold min-w-[220px]">Property Description</th>
+                  <th className="py-3 px-3 font-bold text-right">Loan Amount</th>
+                  <th className="py-3 px-3 font-bold text-right">Stamp Duty</th>
+                  <th className="py-3 px-3 font-bold text-right">Extra Copies</th>
+                  <th className="py-3 px-3 font-bold text-right">Registration</th>
+                  <th className="py-3 px-3 font-bold text-right">Other</th>
+                  <th className="py-3 px-3 font-bold text-right">Bank Charges</th>
+                  <th className="py-3 px-3 font-bold text-right">Transport</th>
+                  <th className="py-3 px-3 font-bold text-right">Linkage Fees</th>
+                  <th className="py-3 px-3 font-bold text-right">Total Disb.</th>
+                  <th className="py-3 px-3 font-bold text-right">Legal Fees</th>
+                  <th className="py-3 px-3 font-bold text-right">VAT 18%</th>
+                  <th className="py-3 px-3 font-bold text-right">Grand Total</th>
+                  <th className="py-3 px-3 font-bold">Date of Payment</th>
+                  <th className="py-3 px-3 font-bold">Date of Return</th>
+                  <th className="py-3 px-3 font-bold min-w-[160px]">Comments</th>
+                  <th className="py-3 px-3 font-bold">Status</th>
+                  <th className="py-3 px-3 font-bold text-right sticky right-0 bg-slate-50 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-gray-800">
-                {filteredMortgages.map((m, idx) => {
-                  const disbursementsVal = Number(m.total_disbursements) || 0;
-                  const grandTotalVal = Number(m.grand_total) || 0;
-                  return (
-                    <tr key={m.id || idx} className="hover:bg-blue-50/40 transition">
-                      <td className="py-3 px-4 font-mono font-medium text-blue-600">
-                        <div>{m.rim_no || m.file_number || `MORT-${idx + 1}`}</div>
-                        {(m.month_sheet || m.source_sheet) && (
-                          <div className="text-[10px] font-sans font-medium text-emerald-700 mt-0.5">
-                            {m.month_sheet || m.source_sheet}{m.record_year ? ` ${m.record_year}` : ''}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">
-                        <div>{m.client_name || m.mortgagor_name || m.borrower_name || 'N/A'}</div>
-                        {(m.department || m.assigned_lawyer_name || m.comments) && (
-                          <div className="text-[10px] font-normal text-gray-500 mt-0.5">
-                            {m.department || 'Banking & Securities'}
-                            {m.assigned_lawyer_name ? ` · ${m.assigned_lawyer_name}` : ''}
-                            {m.comments ? ` · ${m.comments}` : ''}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {m.branch || m.bank_branch || m.branch_name || 'Main Branch'}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-semibold">
-                        UGX {Number(m.loan_amount || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-amber-600 font-medium">
-                        {disbursementsVal > 0 ? `UGX ${disbursementsVal.toLocaleString()}` : (Number(m.bank_charges || 0) + Number(m.transport || 0) + Number(m.linkage_fees || 0) > 0 ? `UGX ${(Number(m.bank_charges || 0) + Number(m.transport || 0) + Number(m.linkage_fees || 0) + Number(m.other_disbursements || 0)).toLocaleString()}` : '-')}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-blue-700 font-bold">
-                        {grandTotalVal > 0 ? `UGX ${grandTotalVal.toLocaleString()}` : '-'}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 max-w-xs truncate" title={m.property_description || m.title_deed_no}>
-                        {m.property_description || m.title_deed_no || 'Freehold Title Pending'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
+                {filteredMortgages.map((m, idx) => (
+                  <tr
+                    key={m.id || idx}
+                    className="hover:bg-blue-50/40 transition whitespace-nowrap group"
+                  >
+                    <td className="py-2.5 px-3 font-mono text-gray-400">{idx + 1}</td>
+                    <td className="py-2.5 px-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                        {m.month_sheet || m.source_sheet || '-'}
+                        {m.record_year ? ` ${m.record_year}` : ''}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                      {formatDate(m.date_of_receipt)}
+                    </td>
+                    <td className="py-2.5 px-3 text-gray-700 font-medium">
+                      {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-gray-900 whitespace-normal min-w-[180px]">
+                      {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-medium text-blue-600">
+                      {m.rim_no || m.file_number || '-'}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-600 whitespace-normal min-w-[220px] max-w-xs"
+                      title={m.property_description || m.title_deed_no}
+                    >
+                      {m.property_description || m.title_deed_no || '-'}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-semibold text-right text-gray-900">
+                      {formatUGX(m.loan_amount)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.stamp_duty)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.extra_copies)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.registration_fee ?? m.registration)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.bank_charges)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.transport)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-gray-700">
+                      {formatUGX(m.linkage_fees)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right font-semibold text-amber-700">
+                      {formatUGX(m.total_disbursements)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right font-medium text-indigo-700">
+                      {formatUGX(m.legal_fees)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right text-slate-700">
+                      {formatUGX(m.vat_18 ?? m.vat)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-right font-bold text-blue-700">
+                      {formatUGX(m.grand_total)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                      {formatDate(m.date_of_payment)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-gray-600">
+                      {formatDate(m.date_of_return)}
+                    </td>
+                    <td
+                      className="py-2.5 px-3 text-gray-600 whitespace-normal min-w-[160px] max-w-xs"
+                      title={m.comments}
+                    >
+                      {m.comments || '-'}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${
                           (m.status || '').includes('Active') || (m.status || '').includes('Processing')
                             ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : (m.status || '').includes('Completed') || (m.status || '').includes('Cleared') || (m.status || '').includes('Registered')
+                            : (m.status || '').includes('Completed') ||
+                              (m.status || '').includes('Cleared') ||
+                              (m.status || '').includes('Registered')
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : (m.status || '').includes('Valuation')
                             ? 'bg-amber-50 text-amber-700 border-amber-200'
                             : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}>
-                          {m.status || 'Active / Processing'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
+                        }`}
+                      >
+                        {m.status || 'Active / Processing'}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right sticky right-0 bg-white group-hover:bg-blue-50/90 shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRecordForView(m)}
+                          className="px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-[11px] border border-slate-200 inline-flex items-center gap-1 transition"
+                          title="View all fields"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>View</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => setSelectedRecordForEdit(m)}
-                          className="px-2.5 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 transition"
+                          className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 inline-flex items-center gap-1 transition"
                         >
-                          Edit / Transfer
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* Full Record Detail View Modal (All Fields) */}
+      {selectedRecordForView && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white flex items-center justify-between shrink-0">
+              <div>
+                <div className="flex items-center gap-2 text-xs text-blue-300">
+                  <span className="px-2 py-0.5 rounded bg-blue-500/20 border border-blue-400/30 font-semibold">
+                    {selectedRecordForView.client_bank_name || selectedRecordForView.bank_name || bankName}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    {selectedRecordForView.month_sheet || selectedRecordForView.source_sheet || 'Register'}{' '}
+                    {selectedRecordForView.record_year || ''}
+                  </span>
+                  <span>·</span>
+                  <span className="font-mono">RIM: {selectedRecordForView.rim_no || '-'}</span>
+                </div>
+                <h2 className="text-lg font-bold text-white mt-1">
+                  {selectedRecordForView.client_name || selectedRecordForView.mortgagor_name || 'Mortgage File Details'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRecordForView(null)}
+                className="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {/* Section 1: Core Particulars */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                  1. File Particulars &amp; Security Description
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-slate-500 block">Bank Name</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedRecordForView.client_bank_name || selectedRecordForView.bank_name || bankName}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Branch Station</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedRecordForView.branch || selectedRecordForView.client_branch_location || selectedRecordForView.bank_branch || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Record Year &amp; Month</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedRecordForView.month_sheet || '-'} {selectedRecordForView.record_year || ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Status</span>
+                    <span className="font-semibold text-blue-700">
+                      {selectedRecordForView.status || 'Active / Processing'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Client / Mortgagor Name</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedRecordForView.client_name || selectedRecordForView.mortgagor_name || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">RIM NO.</span>
+                    <span className="font-mono font-semibold text-blue-700">
+                      {selectedRecordForView.rim_no || '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Loan Amount</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {formatUGX(selectedRecordForView.loan_amount, false)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Source Sheet</span>
+                    <span className="font-medium text-slate-700">
+                      {selectedRecordForView.source_sheet || '-'}
+                    </span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-4">
+                    <span className="text-slate-500 block">Property Description</span>
+                    <span className="font-medium text-slate-900">
+                      {selectedRecordForView.property_description || selectedRecordForView.description || '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Disbursements & Legal Fees */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                  2. Statutory Disbursements, Legal Fees &amp; Grand Total
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-slate-500 block">Stamp Duty</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.stamp_duty, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Extra Copies</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.extra_copies, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Registration Fee</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.registration_fee ?? selectedRecordForView.registration, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Other Fees</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.other_fees ?? selectedRecordForView.other_disbursements ?? selectedRecordForView.other, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Bank Charges</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.bank_charges, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Transport</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.transport, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Linkage Fees</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.linkage_fees, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Total Disbursements</span>
+                    <span className="font-mono font-bold text-amber-700">{formatUGX(selectedRecordForView.total_disbursements, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Legal Fees</span>
+                    <span className="font-mono font-bold text-indigo-700">{formatUGX(selectedRecordForView.legal_fees, false)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">VAT (18%)</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.vat_18 ?? selectedRecordForView.vat, false)}</span>
+                  </div>
+                  <div className="col-span-2 bg-blue-900 text-white p-2.5 rounded-lg flex items-center justify-between">
+                    <span className="font-semibold text-blue-200">Grand Total</span>
+                    <span className="font-mono font-bold text-sm">{formatUGX(selectedRecordForView.grand_total, false)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Dates & Comments */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                  3. Dates, Assignment &amp; Comments
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-slate-500 block">Date of Receipt</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_receipt)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Date of Payment</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_payment)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Date of Return</span>
+                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_return)}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Department</span>
+                    <span className="font-medium text-slate-800">{selectedRecordForView.department || 'Banking & Securities'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Assigned Advocate</span>
+                    <span className="font-medium text-slate-800">{selectedRecordForView.assigned_lawyer_name || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">Created At</span>
+                    <span className="font-mono text-slate-600">{formatDate(selectedRecordForView.created_at)}</span>
+                  </div>
+                  <div className="col-span-2 sm:col-span-3">
+                    <span className="text-slate-500 block">Comments / Remarks</span>
+                    <span className="font-medium text-slate-900">{selectedRecordForView.comments || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedRecordForView(null)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-medium transition"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const rec = selectedRecordForView;
+                  setSelectedRecordForView(null);
+                  setSelectedRecordForEdit(rec);
+                }}
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
+              >
+                Edit / Transfer File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Conditionally rendered AddMortgageModal */}
       {isModalOpen && (

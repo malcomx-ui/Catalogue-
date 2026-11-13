@@ -298,7 +298,8 @@ export const buildMortgageCasesRow = (r: any) => ({
   month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
   source_sheet: r.source_sheet || 'Tracker Entry',
   date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
-  branch: r.branch || r.bank_branch || '',
+  branch: r.branch || r.client_branch_location || r.bank_branch || '',
+  client_branch_location: r.client_branch_location || r.branch || r.bank_branch || '',
   client_name: r.client_name || r.mortgagor_name || r.borrower_name || r.name || '',
   mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
   rim_no: r.rim_no || r.file_number || '',
@@ -363,48 +364,78 @@ export const buildMortgagesRow = (r: any) => {
   return row;
 };
 
-const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => ({
-  ...row,
-  id: row.id || `mc-${row.rim_no || Math.random()}`,
-  client_bank_name: row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank',
-  bank_name: row.bank_name || row.client_bank_name || fallbackBankName || 'Centenary Bank',
-  date_of_receipt: row.date_of_receipt || null,
-  branch: row.branch || row.bank_branch || row.branch_name || '',
-  bank_branch: row.bank_branch || row.branch || '',
-  branch_name: row.branch_name || row.branch || '',
-  client_name: row.client_name || row.mortgagor_name || row.borrower_name || row.name || '',
-  name: row.name || row.client_name || row.mortgagor_name || row.borrower_name || '',
-  borrower_name: row.borrower_name || row.client_name || row.mortgagor_name || '',
-  mortgagor_name: row.mortgagor_name || row.client_name || row.borrower_name || '',
-  file_number: row.file_number || row.rim_no || '',
-  rim_no: row.rim_no || row.file_number || '',
-  property_description: row.property_description || row.description || row.title_deed_no || '',
-  description: row.description || row.property_description || '',
-  loan_amount: Number(row.loan_amount || 0),
-  stamp_duty: Number(row.stamp_duty || 0),
-  extra_copies: Number(row.extra_copies || 0),
-  registration: Number(row.registration ?? row.registration_fee ?? 0),
-  registration_fee: Number(row.registration_fee ?? row.registration ?? 0),
-  other: Number(row.other ?? row.other_fees ?? row.other_disbursements ?? 0),
-  other_fees: Number(row.other_fees ?? row.other ?? row.other_disbursements ?? 0),
-  other_disbursements: Number(row.other_disbursements ?? row.other_fees ?? row.other ?? 0),
-  bank_charges: Number(row.bank_charges || 0),
-  transport: Number(row.transport || 0),
-  linkage_fees: Number(row.linkage_fees || 0),
-  total_disbursements: Number(row.total_disbursements || 0),
-  legal_fees: Number(row.legal_fees || 0),
-  vat_18: Number(row.vat_18 ?? row.vat ?? 0),
-  grand_total: Number(row.grand_total || row.loan_amount || 0),
-  date_of_payment: row.date_of_payment || null,
-  date_of_return: row.date_of_return || null,
-  comments: row.comments || row.notes || '',
-  source_sheet: row.source_sheet || '',
-  record_year: row.record_year || new Date().getFullYear(),
-  month_sheet: row.month_sheet || '',
-  status: row.status || (row.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
-  department: row.department || 'Banking & Securities',
-  created_at: row.created_at,
-});
+const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
+  const resolvedBranch =
+    row.branch || row.client_branch_location || row.bank_branch || row.branch_name || '';
+  const resolvedClient =
+    row.client_name || row.mortgagor_name || row.borrower_name || row.name || '';
+  const stampDuty = Number(row.stamp_duty || 0);
+  const extraCopies = Number(row.extra_copies || 0);
+  const registrationFee = Number(row.registration_fee ?? row.registration ?? 0);
+  const otherFees = Number(row.other_fees ?? row.other ?? row.other_disbursements ?? 0);
+  const bankCharges = Number(row.bank_charges || 0);
+  const transportVal = Number(row.transport || 0);
+  const linkageFees = Number(row.linkage_fees || 0);
+  const computedDisbursements =
+    stampDuty + extraCopies + registrationFee + otherFees + bankCharges + transportVal + linkageFees;
+  const totalDisbursements =
+    row.total_disbursements !== null &&
+    row.total_disbursements !== undefined &&
+    Number(row.total_disbursements) > 0
+      ? Number(row.total_disbursements)
+      : computedDisbursements;
+  const legalFees = Number(row.legal_fees || 0);
+  const vat18 = Number(row.vat_18 ?? row.vat ?? 0);
+  const computedGrandTotal = totalDisbursements + legalFees + vat18;
+  const grandTotal =
+    row.grand_total !== null && row.grand_total !== undefined && Number(row.grand_total) > 0
+      ? Number(row.grand_total)
+      : computedGrandTotal;
+
+  return {
+    ...row,
+    id: row.id || `mc-${row.rim_no || Math.random()}`,
+    client_bank_name: row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank',
+    bank_name: row.bank_name || row.client_bank_name || fallbackBankName || 'Centenary Bank',
+    date_of_receipt: row.date_of_receipt || null,
+    branch: resolvedBranch,
+    client_branch_location: row.client_branch_location || resolvedBranch,
+    bank_branch: row.bank_branch || resolvedBranch,
+    branch_name: row.branch_name || resolvedBranch,
+    client_name: resolvedClient,
+    name: row.name || resolvedClient,
+    borrower_name: row.borrower_name || resolvedClient,
+    mortgagor_name: row.mortgagor_name || resolvedClient,
+    file_number: row.file_number || row.rim_no || '',
+    rim_no: row.rim_no || row.file_number || '',
+    property_description: row.property_description || row.description || row.title_deed_no || '',
+    description: row.description || row.property_description || '',
+    loan_amount: Number(row.loan_amount || 0),
+    stamp_duty: stampDuty,
+    extra_copies: extraCopies,
+    registration: registrationFee,
+    registration_fee: registrationFee,
+    other: otherFees,
+    other_fees: otherFees,
+    other_disbursements: Number(row.other_disbursements ?? otherFees),
+    bank_charges: bankCharges,
+    transport: transportVal,
+    linkage_fees: linkageFees,
+    total_disbursements: totalDisbursements,
+    legal_fees: legalFees,
+    vat_18: vat18,
+    grand_total: grandTotal,
+    date_of_payment: row.date_of_payment || null,
+    date_of_return: row.date_of_return || null,
+    comments: row.comments || row.notes || '',
+    source_sheet: row.source_sheet || '',
+    record_year: row.record_year || new Date().getFullYear(),
+    month_sheet: row.month_sheet || '',
+    status: row.status || (row.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+    department: row.department || 'Banking & Securities',
+    created_at: row.created_at,
+  };
+};
 
 /**
  * MortgageService:
@@ -576,7 +607,8 @@ export const MortgageService = {
 
       const { data: mcData } = await supabase
         .from('mortgage_cases')
-        .select('id, bank_name, client_bank_name, loan_amount, record_year');
+        .select('id, bank_name, client_bank_name, loan_amount, record_year')
+        .limit(5000);
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((item) => {
@@ -642,14 +674,20 @@ export const MortgageService = {
   async fetchMortgages(bankName: string): Promise<any[]> {
     const combined: any[] = [];
     const seenIds = new Set<string>();
+    const safeBank = bankName.replace(/[,()]/g, '').trim();
 
-    // 1. Try Supabase cloud query on mortgage_cases
+    // 1. Try Supabase cloud query on mortgage_cases (match BOTH bank_name and client_bank_name!)
     try {
-      const { data: mcData } = await supabase
+      const { data: mcData, error: mcErr } = await supabase
         .from('mortgage_cases')
         .select('*')
-        .ilike('bank_name', `%${bankName}%`)
-        .order('created_at', { ascending: false });
+        .or(`bank_name.ilike.%${safeBank}%,client_bank_name.ilike.%${safeBank}%`)
+        .order('created_at', { ascending: false })
+        .limit(5000);
+
+      if (mcErr) {
+        console.warn('[MortgageService] mortgage_cases fetch notice:', mcErr.message);
+      }
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((row) => {
@@ -667,8 +705,9 @@ export const MortgageService = {
       const { data, error } = await supabase
         .from('mortgages')
         .select('*')
-        .ilike('client_bank_name', `%${bankName}%`)
-        .order('created_at', { ascending: false });
+        .ilike('client_bank_name', `%${safeBank}%`)
+        .order('created_at', { ascending: false })
+        .limit(5000);
 
       if (!error && Array.isArray(data)) {
         data.forEach((row) => {
@@ -855,8 +894,10 @@ export const MortgageService = {
         mcPayload.bank_name = updates.bank_name || updates.client_bank_name;
         mcPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
       }
-      if (updates.branch !== undefined || updates.bank_branch !== undefined) {
-        mcPayload.branch = updates.branch ?? updates.bank_branch;
+      if (updates.branch !== undefined || updates.bank_branch !== undefined || updates.client_branch_location !== undefined) {
+        const br = updates.branch ?? updates.bank_branch ?? updates.client_branch_location;
+        mcPayload.branch = br;
+        mcPayload.client_branch_location = br;
       }
       if (updates.client_name || updates.mortgagor_name || updates.borrower_name) {
         const cname = updates.client_name || updates.mortgagor_name || updates.borrower_name;
