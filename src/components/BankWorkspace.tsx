@@ -283,7 +283,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         @media print {
           @page {
             size: A4 landscape;
-            margin: 10mm;
+            margin: 8mm 10mm;
           }
           html, body {
             background: #ffffff !important;
@@ -293,7 +293,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          .no-print {
+          .no-print,
+          .kpi-summary-cards {
             display: none !important;
           }
           .print-only {
@@ -382,30 +383,107 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         }
       `}</style>
 
-      {/* Formal Print-Only Monthly Report Header */}
-      <div className="hidden print:block print-only pb-2.5 mb-3 border-b-2 border-slate-900">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 uppercase tracking-wide">
-              MONTHLY MORTGAGE REGISTER — {reportPeriodTitle}
-            </h1>
-            <p className="text-xs text-slate-600 mt-1">
-              Bank Portfolio: <span className="font-semibold text-slate-900">{bankName}</span>
-              {' · '}
-              Branch Scope: <span className="font-semibold text-slate-900">{currentUser?.branchName || 'All Branch Stations'}</span>
-              {filters.department ? ` · Dept: ${filters.department}` : ''}
-              {filters.status ? ` · Status: ${filters.status}` : ''}
-              {activeLawyerName ? ` · Advocate: ${activeLawyerName}` : ''}
-              {filters.search ? ` · Filter: "${filters.search}"` : ''}
-            </p>
+      {/* Formal Print-Only Legal Crest & Monthly Report Header */}
+      <div className="hidden print:block print-only pb-2.5 mb-3 border-b-2 border-[#1e3a8a]">
+        <div className="flex items-center gap-3.5">
+          {/* Embedded Scales of Justice Legal Crest SVG */}
+          <div className="shrink-0 w-10 h-10 rounded-lg border-2 border-[#1e3a8a] bg-slate-50 flex items-center justify-center">
+            <svg
+              viewBox="0 0 40 40"
+              className="w-7 h-7"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M20 5V33M13 33H27M10 12H30"
+                stroke="#1e3a8a"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="20" cy="5.5" r="2" fill="#1e3a8a" />
+              <path
+                d="M10 12L5.5 21.5H14.5L10 12Z"
+                stroke="#1e3a8a"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5 21.5C5.5 24 7.5 25.5 10 25.5C12.5 25.5 14.5 24 15 21.5H5Z"
+                fill="#1e3a8a"
+              />
+              <path
+                d="M30 12L25.5 21.5H34.5L30 12Z"
+                stroke="#1e3a8a"
+                strokeWidth="1.7"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M25 21.5C25.5 24 27.5 25.5 30 25.5C32.5 25.5 34.5 24 35 21.5H25Z"
+                fill="#1e3a8a"
+              />
+            </svg>
           </div>
-          <div className="text-right text-xs text-slate-600 space-y-0.5 shrink-0">
-            <div>
-              Date Printed: <span className="font-semibold text-slate-900">{printedTimestamp}</span>
-            </div>
-            <div>
-              Total Records: <span className="font-mono font-bold text-slate-900">{filteredMortgages.length}</span>
-            </div>
+
+          <div className="min-w-0 flex-1">
+            <h1
+              className="font-bold uppercase tracking-wide leading-tight"
+              style={{ fontSize: '14pt', color: '#1e3a8a' }}
+            >
+              MUHUMUZA-KIIZA ADVOCATES &amp; LEGAL CONSULTANTS
+            </h1>
+            <h2
+              className="font-semibold uppercase tracking-wide mt-0.5 leading-snug"
+              style={{ fontSize: '11pt', color: '#374151' }}
+            >
+              MONTHLY MORTGAGE REGISTER — {reportPeriodTitle}
+            </h2>
+          </div>
+        </div>
+
+        {/* Compact 2-Column Filter Context & Print Timestamp Metadata Bar */}
+        <div className="mt-2.5 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-[8.5pt] text-slate-700">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+              <span className="font-semibold text-slate-500">Station:</span>
+              <span className="font-semibold text-slate-900">
+                {currentUser?.branchName || 'All Branch Stations'}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+              <span className="font-semibold text-slate-500">Bank Portfolio:</span>
+              <span className="font-semibold text-slate-900">{bankName}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+              <span className="font-semibold text-slate-500">Status:</span>
+              <span className="font-semibold text-slate-900">
+                {filters.status || 'All Active'}
+              </span>
+            </span>
+            {filters.department && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+                <span className="font-semibold text-slate-500">Dept:</span>
+                <span className="font-semibold text-slate-900">{filters.department}</span>
+              </span>
+            )}
+            {activeLawyerName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+                <span className="font-semibold text-slate-500">Advocate:</span>
+                <span className="font-semibold text-slate-900">{activeLawyerName}</span>
+              </span>
+            )}
+            {filters.search && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
+                <span className="font-semibold text-slate-500">Filter:</span>
+                <span className="font-semibold text-slate-900">&ldquo;{filters.search}&rdquo;</span>
+              </span>
+            )}
+          </div>
+
+          <div className="text-right shrink-0 text-slate-700">
+            <span className="font-semibold text-slate-500">Date Printed:</span>{' '}
+            <span className="font-semibold text-slate-900">{printedTimestamp}</span>
           </div>
         </div>
       </div>
@@ -531,7 +609,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
 
       {/* Filtered Summary Strip (Screen only; hidden when printing) */}
       {!loading && mortgages.length > 0 && (
-        <div className="no-print grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
+        <div className="no-print kpi-summary-cards grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
           <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
             <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
             <span className="text-base font-bold text-gray-900 font-mono truncate block">
@@ -826,7 +904,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     Loan Amount
                   </th>
                   <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
-                    Total Disb.
+                    <span className="print:hidden">Total Disb.</span>
+                    <span className="hidden print:inline">Total Disbursements</span>
                   </th>
                   <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Grand Total
@@ -904,10 +983,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   );
                 })}
               </tbody>
-              <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-slate-400 font-bold text-slate-900">
+              <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-[#1e3a8a] font-bold text-slate-900">
                 <tr>
                   <td colSpan={5} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
-                    Totals ({filteredMortgages.length} Records)
+                    TOTAL RECORDS: {filteredMortgages.length} · TOTAL UGX
                   </td>
                   <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono">
                     {filteredTotals.loan.toLocaleString()}
@@ -923,10 +1002,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             </table>
           </div>
           {/* Formal Print-Only Report Footer */}
-          <div className="hidden print:block print-only mt-4 pt-2 border-t border-slate-300 text-[10px] text-slate-600">
+          <div className="hidden print:block print-only mt-3 pt-2 border-t border-slate-300 text-[8.5pt] text-slate-600">
             <div className="flex items-center justify-between">
               <span>
-                {bankName} — Monthly Mortgage Register ({reportPeriodTitle})
+                MUHUMUZA-KIIZA ADVOCATES &amp; LEGAL CONSULTANTS · {bankName} ({reportPeriodTitle})
               </span>
               <span>
                 Date Printed: <strong className="text-slate-900">{printedTimestamp}</strong>
