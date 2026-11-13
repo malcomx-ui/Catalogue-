@@ -712,8 +712,29 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
       });
     });
 
-    (db as any).mortgages = [...normalizedNewMortgages, ...currentMortgages];
-    (db as any).centenary_mortgage_cases = [...normalizedCentenary, ...centenaryCases];
+    const mergeAdditiveById = (existing: any[], incoming: any[]) => {
+      const merged = [...existing];
+      const idIndexMap = new Map<string, number>();
+      merged.forEach((item, idx) => {
+        if (item?.id) idIndexMap.set(String(item.id), idx);
+      });
+
+      const newItems: any[] = [];
+      incoming.forEach((item) => {
+        const key = String(item.id);
+        const existingIdx = idIndexMap.get(key);
+        if (existingIdx !== undefined) {
+          merged[existingIdx] = { ...merged[existingIdx], ...item };
+        } else {
+          newItems.push(item);
+        }
+      });
+
+      return [...newItems, ...merged];
+    };
+
+    (db as any).mortgages = mergeAdditiveById(currentMortgages, normalizedNewMortgages);
+    (db as any).centenary_mortgage_cases = mergeAdditiveById(centenaryCases, normalizedCentenary);
     writeDatabase(db);
 
     res.json({

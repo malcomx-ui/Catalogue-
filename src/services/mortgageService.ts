@@ -376,41 +376,51 @@ const extractRecordsFromWorkbook = (
   return allRecords;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Builds a clean payload matching the exact columns of live `public.mortgage_cases`
  * so PostgREST never rejects inserts/updates with PGRST204 unknown column errors.
  */
-export const buildMortgageCasesRow = (r: any) => ({
-  bank_name: r.bank_name || r.client_bank_name || 'Centenary Bank',
-  client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
-  record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
-  month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
-  source_sheet: r.source_sheet || 'Tracker Entry',
-  date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
-  branch: r.branch || r.client_branch_location || r.bank_branch || '',
-  client_branch_location: r.client_branch_location || r.branch || r.bank_branch || '',
-  client_name: r.client_name || r.mortgagor_name || r.borrower_name || r.name || '',
-  mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
-  rim_no: r.rim_no || r.file_number || '',
-  property_description: r.property_description || r.description || '',
-  loan_amount: Number(r.loan_amount) || 0,
-  stamp_duty: Number(r.stamp_duty) || 0,
-  extra_copies: Number(r.extra_copies) || 0,
-  registration_fee: Number(r.registration_fee ?? r.registration ?? 0),
-  other_fees: Number(r.other_fees ?? r.other ?? 0),
-  other_disbursements: Number(r.other_disbursements ?? r.other_fees ?? r.other ?? 0),
-  bank_charges: Number(r.bank_charges) || 0,
-  transport: Number(r.transport) || 0,
-  linkage_fees: Number(r.linkage_fees) || 0,
-  total_disbursements: Number(r.total_disbursements) || 0,
-  legal_fees: Number(r.legal_fees) || 0,
-  vat_18: Number(r.vat_18 ?? r.vat ?? 0),
-  grand_total: Number(r.grand_total) || 0,
-  date_of_payment: r.date_of_payment || null,
-  date_of_return: r.date_of_return || null,
-  comments: r.comments || '',
-  status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
-});
+export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean }) => {
+  const row: Record<string, any> = {
+    bank_name: r.bank_name || r.client_bank_name || 'Centenary Bank',
+    client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
+    record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
+    month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
+    source_sheet: r.source_sheet || 'Tracker Entry',
+    date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
+    branch: r.branch || r.client_branch_location || r.bank_branch || '',
+    client_branch_location: r.client_branch_location || r.branch || r.bank_branch || '',
+    client_name: r.client_name || r.mortgagor_name || r.borrower_name || r.name || '',
+    mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
+    rim_no: r.rim_no || r.file_number || '',
+    property_description: r.property_description || r.description || '',
+    loan_amount: Number(r.loan_amount) || 0,
+    stamp_duty: Number(r.stamp_duty) || 0,
+    extra_copies: Number(r.extra_copies) || 0,
+    registration_fee: Number(r.registration_fee ?? r.registration ?? 0),
+    other_fees: Number(r.other_fees ?? r.other ?? 0),
+    other_disbursements: Number(r.other_disbursements ?? r.other_fees ?? r.other ?? 0),
+    bank_charges: Number(r.bank_charges) || 0,
+    transport: Number(r.transport) || 0,
+    linkage_fees: Number(r.linkage_fees) || 0,
+    total_disbursements: Number(r.total_disbursements) || 0,
+    legal_fees: Number(r.legal_fees) || 0,
+    vat_18: Number(r.vat_18 ?? r.vat ?? 0),
+    grand_total: Number(r.grand_total) || 0,
+    date_of_payment: r.date_of_payment || null,
+    date_of_return: r.date_of_return || null,
+    comments: r.comments || '',
+    status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+  };
+
+  if (options?.includeId && r.id && UUID_REGEX.test(String(r.id))) {
+    row.id = String(r.id);
+  }
+
+  return row;
+};
 
 /**
  * Builds a clean payload matching the exact columns of live `public.mortgages`.
@@ -567,7 +577,10 @@ export const MortgageService = {
 
   /**
    * Imports pre-parsed Excel mortgage records for a selected bank, month, and year.
-   * Uploads in chunks of 50 to Supabase `mortgage_cases` and syncs to `/api/mortgages/batch`.
+   * Uses a non-destructive additive strategy:
+   * - Records carrying an existing UUID `id` are upserted on `onConflict: 'id'`
+   * - New incoming records are strictly `.insert()`ed so existing `mortgage_cases` rows are NEVER wiped or replaced
+   * Captures returned database UUIDs before syncing `/api/mortgages/batch` and `localStorage`.
    */
   async importExcelMortgages(
     records: any[],
@@ -579,55 +592,99 @@ export const MortgageService = {
         return { success: false, count: 0, error: 'No valid mortgage rows found to import.' };
       }
 
-      if (onProgress) onProgress(`Uploading ${records.length} records to ${bankName}...`);
+      if (onProgress) onProgress(`Appending ${records.length} records to ${bankName}...`);
 
-      const normalizedRecords = records.map((r, idx) =>
-        normalizeMortgageRecord(
-          {
-            ...r,
-            id: r.id || `mort-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
-          },
-          r.bank_name || bankName
-        )
-      );
+      const preparedRecords = records.map((r, idx) => {
+        const normalized = normalizeMortgageRecord(r, r.bank_name || bankName);
+        const hasUuid = Boolean(r.id && UUID_REGEX.test(String(r.id)));
+        return {
+          ...normalized,
+          id: hasUuid ? String(r.id) : `mort-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          _hasUuid: hasUuid,
+        };
+      });
 
       let cloudSaved = false;
       let cloudError: string | undefined;
+      const persistedRecords: any[] = [];
 
       const chunkSize = 50;
-      for (let i = 0; i < normalizedRecords.length; i += chunkSize) {
-        const rawChunk = normalizedRecords.slice(i, i + chunkSize);
-        const chunk = rawChunk.map((r) => buildMortgageCasesRow(r));
+      for (let i = 0; i < preparedRecords.length; i += chunkSize) {
+        const rawChunk = preparedRecords.slice(i, i + chunkSize);
         const batchIndex = Math.floor(i / chunkSize) + 1;
-        const totalBatches = Math.ceil(normalizedRecords.length / chunkSize);
+        const totalBatches = Math.ceil(preparedRecords.length / chunkSize);
         if (onProgress) {
           onProgress(
-            `Importing batch ${batchIndex} of ${totalBatches} (${Math.min(i + chunkSize, normalizedRecords.length)}/${normalizedRecords.length})...`
+            `Importing batch ${batchIndex} of ${totalBatches} (${Math.min(i + chunkSize, preparedRecords.length)}/${preparedRecords.length})...`
           );
         }
 
-        const { error: err1 } = await supabase.from('mortgage_cases').insert(chunk);
-        if (!err1) {
-          cloudSaved = true;
+        const chunkWithUuid = rawChunk.filter((r) => r._hasUuid);
+        const chunkToInsert = rawChunk.filter((r) => !r._hasUuid);
+        const cloudReturnedForChunk: any[] = [];
+
+        if (chunkWithUuid.length > 0) {
+          const upsertPayload = chunkWithUuid.map((r) => buildMortgageCasesRow(r, { includeId: true }));
+          const { data: upsertedData, error: upsertErr } = await supabase
+            .from('mortgage_cases')
+            .upsert(upsertPayload, { onConflict: 'id', ignoreDuplicates: false })
+            .select('*');
+
+          if (!upsertErr) {
+            cloudSaved = true;
+            if (Array.isArray(upsertedData)) {
+              cloudReturnedForChunk.push(
+                ...upsertedData.map((row) => normalizeMortgageRecord(row, bankName))
+              );
+            }
+          } else {
+            cloudError = upsertErr.message;
+            console.warn('mortgage_cases batch upsert warning:', upsertErr.message);
+          }
+        }
+
+        if (chunkToInsert.length > 0) {
+          const insertPayload = chunkToInsert.map((r) => buildMortgageCasesRow(r, { includeId: false }));
+          const { data: insertedData, error: insertErr } = await supabase
+            .from('mortgage_cases')
+            .insert(insertPayload)
+            .select('*');
+
+          if (!insertErr) {
+            cloudSaved = true;
+            if (Array.isArray(insertedData)) {
+              cloudReturnedForChunk.push(
+                ...insertedData.map((row) => normalizeMortgageRecord(row, bankName))
+              );
+            }
+          } else {
+            cloudError = insertErr.message;
+            console.warn('mortgage_cases batch insert warning:', insertErr.message);
+          }
+        }
+
+        if (cloudReturnedForChunk.length > 0) {
+          persistedRecords.push(...cloudReturnedForChunk);
         } else {
-          cloudError = err1.message;
-          console.warn('mortgage_cases batch insert warning:', err1.message);
+          persistedRecords.push(
+            ...rawChunk.map(({ _hasUuid, ...clean }) => clean)
+          );
         }
       }
 
-      // Persist to central workstation server as well
+      // Persist additively to central workstation server (merge by id without wiping existing rows)
       await fetch('/api/mortgages/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records: normalizedRecords, bank_name: bankName }),
+        body: JSON.stringify({ records: persistedRecords, bank_name: bankName }),
       }).catch(() => {});
 
-      // Always mirror to browser localStorage so records survive server restarts / static mode
-      upsertLocalMortgagesBatch(normalizedRecords);
+      // Mirror additively to browser localStorage so records survive server restarts / static mode
+      upsertLocalMortgagesBatch(persistedRecords);
 
       return {
         success: true,
-        count: normalizedRecords.length,
+        count: persistedRecords.length,
         cloudSaved,
         cloudError: cloudSaved ? undefined : cloudError,
       };
@@ -880,16 +937,17 @@ export const MortgageService = {
     let localSaved = false;
     let lastError: string | undefined;
 
-    // 1. Insert into Supabase `mortgage_cases` using exact live columns
+    // 1. Strictly append a new row into Supabase `mortgage_cases` using clean .insert()
+    //    (omitting id so Postgres gen_random_uuid() generates a fresh PK and never overwrites existing records)
     try {
-      const mcRow = buildMortgageCasesRow(payload);
+      const mcRow = buildMortgageCasesRow(payload, { includeId: false });
       const { data: mcData, error: mcError } = await supabase
         .from('mortgage_cases')
         .insert([mcRow])
         .select('*');
 
       if (!mcError && mcData && mcData.length > 0) {
-        savedRecord = normalizeMortgageRecord(mcData[0], mcRow.bank_name);
+        savedRecord = normalizeMortgageRecord(mcData[0], String(mcRow.bank_name || ''));
         cloudSaved = true;
       } else if (mcError) {
         lastError = mcError.message;
@@ -899,11 +957,12 @@ export const MortgageService = {
       lastError = err?.message;
     }
 
-    // 2. Also insert into Supabase `mortgages` using exact live columns (preserving same UUID if available)
+    // 2. Also append cleanly to Supabase `mortgages` (linking the newly created UUID if returned)
     try {
+      const { id: _ignoredPayloadId, ...cleanPayload } = payload || {};
       const mRow = buildMortgagesRow({
-        ...payload,
-        id: savedRecord?.id || payload.id,
+        ...cleanPayload,
+        id: savedRecord?.id && UUID_REGEX.test(String(savedRecord.id)) ? savedRecord.id : undefined,
       });
       const { data: mData, error: mError } = await supabase
         .from('mortgages')
@@ -1147,62 +1206,19 @@ export const MortgageService = {
   },
 
   /**
-   * Batch inserts records into Supabase and local backend in chunks of 50.
-   * Supports both public.centenary_mortgage_cases and public.mortgages.
+   * Batch appends records into `mortgage_cases` (and local/workstation storage)
+   * without deleting or wiping existing records.
    */
-  async batchInsertCentenaryCases(records: any[], chunkSize: number = 50): Promise<{ success: boolean; insertedCount: number; error?: string }> {
-    let insertedCount = 0;
-
-    for (let i = 0; i < records.length; i += chunkSize) {
-      const chunk = records.slice(i, i + chunkSize);
-      
-      // 1. Try Supabase cloud insert into centenary_mortgage_cases
-      try {
-        const { error } = await supabase.from('centenary_mortgage_cases').insert(chunk);
-        if (!error) {
-          console.log(`Inserted batch ${Math.floor(i / chunkSize) + 1} to centenary_mortgage_cases`);
-        }
-      } catch (err) {
-        // Fallback to local
-      }
-
-      // 2. Also try central mortgages table
-      try {
-        const mortgageChunk = chunk.map((r: any) => ({
-          client_bank_name: 'Centenary Bank',
-          record_year: r.record_year || 2026,
-          bank_branch: r.branch || 'Head Office',
-          branch_name: r.branch || 'Head Office',
-          file_number: r.rim_no || `CENT-${Date.now().toString().slice(-5)}`,
-          rim_no: r.rim_no || '',
-          borrower_name: r.client_name,
-          mortgagor_name: r.client_name,
-          loan_amount: Number(r.loan_amount) || 0,
-          property_description: r.property_description || '',
-          status: 'Under Preparation',
-          grand_total: Number(r.grand_total) || Number(r.loan_amount) || 0,
-          comments: r.comments || '',
-          department: 'Banking & Securities',
-        }));
-        await supabase.from('mortgages').insert(mortgageChunk);
-      } catch (e) {}
-
-      insertedCount += chunk.length;
-    }
-
-    // 3. Always batch sync to local workstation server
-    try {
-      await fetch('/api/mortgages/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records, bank_name: 'Centenary Bank' }),
-      });
-    } catch (e) {
-      console.warn('Local batch sync notice:', e);
-    }
-
-    console.log(`Import completed successfully! Inserted ${insertedCount} records.`);
-    return { success: true, insertedCount };
+  async batchInsertCentenaryCases(
+    records: any[],
+    _chunkSize: number = 50
+  ): Promise<{ success: boolean; insertedCount: number; error?: string }> {
+    const res = await this.importExcelMortgages(records, 'Centenary Bank');
+    return {
+      success: res.success,
+      insertedCount: res.count,
+      error: res.error,
+    };
   },
 };
 

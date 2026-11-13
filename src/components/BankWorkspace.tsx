@@ -567,13 +567,15 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <table className="w-full min-w-max text-left text-[11px] border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-slate-700 border-b border-gray-200 whitespace-nowrap">
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">#</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Period (Month / Year)</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Client Name</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Property Description</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Receipt</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap">Branch</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">RIM NO.</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Client Name</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">RIM No</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap min-w-[240px]">Description</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Loan Amount</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Total Disbursement</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Grand Total</th>
+                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Period (Month / Year)</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Stamp Duty</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Extra Copies</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Registration</th>
@@ -581,11 +583,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Bank Charges</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Transport</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Linkage Fees</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Total Disb.</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Legal Fees</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">VAT 18%</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap text-right">Grand Total</th>
-                  <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Receipt</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Payment</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap">Date of Return</th>
                   <th className="py-3 px-3.5 font-bold whitespace-nowrap">Comments</th>
@@ -602,32 +601,40 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     onClick={() => setSelectedRecordForView(m)}
                     className="hover:bg-blue-50/40 transition whitespace-nowrap group cursor-pointer"
                   >
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-400">{idx + 1}</td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 whitespace-nowrap">
-                        {m.month_sheet || m.source_sheet || '-'}
-                        {m.record_year ? ` ${m.record_year}` : ''}
-                      </span>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
+                      {formatDate(m.date_of_receipt)}
+                    </td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 font-medium">
+                      {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
                     </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-semibold text-gray-900">
                       {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
                     </td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-medium text-blue-600">
+                      {m.rim_no || m.file_number || '-'}
+                    </td>
                     <td
-                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-700"
+                      className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 min-w-[240px]"
                       title={m.property_description || m.description || m.title_deed_no}
                     >
                       {m.property_description || m.description || m.title_deed_no || (
                         <span className="text-gray-400 italic">-</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap text-gray-700 font-medium">
-                      {m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-'}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-medium text-blue-600">
-                      {m.rim_no || m.file_number || '-'}
-                    </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono font-semibold text-right text-gray-900">
                       {formatUGX(m.loan_amount)}
+                    </td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-semibold text-amber-700">
+                      {formatUGX(m.total_disbursements)}
+                    </td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-bold text-blue-700">
+                      {formatUGX(m.grand_total)}
+                    </td>
+                    <td className="py-2.5 px-3.5 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 whitespace-nowrap">
+                        {m.month_sheet || m.source_sheet || '-'}
+                        {m.record_year ? ` ${m.record_year}` : ''}
+                      </span>
                     </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.stamp_duty)}
@@ -650,20 +657,11 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-gray-700">
                       {formatUGX(m.linkage_fees)}
                     </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-semibold text-amber-700">
-                      {formatUGX(m.total_disbursements)}
-                    </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-medium text-indigo-700">
                       {formatUGX(m.legal_fees)}
                     </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right text-slate-700">
                       {formatUGX(m.vat_18 ?? m.vat)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-right font-bold text-blue-700">
-                      {formatUGX(m.grand_total)}
-                    </td>
-                    <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
-                      {formatDate(m.date_of_receipt)}
                     </td>
                     <td className="py-2.5 px-3.5 whitespace-nowrap font-mono text-gray-600">
                       {formatDate(m.date_of_payment)}
