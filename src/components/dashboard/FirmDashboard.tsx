@@ -52,21 +52,28 @@ export const FirmDashboard: React.FC = () => {
     });
   }, []);
 
-  // Filter cases based on selected branch scope
-  const branchScopedCases = useMemo(() => {
-    if (selectedBranchFilter === 'all') return cases;
-    const targetBranch = branches.find((b) => b.id === selectedBranchFilter);
-    if (!targetBranch) return cases;
+  // Enforce strict assigned-branch scoping when user cannot view all branches
+  const effectiveBranchFilter = userPermissions.canViewAllBranches
+    ? selectedBranchFilter
+    : (currentUser.branchId || selectedBranchFilter);
 
-    const targetCity = targetBranch.city.toLowerCase();
-    const targetName = targetBranch.name.toLowerCase();
+  // Filter cases based on effective branch scope
+  const branchScopedCases = useMemo(() => {
+    if (userPermissions.canViewAllBranches && effectiveBranchFilter === 'all') return cases;
+    const targetBranch = branches.find((b) => b.id === effectiveBranchFilter);
+    const targetCity = targetBranch?.city?.toLowerCase() || '';
+    const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
 
     return cases.filter((c) => {
       const bId = c.branchId;
       const bName = (c.branch || c.branchName || '').toLowerCase();
-      return bId === targetBranch.id || bName.includes(targetCity) || bName.includes(targetName);
+      return (
+        (effectiveBranchFilter && bId === effectiveBranchFilter) ||
+        (targetCity && bName.includes(targetCity)) ||
+        (targetName && bName.includes(targetName))
+      );
     });
-  }, [cases, selectedBranchFilter, branches]);
+  }, [cases, effectiveBranchFilter, branches, userPermissions.canViewAllBranches, currentUser.branchName]);
 
   // Active cases count
   const activeCases = useMemo(() => {
@@ -137,12 +144,20 @@ export const FirmDashboard: React.FC = () => {
       caseItem?: CaseItem;
     }> = [];
 
+    const allowedCaseIds = new Set(branchScopedCases.map((c) => c.id));
+
     hearings.forEach((h) => {
       if (!h.hearingDate) return;
       if (h.hearingDate >= todayStr && h.hearingDate <= maxDateStr) {
         const matchedCase = cases.find(
           (c) => c.id === h.caseId || (c.suitNumber && c.suitNumber === h.suitNumber)
         );
+        if (!userPermissions.canViewAllBranches) {
+          const belongsToBranch =
+            (h.branchId && h.branchId === currentUser.branchId) ||
+            (matchedCase && allowedCaseIds.has(matchedCase.id));
+          if (!belongsToBranch) return;
+        }
         list.push({
           id: h.id,
           date: h.hearingDate,
@@ -178,7 +193,7 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [hearings, cases, branchScopedCases]);
+  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, currentUser.branchId]);
 
   const [isWeeklyModalOpen, setIsWeeklyModalOpen] = useState(false);
 
@@ -213,6 +228,8 @@ export const FirmDashboard: React.FC = () => {
       caseItem?: CaseItem;
     }> = [];
 
+    const allowedCaseIds = new Set(branchScopedCases.map((c) => c.id));
+
     hearings.forEach((h) => {
       if (!h.hearingDate) return;
       const hDate = new Date(h.hearingDate);
@@ -220,6 +237,12 @@ export const FirmDashboard: React.FC = () => {
         const matchedCase = cases.find(
           (c) => c.id === h.caseId || (c.suitNumber && c.suitNumber === h.suitNumber)
         );
+        if (!userPermissions.canViewAllBranches) {
+          const belongsToBranch =
+            (h.branchId && h.branchId === currentUser.branchId) ||
+            (matchedCase && allowedCaseIds.has(matchedCase.id));
+          if (!belongsToBranch) return;
+        }
         list.push({
           id: h.id,
           date: h.hearingDate,
@@ -256,9 +279,9 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [hearings, cases, branchScopedCases]);
+  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, currentUser.branchId]);
 
-  // Standard ordered branches list (Fort Portal, Gulu, Jinja, Kampala, Masaka, Masindi, Mbarara)
+  // Standard ordered branches list (scoped to assigned branch for Branch Admins/Clerks)
   const orderedBranches = useMemo(() => {
     const desiredOrder = [
       'fort portal',
@@ -270,7 +293,15 @@ export const FirmDashboard: React.FC = () => {
       'mbarara',
     ];
 
-    const sorted = [...branches].sort((a, b) => {
+    const visibleBranches = userPermissions.canViewAllBranches
+      ? branches
+      : branches.filter(
+          (b) =>
+            b.id === currentUser.branchId ||
+            (currentUser.branchName && b.name.toLowerCase() === currentUser.branchName.toLowerCase())
+        );
+
+    const sorted = [...visibleBranches].sort((a, b) => {
       const aIndex = desiredOrder.findIndex((city) => a.city.toLowerCase().includes(city) || a.name.toLowerCase().includes(city));
       const bIndex = desiredOrder.findIndex((city) => b.city.toLowerCase().includes(city) || b.name.toLowerCase().includes(city));
       if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
@@ -280,7 +311,7 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return sorted;
-  }, [branches]);
+  }, [branches, userPermissions.canViewAllBranches, currentUser.branchId, currentUser.branchName]);
 
   // Branch statistics calculation helper
   const getBranchStats = (branch: any) => {
@@ -431,12 +462,17 @@ export const FirmDashboard: React.FC = () => {
               <span>{formattedToday}</span>
               <span aria-hidden="true">·</span>
               <span className="text-slate-300 font-medium">Station: {userBranchName}</span>
-              {selectedBranchFilter !== 'all' && (
+              {!userPermissions.canViewAllBranches ? (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="text-amber-300 font-medium">Branch Scope Only</span>
+                </>
+              ) : selectedBranchFilter !== 'all' ? (
                 <>
                   <span aria-hidden="true">·</span>
                   <span className="text-blue-400 font-medium">Filtered Scope</span>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -526,7 +562,7 @@ export const FirmDashboard: React.FC = () => {
         {/* TOTAL CASES */}
         <div
           onClick={() => {
-            setSelectedBranchFilter('all');
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -544,7 +580,7 @@ export const FirmDashboard: React.FC = () => {
               {branchScopedCases.length}
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Across all firm dockets
+              {userPermissions.canViewAllBranches ? 'Across all firm dockets' : `In ${userBranchName}`}
             </p>
           </div>
         </div>
@@ -552,7 +588,7 @@ export const FirmDashboard: React.FC = () => {
         {/* ACTIVE */}
         <div
           onClick={() => {
-            setSelectedBranchFilter('all');
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -601,7 +637,7 @@ export const FirmDashboard: React.FC = () => {
         {/* CLOSED */}
         <div
           onClick={() => {
-            setSelectedBranchFilter('all');
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -627,7 +663,7 @@ export const FirmDashboard: React.FC = () => {
         {/* ARCHIVED */}
         <div
           onClick={() => {
-            setSelectedBranchFilter('all');
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -659,33 +695,39 @@ export const FirmDashboard: React.FC = () => {
               Branch Overview
             </h2>
             <p className="text-xs text-slate-500">
-              Live matter counts and operational status breakdown by regional circuit
+              {userPermissions.canViewAllBranches
+                ? 'Live matter counts and operational status breakdown by regional circuit'
+                : `Live matter counts and operational status breakdown for ${userBranchName}`}
             </p>
           </div>
           <button
             type="button"
             onClick={() => {
-              setSelectedBranchFilter('all');
+              setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
               setActiveTab('catalogue');
             }}
             className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
           >
-            <span>All cases</span>
+            <span>{userPermissions.canViewAllBranches ? 'All cases' : 'Branch cases'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Grid of 7 Branch Cards */}
+        {/* Grid of Regional Branch Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {orderedBranches.map((b) => {
             const stats = getBranchStats(b);
-            const isSelected = selectedBranchFilter === b.id;
+            const isSelected = effectiveBranchFilter === b.id;
 
             return (
               <div
                 key={b.id}
                 onClick={() => {
-                  setSelectedBranchFilter(isSelected ? 'all' : b.id);
+                  if (userPermissions.canViewAllBranches) {
+                    setSelectedBranchFilter(isSelected ? 'all' : b.id);
+                  } else {
+                    setSelectedBranchFilter(b.id);
+                  }
                 }}
                 className={`bg-white border rounded-xl p-5 shadow-xs transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
                   isSelected
@@ -797,7 +839,11 @@ export const FirmDashboard: React.FC = () => {
               onClick={() => setActiveTab('catalogue')}
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <span>All cases ({cases.length})</span>
+              <span>
+                {userPermissions.canViewAllBranches
+                  ? `All cases (${cases.length})`
+                  : `Branch cases (${branchScopedCases.length})`}
+              </span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>

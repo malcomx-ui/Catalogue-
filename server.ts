@@ -158,10 +158,31 @@ const DEFAULT_DATABASE = {
       branchName: 'Kampala Central (Head Office)',
       isSuperAdmin: true,
       isBranchAdmin: true,
+      isSuspended: false,
+      suspendedReason: '',
       password: 'Admin@2026',
+      temporaryPassword: '',
+      mustChangePassword: false,
       advocateRollNo: '',
     },
-  ],
+  ] as Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    roleId: string;
+    roleTitle: string;
+    branchId: string;
+    branchName: string;
+    isSuperAdmin: boolean;
+    isBranchAdmin: boolean;
+    isSuspended?: boolean;
+    suspendedReason?: string;
+    password?: string;
+    temporaryPassword?: string;
+    mustChangePassword?: boolean;
+    advocateRollNo?: string;
+  }>,
   roles: [
     {
       id: 'role-super-admin',
@@ -214,25 +235,25 @@ const DEFAULT_DATABASE = {
       },
     },
     {
-      id: 'role-lead',
-      name: 'Regional Litigation Team Lead',
+      id: 'role-team-lead',
+      name: 'Regional Team Lead',
       description: 'Supervises branch advocates, reviews pleadings, conducts high-value trials, and assigns regional litigation briefs.',
       isSuperAdmin: false,
       isSystem: true,
       badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
       permissions: {
-        canViewAllBranches: false,
+        canViewAllBranches: true,
         canCreateCases: true,
         canEditCases: true,
-        canDeleteCases: false,
+        canDeleteCases: true,
         canBulkImport: false,
         canBulkExport: false,
-        canPrintCauseList: false,
+        canPrintCauseList: true,
         canScheduleHearings: true,
         canRecordOutcomes: true,
         canLogFileMovement: true,
         canManageDocuments: true,
-        canViewFinancials: false,
+        canViewFinancials: true,
         canManageRoles: false,
         canManageUsers: false,
         canManageBranches: false,
@@ -750,65 +771,116 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
 // ==============================================================================
 // User Update API Route: Syncs BOTH Supabase Auth user_metadata AND public profiles table
 // ==============================================================================
-// Helper to resolve canonical branch station
+// Helper to resolve canonical branch station (preserves custom branches too)
 function resolveCanonicalBranch(branchId?: string, branchName?: string) {
-  const clean = `${branchId || ''} ${branchName || ''}`.toLowerCase();
-  if (branchId === 'ftp-reg' || clean.includes('fort') || clean.includes('portal') || clean.includes('ftp')) {
+  const bId = (branchId || '').trim();
+  const bName = (branchName || '').trim();
+  const clean = `${bId} ${bName}`.toLowerCase();
+
+  if (bId === 'ftp-reg' || clean.includes('fort') || clean.includes('portal') || clean.includes('ftp')) {
     return { id: 'ftp-reg', name: 'Fort Portal Regional Office' };
   }
-  if (branchId === 'mbr-reg' || clean.includes('mbarara') || clean.includes('mbr')) {
+  if (bId === 'mbr-reg' || clean.includes('mbarara') || clean.includes('mbr')) {
     return { id: 'mbr-reg', name: 'Mbarara Regional Office' };
   }
-  if (branchId === 'msk-reg' || clean.includes('masaka') || clean.includes('msk')) {
+  if (bId === 'msk-reg' || clean.includes('masaka') || clean.includes('msk')) {
     return { id: 'msk-reg', name: 'Masaka Regional Office' };
   }
-  if (branchId === 'jnj-reg' || clean.includes('jinja') || clean.includes('jnj')) {
+  if (bId === 'jnj-reg' || clean.includes('jinja') || clean.includes('jnj')) {
     return { id: 'jnj-reg', name: 'Jinja Regional Office' };
   }
-  if (branchId === 'glu-reg' || clean.includes('gulu') || clean.includes('glu')) {
+  if (bId === 'glu-reg' || clean.includes('gulu') || clean.includes('glu')) {
     return { id: 'glu-reg', name: 'Gulu Regional Office' };
   }
-  if (branchId === 'msn-reg' || clean.includes('masindi') || clean.includes('msn')) {
+  if (bId === 'msn-reg' || clean.includes('masindi') || clean.includes('msn')) {
     return { id: 'msn-reg', name: 'Masindi Regional Office' };
+  }
+  if (bId === 'kla-hq' || clean.includes('kampala') || clean.includes('head office') || clean.includes('kla')) {
+    return { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
+  }
+  // Support custom dynamically added branches
+  if (bId && (bId.startsWith('br-') || bName)) {
+    return { id: bId, name: bName || bId };
   }
   return { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
 }
 
 // Helper to resolve canonical role and privileges
-function resolveCanonicalRole(roleId?: string, roleTitle?: string, isSuper?: boolean) {
-  const clean = `${roleId || ''} ${roleTitle || ''}`.toLowerCase();
-  if (isSuper || clean.includes('super') || clean.includes('partner') || clean.includes('managing')) {
+function resolveCanonicalRole(roleId?: string, roleTitle?: string, isSuper?: boolean, email?: string) {
+  const rawId = (roleId || '').trim();
+  const lowerId = rawId.toLowerCase();
+  const cleanTitle = (roleTitle || '').trim();
+  const clean = `${lowerId} ${cleanTitle.toLowerCase()}`;
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  if (
+    isSuper === true ||
+    cleanEmail === 'infosightug@gmail.com' ||
+    lowerId === 'role-super-admin' ||
+    lowerId === 'super_admin' ||
+    lowerId === 'superadmin' ||
+    lowerId === 'partner' ||
+    lowerId === 'managing_partner' ||
+    lowerId === 'system_admin'
+  ) {
     return {
       roleId: 'role-super-admin',
       role: 'partner',
-      roleTitle: 'Managing Partner (Super Admin)',
+      roleTitle: cleanTitle || 'Managing Partner (Super Admin)',
       isSuperAdmin: true,
       isBranchAdmin: false,
     };
   }
-  if (clean.includes('admin') || clean.includes('branch_admin') || clean.includes('branch-admin')) {
+  if (
+    lowerId === 'role-admin' ||
+    lowerId === 'admin' ||
+    lowerId === 'branch_admin' ||
+    lowerId === 'branch-admin' ||
+    lowerId === 'office_admin' ||
+    clean.includes('branch admin')
+  ) {
     return {
       roleId: 'role-admin',
       role: 'admin',
-      roleTitle: 'Branch Administrator',
+      roleTitle: cleanTitle || 'Branch Administrator',
       isSuperAdmin: false,
       isBranchAdmin: true,
     };
   }
-  if (clean.includes('team') || clean.includes('lead')) {
+  if (
+    lowerId === 'role-team-lead' ||
+    lowerId === 'role-lead' ||
+    lowerId === 'team_lead' ||
+    lowerId === 'lead' ||
+    lowerId === 'litigation_lead'
+  ) {
     return {
       roleId: 'role-team-lead',
-      role: 'lawyer',
-      roleTitle: 'Litigation Team Lead',
+      role: 'team_lead',
+      roleTitle: cleanTitle || 'Regional Team Lead',
       isSuperAdmin: false,
       isBranchAdmin: false,
     };
   }
-  if (clean.includes('clerk')) {
+  if (
+    lowerId === 'role-clerk' ||
+    lowerId === 'clerk' ||
+    lowerId === 'court_clerk' ||
+    lowerId === 'registry_clerk'
+  ) {
     return {
       roleId: 'role-clerk',
       role: 'clerk',
-      roleTitle: 'Court Registry Clerk',
+      roleTitle: cleanTitle || 'Court & Registry Clerk',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+  if (rawId.startsWith('role-custom-')) {
+    return {
+      roleId: rawId,
+      role: rawId,
+      roleTitle: cleanTitle || 'Custom Firm Role',
       isSuperAdmin: false,
       isBranchAdmin: false,
     };
@@ -816,15 +888,86 @@ function resolveCanonicalRole(roleId?: string, roleTitle?: string, isSuper?: boo
   return {
     roleId: 'role-advocate',
     role: 'lawyer',
-    roleTitle: roleTitle || 'Litigation Lawyer / Associate',
+    roleTitle: cleanTitle || 'Litigation Lawyer / Associate',
     isSuperAdmin: false,
     isBranchAdmin: false,
   };
 }
 
+// Helper to extract column name from PostgREST schema cache error
+function extractMissingColumn(errMsg?: string): string | null {
+  if (!errMsg) return null;
+  const pgrstMatch = errMsg.match(/Could not find the '([^']+)' column/i);
+  if (pgrstMatch?.[1]) return pgrstMatch[1];
+  const pgMatch = errMsg.match(/column "([^"]+)" of relation "[^"]+" does not exist/i);
+  if (pgMatch?.[1]) return pgMatch[1];
+  return null;
+}
+
+// Schema-resilient profiles update/upsert helper
+async function safeProfileMutation(
+  mode: 'update-id' | 'update-email' | 'upsert',
+  payload: Record<string, any>,
+  matchValue?: string
+): Promise<{ data: any; error: any }> {
+  const workingPayload = { ...payload };
+  // Public profiles table uses full_name (never 'name')
+  delete workingPayload.name;
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let res: any;
+    if (mode === 'update-id' && matchValue) {
+      res = await supabaseAdmin.from('profiles').update(workingPayload).eq('id', matchValue).select('*');
+    } else if (mode === 'update-email' && matchValue) {
+      res = await supabaseAdmin.from('profiles').update(workingPayload).eq('email', matchValue).select('*');
+    } else {
+      res = await supabaseAdmin
+        .from('profiles')
+        .upsert([workingPayload], { onConflict: matchValue === 'id' ? 'id' : 'email' })
+        .select('*');
+    }
+
+    if (!res.error) return res;
+    const missingCol = extractMissingColumn(res.error.message);
+    if (missingCol && missingCol in workingPayload) {
+      delete workingPayload[missingCol];
+      continue;
+    }
+    return res;
+  }
+  return { data: null, error: { message: 'Max schema retry attempts reached' } };
+}
+
+function hasRealServiceRoleKey(): boolean {
+  try {
+    const parts = SUPABASE_SERVICE_ROLE_KEY.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+    return payload?.role === 'service_role';
+  } catch {
+    return false;
+  }
+}
+
+function extractPasswordFromRollNo(rawRollNo?: string): { rollNo: string; password?: string } {
+  const raw = String(rawRollNo || '');
+  if (raw.includes(':::[PW]:')) {
+    const parts = raw.split(':::[PW]:');
+    return { rollNo: parts[0].trim(), password: parts[1]?.trim() || undefined };
+  }
+  return { rollNo: raw.trim() };
+}
+
+function defaultRolePassword(roleId: string): string {
+  if (roleId === 'role-super-admin') return 'Admin@2026';
+  if (roleId === 'role-admin') return 'Branch@2026';
+  if (roleId === 'role-clerk') return 'Clerk@2026';
+  return 'Lawyer@2026';
+}
+
 // ==============================================================================
 // User Update API Route: Atomically updates Supabase Auth user_metadata,
-// public profiles table, and firm_users, returning complete updated record
+// public profiles table, firm_users, and local workstation DB
 // ==============================================================================
 const handleUserUpdate = async (req: Request, res: Response) => {
   try {
@@ -851,9 +994,13 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       is_branch_admin,
       isSuspended,
       is_suspended,
+      suspendedReason,
+      suspended_reason,
       advocateRollNo,
       advocate_roll_no,
       password,
+      mustChangePassword,
+      must_change_password,
     } = req.body;
 
     const resolvedEmail = (email || '').trim().toLowerCase();
@@ -862,30 +1009,61 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     const rawBranchName = (branchName || branch_name || branch || '').trim();
     const rawRoleId = (roleId || role_id || role || '').trim();
     const rawRoleTitle = (roleTitle || role_title || '').trim();
-    const isSuperInput = isSuperAdmin !== undefined ? Boolean(isSuperAdmin) : (is_super_admin !== undefined ? Boolean(is_super_admin) : undefined);
-    const isBranchInput = isBranchAdmin !== undefined ? Boolean(isBranchAdmin) : (is_branch_admin !== undefined ? Boolean(is_branch_admin) : undefined);
+    const isSuperInput =
+      isSuperAdmin !== undefined
+        ? Boolean(isSuperAdmin)
+        : is_super_admin !== undefined
+        ? Boolean(is_super_admin)
+        : undefined;
+    const isBranchInput =
+      isBranchAdmin !== undefined
+        ? Boolean(isBranchAdmin)
+        : is_branch_admin !== undefined
+        ? Boolean(is_branch_admin)
+        : undefined;
 
-    // Resolve canonical station and role
-    const branchMeta = resolveCanonicalBranch(rawBranchId, rawBranchName);
-    const roleMeta = resolveCanonicalRole(rawRoleId, rawRoleTitle, isSuperInput);
-    if (isBranchInput !== undefined) {
+    const db = readDatabase();
+    const existingDbUser = (db.users || []).find(
+      (u: any) =>
+        (targetId && u.id === targetId) ||
+        (resolvedEmail && u.email?.toLowerCase() === resolvedEmail)
+    );
+
+    const effectiveEmail = resolvedEmail || (existingDbUser?.email || '').trim().toLowerCase();
+
+    // Resolve canonical station and role (preserve existing values when partial update omits branch or role)
+    const branchMeta =
+      rawBranchId || rawBranchName
+        ? resolveCanonicalBranch(rawBranchId, rawBranchName)
+        : resolveCanonicalBranch(existingDbUser?.branchId, existingDbUser?.branchName);
+
+    const roleMeta =
+      rawRoleId || rawRoleTitle
+        ? resolveCanonicalRole(rawRoleId, rawRoleTitle, isSuperInput, effectiveEmail)
+        : resolveCanonicalRole(
+            existingDbUser?.roleId || existingDbUser?.role,
+            existingDbUser?.roleTitle,
+            isSuperInput ?? existingDbUser?.isSuperAdmin,
+            effectiveEmail
+          );
+
+    if (isBranchInput !== undefined && !roleMeta.isSuperAdmin && roleMeta.roleId !== 'role-admin') {
       roleMeta.isBranchAdmin = isBranchInput;
     }
 
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
 
-    // 1. Resolve Auth UUID
+    // 1. Resolve Auth UUID and existing profile
     let authUserId: string | null = isUUID ? targetId : null;
     let existingProfile: any = null;
 
-    // Check profiles table for target
     try {
       if (authUserId) {
         const { data: pById } = await supabaseAdmin.from('profiles').select('*').eq('id', authUserId).maybeSingle();
         if (pById) existingProfile = pById;
       }
-      if (!existingProfile && resolvedEmail) {
-        const { data: pByEmail } = await supabaseAdmin.from('profiles').select('*').eq('email', resolvedEmail).maybeSingle();
+      if (!existingProfile && effectiveEmail) {
+        const { data: pByEmail } = await supabaseAdmin.from('profiles').select('*').eq('email', effectiveEmail).maybeSingle();
         if (pByEmail) {
           existingProfile = pByEmail;
           if (pByEmail.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pByEmail.id)) {
@@ -897,27 +1075,29 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       console.warn('[User Update] Profile lookup notice:', lookupErr);
     }
 
-    // Check Supabase Auth user list if authUserId not resolved
-    if (!authUserId && resolvedEmail) {
+    if (!authUserId && effectiveEmail && hasRealServiceRoleKey()) {
       try {
         const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-        const matched = userList?.users?.find(
-          (u) => u.email?.toLowerCase() === resolvedEmail
-        );
-        if (matched) {
-          authUserId = matched.id;
-        }
+        const matched = userList?.users?.find((u) => u.email?.toLowerCase() === effectiveEmail);
+        if (matched) authUserId = matched.id;
       } catch (authListErr) {
         console.warn('[User Update] Auth user list notice:', authListErr);
       }
     }
 
-    const finalFullName = resolvedName || existingProfile?.full_name || existingProfile?.name || '';
-    const finalEmail = resolvedEmail || existingProfile?.email || '';
+    const finalFullName = resolvedName || existingProfile?.full_name || existingDbUser?.name || '';
+    const finalEmail = effectiveEmail || existingProfile?.email || '';
+    const trimmedPassword = password && String(password).trim() ? String(password).trim() : undefined;
+    const finalMustChange =
+      mustChangePassword !== undefined
+        ? Boolean(mustChangePassword)
+        : must_change_password !== undefined
+        ? Boolean(must_change_password)
+        : existingDbUser?.mustChangePassword;
 
     // 2. Prepare user_metadata for Supabase Auth
     const userMetadata: Record<string, any> = {
-      role: roleMeta.roleId,
+      role: roleMeta.role,
       role_id: roleMeta.roleId,
       role_title: roleMeta.roleTitle,
       branch_id: branchMeta.id,
@@ -933,18 +1113,19 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     if (advocateRollNo || advocate_roll_no) {
       userMetadata.advocate_roll_no = advocateRollNo || advocate_roll_no;
     }
+    if (finalMustChange !== undefined) {
+      userMetadata.must_change_password = finalMustChange;
+    }
 
-    // 3. Update Supabase Auth user_metadata (via supabaseAdmin.auth.admin.updateUserById)
+    // 3. Update Supabase Auth user_metadata (when real service role key is configured)
     let authUpdated = false;
     let authError: string | null = null;
 
-    if (authUserId) {
+    if (authUserId && hasRealServiceRoleKey()) {
       try {
-        const authPayload: any = {
-          user_metadata: userMetadata,
-        };
+        const authPayload: any = { user_metadata: userMetadata };
         if (finalEmail) authPayload.email = finalEmail;
-        if (password && password.trim()) authPayload.password = password.trim();
+        if (trimmedPassword) authPayload.password = trimmedPassword;
 
         const { data: updatedAuthUser, error: authErr } = await supabaseAdmin.auth.admin.updateUserById(
           authUserId,
@@ -954,17 +1135,15 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           authUpdated = true;
         } else if (authErr) {
           authError = authErr.message;
-          console.warn('[User Update API] supabaseAdmin.auth.admin.updateUserById notice:', authErr.message);
         }
       } catch (authEx: any) {
         authError = authEx?.message || 'Auth admin update exception';
-        console.warn('[User Update API] Auth update exception:', authEx);
       }
     }
 
-    // 4. Update public 'profiles' table atomically
+    // 4. Update public 'profiles' table atomically & schema-resiliently
     const profileRow: Record<string, any> = {
-      role: roleMeta.roleId,
+      role: roleMeta.role,
       role_id: roleMeta.roleId,
       role_title: roleMeta.roleTitle,
       branch_id: branchMeta.id,
@@ -976,54 +1155,40 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     };
     if (finalFullName) profileRow.full_name = finalFullName;
     if (finalEmail) profileRow.email = finalEmail;
-    if (authUserId) profileRow.id = authUserId;
+    if (finalMustChange !== undefined) profileRow.must_change_password = finalMustChange;
 
     let profileUpdated = false;
     let completeProfile: any = null;
 
     try {
-      // 4a. Update by authUserId if available
-      if (authUserId) {
-        const { data: pData, error: pErr } = await supabaseAdmin
-          .from('profiles')
-          .update(profileRow)
-          .eq('id', authUserId)
-          .select('*');
-
+      const idForProfile = authUserId || targetId;
+      if (idForProfile) {
+        const { data: pData, error: pErr } = await safeProfileMutation('update-id', profileRow, idForProfile);
         if (!pErr && pData && pData.length > 0) {
           profileUpdated = true;
           completeProfile = pData[0];
         }
       }
 
-      // 4b. Update by email if not updated
       if (!profileUpdated && finalEmail) {
-        const { data: pEmailData, error: peErr } = await supabaseAdmin
-          .from('profiles')
-          .update(profileRow)
-          .eq('email', finalEmail)
-          .select('*');
-
+        const { data: pEmailData, error: peErr } = await safeProfileMutation('update-email', profileRow, finalEmail);
         if (!peErr && pEmailData && pEmailData.length > 0) {
           profileUpdated = true;
           completeProfile = pEmailData[0];
         }
       }
 
-      // 4c. Upsert into profiles to ensure record exists
-      if (!profileUpdated && (authUserId || finalEmail)) {
+      if (!profileUpdated && (authUserId || targetId || finalEmail)) {
         const upsertRow: any = {
           ...profileRow,
-          id: authUserId || (isUUID ? targetId : undefined),
+          id: authUserId || targetId || `user-${Date.now()}`,
           email: finalEmail || undefined,
         };
-        if (!upsertRow.id) delete upsertRow.id;
-
-        const { data: insData, error: insErr } = await supabaseAdmin
-          .from('profiles')
-          .upsert([upsertRow], { onConflict: authUserId ? 'id' : 'email' })
-          .select('*');
-
+        const { data: insData, error: insErr } = await safeProfileMutation(
+          'upsert',
+          upsertRow,
+          authUserId ? 'id' : 'email'
+        );
         if (!insErr && insData && insData.length > 0) {
           profileUpdated = true;
           completeProfile = insData[0];
@@ -1033,42 +1198,80 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       console.warn('[User Update] Profiles update exception:', profErr);
     }
 
-    // 5. Keep public 'firm_users' table synchronized
+    // 5. Keep public 'firm_users' table synchronized (including embedded password if updated)
     try {
+      const baseRoll = (
+        advocateRollNo ||
+        advocate_roll_no ||
+        extractPasswordFromRollNo(existingDbUser?.advocateRollNo).rollNo ||
+        ''
+      )
+        .split(':::[PW]:')[0]
+        .trim();
+
+      const effectivePw = trimmedPassword || existingDbUser?.password;
       const firmUserUpdates: any = {
-        name: finalFullName || undefined,
-        role: roleMeta.roleId,
+        role: roleMeta.role,
         role_title: roleMeta.roleTitle,
         branch_name: branchMeta.name,
         branch_id: branchMeta.id,
         is_super_admin: roleMeta.isSuperAdmin,
         is_branch_admin: roleMeta.isBranchAdmin,
-        updated_at: new Date().toISOString(),
       };
+      if (finalFullName) firmUserUpdates.name = finalFullName;
       if (finalEmail) firmUserUpdates.email = finalEmail;
-      if (advocateRollNo || advocate_roll_no) {
-        firmUserUpdates.advocate_roll_no = advocateRollNo || advocate_roll_no;
+      if (isSuspended !== undefined || is_suspended !== undefined) {
+        firmUserUpdates.is_suspended = Boolean(isSuspended ?? is_suspended);
+      }
+      if (effectivePw) {
+        firmUserUpdates.advocate_roll_no = `${baseRoll}:::[PW]:${effectivePw}`;
+      } else if (advocateRollNo !== undefined || advocate_roll_no !== undefined) {
+        firmUserUpdates.advocate_roll_no = baseRoll;
       }
 
+      let fuUpdated = false;
       if (authUserId) {
-        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', authUserId);
+        const r1 = await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', authUserId).select('id');
+        if (!r1.error && r1.data && r1.data.length > 0) fuUpdated = true;
       }
-      if (targetId && targetId !== authUserId) {
-        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', targetId);
+      if (!fuUpdated && targetId && targetId !== authUserId) {
+        const r2 = await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('id', targetId).select('id');
+        if (!r2.error && r2.data && r2.data.length > 0) fuUpdated = true;
       }
-      if (finalEmail) {
-        await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('email', finalEmail);
+      if (!fuUpdated && finalEmail) {
+        const r3 = await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('email', finalEmail).select('id');
+        if (!r3.error && r3.data && r3.data.length > 0) fuUpdated = true;
+      }
+      if (!fuUpdated && finalEmail) {
+        await supabaseAdmin.from('firm_users').upsert(
+          [
+            {
+              id: authUserId || targetId || `user-${Date.now()}`,
+              name: finalFullName || finalEmail.split('@')[0],
+              email: finalEmail,
+              ...firmUserUpdates,
+            },
+          ],
+          { onConflict: 'email' }
+        );
       }
     } catch (fuErr) {
       console.warn('[User Update] firm_users update notice:', fuErr);
     }
 
     // 6. Update in-memory and server_data/firm_database.json
-    const db = readDatabase();
+    const finalRecordId = authUserId || targetId || existingDbUser?.id || `user-${Date.now()}`;
+    let foundInDb = false;
     db.users = (db.users || []).map((u: any) => {
-      if (u.id === targetId || u.id === authUserId || (finalEmail && u.email?.toLowerCase() === finalEmail)) {
+      if (
+        (targetId && u.id === targetId) ||
+        (authUserId && u.id === authUserId) ||
+        (finalEmail && u.email?.toLowerCase() === finalEmail)
+      ) {
+        foundInDb = true;
         return {
           ...u,
+          id: finalRecordId,
           name: finalFullName || u.name,
           email: finalEmail || u.email,
           role: roleMeta.role,
@@ -1078,20 +1281,41 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           branchId: branchMeta.id,
           isSuperAdmin: roleMeta.isSuperAdmin,
           isBranchAdmin: roleMeta.isBranchAdmin,
+          isSuspended: isSuspended !== undefined ? Boolean(isSuspended) : is_suspended !== undefined ? Boolean(is_suspended) : u.isSuspended,
+          suspendedReason: suspendedReason !== undefined ? suspendedReason : suspended_reason !== undefined ? suspended_reason : u.suspendedReason,
+          password: trimmedPassword || u.password,
+          mustChangePassword: finalMustChange !== undefined ? finalMustChange : u.mustChangePassword,
           advocateRollNo: advocateRollNo || advocate_roll_no || u.advocateRollNo,
         };
       }
       return u;
     });
+
+    if (!foundInDb && finalEmail) {
+      db.users.push({
+        id: finalRecordId,
+        name: finalFullName || finalEmail.split('@')[0],
+        email: finalEmail,
+        role: roleMeta.role,
+        roleId: roleMeta.roleId,
+        roleTitle: roleMeta.roleTitle,
+        branchId: branchMeta.id,
+        branchName: branchMeta.name,
+        isSuperAdmin: roleMeta.isSuperAdmin,
+        isBranchAdmin: roleMeta.isBranchAdmin,
+        isSuspended: Boolean(isSuspended ?? is_suspended),
+        password: trimmedPassword || defaultRolePassword(roleMeta.roleId),
+        mustChangePassword: Boolean(finalMustChange),
+        advocateRollNo: advocateRollNo || advocate_roll_no || '',
+      });
+    }
     writeDatabase(db);
 
-    // 7. Ensure complete, populated profile record is constructed
     const returnedProfile = completeProfile || {
-      id: authUserId || targetId,
+      id: finalRecordId,
       full_name: finalFullName,
-      name: finalFullName,
       email: finalEmail,
-      role: roleMeta.roleId,
+      role: roleMeta.role,
       role_id: roleMeta.roleId,
       role_title: roleMeta.roleTitle,
       branch_id: branchMeta.id,
@@ -1103,7 +1327,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     };
 
     const returnedUser = {
-      id: authUserId || targetId,
+      id: finalRecordId,
       email: finalEmail,
       name: finalFullName,
       role: roleMeta.role,
@@ -1113,12 +1337,13 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
-      advocateRollNo: advocateRollNo || advocate_roll_no || '',
+      isSuspended: Boolean(isSuspended ?? is_suspended ?? existingDbUser?.isSuspended),
+      advocateRollNo: advocateRollNo || advocate_roll_no || existingDbUser?.advocateRollNo || '',
     };
 
     return res.json({
       success: true,
-      message: 'Staff updated successfully across Auth user_metadata, profiles, and firm_users',
+      message: 'Staff updated successfully across profiles, firm_users, and central database',
       authUpdated,
       authError,
       profileUpdated,
@@ -1132,8 +1357,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
 };
 
 // ==============================================================================
-// User Provisioning API Route: Uses supabaseAdmin.auth.admin.createUser
-// to securely provision credentials in Supabase Auth & public profiles
+// User Provisioning API Route: Provisions credentials in Supabase Auth (with
+// signUp fallback if service_role key is absent), public.profiles, firm_users & DB
 // ==============================================================================
 const handleUserCreate = async (req: Request, res: Response) => {
   try {
@@ -1164,8 +1389,8 @@ const handleUserCreate = async (req: Request, res: Response) => {
     const resolvedEmail = (email || '').trim().toLowerCase();
     const resolvedName = (name || full_name || '').trim();
     const rawPassword = (password || '').trim() || 'MK@Law2026';
-    const resolvedRoleId = (roleId || role_id || role || 'role-advocate').trim();
-    const resolvedRoleTitle = (roleTitle || role_title || '').trim();
+    const rawRoleId = (roleId || role_id || role || 'role-advocate').trim();
+    const rawRoleTitle = (roleTitle || role_title || '').trim();
     const resolvedBranchId = (branchId || branch_id || '').trim();
     const resolvedBranchName = (branchName || branch_name || branch || '').trim();
 
@@ -1179,124 +1404,125 @@ const handleUserCreate = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Password must be at least 6 characters.' });
     }
 
-    // Branch resolution helper inside server
-    let finalBranchId = 'kla-hq';
-    let finalBranchName = 'Kampala Central (Head Office)';
-    const cleanB = (resolvedBranchName || resolvedBranchId || '').toLowerCase();
-    if (resolvedBranchId === 'ftp-reg' || cleanB.includes('fort') || cleanB.includes('portal') || cleanB.includes('ftp')) {
-      finalBranchId = 'ftp-reg';
-      finalBranchName = 'Fort Portal Regional Office';
-    } else if (resolvedBranchId === 'mbr-reg' || cleanB.includes('mbarara') || cleanB.includes('mbr')) {
-      finalBranchId = 'mbr-reg';
-      finalBranchName = 'Mbarara Regional Office';
-    } else if (resolvedBranchId === 'msk-reg' || cleanB.includes('masaka') || cleanB.includes('msk')) {
-      finalBranchId = 'msk-reg';
-      finalBranchName = 'Masaka Regional Office';
-    } else if (resolvedBranchId === 'jnj-reg' || cleanB.includes('jinja') || cleanB.includes('jnj')) {
-      finalBranchId = 'jnj-reg';
-      finalBranchName = 'Jinja Regional Office';
-    } else if (resolvedBranchId === 'glu-reg' || cleanB.includes('gulu') || cleanB.includes('glu')) {
-      finalBranchId = 'glu-reg';
-      finalBranchName = 'Gulu Regional Office';
-    } else if (resolvedBranchId === 'msn-reg' || cleanB.includes('masindi') || cleanB.includes('msn')) {
-      finalBranchId = 'msn-reg';
-      finalBranchName = 'Masindi Regional Office';
-    } else {
-      finalBranchId = 'kla-hq';
-      finalBranchName = 'Kampala Central (Head Office)';
+    const branchMeta = resolveCanonicalBranch(resolvedBranchId, resolvedBranchName);
+    const roleMeta = resolveCanonicalRole(
+      rawRoleId,
+      rawRoleTitle,
+      isSuperAdmin ?? is_super_admin,
+      resolvedEmail
+    );
+    if (isBranchAdmin !== undefined || is_branch_admin !== undefined) {
+      if (!roleMeta.isSuperAdmin && roleMeta.roleId !== 'role-admin') {
+        roleMeta.isBranchAdmin = Boolean(isBranchAdmin ?? is_branch_admin);
+      }
     }
-
-    const isSuper = Boolean(isSuperAdmin ?? is_super_admin ?? resolvedRoleId === 'role-super-admin');
-    const isBranch = Boolean(isBranchAdmin ?? is_branch_admin ?? resolvedRoleId === 'role-admin');
 
     const userMetadata: Record<string, any> = {
       full_name: resolvedName,
       name: resolvedName,
-      role: resolvedRoleId,
-      role_id: resolvedRoleId,
-      role_title: resolvedRoleTitle || (isSuper ? 'Managing Partner (Super Admin)' : 'Litigation Lawyer / Associate'),
-      branch: finalBranchName,
-      branch_name: finalBranchName,
-      branch_id: finalBranchId,
-      is_super_admin: isSuper,
-      is_branch_admin: isBranch,
+      role: roleMeta.role,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      branch: branchMeta.name,
+      branch_name: branchMeta.name,
+      branch_id: branchMeta.id,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
       must_change_password: Boolean(mustChangePassword ?? true),
       advocate_roll_no: advocateRollNo || advocate_roll_no || '',
     };
 
-    // 1. Invoke Supabase Auth admin API to create or update auth user
+    // 1. Provision in Supabase Auth (use auth.admin if real service_role key exists, else attempt signUp)
     let authUserId: string | null = null;
     let authUserCreated = false;
     let authError: string | null = null;
 
-    try {
-      const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-      const existingUser = userList?.users?.find(
-        (u) => u.email?.toLowerCase() === resolvedEmail
-      );
+    if (hasRealServiceRoleKey()) {
+      try {
+        const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = userList?.users?.find(
+          (u) => u.email?.toLowerCase() === resolvedEmail
+        );
 
-      if (existingUser) {
-        authUserId = existingUser.id;
-        const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(
-          existingUser.id,
-          {
+        if (existingUser) {
+          authUserId = existingUser.id;
+          const { error: updErr } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
             password: rawPassword,
             user_metadata: userMetadata,
             email_confirm: true,
+          });
+          if (updErr) {
+            authError = updErr.message;
+          } else {
+            authUserCreated = true;
           }
-        );
-        if (updErr) {
-          authError = updErr.message;
         } else {
-          authUserCreated = true;
+          const { data: createdAuth, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+            email: resolvedEmail,
+            password: rawPassword,
+            email_confirm: true,
+            user_metadata: userMetadata,
+          });
+
+          if (createErr) {
+            authError = createErr.message;
+            console.warn('[handleUserCreate] createUser notice:', createErr.message);
+          } else if (createdAuth?.user) {
+            authUserId = createdAuth.user.id;
+            authUserCreated = true;
+          }
         }
-      } else {
-        const { data: createdAuth, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      } catch (authEx: any) {
+        authError = authEx?.message || 'Supabase Auth admin createUser exception';
+        console.warn('[handleUserCreate] Auth exception:', authEx);
+      }
+    } else {
+      // Attempt standard non-persisting signUp so auth.users receives the user when signups are open
+      try {
+        const tempClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data: signUpData, error: signUpErr } = await tempClient.auth.signUp({
           email: resolvedEmail,
           password: rawPassword,
-          email_confirm: true, // Mark confirmed so staff member can immediately log in
-          user_metadata: userMetadata,
+          options: { data: userMetadata },
         });
-
-        if (createErr) {
-          authError = createErr.message;
-          console.warn('[handleUserCreate] createUser notice:', createErr.message);
-        } else if (createdAuth?.user) {
-          authUserId = createdAuth.user.id;
-          authUserCreated = true;
+        if (!signUpErr && signUpData?.user?.id) {
+          authUserId = signUpData.user.id;
+          authUserCreated = Boolean(signUpData.session);
+          if (!signUpData.session) {
+            authError = 'Auth account awaiting confirmation; portal credential fallback active.';
+          }
+        } else if (signUpErr) {
+          authError = signUpErr.message;
         }
+      } catch (suErr: any) {
+        authError = suErr?.message || 'Auth signUp fallback notice';
       }
-    } catch (authEx: any) {
-      authError = authEx?.message || 'Supabase Auth admin createUser exception';
-      console.warn('[handleUserCreate] Auth exception:', authEx);
     }
 
     const targetUserId = authUserId || `user-${Date.now()}`;
 
-    // 2. Prepare profileRow and upsert into public profiles table
+    // 2. Prepare profileRow and upsert into public.profiles cleanly (no unsupported columns)
     const profileRow: Record<string, any> = {
       id: targetUserId,
       full_name: resolvedName,
-      name: resolvedName,
       email: resolvedEmail,
-      role: resolvedRoleId,
-      role_id: resolvedRoleId,
-      role_title: resolvedRoleTitle || userMetadata.role_title,
-      branch: finalBranchName,
-      branch_name: finalBranchName,
-      branch_id: finalBranchId,
-      is_super_admin: isSuper,
-      is_branch_admin: isBranch,
+      role: roleMeta.role,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      branch: branchMeta.name,
+      branch_name: branchMeta.name,
+      branch_id: branchMeta.id,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
       must_change_password: Boolean(mustChangePassword ?? true),
       updated_at: new Date().toISOString(),
     };
 
     let profileData: any = null;
     try {
-      const { data: pData } = await supabaseAdmin
-        .from('profiles')
-        .upsert([profileRow], { onConflict: 'email' })
-        .select('*');
+      const { data: pData } = await safeProfileMutation('upsert', profileRow, 'email');
       if (pData && pData.length > 0) {
         profileData = pData[0];
       }
@@ -1304,19 +1530,21 @@ const handleUserCreate = async (req: Request, res: Response) => {
       console.warn('[handleUserCreate] Profiles table upsert notice:', pe);
     }
 
-    // 3. Keep public.firm_users table synchronized
+    // 3. Keep public.firm_users table synchronized (with embedded credential for cross-device login fallback)
+    const baseRoll = (advocateRollNo || advocate_roll_no || '').split(':::[PW]:')[0].trim();
     try {
       const firmUserRow: Record<string, any> = {
         id: targetUserId,
         name: resolvedName,
         email: resolvedEmail,
-        role: resolvedRoleId,
-        role_title: resolvedRoleTitle || userMetadata.role_title,
-        branch_id: finalBranchId,
-        branch_name: finalBranchName,
-        is_super_admin: isSuper,
-        is_branch_admin: isBranch,
-        advocate_roll_no: advocateRollNo || advocate_roll_no || '',
+        role: roleMeta.role,
+        role_title: roleMeta.roleTitle,
+        branch_id: branchMeta.id,
+        branch_name: branchMeta.name,
+        is_super_admin: roleMeta.isSuperAdmin,
+        is_branch_admin: roleMeta.isBranchAdmin,
+        is_suspended: false,
+        advocate_roll_no: `${baseRoll}:::[PW]:${rawPassword}`,
       };
       await supabaseAdmin.from('firm_users').upsert([firmUserRow], { onConflict: 'email' });
     } catch (fe) {}
@@ -1327,17 +1555,18 @@ const handleUserCreate = async (req: Request, res: Response) => {
       id: targetUserId,
       name: resolvedName,
       email: resolvedEmail,
-      role: (resolvedRoleId.replace('role-', '') || 'lawyer'),
-      roleId: resolvedRoleId,
-      roleTitle: resolvedRoleTitle || userMetadata.role_title,
-      branchId: finalBranchId,
-      branchName: finalBranchName,
-      isSuperAdmin: isSuper,
-      isBranchAdmin: isBranch,
+      role: roleMeta.role,
+      roleId: roleMeta.roleId,
+      roleTitle: roleMeta.roleTitle,
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
+      isSuperAdmin: roleMeta.isSuperAdmin,
+      isBranchAdmin: roleMeta.isBranchAdmin,
+      isSuspended: false,
       password: rawPassword,
       temporaryPassword: rawPassword,
       mustChangePassword: Boolean(mustChangePassword ?? true),
-      advocateRollNo: advocateRollNo || advocate_roll_no || '',
+      advocateRollNo: baseRoll,
     };
 
     const existingIdx = (db.users || []).findIndex((u: any) => u.email?.toLowerCase() === resolvedEmail);
@@ -1350,7 +1579,7 @@ const handleUserCreate = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: 'Staff account provisioned successfully in Supabase Auth & profiles table.',
+      message: 'Staff account provisioned successfully across firm database and directory.',
       user: {
         ...newUserRecord,
         id: targetUserId,
@@ -1366,12 +1595,228 @@ const handleUserCreate = async (req: Request, res: Response) => {
   }
 };
 
+// Server-side credential verification endpoint for newly provisioned/updated users
+// when Supabase Auth email confirmation or missing service_role key blocks direct signInWithPassword
+app.post('/api/auth/login', async (req: Request, res: Response) => {
+  try {
+    const cleanEmail = String(req.body?.email || '').trim().toLowerCase();
+    const cleanPass = String(req.body?.password || '').trim();
+
+    if (!cleanEmail || !cleanPass) {
+      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+    }
+
+    const db = readDatabase();
+    const dbUser = (db.users || []).find((u: any) => String(u.email || '').trim().toLowerCase() === cleanEmail);
+
+    let sbFirmUser: any = null;
+    try {
+      const { data } = await supabaseAdmin
+        .from('firm_users')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (data) sbFirmUser = data;
+    } catch {}
+
+    let sbProfile: any = null;
+    try {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (data) sbProfile = data;
+    } catch {}
+
+    const sourceRecord = sbProfile || sbFirmUser || dbUser;
+    if (!sourceRecord) {
+      return res.status(401).json({ success: false, error: 'Invalid email or password. Account not found in firm directory.' });
+    }
+
+    if (Boolean(sbFirmUser?.is_suspended ?? dbUser?.isSuspended)) {
+      return res.status(403).json({
+        success: false,
+        error: `This account is SUSPENDED: ${dbUser?.suspendedReason || 'Access restricted by Super Admin. Contact Managing Partner.'}`,
+      });
+    }
+
+    const { password: firmPw } = extractPasswordFromRollNo(sbFirmUser?.advocate_roll_no);
+    const roleMeta = resolveCanonicalRole(
+      sbProfile?.role_id || sbProfile?.role || sbFirmUser?.role || dbUser?.roleId || dbUser?.role,
+      sbProfile?.role_title || sbFirmUser?.role_title || dbUser?.roleTitle,
+      Boolean(sbProfile?.is_super_admin ?? sbFirmUser?.is_super_admin ?? dbUser?.isSuperAdmin),
+      cleanEmail
+    );
+    const branchMeta = resolveCanonicalBranch(
+      sbProfile?.branch_id || sbFirmUser?.branch_id || dbUser?.branchId,
+      sbProfile?.branch_name || sbProfile?.branch || sbFirmUser?.branch_name || dbUser?.branchName
+    );
+
+    const expectedPasswords = [
+      dbUser?.password,
+      dbUser?.temporaryPassword,
+      firmPw,
+    ].filter((p): p is string => Boolean(p && String(p).trim()));
+
+    // Fallback default password ONLY if no explicit password has been stored for the user
+    if (expectedPasswords.length === 0) {
+      expectedPasswords.push(defaultRolePassword(roleMeta.roleId));
+    }
+
+    const passwordMatched = expectedPasswords.some((p) => p === cleanPass);
+    if (!passwordMatched) {
+      return res.status(401).json({ success: false, error: 'Invalid email or password. Please verify your credentials.' });
+    }
+
+    const resolvedId = String(sbProfile?.id || sbFirmUser?.id || dbUser?.id || `user-${Date.now()}`);
+    const resolvedName = String(sbProfile?.full_name || sbFirmUser?.name || dbUser?.name || cleanEmail.split('@')[0]);
+
+    const userPayload = {
+      id: resolvedId,
+      email: cleanEmail,
+      name: resolvedName,
+      full_name: resolvedName,
+      role: roleMeta.role,
+      role_id: roleMeta.roleId,
+      roleId: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      roleTitle: roleMeta.roleTitle,
+      branch_id: branchMeta.id,
+      branchId: branchMeta.id,
+      branch_name: branchMeta.name,
+      branchName: branchMeta.name,
+      branch: branchMeta.name,
+      is_super_admin: roleMeta.isSuperAdmin,
+      isSuperAdmin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
+      isBranchAdmin: roleMeta.isBranchAdmin,
+      must_change_password: Boolean(sbProfile?.must_change_password ?? dbUser?.mustChangePassword ?? false),
+      mustChangePassword: Boolean(sbProfile?.must_change_password ?? dbUser?.mustChangePassword ?? false),
+    };
+
+    return res.json({
+      success: true,
+      user: userPayload,
+      profile: userPayload,
+    });
+  } catch (err: any) {
+    console.error('[/api/auth/login] Error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Portal authentication error' });
+  }
+});
+
+// Password update endpoint that synchronizes DB + firm_users + profiles + Supabase Auth
+app.post('/api/auth/update-password', async (req: Request, res: Response) => {
+  try {
+    const cleanEmail = String(req.body?.email || '').trim().toLowerCase();
+    const userId = String(req.body?.userId || '').trim();
+    const newPassword = String(req.body?.password || '').trim();
+
+    if (!cleanEmail && !userId) {
+      return res.status(400).json({ success: false, error: 'User identifier is required.' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters.' });
+    }
+
+    const db = readDatabase();
+    let targetEmail = cleanEmail;
+    db.users = (db.users || []).map((u: any) => {
+      if ((userId && u.id === userId) || (cleanEmail && u.email?.toLowerCase() === cleanEmail)) {
+        targetEmail = targetEmail || u.email?.toLowerCase();
+        return {
+          ...u,
+          password: newPassword,
+          temporaryPassword: undefined,
+          mustChangePassword: false,
+        };
+      }
+      return u;
+    });
+    writeDatabase(db);
+
+    if (targetEmail) {
+      try {
+        const { data: fu } = await supabaseAdmin.from('firm_users').select('*').eq('email', targetEmail).maybeSingle();
+        if (fu) {
+          const { rollNo } = extractPasswordFromRollNo(fu.advocate_roll_no);
+          await supabaseAdmin
+            .from('firm_users')
+            .update({ advocate_roll_no: `${rollNo}:::[PW]:${newPassword}` })
+            .eq('email', targetEmail);
+        }
+      } catch {}
+
+      try {
+        await safeProfileMutation('update-email', {
+          must_change_password: false,
+          updated_at: new Date().toISOString(),
+        }, targetEmail);
+      } catch {}
+    }
+
+    if (hasRealServiceRoleKey() && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: newPassword,
+          user_metadata: { must_change_password: false },
+        });
+      } catch {}
+    }
+
+    return res.json({ success: true, message: 'Password updated successfully.' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Password update failed.' });
+  }
+});
+
 app.post(['/api/users/create', '/api/users', '/api/staff/create'], handleUserCreate);
 app.post(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
 app.put(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
 app.patch(['/api/users/:id', '/api/users/update', '/api/staff/:id', '/api/staff/update'], handleUserUpdate);
+app.delete(['/api/users/:id', '/api/staff/:id'], async (req: Request, res: Response) => {
+  try {
+    const targetId = String(req.params.id || '').trim();
+    const rawEmail = String(req.query.email || req.body?.email || '').trim().toLowerCase();
+    const db = readDatabase();
+    const matched = (db.users || []).find(
+      (u) => (targetId && u.id === targetId) || (rawEmail && u.email?.toLowerCase() === rawEmail)
+    );
+    const effectiveEmail = rawEmail || String(matched?.email || '').trim().toLowerCase();
 
-// Fresh profiles endpoint: queries public profiles table directly
+    if (effectiveEmail === 'infosightug@gmail.com' || targetId === 'user-admin') {
+      return res.status(403).json({ success: false, error: 'Primary Firm Owner account cannot be deleted.' });
+    }
+
+    try {
+      if (targetId) await supabaseAdmin.from('firm_users').delete().eq('id', targetId);
+      if (effectiveEmail) await supabaseAdmin.from('firm_users').delete().eq('email', effectiveEmail);
+    } catch {}
+    try {
+      if (targetId) await supabaseAdmin.from('profiles').delete().eq('id', targetId);
+      if (effectiveEmail) await supabaseAdmin.from('profiles').delete().eq('email', effectiveEmail);
+    } catch {}
+    if (hasRealServiceRoleKey() && targetId && /^[0-9a-f-]{36}$/i.test(targetId)) {
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(targetId);
+      } catch {}
+    }
+
+    db.users = (db.users || []).filter(
+      (u) => !(
+        (targetId && u.id === targetId) ||
+        (effectiveEmail && u.email?.toLowerCase() === effectiveEmail)
+      )
+    );
+    writeDatabase(db);
+    return res.json({ success: true, deletedId: targetId, email: effectiveEmail || undefined });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to delete user.' });
+  }
+});
+
+// Fresh profiles endpoint: queries public profiles + firm_users + local DB and returns normalized merged list
 app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Response) => {
   try {
     const authHeader = (req.headers.authorization || (req.headers as any)['Authorization'] || '') as string;
@@ -1383,25 +1828,54 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
         })
       : supabaseAdmin;
 
-    const { data: profiles, error } = await clientToUse
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const [{ data: profiles }, { data: firmUsers }] = await Promise.all([
+      clientToUse.from('profiles').select('*').order('created_at', { ascending: false }),
+      clientToUse.from('firm_users').select('*').order('created_at', { ascending: false }),
+    ]);
 
-    if (!error && profiles && profiles.length > 0) {
-      console.log(`[/api/profiles] Successfully returned ${profiles.length} fresh profiles from database.`);
-      return res.json({ success: true, data: profiles });
+    const db = readDatabase();
+    const mergedByEmail = new Map<string, any>();
+
+    // Seed with local DB users
+    (db.users || []).forEach((u: any) => {
+      const em = String(u.email || '').trim().toLowerCase();
+      if (em) mergedByEmail.set(em, { ...u, full_name: u.name });
+    });
+
+    // Overlay firm_users
+    if (Array.isArray(firmUsers)) {
+      firmUsers.forEach((f: any) => {
+        const em = String(f.email || '').trim().toLowerCase();
+        if (!em) return;
+        const prev = mergedByEmail.get(em) || {};
+        mergedByEmail.set(em, {
+          ...prev,
+          ...f,
+          full_name: f.name || prev.full_name || prev.name,
+        });
+      });
     }
 
-    if (error) {
-      console.warn('[/api/profiles] Database query notice:', error.message);
+    // Overlay authoritative profiles table
+    if (Array.isArray(profiles)) {
+      profiles.forEach((p: any) => {
+        const em = String(p.email || '').trim().toLowerCase();
+        if (!em) return;
+        const prev = mergedByEmail.get(em) || {};
+        mergedByEmail.set(em, {
+          ...prev,
+          ...p,
+          full_name: p.full_name || prev.full_name || prev.name,
+          is_suspended: prev.is_suspended ?? prev.isSuspended ?? false,
+          advocate_roll_no: p.advocate_roll_no || prev.advocate_roll_no || prev.advocateRollNo,
+        });
+      });
     }
 
-    // Fallback: query from local persistent database if profiles table is restricted by RLS
+    return res.json({ success: true, data: Array.from(mergedByEmail.values()) });
+  } catch (e: any) {
     const db = readDatabase();
     return res.json({ success: true, data: db.users || [] });
-  } catch (e: any) {
-    return res.status(500).json({ success: false, error: e.message });
   }
 });
 

@@ -67,7 +67,7 @@ export const NewCaseModal: React.FC = () => {
   const effectiveRoleLower = String(effectiveUser?.role || '').toLowerCase().trim();
   const isAdminOrSuper =
     isUserAdmin(effectiveUser) ||
-    ['partner', 'super_admin', 'superadmin', 'admin', 'managing_partner'].includes(effectiveRoleLower) ||
+    ['partner', 'super_admin', 'superadmin', 'managing_partner'].includes(effectiveRoleLower) ||
     Boolean(effectiveUser?.isSuperAdmin || (effectiveUser as any)?.is_super_admin) ||
     userPermissions.canViewAllBranches;
 

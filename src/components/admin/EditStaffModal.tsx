@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { User, Branch, CustomRole } from '../../types';
-import { handleSaveStaff } from '../../lib/supabase';
 import {
   UserCheck,
   Building2,
@@ -45,6 +44,8 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const isPrimaryOwner = user.email?.trim().toLowerCase() === 'infosightug@gmail.com';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,11 +55,19 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
       return;
     }
 
+    const selectedRole = roles.find((r) => r.id === roleId);
+    const selectedBranch = branches.find((b) => b.id === branchId);
+
     const updates: Partial<User> = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
       roleId,
+      role: roleId as any,
+      roleTitle: selectedRole?.name || user.roleTitle,
+      isSuperAdmin: Boolean(selectedRole?.isSuperAdmin),
+      isBranchAdmin: roleId === 'role-admin',
       branchId,
+      branchName: selectedBranch?.name || user.branchName,
       advocateRollNo: rollNo.trim() || undefined,
       mustChangePassword,
     };
@@ -73,30 +82,6 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
 
     setIsSaving(true);
     try {
-      // 1. Direct profile update using handleSaveStaff
-      const staffResult = await handleSaveStaff(
-        user.id,
-        name.trim(),
-        roleId,
-        branchId,
-        {
-          email: email.trim().toLowerCase(),
-          onSuccess: () => {
-            console.log("User updated successfully in Supabase!");
-          },
-          onError: (err) => {
-            setError("Failed to save: " + err);
-          },
-        }
-      );
-
-      if (!staffResult.success) {
-        setError(staffResult.error || 'Failed to update user.');
-        setIsSaving(false);
-        return;
-      }
-
-      // 2. Also pass updates to parent onSave handler for state synchronization
       const result = await onSave(updates);
       if (result && !result.success) {
         setError(result.error || 'Failed to update user.');
@@ -118,7 +103,7 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
         } else {
           onClose();
         }
-      }, 350);
+      }, 300);
     } catch (err: any) {
       setError(err?.message || 'Database update failed.');
     } finally {
@@ -254,7 +239,7 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
                 Assigned Access Role
               </label>
               <select
-                disabled={user.isSuperAdmin}
+                disabled={isPrimaryOwner}
                 value={roleId}
                 onChange={(e) => setRoleId(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs text-slate-800 disabled:opacity-60 focus:outline-none focus:border-slate-900"

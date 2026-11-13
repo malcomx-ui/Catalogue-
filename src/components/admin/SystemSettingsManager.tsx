@@ -25,10 +25,14 @@ import {
   Globe,
   Check,
   Hash,
+  Lock,
 } from 'lucide-react';
 
+import { isUserAdmin } from '../../lib/supabase';
+
 export const SystemSettingsManager: React.FC = () => {
-  const { systemSettings, updateSystemSettings, currentUser } = useApp();
+  const { systemSettings, updateSystemSettings, currentUser, userPermissions, setActiveTab: setMainTab } = useApp();
+  const isSuperAdmin = isUserAdmin(currentUser) || userPermissions.canManageSettings;
 
   const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'firm'>('intake');
   const [formData, setFormData] = useState(systemSettings);
@@ -49,6 +53,26 @@ export const SystemSettingsManager: React.FC = () => {
   React.useEffect(() => {
     setFormData(systemSettings);
   }, [systemSettings]);
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+          System Settings &amp; Dynamic Entry Engine is strictly reserved for Super Administrators and Managing Partners.
+        </p>
+        <button
+          onClick={() => setMainTab('dashboard')}
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const handleRequirementChange = (fieldId: string, level: FieldRequirementLevel) => {
     setFormData((prev) => ({

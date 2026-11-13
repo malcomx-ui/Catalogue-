@@ -47,12 +47,16 @@ export const CaseList: React.FC = () => {
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'directory'>('table');
 
-  // Extract all distinct lawyers from cases and firm legal staff with active case counts
+  // Extract all distinct lawyers from cases and firm legal staff within user's branch scope
   const lawyerOptions = React.useMemo(() => {
     const lawyerMap = new Map<string, number>();
 
-    // Seed from active legal staff across branches
-    branches.forEach((b) => {
+    const visibleBranches = userPermissions.canViewAllBranches
+      ? branches
+      : branches.filter((b) => b.id === currentUser.branchId);
+
+    // Seed from active legal staff across visible branches
+    visibleBranches.forEach((b) => {
       b.staff?.forEach((s) => {
         if (s.role === 'partner' || s.role === 'team_lead' || s.role === 'lawyer') {
           if (!lawyerMap.has(s.name)) {
@@ -68,8 +72,22 @@ export const CaseList: React.FC = () => {
       }
     });
 
-    // Count appearances in all matters (lead counsel, assisting, persons in conduct)
-    cases.forEach((c) => {
+    const visibleCases = userPermissions.canViewAllBranches
+      ? cases
+      : cases.filter((c) => {
+          const targetBranch = branches.find((b) => b.id === currentUser.branchId);
+          const targetCity = targetBranch?.city?.toLowerCase() || '';
+          const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+          const bName = (c.branch || c.branchName || '').toLowerCase();
+          return (
+            (currentUser.branchId && c.branchId === currentUser.branchId) ||
+            (targetCity && bName.includes(targetCity)) ||
+            (targetName && bName.includes(targetName))
+          );
+        });
+
+    // Count appearances in matters (lead counsel, assisting, persons in conduct)
+    visibleCases.forEach((c) => {
       const caseLawyers = new Set<string>();
 
       if (c.leadAdvocate) {
@@ -96,7 +114,7 @@ export const CaseList: React.FC = () => {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name);
       });
-  }, [cases, branches]);
+  }, [cases, branches, userPermissions.canViewAllBranches, currentUser.branchId, currentUser.branchName]);
 
   const displayCases = filteredCases.filter((c) => {
     if (statusFilter !== 'all') {

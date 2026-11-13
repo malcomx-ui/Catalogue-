@@ -102,8 +102,15 @@ export function getEffectiveUser(user?: Partial<User> | null): Partial<User> {
 }
 
 export function resolveBranchId(branchId?: string, branchName?: string): string {
-  if (branchId && ['ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg'].includes(branchId)) {
-    return branchId;
+  const cleanId = (branchId || '').trim();
+  if (
+    cleanId &&
+    (
+      ['ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg'].includes(cleanId) ||
+      cleanId.startsWith('br-')
+    )
+  ) {
+    return cleanId;
   }
   const clean = (branchName || branchId || '').toLowerCase();
   if (clean.includes('fort') || clean.includes('portal')) return 'ftp-reg';
@@ -113,6 +120,7 @@ export function resolveBranchId(branchId?: string, branchName?: string): string 
   if (clean.includes('masaka')) return 'msk-reg';
   if (clean.includes('masindi')) return 'msn-reg';
   if (clean.includes('mbarara')) return 'mbr-reg';
+  if (cleanId && cleanId !== 'all') return cleanId;
   return 'kla-hq';
 }
 
@@ -134,8 +142,80 @@ export function resolveBranchMeta(branchId?: string, branchName?: string): { id:
     case 'msn-reg':
       return { id: 'msn-reg', name: 'Masindi Regional Office' };
     default:
-      return { id: resolvedId || 'kla-hq', name: branchName || 'Kampala Central (Head Office)' };
+      return { id: resolvedId || 'kla-hq', name: (branchName || '').trim() || resolvedId || 'Kampala Central (Head Office)' };
   }
+}
+
+export function extractMissingColumnFromError(err: any): string | null {
+  const msg = String(err?.message || err?.details || '');
+  const pgrst = msg.match(/Could not find the '([^']+)' column/i);
+  if (pgrst?.[1]) return pgrst[1];
+  const pg = msg.match(/column "([^"]+)" of relation "[^"]+" does not exist/i);
+  if (pg?.[1]) return pg[1];
+  const pg2 = msg.match(/column (?:[a-z_]+\.)?([a-z0-9_]+) does not exist/i);
+  if (pg2?.[1]) return pg2[1];
+  return null;
+}
+
+export async function safeProfilesUpdate(
+  payload: Record<string, any>,
+  matchCol: 'id' | 'email',
+  matchVal: string
+): Promise<{ data: any[] | null; error: any }> {
+  if (!supabase || !matchVal) return { data: null, error: null };
+  const cleanPayload: Record<string, any> = { ...payload };
+  delete cleanPayload.name;
+  delete cleanPayload.password;
+  delete cleanPayload.temporaryPassword;
+  Object.keys(cleanPayload).forEach((k) => {
+    if (cleanPayload[k] === undefined) delete cleanPayload[k];
+  });
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (Object.keys(cleanPayload).length === 0) break;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(cleanPayload)
+      .eq(matchCol, matchVal)
+      .select('*');
+    if (!error) return { data, error: null };
+    const missingCol = extractMissingColumnFromError(error);
+    if (missingCol && missingCol in cleanPayload) {
+      delete cleanPayload[missingCol];
+      continue;
+    }
+    return { data: null, error };
+  }
+  return { data: null, error: null };
+}
+
+export async function safeProfilesUpsert(
+  row: Record<string, any>
+): Promise<{ data: any[] | null; error: any }> {
+  if (!supabase) return { data: null, error: null };
+  const cleanPayload: Record<string, any> = { ...row };
+  delete cleanPayload.name;
+  delete cleanPayload.password;
+  delete cleanPayload.temporaryPassword;
+  Object.keys(cleanPayload).forEach((k) => {
+    if (cleanPayload[k] === undefined) delete cleanPayload[k];
+  });
+
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (Object.keys(cleanPayload).length === 0) break;
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert([cleanPayload], { onConflict: 'email' })
+      .select('*');
+    if (!error) return { data, error: null };
+    const missingCol = extractMissingColumnFromError(error);
+    if (missingCol && missingCol in cleanPayload) {
+      delete cleanPayload[missingCol];
+      continue;
+    }
+    return { data: null, error };
+  }
+  return { data: null, error: null };
 }
 
 /**
@@ -750,10 +830,7 @@ export const SupabaseService = {
   },
 
   async fetchStaff(): Promise<User[]> {
-    if (!supabase) return [];
     const staffList: User[] = [];
-    const seenEmails = new Set<string>();
-    const seenIds = new Set<string>();
 
     const addRecord = (row: any, isAuthoritativeProfile = false) => {
       if (!row) return;
@@ -766,57 +843,43 @@ export const SupabaseService = {
       );
 
       if (existingIndex >= 0) {
+        const existing = staffList[existingIndex];
         if (isAuthoritativeProfile) {
-          // Profile table is authoritative source of truth for name, role, and branch
           staffList[existingIndex] = {
-            ...staffList[existingIndex],
-            name: user.name || staffList[existingIndex].name,
-            role: user.role || staffList[existingIndex].role,
-            roleId: user.roleId || staffList[existingIndex].roleId,
-            roleTitle: user.roleTitle || staffList[existingIndex].roleTitle,
-            branchName: user.branchName || staffList[existingIndex].branchName,
-            branchId: user.branchId || staffList[existingIndex].branchId,
+            ...existing,
+            id: user.id || existing.id,
+            name: user.name || existing.name,
+            role: user.role || existing.role,
+            roleId: user.roleId || existing.roleId,
+            roleTitle: user.roleTitle || existing.roleTitle,
+            branchName: user.branchName || existing.branchName,
+            branchId: user.branchId || existing.branchId,
+            isSuperAdmin: user.isSuperAdmin,
+            isBranchAdmin: user.isBranchAdmin,
+            isSuspended: row.is_suspended !== undefined || row.isSuspended !== undefined ? Boolean(user.isSuspended) : existing.isSuspended,
+            suspendedReason: user.suspendedReason || existing.suspendedReason,
+            mustChangePassword: row.must_change_password !== undefined || row.mustChangePassword !== undefined ? Boolean(user.mustChangePassword) : existing.mustChangePassword,
+            advocateRollNo: user.advocateRollNo || existing.advocateRollNo,
+            password: row.password || (String(row.advocate_roll_no || '').includes(':::[PW]:') ? user.password : existing.password) || user.password,
+          };
+        } else {
+          staffList[existingIndex] = {
+            ...existing,
+            isSuspended: existing.isSuspended || Boolean(user.isSuspended),
+            suspendedReason: existing.suspendedReason || user.suspendedReason,
+            advocateRollNo: existing.advocateRollNo || user.advocateRollNo,
+            password: row.password || (String(row.advocate_roll_no || '').includes(':::[PW]:') ? user.password : existing.password),
           };
         }
       } else {
         staffList.push(user);
-        if (email) seenEmails.add(email);
-        if (user.id) seenIds.add(user.id);
       }
     };
 
-    // 1. Query fresh data directly from the public 'profiles' database table on load
-    try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!profileError && Array.isArray(profileData) && profileData.length > 0) {
-        profileData.forEach((p) => addRecord(p, true));
-      }
-    } catch (e) {
-      console.warn('Profiles table load error:', e);
-    }
-
-    // 2. Fetch from 'firm_users' table to ensure all firm personnel are captured
-    try {
-      const { data: firmData, error: firmError } = await supabase
-        .from('firm_users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!firmError && Array.isArray(firmData) && firmData.length > 0) {
-        firmData.forEach((f) => addRecord(f, false));
-      }
-    } catch (e) {
-      console.warn('Firm users table load error:', e);
-    }
-
-    // 3. Fallback: try server profiles endpoint if direct client query was empty
-    if (staffList.length === 0) {
+    // 1. Always query server /api/profiles first (authoritative merged store across profiles + firm_users + server DB)
+    if (typeof window !== 'undefined') {
       try {
-        const session = (await supabase.auth.getSession())?.data?.session;
+        const session = supabase ? (await supabase.auth.getSession())?.data?.session : null;
         const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -824,124 +887,265 @@ export const SupabaseService = {
         const res = await fetch('/api/profiles', { headers });
         if (res.ok) {
           const json = await res.json();
-          if (json.data && Array.isArray(json.data)) {
-            json.data.forEach((p: any) => addRecord(p, true));
+          const list = json.data || json.profiles || [];
+          if (Array.isArray(list)) {
+            list.forEach((p: any) => addRecord(p, true));
           }
         }
       } catch (e) {}
+    }
+
+    // 2. Query direct Supabase 'profiles' table
+    if (supabase) {
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!profileError && Array.isArray(profileData) && profileData.length > 0) {
+          profileData.forEach((p) => addRecord(p, staffList.length === 0));
+        }
+      } catch (e) {
+        console.warn('Profiles table load error:', e);
+      }
+
+      // 3. Query 'firm_users' table for password metadata & legacy entries
+      try {
+        const { data: firmData, error: firmError } = await supabase
+          .from('firm_users')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!firmError && Array.isArray(firmData) && firmData.length > 0) {
+          firmData.forEach((f) => addRecord(f, false));
+        }
+      } catch (e) {
+        console.warn('Firm users table load error:', e);
+      }
     }
 
     return staffList;
   },
 
   /**
-   * Syncs changes to BOTH Supabase Auth user_metadata (using supabaseAdmin.auth.admin.updateUserById)
-   * AND the public 'profiles' table simultaneously.
+   * Syncs staff edits to public 'profiles', 'firm_users', and backend '/api/users/:id'
    */
-  async updateStaff(staffId: string, updates: Partial<User>): Promise<{ success: boolean; data?: any; error?: string }> {
-    if (!supabase) return { success: false, error: 'Supabase client not initialized' };
-
+  async updateStaff(
+    staffId: string,
+    updates: Partial<User> & { skipApi?: boolean }
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     let updatedRecord: any = null;
     let anySuccess = false;
 
-    const bMeta = resolveBranchMeta(updates.branchId, updates.branchName);
-    
-    // Unified payload for both tables
+    const cleanEmail = updates.email ? updates.email.trim().toLowerCase() : undefined;
+    const hasRoleChange = updates.roleId !== undefined || updates.role !== undefined;
+    const roleMeta = hasRoleChange
+      ? resolveUserRoleMeta(updates.role, updates.roleId, updates.isSuperAdmin, cleanEmail)
+      : null;
+
+    const hasBranchChange = updates.branchId !== undefined || updates.branchName !== undefined;
+    const bMeta = hasBranchChange ? resolveBranchMeta(updates.branchId, updates.branchName) : null;
+
     const profilePayload: Record<string, any> = {
-      full_name: updates.name?.trim(),
-      name: updates.name?.trim(),
-      role: updates.roleId || updates.role,
-      role_id: updates.roleId || updates.role,
-      role_title: updates.roleTitle,
-      branch_id: bMeta.id,
-      branch_name: bMeta.name,
-      branch: bMeta.name,
       updated_at: new Date().toISOString(),
     };
+    if (updates.name !== undefined) profilePayload.full_name = updates.name.trim();
+    if (cleanEmail) profilePayload.email = cleanEmail;
+    if (roleMeta) {
+      profilePayload.role = roleMeta.role;
+      profilePayload.role_id = roleMeta.roleId;
+      profilePayload.role_title = updates.roleTitle || roleMeta.roleTitle;
+      profilePayload.is_super_admin = roleMeta.isSuperAdmin;
+      profilePayload.is_branch_admin = roleMeta.isBranchAdmin;
+    } else {
+      if (updates.roleTitle !== undefined) profilePayload.role_title = updates.roleTitle;
+      if (updates.isSuperAdmin !== undefined) profilePayload.is_super_admin = Boolean(updates.isSuperAdmin);
+      if (updates.isBranchAdmin !== undefined) profilePayload.is_branch_admin = Boolean(updates.isBranchAdmin);
+    }
+    if (bMeta) {
+      profilePayload.branch_id = bMeta.id;
+      profilePayload.branch_name = bMeta.name;
+      profilePayload.branch = bMeta.name;
+    }
+    if (updates.mustChangePassword !== undefined) {
+      profilePayload.must_change_password = Boolean(updates.mustChangePassword);
+    }
+    if (updates.advocateRollNo !== undefined) {
+      profilePayload.advocate_roll_no = updates.advocateRollNo;
+    }
 
-    const firmUserPayload: Record<string, any> = {
-      name: updates.name?.trim(),
-      role: updates.roleId || updates.role,
-      role_title: updates.roleTitle,
-      branch_id: bMeta.id,
-      branch_name: bMeta.name,
-      updated_at: new Date().toISOString(),
+    const firmUserPayload: Record<string, any> = {};
+    if (updates.name !== undefined) firmUserPayload.name = updates.name.trim();
+    if (cleanEmail) firmUserPayload.email = cleanEmail;
+    if (roleMeta) {
+      firmUserPayload.role = roleMeta.roleId === 'role-super-admin' ? 'partner' : roleMeta.role;
+      firmUserPayload.role_title = updates.roleTitle || roleMeta.roleTitle;
+      firmUserPayload.is_super_admin = roleMeta.isSuperAdmin;
+      firmUserPayload.is_branch_admin = roleMeta.isBranchAdmin;
+    } else {
+      if (updates.roleTitle !== undefined) firmUserPayload.role_title = updates.roleTitle;
+      if (updates.isSuperAdmin !== undefined) firmUserPayload.is_super_admin = Boolean(updates.isSuperAdmin);
+      if (updates.isBranchAdmin !== undefined) firmUserPayload.is_branch_admin = Boolean(updates.isBranchAdmin);
+    }
+    if (bMeta) {
+      firmUserPayload.branch_id = bMeta.id;
+      firmUserPayload.branch_name = bMeta.name;
+    }
+    if (updates.isSuspended !== undefined) {
+      firmUserPayload.is_suspended = Boolean(updates.isSuspended);
+    }
+    if (updates.password && updates.password.trim()) {
+      const baseRoll = (updates.advocateRollNo || '').split(':::[PW]:')[0].trim();
+      firmUserPayload.advocate_roll_no = `${baseRoll}:::[PW]:${updates.password.trim()}`;
+    } else if (updates.advocateRollNo !== undefined) {
+      firmUserPayload.advocate_roll_no = updates.advocateRollNo.split(':::[PW]:')[0].trim();
+    }
+
+    // 1. Update 'profiles' table by id, fallback to email
+    if (supabase) {
+      try {
+        const resById = await safeProfilesUpdate(profilePayload, 'id', staffId);
+        if (!resById.error && resById.data && resById.data.length > 0) {
+          anySuccess = true;
+          updatedRecord = resById.data[0];
+        } else if (cleanEmail) {
+          const resByEmail = await safeProfilesUpdate(profilePayload, 'email', cleanEmail);
+          if (!resByEmail.error && resByEmail.data && resByEmail.data.length > 0) {
+            anySuccess = true;
+            updatedRecord = resByEmail.data[0];
+          }
+        }
+      } catch (e) {
+        console.warn('Profiles update error:', e);
+      }
+
+      // 2. Update 'firm_users' table by id, fallback to email
+      if (Object.keys(firmUserPayload).length > 0) {
+        try {
+          let { data, error } = await supabase
+            .from('firm_users')
+            .update(firmUserPayload)
+            .eq('id', staffId)
+            .select('*');
+
+          if ((error || !data || data.length === 0) && cleanEmail) {
+            const byEmail = await supabase
+              .from('firm_users')
+              .update(firmUserPayload)
+              .eq('email', cleanEmail)
+              .select('*');
+            if (!byEmail.error && byEmail.data && byEmail.data.length > 0) {
+              data = byEmail.data;
+              error = null;
+            }
+          }
+
+          if (!error && data && data.length > 0) {
+            anySuccess = true;
+            updatedRecord = updatedRecord || data[0];
+          }
+        } catch (e) {
+          console.warn('Firm users update error:', e);
+        }
+      }
+    }
+
+    // 3. Always persist to backend API endpoint (service_role + firm_database.json) unless skipped
+    if (typeof window !== 'undefined' && !updates.skipApi) {
+      try {
+        const session = supabase ? (await supabase.auth.getSession())?.data?.session : null;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        const apiBody: Record<string, any> = {
+          userId: staffId,
+          id: staffId,
+          name: updates.name?.trim(),
+          email: cleanEmail,
+          password: updates.password?.trim() || undefined,
+          advocateRollNo: updates.advocateRollNo,
+          mustChangePassword: updates.mustChangePassword,
+          isSuspended: updates.isSuspended,
+        };
+        if (roleMeta) {
+          apiBody.roleId = roleMeta.roleId;
+          apiBody.role = roleMeta.role;
+          apiBody.roleTitle = updates.roleTitle || roleMeta.roleTitle;
+          apiBody.isSuperAdmin = roleMeta.isSuperAdmin;
+          apiBody.isBranchAdmin = roleMeta.isBranchAdmin;
+        } else {
+          if (updates.roleTitle !== undefined) apiBody.roleTitle = updates.roleTitle;
+          if (updates.isSuperAdmin !== undefined) apiBody.isSuperAdmin = updates.isSuperAdmin;
+          if (updates.isBranchAdmin !== undefined) apiBody.isBranchAdmin = updates.isBranchAdmin;
+        }
+        if (bMeta) {
+          apiBody.branchId = bMeta.id;
+          apiBody.branchName = bMeta.name;
+        }
+
+        const apiRes = await fetch(`/api/users/${encodeURIComponent(staffId)}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(apiBody),
+        });
+        if (apiRes.ok) {
+          const json = await apiRes.json().catch(() => null);
+          if (json?.success) {
+            anySuccess = true;
+            updatedRecord = updatedRecord || json.profile || json.user;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('Backend /api/users update warning:', apiErr);
+      }
+    }
+
+    return {
+      success: anySuccess,
+      data: updatedRecord,
+      error: anySuccess ? undefined : 'Could not persist staff updates to Supabase or backend server.',
     };
-
-    // 1. Update 'profiles' table
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(profilePayload)
-        .eq('id', staffId)
-        .select('*');
-
-      if (!error && data && data.length > 0) {
-        anySuccess = true;
-        updatedRecord = data[0];
-      }
-    } catch (e) {
-      console.warn('Profiles update error:', e);
-    }
-
-    // 2. Update 'firm_users' table
-    try {
-      const { data, error } = await supabase
-        .from('firm_users')
-        .update(firmUserPayload)
-        .eq('id', staffId)
-        .select('*');
-
-      if (!error && data && data.length > 0) {
-        anySuccess = true;
-        updatedRecord = updatedRecord || data[0];
-      }
-    } catch (e) {
-      console.warn('Firm users update error:', e);
-    }
-
-    return { success: anySuccess, data: updatedRecord };
   },
 
   /**
-   * Real asynchronous staff delete query in Supabase (e.g. await supabase.from('staff').delete().eq('id', staffId))
+   * Deletes staff record across firm_users, staff, profiles
    */
-  async deleteStaff(staffId: string): Promise<boolean> {
+  async deleteStaff(staffId: string, email?: string): Promise<boolean> {
     if (!supabase) return false;
+    const cleanEmail = email?.trim().toLowerCase();
 
-    // 1. Delete from 'firm_users' table
     try {
-      const { error } = await supabase
-        .from('firm_users')
-        .delete()
-        .eq('id', staffId);
+      await supabase.from('firm_users').delete().eq('id', staffId);
+      if (cleanEmail) await supabase.from('firm_users').delete().eq('email', cleanEmail);
+    } catch (e) {}
 
-      if (!error) {
-        console.log(`[Supabase] Deleted staff ${staffId} from 'firm_users'`);
-      }
-    } catch (e) {
-      // ignore table not found
-    }
-
-    // 2. Delete from 'staff' table
     try {
       await supabase.from('staff').delete().eq('id', staffId);
-    } catch (e) {
-      // ignore table not found
-    }
+    } catch (e) {}
 
-    // 3. Delete from 'profiles' table
     try {
       await supabase.from('profiles').delete().eq('id', staffId);
-    } catch (e) {
-      // ignore table not found
+      if (cleanEmail) await supabase.from('profiles').delete().eq('email', cleanEmail);
+    } catch (e) {}
+
+    if (typeof window !== 'undefined') {
+      try {
+        const qs = cleanEmail ? `?email=${encodeURIComponent(cleanEmail)}` : '';
+        await fetch(`/api/users/${encodeURIComponent(staffId)}${qs}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail }),
+        });
+      } catch (e) {}
     }
 
     return true;
   },
 
   /**
-   * Permanently inserts a new staff member into Supabase ('profiles', 'staff', 'firm_users')
+   * Permanently inserts or upserts a staff member into Supabase ('profiles', 'staff', 'firm_users')
    */
   async insertStaff(u: User): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
@@ -950,87 +1154,88 @@ export const SupabaseService = {
     let savedRecord: any = null;
     let primaryError: any = null;
 
-    // 1. Try 'profiles' table with full role and branch metadata
+    const cleanEmail = u.email.trim().toLowerCase();
+    const bMeta = resolveBranchMeta(u.branchId, u.branchName);
+    const roleMeta = resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, cleanEmail);
+
+    // 1. Upsert into 'profiles' table with schema-safe fallback
     try {
-      const bMeta = resolveBranchMeta(u.branchId, u.branchName);
       const profileRow: Record<string, any> = {
         id: u.id,
         full_name: u.name,
-        name: u.name,
-        email: u.email.toLowerCase(),
-        role: u.roleId || u.role,
-        role_id: u.roleId || u.role,
-        role_title: u.roleTitle,
+        email: cleanEmail,
+        role: roleMeta.role,
+        role_id: roleMeta.roleId,
+        role_title: u.roleTitle || roleMeta.roleTitle,
         branch: bMeta.name,
         branch_name: bMeta.name,
         branch_id: bMeta.id,
-        is_super_admin: Boolean(u.isSuperAdmin),
-        is_branch_admin: Boolean(u.isBranchAdmin),
+        is_super_admin: roleMeta.isSuperAdmin,
+        is_branch_admin: roleMeta.isBranchAdmin,
         must_change_password: Boolean(u.mustChangePassword),
         updated_at: new Date().toISOString(),
       };
-      const { data, error } = await supabase
-        .from('profiles')
-        .upsert([profileRow], { onConflict: 'email' })
-        .select('*');
+      const { data, error } = await safeProfilesUpsert(profileRow);
 
       if (!error && data && data.length > 0) {
         anySuccess = true;
         savedRecord = data[0];
-        console.log('[Supabase] Staff successfully inserted into profiles table:', u.email);
       }
-    } catch (e) {
-      // ignore table not in schema
-    }
+    } catch (e) {}
 
-    // 2. Try 'staff' table: await supabase.from('staff').insert([...])
+    // 2. Try 'staff' table if present
     try {
       const staffRow = {
         id: u.id,
         name: u.name,
         full_name: u.name,
-        email: u.email,
-        role: u.role,
-        role_title: u.roleTitle,
-        branch: u.branchName,
-        branch_id: u.branchId,
-        branch_name: u.branchName,
-        is_super_admin: u.isSuperAdmin,
-        is_branch_admin: u.isBranchAdmin,
-        is_suspended: u.isSuspended,
-        advocate_roll_no: u.advocateRollNo,
+        email: cleanEmail,
+        role: roleMeta.role,
+        role_title: u.roleTitle || roleMeta.roleTitle,
+        branch: bMeta.name,
+        branch_id: bMeta.id,
+        branch_name: bMeta.name,
+        is_super_admin: roleMeta.isSuperAdmin,
+        is_branch_admin: roleMeta.isBranchAdmin,
+        is_suspended: Boolean(u.isSuspended),
+        advocate_roll_no: u.advocateRollNo || '',
       };
       const { data, error } = await supabase
         .from('staff')
-        .insert([staffRow])
+        .upsert([staffRow], { onConflict: 'email' })
         .select('*');
 
       if (!error && data && data.length > 0) {
         anySuccess = true;
         savedRecord = savedRecord || data[0];
-        console.log('[Supabase] Staff successfully inserted into staff table:', u.email);
       }
-    } catch (e) {
-      // ignore table not in schema
-    }
+    } catch (e) {}
 
-    // 3. Insert into 'firm_users' table (verified active database table)
+    // 3. Upsert into 'firm_users' table (verified active database table, carries ::[PW]:)
     try {
       const firmUserRow = {
         id: u.id,
-        ...mapUserToFirmUserRow(u),
+        ...mapUserToFirmUserRow({
+          ...u,
+          email: cleanEmail,
+          role: roleMeta.role as any,
+          roleTitle: u.roleTitle || roleMeta.roleTitle,
+          branchId: bMeta.id,
+          branchName: bMeta.name,
+          isSuperAdmin: roleMeta.isSuperAdmin,
+          isBranchAdmin: roleMeta.isBranchAdmin,
+        }),
       };
       const { data, error } = await supabase
         .from('firm_users')
-        .insert([firmUserRow])
+        .upsert([firmUserRow], { onConflict: 'email' })
         .select('*');
 
       if (!error && data && data.length > 0) {
         anySuccess = true;
         savedRecord = savedRecord || data[0];
-        console.log('[Supabase] Staff successfully inserted into firm_users table:', u.email);
       } else if (error) {
-        console.warn('Supabase insert into firm_users error:', error);
+        console.warn('Supabase upsert into firm_users error:', error);
         primaryError = error;
       }
     } catch (e) {
@@ -1057,96 +1262,60 @@ export async function handleSaveStaff(
   newBranchId?: string,
   options?: {
     email?: string;
+    roleTitle?: string;
+    password?: string;
+    mustChangePassword?: boolean;
+    advocateRollNo?: string;
     reloadOnSuccess?: boolean;
     onSuccess?: () => void;
     onError?: (err: string) => void;
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-
-    // 1. Prepare profile updates matching database schema
+    const cleanEmail = options?.email?.trim().toLowerCase();
+    const roleMeta = resolveUserRoleMeta(newRole, newRole, newRole === 'role-super-admin', cleanEmail);
     const bMeta = resolveBranchMeta(newBranchId);
-    const profilePayload: Record<string, any> = {
-      full_name: newName.trim(),
-      role: newRole,
-      role_id: newRole,
-      branch_id: bMeta.id,
-      branch_name: bMeta.name,
-      branch: bMeta.name,
-      updated_at: new Date().toISOString(),
-    };
 
-    let { error } = await supabase
-      .from('profiles')
-      .update(profilePayload)
-      .eq('id', userId);
-
-    // If 'branch_id' or 'branch_name' column is not in schema cache, fallback
-    if (error && (error.message.includes('branch_id') || error.message.includes('branch_name') || error.message.includes('role_id'))) {
-      const fallbackPayload = {
-        full_name: newName.trim(),
-        role: newRole,
-        branch: bMeta.name,
-        updated_at: new Date().toISOString(),
-      };
-      const retry = await supabase
-        .from('profiles')
-        .update(fallbackPayload)
-        .eq('id', userId);
-      error = retry.error;
-    }
-
-    // If not a UUID or if update by ID returned error, fallback to update by email
-    if (error || !isUUID) {
-      if (options?.email) {
-        const retryByEmail = await supabase
-          .from('profiles')
-          .update(profilePayload)
-          .eq('email', options.email.trim().toLowerCase());
-        if (!retryByEmail.error) {
-          error = null;
-        }
-      }
-    }
-
-    // 2. Concurrently update via SupabaseService to keep user_metadata, firm_users and backend sync intact
-    await SupabaseService.updateStaff(userId, {
+    const res = await SupabaseService.updateStaff(userId, {
       name: newName.trim(),
-      role: newRole as any,
-      roleId: newRole,
+      email: cleanEmail,
+      role: roleMeta.role as any,
+      roleId: roleMeta.roleId,
+      roleTitle: options?.roleTitle || roleMeta.roleTitle,
+      isSuperAdmin: roleMeta.isSuperAdmin,
+      isBranchAdmin: roleMeta.isBranchAdmin,
       branchId: bMeta.id,
       branchName: bMeta.name,
-      email: options?.email,
-    }).catch(() => {});
+      password: options?.password,
+      mustChangePassword: options?.mustChangePassword,
+      advocateRollNo: options?.advocateRollNo,
+    });
 
-    if (error) {
-      const errMsg = 'Error updating user: ' + error.message;
-      if (options?.onError) {
-        options.onError(errMsg);
-      }
+    if (!res.success) {
+      const errMsg = 'Error updating user: ' + (res.error || 'Update failed');
+      options?.onError?.(errMsg);
       return { success: false, error: errMsg };
     }
 
-    if (options?.onSuccess) {
-      options.onSuccess();
-    }
+    options?.onSuccess?.();
 
     if (options?.reloadOnSuccess) {
-      // Refreshes to pull the fresh database values
       window.location.reload();
     }
 
     return { success: true };
   } catch (err: any) {
     const errMsg = 'Error updating user: ' + (err?.message || 'Unknown error');
-    if (options?.onError) {
-      options.onError(errMsg);
-    }
+    options?.onError?.(errMsg);
     return { success: false, error: errMsg };
   }
 }
 
+/**
+ * Strictly identifies Global Super Admins / Managing Partners ONLY.
+ * Branch Administrators (`admin`, `role-admin`, `branch_admin`) return FALSE here so they
+ * remain scoped strictly to their assigned branch without access to crucial system features.
+ */
 export function isUserAdmin(u: any): boolean {
   const effective = getEffectiveUser(u);
   if (!effective) return false;
@@ -1156,21 +1325,39 @@ export function isUserAdmin(u: any): boolean {
   return Boolean(
     effective.isSuperAdmin ||
     (effective as any).is_super_admin ||
-    role === 'admin' ||
     role === 'super_admin' ||
     role === 'superadmin' ||
+    role === 'system_admin' ||
     role === 'partner' ||
     role === 'managing_partner' ||
     roleId === 'role-super-admin' ||
-    roleId === 'role-admin' ||
+    roleId === 'system_admin' ||
     email === 'infosightug@gmail.com'
+  );
+}
+
+export const isUserSuperAdmin = isUserAdmin;
+
+export function isUserBranchAdmin(u: any): boolean {
+  const effective = getEffectiveUser(u);
+  if (!effective || isUserAdmin(effective)) return false;
+  const role = String(effective.role || '').toLowerCase().trim();
+  const roleId = String(effective.roleId || (effective as any).role_id || '').toLowerCase().trim();
+  return Boolean(
+    effective.isBranchAdmin ||
+    (effective as any).is_branch_admin ||
+    role === 'admin' ||
+    role === 'branch_admin' ||
+    role === 'office_admin' ||
+    roleId === 'role-admin' ||
+    roleId === 'branch_admin'
   );
 }
 
 export function isUserLawyer(u: any): boolean {
   const effective = getEffectiveUser(u);
   if (!effective) return false;
-  if (isUserAdmin(effective)) return false;
+  if (isUserAdmin(effective) || isUserBranchAdmin(effective)) return false;
   const role = String(effective.role || '').toLowerCase();
   const roleId = String(effective.roleId || (effective as any).role_id || '').toLowerCase();
   const title = String(effective.roleTitle || (effective as any).role_title || '').toLowerCase();
@@ -1196,31 +1383,19 @@ export function isBranchStaff(u: any): boolean {
 
 /**
  * Strict branch-level isolation check:
- * - Super Admins, Admins, and Partners are exempt and have full multi-branch access for all operations.
- * - Branch staff can ONLY modify (Edit, Update, Delete) cases strictly belonging to their own branch.
+ * - Only Super Admins and Managing Partners are exempt and have global multi-branch access.
+ * - Branch Administrators and Clerks can ONLY modify cases strictly belonging to their own branch.
  */
 export function canUserModifyCase(u: any, caseItem: any): boolean {
   const effective = getEffectiveUser(u);
   if (!effective || !caseItem) return false;
 
-  // 1. Super Admins, Admins, and Partners are exempt and have full multi-branch access for all operations
+  // 1. Only Super Admins / Managing Partners bypass branch restrictions
   if (isUserAdmin(effective)) {
     return true;
   }
 
-  const role = String(effective.role || '').toLowerCase().trim();
-  if (
-    role === 'partner' ||
-    role === 'super_admin' ||
-    role === 'superadmin' ||
-    role === 'admin' ||
-    role === 'managing_partner' ||
-    Boolean(effective.isSuperAdmin || (effective as any).is_super_admin)
-  ) {
-    return true;
-  }
-
-  // 2. Branch staff: compare case branch with user's assigned branch
+  // 2. Branch staff (including Branch Administrators) & lawyers without global bypass: compare branch
   const userBranchId = String(effective.branchId || (effective as any).branch_id || '').toLowerCase().trim();
   const caseBranchId = String(caseItem.branchId || caseItem.branch_id || '').toLowerCase().trim();
 
@@ -1228,7 +1403,6 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
     return true;
   }
 
-  // Fallback comparison using branch names or resolved branch codes
   const userBranchName = String(effective.branchName || (effective as any).branch || '').toLowerCase().trim();
   const caseBranchName = String(caseItem.branchName || caseItem.branch || '').toLowerCase().trim();
 
@@ -1243,19 +1417,45 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
 }
 
 export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSuper?: boolean, email?: string) {
-  const r = (rawRoleId || rawRole || '').toLowerCase().trim();
+  const rId = (rawRoleId || '').toLowerCase().trim();
+  const rRaw = (rawRole || '').toLowerCase().trim();
+  const r = rId || rRaw;
   const cleanEmail = (email || '').toLowerCase().trim();
-  const isSuperUser = Boolean(
-    isSuper ||
+
+  const isPrimaryOwner = cleanEmail === 'infosightug@gmail.com';
+  const explicitSuperRole =
     r === 'role-super-admin' ||
     r === 'partner' ||
     r === 'super_admin' ||
     r === 'superadmin' ||
-    r === 'managing_partner' ||
-    cleanEmail === 'infosightug@gmail.com'
+    r === 'system_admin' ||
+    r === 'managing_partner';
+
+  const explicitNonSuperRole = Boolean(
+    r &&
+    !explicitSuperRole &&
+    (
+      r === 'role-admin' ||
+      r === 'admin' ||
+      r === 'branch_admin' ||
+      r === 'office_admin' ||
+      r === 'role-team-lead' ||
+      r === 'role-lead' ||
+      r === 'team_lead' ||
+      r === 'lead' ||
+      r === 'litigation_lead' ||
+      r === 'role-clerk' ||
+      r === 'clerk' ||
+      r === 'registry_clerk' ||
+      r === 'court_clerk' ||
+      r === 'role-advocate' ||
+      r === 'lawyer' ||
+      r === 'advocate' ||
+      r.startsWith('role-custom-')
+    )
   );
 
-  if (isSuperUser) {
+  if (isPrimaryOwner || explicitSuperRole || (isSuper && !explicitNonSuperRole)) {
     return {
       roleId: 'role-super-admin',
       role: 'partner',
@@ -1275,11 +1475,11 @@ export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSupe
     };
   }
 
-  if (r === 'role-lead' || r === 'team_lead' || r === 'lead' || r === 'litigation_lead') {
+  if (r === 'role-team-lead' || r === 'role-lead' || r === 'team_lead' || r === 'lead' || r === 'litigation_lead') {
     return {
-      roleId: 'role-lead',
+      roleId: 'role-team-lead',
       role: 'team_lead',
-      roleTitle: 'Regional Litigation Team Lead',
+      roleTitle: 'Regional Team Lead',
       isSuperAdmin: false,
       isBranchAdmin: false,
     };
@@ -1295,11 +1495,21 @@ export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSupe
     };
   }
 
-  // Default: Litigation Lawyer / Associate
+  if (r.startsWith('role-custom-')) {
+    return {
+      roleId: rawRoleId || rawRole || r,
+      role: rawRole || rawRoleId || 'lawyer',
+      roleTitle: 'Custom Firm Role',
+      isSuperAdmin: false,
+      isBranchAdmin: false,
+    };
+  }
+
+  // Default: Litigation Advocate / Associate
   return {
     roleId: rawRoleId || 'role-advocate',
     role: rawRole || 'lawyer',
-    roleTitle: 'Litigation Lawyer / Associate',
+    roleTitle: 'Litigation Advocate',
     isSuperAdmin: false,
     isBranchAdmin: false,
   };
@@ -1340,7 +1550,7 @@ export function mapRowToUser(u: any): User {
       extractedPassword = 'Branch@2026';
     } else if (roleMeta.roleId === 'role-clerk') {
       extractedPassword = 'Clerk@2026';
-    } else if (roleMeta.roleId === 'role-advocate' || roleMeta.roleId === 'role-lead') {
+    } else if (roleMeta.roleId === 'role-advocate' || roleMeta.roleId === 'role-team-lead' || roleMeta.roleId === 'role-lead') {
       extractedPassword = 'Lawyer@2026';
     } else {
       extractedPassword = 'User@2026';

@@ -99,8 +99,9 @@ const MainLayout: React.FC = () => {
     isAdmin ||
     currentUser?.role === 'partner' ||
     currentUser?.role === 'super_admin' ||
-    currentUser?.role?.toLowerCase().includes('partner') ||
-    currentUser?.role?.toLowerCase().includes('admin')
+    currentUser?.role === 'superadmin' ||
+    currentUser?.role === 'managing_partner' ||
+    currentUser?.role?.toLowerCase().includes('partner')
   );
 
   // If password recovery link was opened, display the UpdatePasswordPage component

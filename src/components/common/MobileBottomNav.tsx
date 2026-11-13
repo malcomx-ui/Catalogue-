@@ -17,12 +17,29 @@ export const MobileBottomNav: React.FC = () => {
     cases,
     hearings,
     documents,
+    branches,
     setIsMobileMenuOpen,
     currentUser,
+    userPermissions,
   } = useApp();
 
   const isAdmin = isUserAdmin(currentUser);
   const scheduledHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
+  const branchScopedCasesCount = React.useMemo(() => {
+    if (userPermissions.canViewAllBranches) return cases.length;
+    const targetBranch = branches.find((b) => b.id === currentUser.branchId);
+    const targetCity = targetBranch?.city?.toLowerCase() || '';
+    const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+    return cases.filter((c) => {
+      const bId = c.branchId;
+      const bName = (c.branch || c.branchName || '').toLowerCase();
+      return (
+        (currentUser.branchId && bId === currentUser.branchId) ||
+        (targetCity && bName.includes(targetCity)) ||
+        (targetName && bName.includes(targetName))
+      );
+    }).length;
+  }, [cases, branches, currentUser.branchId, currentUser.branchName, userPermissions.canViewAllBranches]);
 
   return (
     <nav
@@ -53,9 +70,9 @@ export const MobileBottomNav: React.FC = () => {
       >
         <Briefcase className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Cases</span>
-        {cases.length > 0 && (
+        {branchScopedCasesCount > 0 && (
           <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono bg-slate-900 text-white rounded-full px-1 min-w-[14px] text-center">
-            {cases.length}
+            {branchScopedCasesCount}
           </span>
         )}
       </button>

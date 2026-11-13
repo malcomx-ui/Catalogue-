@@ -78,8 +78,8 @@ BEGIN
   WHERE LOWER(email) = LOWER(v_user_email)
   LIMIT 1;
 
-  -- Super Admins, Admins, and Partners have full multi-branch access for all operations
-  IF v_is_super IS TRUE OR LOWER(COALESCE(v_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner') OR LOWER(v_user_email) = 'infosightug@gmail.com' THEN
+  -- Only Managing Partners and Super Admins have full multi-branch access (Branch Admins are restricted to own branch)
+  IF v_is_super IS TRUE OR LOWER(COALESCE(v_role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner') OR LOWER(v_user_email) = 'infosightug@gmail.com' THEN
     RETURN TRUE;
   END IF;
 
@@ -88,7 +88,7 @@ BEGIN
     IF EXISTS (
       SELECT 1 FROM public.profiles 
       WHERE (id::text = auth.uid()::text OR LOWER(email) = LOWER(v_user_email)) 
-      AND (LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner') OR is_super_admin IS TRUE)
+      AND (LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner') OR is_super_admin IS TRUE)
     ) THEN
       RETURN TRUE;
     END IF;
@@ -322,6 +322,8 @@ ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS role_id TEXT;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS role_title TEXT;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS is_branch_admin BOOLEAN DEFAULT false;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS advocate_roll_no TEXT DEFAULT '';
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
 

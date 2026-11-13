@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     branch TEXT DEFAULT 'Kampala Central (Head Office)',
     is_super_admin BOOLEAN DEFAULT false,
     is_branch_admin BOOLEAN DEFAULT false,
+    must_change_password BOOLEAN DEFAULT false,
+    advocate_roll_no TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -198,7 +200,7 @@ WITH CHECK (
     SELECT 1 FROM public.profiles
     WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
         OR LOWER(email) = 'infosightug@gmail.com'
       )
@@ -208,7 +210,7 @@ WITH CHECK (
     SELECT 1 FROM public.firm_users
     WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
       )
   )
@@ -231,7 +233,7 @@ USING (
     SELECT 1 FROM public.profiles
     WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
         OR LOWER(email) = 'infosightug@gmail.com'
       )
@@ -241,7 +243,7 @@ USING (
     SELECT 1 FROM public.firm_users
     WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
       )
   )
@@ -256,7 +258,7 @@ WITH CHECK (
     SELECT 1 FROM public.profiles
     WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
         OR LOWER(email) = 'infosightug@gmail.com'
       )
@@ -266,7 +268,7 @@ WITH CHECK (
     SELECT 1 FROM public.firm_users
     WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
       )
   )
@@ -285,7 +287,7 @@ USING (
     SELECT 1 FROM public.profiles
     WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
         OR is_super_admin = true
         OR LOWER(email) = 'infosightug@gmail.com'
       )
@@ -350,8 +352,8 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  -- Bypass for Super Admins, Admins, and Partners regardless of profile branch_id
-  IF LOWER(COALESCE(user_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+  -- Bypass for Super Admins and Managing Partners regardless of profile branch_id
+  IF LOWER(COALESCE(user_role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
      OR user_is_super = true
      OR caller_email = 'infosightug@gmail.com' THEN
     IF NEW.branch_id IS NULL OR NEW.branch_id = '' THEN

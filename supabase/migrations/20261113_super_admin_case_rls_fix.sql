@@ -29,7 +29,7 @@ BEGIN
       SELECT 1 FROM public.profiles
       WHERE (id::text = auth.uid()::text OR (v_user_email <> '' AND LOWER(email) = v_user_email))
         AND (
-          LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+          LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
           OR is_super_admin IS TRUE
         )
     ) THEN
@@ -44,7 +44,7 @@ BEGIN
     WHERE LOWER(email) = v_user_email
     LIMIT 1;
 
-    IF v_is_super IS TRUE OR LOWER(COALESCE(v_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner') THEN
+    IF v_is_super IS TRUE OR LOWER(COALESCE(v_role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner') THEN
       RETURN TRUE;
     END IF;
   END IF;
@@ -77,8 +77,8 @@ BEGIN
     LIMIT 1;
   END IF;
 
-  -- Bypass branch restriction for super_admin, admin, and partner roles
-  IF LOWER(COALESCE(user_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+  -- Bypass branch restriction strictly for super_admin and partner roles (NOT branch admins)
+  IF LOWER(COALESCE(user_role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner')
      OR user_is_super = true
      OR caller_email = 'infosightug@gmail.com' THEN
     IF NEW.branch_id IS NULL OR NEW.branch_id = '' THEN

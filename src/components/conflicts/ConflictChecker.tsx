@@ -13,10 +13,42 @@ import {
   FileCheck,
 } from 'lucide-react';
 
+import { isUserAdmin } from '../../lib/supabase';
+import { showCleanMessage } from '../../utils/notification';
+import { Lock } from 'lucide-react';
+
 export const ConflictChecker: React.FC = () => {
-  const { runConflictCheck, currentUser, setSelectedCase, cases } = useApp();
+  const { runConflictCheck, currentUser, setSelectedCase, cases, setActiveTab } = useApp();
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<ConflictCheckResult | null>(null);
+
+  const canRunConflicts =
+    isUserAdmin(currentUser) ||
+    currentUser?.role === 'partner' ||
+    currentUser?.role === 'managing_partner' ||
+    currentUser?.role === 'super_admin' ||
+    currentUser?.role === 'superadmin' ||
+    Boolean(currentUser?.isSuperAdmin);
+
+  if (!canRunConflicts) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+          Enterprise Conflict of Interest Clearance is restricted to Managing Partners and Super Administrators because it searches across all regional firm dockets.
+        </p>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,7 +233,7 @@ export const ConflictChecker: React.FC = () => {
                     </div>
 
                     <button
-                      onClick={() => alert(`Conflict Clearance Certificate generated for "${result.searchQuery}" on ${new Date().toLocaleDateString()}. Indexed into MK Advocates central compliance registry.`)}
+                      onClick={() => showCleanMessage(`Conflict Clearance Certificate generated for "${result.searchQuery}" on ${new Date().toLocaleDateString()}. Indexed into MK Advocates central compliance registry.`, 'success')}
                       className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-medium flex items-center gap-1.5 shadow-xs"
                     >
                       <FileCheck className="w-3.5 h-3.5" />

@@ -25,7 +25,7 @@ export function resolveCaseBranchForSave(caseData: any, userProfile?: any): {
   const role = String(effectiveUser?.role || '').toLowerCase().trim();
   const isGlobalBypass =
     isUserAdmin(effectiveUser) ||
-    ['super_admin', 'superadmin', 'admin', 'partner', 'managing_partner'].includes(role) ||
+    ['super_admin', 'superadmin', 'partner', 'managing_partner'].includes(role) ||
     Boolean(effectiveUser?.isSuperAdmin || (effectiveUser as any)?.is_super_admin);
 
   const rawCaseBranchName =

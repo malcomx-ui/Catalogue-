@@ -58,6 +58,22 @@ export const Sidebar: React.FC = () => {
   const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
   const isAdmin = isUserAdmin(currentUser);
 
+  const branchScopedCases = React.useMemo(() => {
+    if (userPermissions.canViewAllBranches) return cases;
+    const targetBranch = branches.find((b) => b.id === currentUser.branchId);
+    const targetCity = targetBranch?.city?.toLowerCase() || '';
+    const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+    return cases.filter((c) => {
+      const bId = c.branchId;
+      const bName = (c.branch || c.branchName || '').toLowerCase();
+      return (
+        (currentUser.branchId && bId === currentUser.branchId) ||
+        (targetCity && bName.includes(targetCity)) ||
+        (targetName && bName.includes(targetName))
+      );
+    });
+  }, [cases, branches, currentUser.branchId, currentUser.branchName, userPermissions.canViewAllBranches]);
+
   // Group 1: Core Operational Modules
   const operationalNavItems: { id: NavigationTab; label: string; icon: any; count?: number; onClick?: () => void }[] = [
     {
@@ -69,14 +85,14 @@ export const Sidebar: React.FC = () => {
       id: 'catalogue',
       label: 'Cases',
       icon: Briefcase,
-      count: cases.length,
+      count: branchScopedCases.length,
     },
     {
       id: 'catalogue',
       label: 'Clients',
       icon: Users,
       onClick: () => {
-        setSelectedBranchFilter('all');
+        setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
         setActiveTab('catalogue');
       },
     },
@@ -112,8 +128,9 @@ export const Sidebar: React.FC = () => {
     isAdmin ||
     currentUser.role === 'partner' ||
     currentUser.role === 'super_admin' ||
-    currentUser.role?.toLowerCase().includes('partner') ||
-    currentUser.role?.toLowerCase().includes('admin')
+    currentUser.role === 'superadmin' ||
+    currentUser.role === 'managing_partner' ||
+    currentUser.role?.toLowerCase().includes('partner')
   );
 
   // Group 2: Intelligence & Risk Management
@@ -185,7 +202,7 @@ export const Sidebar: React.FC = () => {
   const activeLawyers = React.useMemo(() => {
     const map = new Map<string, number>();
 
-    cases.forEach((c) => {
+    branchScopedCases.forEach((c) => {
       const counselSet = new Set<string>();
 
       if (c.leadAdvocate) {
@@ -212,7 +229,7 @@ export const Sidebar: React.FC = () => {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name);
       });
-  }, [cases]);
+  }, [branchScopedCases]);
 
   const renderNavButton = (
     item: { id: NavigationTab; label: string; icon: any; count?: number; badge?: string; onClick?: () => void },
@@ -324,7 +341,7 @@ export const Sidebar: React.FC = () => {
           >
             <div className="flex items-center gap-2 min-w-0">
               <Building2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
-              <span className="truncate">Branches ({branches.length})</span>
+              <span className="truncate">Branches ({userPermissions.canViewAllBranches ? branches.length : 1})</span>
               {selectedBranchFilter !== 'all' && (
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" title="Filtered by branch" />
               )}
@@ -475,7 +492,7 @@ export const Sidebar: React.FC = () => {
                   />
                   <span className="truncate">All Counsel</span>
                 </div>
-                <span className="text-[10px] font-mono tabular-nums text-slate-400">{cases.length}</span>
+                <span className="text-[10px] font-mono tabular-nums text-slate-400">{branchScopedCases.length}</span>
               </button>
 
               <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">

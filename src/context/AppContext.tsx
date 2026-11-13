@@ -36,6 +36,7 @@ import {
   resolveUserRoleMeta,
   handleSaveStaff,
   isUserAdmin,
+  isUserBranchAdmin,
   isUserLawyer,
   isBranchStaff,
   canUserModifyCase,
@@ -81,7 +82,7 @@ interface AppContextType {
   addCustomRole: (roleData: Omit<CustomRole, 'id' | 'isSystem'>) => void;
   updateCustomRole: (roleId: string, updates: Partial<CustomRole>) => void;
   deleteCustomRole: (roleId: string) => boolean;
-  assignUserRole: (userId: string, roleId: string) => void;
+  assignUserRole: (userId: string, roleId: string) => Promise<{ success: boolean; error?: string }>;
   
   // User Management (Super Admin)
   addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
@@ -309,7 +310,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Effective role permissions calculation based on current user
   const userPermissions: RolePermissions = useMemo(() => {
-    // 1. Admins (Managing Partner / Super Admin) -> Global access across all branches + administrative authority
+    // 1. Managing Partner / Super Admin -> Global access across all branches + administrative authority
     if (isUserAdmin(currentUser)) {
       return {
         canViewAllBranches: true,
@@ -318,7 +319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canDeleteCases: true,
         canBulkImport: true, // Only Super Admin
         canBulkExport: true, // Only Super Admin
-        canPrintCauseList: true, // Super Admin can print
+        canPrintCauseList: true,
         canScheduleHearings: true,
         canRecordOutcomes: true,
         canLogFileMovement: true,
@@ -331,15 +332,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 2. Lawyers (Litigation Advocates, Regional Team Leads, Counsel) -> Global access across all branches
+    // 2. Custom Roles created by Super Admin (strictly non-Super-Admin)
+    const matchedCustomRole = roles.find(
+      (r) => r.id === currentUser.roleId && !r.isSystem && !r.isSuperAdmin
+    );
+    if (matchedCustomRole) {
+      return {
+        ...matchedCustomRole.permissions,
+        canBulkImport: false,
+        canBulkExport: false,
+        canManageRoles: false,
+        canManageUsers: false,
+        canManageBranches: false,
+        canManageSettings: false,
+      };
+    }
+
+    // 3. Litigation Lawyers (Advocates, Regional Team Leads) -> Global read/litigation access across branches, no Admin panels
     if (isUserLawyer(currentUser)) {
       return {
-        canViewAllBranches: true, // Lawyers have global access across all branches
+        canViewAllBranches: true,
         canCreateCases: true,
         canEditCases: true,
         canDeleteCases: true,
-        canBulkImport: false, // Locked: Super Admin only
-        canBulkExport: false, // Locked: Super Admin only
+        canBulkImport: false,
+        canBulkExport: false,
         canPrintCauseList: true,
         canScheduleHearings: true,
         canRecordOutcomes: true,
@@ -353,16 +370,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 3. Branch Staff (Branch Administrator, Court Registry Clerk, Branch Officers)
-    // -> Full management permissions (create, read, update, delete) for cases belonging specifically to their own branch
+    // 4. Branch Staff (Branch Administrators and Court Registry Clerks)
+    // -> Strictly isolated to their assigned branch; NO Super Admin or crucial system module access
     return {
-      canViewAllBranches: false, // Strictly restricted to their assigned branch
-      canCreateCases: true, // Can create cases in their own branch
-      canEditCases: true, // Can edit cases in their own branch
-      canDeleteCases: true, // Branch staff have full management permissions for own branch cases
-      canBulkImport: false, // Locked: Super Admin only
-      canBulkExport: false, // Locked: Super Admin only
-      canPrintCauseList: true, // Branch staff can print daily cause sheets
+      canViewAllBranches: false,
+      canCreateCases: true,
+      canEditCases: true,
+      canDeleteCases: true,
+      canBulkImport: false,
+      canBulkExport: false,
+      canPrintCauseList: true,
       canScheduleHearings: true,
       canRecordOutcomes: true,
       canLogFileMovement: true,
@@ -382,16 +399,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const roleMeta = resolveUserRoleMeta(
       profile?.role || user?.user_metadata?.role,
       profile?.role_id || profile?.roleId || user?.user_metadata?.role_id,
-      Boolean(profile?.is_super_admin ?? user?.user_metadata?.is_super_admin),
+      Boolean(profile?.is_super_admin ?? profile?.isSuperAdmin ?? user?.user_metadata?.is_super_admin),
       email
     );
     const branchMeta = resolveBranchMeta(
-      profile?.branch_id || user?.user_metadata?.branch_id,
-      profile?.branch_name || profile?.branch || user?.user_metadata?.branch_name || user?.user_metadata?.branch
+      profile?.branch_id || profile?.branchId || user?.user_metadata?.branch_id,
+      profile?.branch_name || profile?.branchName || profile?.branch || user?.user_metadata?.branch_name || user?.user_metadata?.branch
     );
 
     const mustChangePassword = Boolean(
       profile?.must_change_password ??
+      profile?.mustChangePassword ??
+      user?.mustChangePassword ??
       user?.user_metadata?.must_change_password ??
       false
     );
@@ -402,20 +421,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: fullName,
       role: roleMeta.role as any,
       roleId: roleMeta.roleId,
-      roleTitle: profile?.role_title || roleMeta.roleTitle,
+      roleTitle: profile?.role_title || profile?.roleTitle || roleMeta.roleTitle,
       branchId: branchMeta.id,
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
       mustChangePassword,
+      advocateRollNo: profile?.advocate_roll_no || profile?.advocateRollNo || undefined,
     };
 
     setCurrentUser(loggedInUser);
     setIsAuthenticated(true);
 
-    // 1. Ensure that upon a successful authentication response, the user is immediately redirected to the main dashboard route
+    // Redirect immediately to dashboard and apply branch isolation scope
     setActiveTab('dashboard');
-    if (roleMeta.isSuperAdmin || roleMeta.role === 'partner' || roleMeta.role === 'admin' || roleMeta.role === 'lawyer') {
+    if (roleMeta.isSuperAdmin || (!roleMeta.isBranchAdmin && (roleMeta.role === 'partner' || roleMeta.role === 'lawyer' || roleMeta.role === 'team_lead'))) {
       setSelectedBranchFilter('all');
     } else {
       setSelectedBranchFilter(branchMeta.id);
@@ -432,7 +452,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return loggedInUser;
   };
 
-  // Login action strictly hooked up to Supabase Auth signInWithPassword and public profiles
+  // Login action: authenticates via Supabase Auth first, then falls back cleanly to central backend auth (/api/auth/login) for newly provisioned staff
   const login = async (identifier: string, pass: string): Promise<{ success: boolean; error?: string; requirePasswordChange?: boolean; user?: User }> => {
     const cleanEmail = identifier.trim().toLowerCase();
     const cleanPass = pass.trim();
@@ -442,73 +462,152 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      // 1. Authenticate strictly with Supabase Auth
+      let authUser: any = null;
+      let resolvedProfile: any = null;
+
+      // 1. Try Supabase Auth signInWithPassword
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: cleanPass,
       });
 
-      if (authError) {
+      if (!authError && authData?.user) {
+        authUser = authData.user;
+      } else {
+        // 2. Fallback: verify via backend /api/auth/login (handles newly added staff & password resets persisted across profiles/firm_users/server DB)
+        try {
+          const apiRes = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: cleanPass }),
+          });
+          const apiJson = await apiRes.json().catch(() => null);
+          if (apiRes.ok && apiJson?.success && apiJson?.user) {
+            if (apiJson.user.isSuspended) {
+              return {
+                success: false,
+                error: `This account is SUSPENDED: ${apiJson.user.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
+              };
+            }
+            const loggedInUser = handleLoginSuccess({
+              user: apiJson.user,
+              profile: apiJson.profile || apiJson.user,
+            });
+            return {
+              success: true,
+              user: loggedInUser,
+              requirePasswordChange: Boolean(loggedInUser.mustChangePassword),
+            };
+          } else if (apiRes.status === 401 || apiRes.status === 403) {
+            return {
+              success: false,
+              error: apiJson?.error || 'Invalid email or password. Please verify your credentials.',
+            };
+          }
+        } catch (apiErr) {
+          console.warn('[Auth] Backend login endpoint unreachable, trying directory verification:', apiErr);
+        }
+
+        // 3. Offline / sandbox directory fallback if both Supabase Auth and backend endpoint didn't match
+        let liveDirectory = availableUsers;
+        try {
+          const fetched = await SupabaseService.fetchStaff();
+          if (Array.isArray(fetched) && fetched.length > 0) {
+            liveDirectory = fetched;
+          }
+        } catch (e) {}
+
+        const matchedUser = liveDirectory.find(
+          (u) => u.email.toLowerCase() === cleanEmail || u.name.toLowerCase() === cleanEmail
+        );
+        if (matchedUser && (matchedUser.password === cleanPass || matchedUser.temporaryPassword === cleanPass)) {
+          if (matchedUser.isSuspended) {
+            return {
+              success: false,
+              error: `This account is SUSPENDED: ${matchedUser.suspendedReason || 'Access restricted by Super Admin. Please contact Managing Partner.'}`,
+            };
+          }
+          const loggedInUser = handleLoginSuccess({
+            user: matchedUser,
+            profile: {
+              id: matchedUser.id,
+              full_name: matchedUser.name,
+              email: matchedUser.email,
+              role: matchedUser.role,
+              role_id: matchedUser.roleId,
+              role_title: matchedUser.roleTitle,
+              branch_id: matchedUser.branchId,
+              branch_name: matchedUser.branchName,
+              is_super_admin: matchedUser.isSuperAdmin,
+              is_branch_admin: matchedUser.isBranchAdmin,
+              must_change_password: matchedUser.mustChangePassword,
+            },
+          });
+          return {
+            success: true,
+            user: loggedInUser,
+            requirePasswordChange: Boolean(loggedInUser.mustChangePassword),
+          };
+        }
+
         return {
           success: false,
-          error: authError.message || 'Invalid email or password. Please verify your credentials.',
+          error: authError?.message || 'Invalid email or password. Please verify your credentials.',
         };
       }
 
-      const user = authData?.user;
-      if (!user) {
-        return { success: false, error: 'Authentication failed. User record not found.' };
+      // Authenticated via Supabase Auth -> fetch latest authoritative profile
+      if (authUser.id) {
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          if (profileData && !profileError) {
+            resolvedProfile = profileData;
+          }
+        } catch (e) {}
       }
 
-      // 2. Fetch their role & branch from the public profiles table
-      let resolvedProfile: any = null;
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (profileData && !profileError) {
-          resolvedProfile = profileData;
-        }
-      } catch (e) {
-        console.warn('Profile fetch by id warning:', e);
-      }
-
-      if (!resolvedProfile && user.email) {
+      if (!resolvedProfile && authUser.email) {
         try {
           const { data: emailProfile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('email', user.email)
+            .eq('email', authUser.email.toLowerCase())
             .maybeSingle();
 
           if (emailProfile) resolvedProfile = emailProfile;
         } catch (e) {}
       }
 
-      if (!resolvedProfile && user.email) {
+      if (!resolvedProfile && authUser.email) {
         try {
           const { data: firmUser } = await supabase
             .from('firm_users')
             .select('*')
-            .eq('email', user.email)
+            .eq('email', authUser.email.toLowerCase())
             .maybeSingle();
 
           if (firmUser) {
             resolvedProfile = {
               role: firmUser.role,
-              branch: firmUser.branch_name || firmUser.branch_id,
+              role_id: firmUser.role_id,
+              role_title: firmUser.role_title,
+              is_super_admin: firmUser.is_super_admin,
+              is_branch_admin: firmUser.is_branch_admin,
+              branch_id: firmUser.branch_id,
+              branch_name: firmUser.branch_name,
               full_name: firmUser.name,
             };
           }
         } catch (e) {}
       }
 
-      // Check if user is suspended in availableUsers list
       const matchedLocal = availableUsers.find(
-        (u) => u.email.toLowerCase() === cleanEmail || u.id === user.id
+        (u) => u.email.toLowerCase() === cleanEmail || u.id === authUser.id
       );
       if (matchedLocal?.isSuspended) {
         await supabase.auth.signOut().catch(() => {});
@@ -518,26 +617,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
-      // 3. Pass authenticated user and profile info back up to the main app state and route by role
       const fallbackRole =
         matchedLocal?.role ||
-        (user.user_metadata as any)?.role ||
+        (authUser.user_metadata as any)?.role ||
         (cleanEmail === 'infosightug@gmail.com' ? 'super_admin' : 'lawyer');
       const fallbackBranch =
         matchedLocal?.branchName ||
-        (user.user_metadata as any)?.branch_name ||
-        (user.user_metadata as any)?.branch ||
+        (authUser.user_metadata as any)?.branch_name ||
+        (authUser.user_metadata as any)?.branch ||
         'Kampala Central (Head Office)';
 
       const loggedInUser = handleLoginSuccess({
-        user,
+        user: authUser,
         profile: resolvedProfile || {
           role: fallbackRole,
-          role_id: matchedLocal?.roleId || (user.user_metadata as any)?.role_id,
-          is_super_admin: matchedLocal?.isSuperAdmin ?? (user.user_metadata as any)?.is_super_admin,
-          branch_id: matchedLocal?.branchId || (user.user_metadata as any)?.branch_id || 'kla-hq',
+          role_id: matchedLocal?.roleId || (authUser.user_metadata as any)?.role_id,
+          is_super_admin: matchedLocal?.isSuperAdmin ?? (authUser.user_metadata as any)?.is_super_admin,
+          is_branch_admin: matchedLocal?.isBranchAdmin ?? (authUser.user_metadata as any)?.is_branch_admin,
+          branch_id: matchedLocal?.branchId || (authUser.user_metadata as any)?.branch_id || 'kla-hq',
           branch: fallbackBranch,
-          full_name: matchedLocal?.name || (user.user_metadata as any)?.full_name || user.email?.split('@')[0] || 'User',
+          full_name: matchedLocal?.name || (authUser.user_metadata as any)?.full_name || authUser.email?.split('@')[0] || 'User',
         },
       });
 
@@ -850,7 +949,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthenticated(true);
         cacheUserProfile(freshUser);
 
-        if (!freshUser.isSuperAdmin && freshUser.role !== 'partner' && freshUser.role !== 'admin' && freshUser.role !== 'lawyer') {
+        if (!isUserAdmin(freshUser) && (freshUser.isBranchAdmin || !isUserLawyer(freshUser))) {
           setSelectedBranchFilter(branchMeta.id);
         }
       } catch (err) {
@@ -1251,53 +1350,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const assignUserRole = async (userId: string, roleId: string) => {
-    if (!userPermissions.canManageUsers && !userPermissions.canManageRoles) return;
-    const role = roles.find((r) => r.id === roleId);
-    if (!role) return;
-
-    const targetUser = availableUsers.find((u) => u.id === userId);
-    const targetEmail = targetUser?.email;
-
-    // 1. Optimistic state update
-    setAvailableUsers((prev) =>
-      prev.map((u) => {
-        if (u.id === userId) {
-          const updated: User = {
-            ...u,
-            roleId: role.id,
-            role: role.id as any,
-            roleTitle: role.name,
-            isSuperAdmin: role.isSuperAdmin,
-          };
-          if (currentUser.id === userId) {
-            setCurrentUser(updated);
-          }
-          return updated;
-        }
-        return u;
-      })
-    );
-
-    // 2. Persist to BOTH Supabase Auth user_metadata AND public profiles table simultaneously
-    try {
-      await handleSaveStaff(userId, targetUser?.name || '', role.id, targetUser?.branchId, {
-        email: targetEmail,
-      });
-      await SupabaseService.updateStaff(userId, {
-        roleId: role.id,
-        role: role.id as any,
-        roleTitle: role.name,
-        email: targetEmail,
-        isSuperAdmin: role.isSuperAdmin,
-      });
-      await refreshStaffFromSupabase();
-    } catch (err) {
-      console.error('Failed to persist user role allocation:', err);
+  const assignUserRole = async (userId: string, roleId: string): Promise<{ success: boolean; error?: string }> => {
+    if (!userPermissions.canManageUsers && !userPermissions.canManageRoles) {
+      return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
+    const role = roles.find((r) => r.id === roleId);
+    if (!role) return { success: false, error: 'Selected role not found.' };
+
+    return await updateUser(userId, {
+      roleId: role.id,
+      role: role.id as any,
+      roleTitle: role.name,
+      isSuperAdmin: Boolean(role.isSuperAdmin),
+      isBranchAdmin: role.id === 'role-admin',
+    });
   };
 
-  // Refresh Staff directly from Supabase profiles database table
+  // Refresh Staff directly from Supabase profiles database table & server endpoint
   const refreshStaffFromSupabase = async () => {
     try {
       const liveStaff = await SupabaseService.fetchStaff();
@@ -1314,9 +1383,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             (u) => (current.id && u.id === current.id) || (current.email && u.email.toLowerCase() === current.email.toLowerCase())
           );
           if (fresh) {
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(fresh));
-            } catch (e) {}
+            cacheUserProfile(fresh);
+            if (!isUserAdmin(fresh) && (fresh.isBranchAdmin || !isUserLawyer(fresh))) {
+              setSelectedBranchFilter(fresh.branchId);
+            }
             return fresh;
           }
           return current;
@@ -1390,7 +1460,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // User Management Methods (Super Admin: Add, Edit, Suspend, Delete)
   const addUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string; user?: User }> => {
-    if (!userPermissions.canManageUsers && !currentUser.isSuperAdmin) {
+    if (!userPermissions.canManageUsers && !isUserAdmin(currentUser)) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
     if (!userData.name?.trim() || !userData.email?.trim()) {
@@ -1405,21 +1475,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'A staff member with this email address already exists.' };
     }
 
-    const assignedRole = roles.find((r) => r.id === userData.roleId) || roles[3];
-    const branch = branches.find((b) => b.id === userData.branchId) || branches[0];
+    const assignedRole = roles.find((r) => r.id === userData.roleId) || roles[3] || roles[0];
+    const selectedBranch = branches.find((b) => b.id === userData.branchId) || branches[0];
+    const branchMeta = resolveBranchMeta(selectedBranch?.id || userData.branchId, selectedBranch?.name);
+    const roleMeta = resolveUserRoleMeta(assignedRole.id, assignedRole.id, Boolean(assignedRole.isSuperAdmin), cleanEmail);
     const initialPass = userData.password?.trim() || 'MK@Law2026';
 
     const newUser: User = {
       id: `user-${Date.now()}`,
       name: userData.name.trim(),
       email: cleanEmail,
-      role: (assignedRole.id.replace('role-', '') || 'lawyer') as any,
+      role: (assignedRole.id.startsWith('role-custom-') ? assignedRole.id : roleMeta.role) as any,
       roleId: assignedRole.id,
       roleTitle: assignedRole.name,
-      branchId: branch.id,
-      branchName: branch.name,
-      isSuperAdmin: Boolean(assignedRole.isSuperAdmin),
-      isBranchAdmin: Boolean(userData.isBranchAdmin || assignedRole.id === 'role-admin'),
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
+      isSuperAdmin: assignedRole.id.startsWith('role-custom-') ? false : roleMeta.isSuperAdmin,
+      isBranchAdmin: assignedRole.id.startsWith('role-custom-') ? false : roleMeta.isBranchAdmin,
       isSuspended: false,
       password: initialPass,
       temporaryPassword: initialPass,
@@ -1427,7 +1499,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advocateRollNo: userData.advocateRollNo?.trim() || undefined,
     };
 
-    // 1. Securely invoke Supabase Auth admin API via backend to provision credentials
+    // 1. Provision via backend API (/api/users/create) -> handles Auth user, Supabase profiles/firm_users, & server DB
     let provisionedUser = newUser;
     try {
       const session = (await supabase.auth.getSession())?.data?.session;
@@ -1436,54 +1508,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         headers['Authorization'] = `Bearer ${session.access_token}`;
       }
 
-      const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
-      const apiRes = await fetch(`${baseUrl}/api/users/create`, {
+      const apiRes = await fetch('/api/users/create', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          name: userData.name.trim(),
+          name: newUser.name,
           email: cleanEmail,
           password: initialPass,
-          roleId: assignedRole.id,
-          role: assignedRole.id,
-          roleTitle: assignedRole.name,
-          branchId: branch.id,
-          branchName: branch.name,
-          isSuperAdmin: Boolean(assignedRole.isSuperAdmin),
-          isBranchAdmin: Boolean(userData.isBranchAdmin || assignedRole.id === 'role-admin'),
-          advocateRollNo: userData.advocateRollNo?.trim(),
-          mustChangePassword: userData.mustChangePassword !== false,
+          roleId: newUser.roleId,
+          role: newUser.role,
+          roleTitle: newUser.roleTitle,
+          branchId: newUser.branchId,
+          branchName: newUser.branchName,
+          isSuperAdmin: newUser.isSuperAdmin,
+          isBranchAdmin: newUser.isBranchAdmin,
+          advocateRollNo: newUser.advocateRollNo,
+          mustChangePassword: newUser.mustChangePassword,
         }),
       });
 
-      if (apiRes.ok) {
-        const json = await apiRes.json();
-        if (json.success && json.user) {
-          provisionedUser = {
-            ...newUser,
-            ...json.user,
-            id: json.user.id || newUser.id,
-          };
-        }
+      const json = await apiRes.json().catch(() => null);
+      if (apiRes.ok && json?.success && json.user) {
+        provisionedUser = {
+          ...newUser,
+          ...json.user,
+          id: json.user.id || newUser.id,
+          password: initialPass,
+          temporaryPassword: initialPass,
+        };
+      } else if (apiRes.status === 400 || apiRes.status === 409) {
+        return { success: false, error: json?.error || 'Could not create staff user.' };
       }
     } catch (apiErr) {
-      console.warn('[addUser] Backend Auth admin createUser notice:', apiErr);
+      console.warn('[addUser] Backend createUser notice:', apiErr);
     }
 
-    // 2. Concurrently ensure profile and firm_users tables are updated via client SDK
+    // 2. Ensure profiles & firm_users tables also receive the record directly from client if permitted
     try {
       await SupabaseService.insertStaff(provisionedUser);
     } catch (err: any) {
       console.warn('Direct Supabase insertStaff notice:', err);
     }
 
-    // 3. Immediately re-fetch the fresh staff list from Supabase so the new member appears and persists
-    await refreshStaffFromSupabase();
-
-    // 4. Update local state store
+    // 3. Update local state & merge with live staff directory
     setAvailableUsers((prev) => {
       const filtered = prev.filter((u) => u.id !== provisionedUser.id && u.email.toLowerCase() !== cleanEmail);
       const updated = [provisionedUser, ...filtered];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    await refreshStaffFromSupabase();
+
+    // Guarantee newly provisioned user remains present if backend/Supabase haven't propagated yet
+    setAvailableUsers((prev) => {
+      if (prev.some((u) => u.email.toLowerCase() === cleanEmail)) return prev;
+      const updated = [provisionedUser, ...prev];
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updated));
       } catch (e) {}
@@ -1495,7 +1577,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Super Admin can edit/change user details including name, email, password, role, branch
   const updateUser = async (userId: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> => {
-    if (!userPermissions.canManageUsers && !currentUser.isSuperAdmin) {
+    if (!userPermissions.canManageUsers && !isUserAdmin(currentUser)) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
 
@@ -1504,28 +1586,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Staff account not found.' };
     }
 
-    if (updates.email && updates.email.trim().toLowerCase() !== target.email.toLowerCase()) {
+    const cleanUpdatedEmail = updates.email !== undefined ? updates.email.trim().toLowerCase() : target.email.toLowerCase();
+
+    if (updates.email && cleanUpdatedEmail !== target.email.toLowerCase()) {
       const emailTaken = availableUsers.some(
-        (u) => u.id !== userId && u.email.toLowerCase() === updates.email!.trim().toLowerCase()
+        (u) => u.id !== userId && u.email.toLowerCase() === cleanUpdatedEmail
       );
       if (emailTaken) {
         return { success: false, error: 'Another staff user already uses this email address.' };
       }
     }
 
-    const branchMeta = resolveBranchMeta(updates.branchId, updates.branchName);
-    const resolvedRoleId = updates.roleId || updates.role;
-    const role = resolvedRoleId ? roles.find((r) => r.id === resolvedRoleId) : undefined;
+    const hasBranchUpdate = updates.branchId !== undefined || updates.branchName !== undefined;
+    const requestedBranchObj = hasBranchUpdate ? branches.find((b) => b.id === updates.branchId) : undefined;
+    const branchMeta = hasBranchUpdate
+      ? resolveBranchMeta(updates.branchId || target.branchId, updates.branchName || requestedBranchObj?.name || target.branchName)
+      : resolveBranchMeta(target.branchId, target.branchName);
+
+    const hasRoleUpdate = updates.roleId !== undefined || updates.role !== undefined;
+    const resolvedRoleId = updates.roleId || (typeof updates.role === 'string' && updates.role.startsWith('role-') ? updates.role : undefined);
+    const roleObj = resolvedRoleId ? roles.find((r) => r.id === resolvedRoleId) : undefined;
+    const roleMeta = hasRoleUpdate
+      ? (roleObj && roleObj.id.startsWith('role-custom-')
+        ? {
+            roleId: roleObj.id,
+            role: roleObj.id,
+            roleTitle: roleObj.name,
+            isSuperAdmin: false,
+            isBranchAdmin: false,
+          }
+        : resolveUserRoleMeta(
+            updates.role,
+            resolvedRoleId || updates.role,
+            roleObj ? roleObj.isSuperAdmin : updates.isSuperAdmin,
+            cleanUpdatedEmail
+          ))
+      : null;
+
     const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : target.password;
 
     const mergedUpdates: Partial<User> = {
       ...updates,
-      roleId: resolvedRoleId || target.roleId,
-      role: (resolvedRoleId || target.role) as any,
-      roleTitle: role ? role.name : (updates.roleTitle || target.roleTitle),
+      name: updates.name !== undefined ? updates.name.trim() : target.name,
+      email: cleanUpdatedEmail,
+      roleId: roleMeta ? roleMeta.roleId : target.roleId,
+      role: (roleMeta ? roleMeta.role : target.role) as any,
+      roleTitle: updates.roleTitle || (roleObj ? roleObj.name : (roleMeta ? roleMeta.roleTitle : target.roleTitle)),
       branchId: branchMeta.id,
       branchName: branchMeta.name,
-      isSuperAdmin: role ? role.isSuperAdmin : target.isSuperAdmin,
+      isSuperAdmin: roleMeta ? roleMeta.isSuperAdmin : (updates.isSuperAdmin !== undefined ? Boolean(updates.isSuperAdmin) : Boolean(target.isSuperAdmin)),
+      isBranchAdmin: roleMeta ? roleMeta.isBranchAdmin : (updates.isBranchAdmin !== undefined ? Boolean(updates.isBranchAdmin) : Boolean(target.isBranchAdmin)),
+      password: updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : undefined,
+      mustChangePassword: updates.mustChangePassword !== undefined ? updates.mustChangePassword : target.mustChangePassword,
+      advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : target.advocateRollNo,
     };
 
     // 1. Optimistic local state update for instant UI and permission re-evaluation
@@ -1534,25 +1647,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (u.id === userId || (u.email && target.email && u.email.toLowerCase() === target.email.toLowerCase())) {
           const updated: User = {
             ...u,
-            name: updates.name !== undefined ? updates.name.trim() : u.name,
-            email: updates.email !== undefined ? updates.email.trim().toLowerCase() : u.email,
+            name: mergedUpdates.name || u.name,
+            email: mergedUpdates.email || u.email,
             password: newPassword,
             temporaryPassword: updates.mustChangePassword ? newPassword : u.temporaryPassword,
-            mustChangePassword: updates.mustChangePassword !== undefined ? updates.mustChangePassword : u.mustChangePassword,
-            roleId: resolvedRoleId || u.roleId,
-            role: (resolvedRoleId || u.role) as any,
-            roleTitle: role ? role.name : u.roleTitle,
+            mustChangePassword: mergedUpdates.mustChangePassword,
+            roleId: mergedUpdates.roleId,
+            role: (mergedUpdates.role || u.role) as any,
+            roleTitle: mergedUpdates.roleTitle || u.roleTitle,
             branchId: branchMeta.id,
             branchName: branchMeta.name,
-            advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : u.advocateRollNo,
-            isSuperAdmin: role ? role.isSuperAdmin : u.isSuperAdmin,
+            advocateRollNo: mergedUpdates.advocateRollNo,
+            isSuperAdmin: mergedUpdates.isSuperAdmin,
+            isBranchAdmin: mergedUpdates.isBranchAdmin,
           };
           if (currentUser.id === userId || (currentUser.email && target.email && currentUser.email.toLowerCase() === target.email.toLowerCase())) {
             setCurrentUser(updated);
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updated));
-            } catch (e) {}
-            if (!updated.isSuperAdmin && updated.role !== 'partner' && updated.role !== 'lawyer') {
+            cacheUserProfile(updated);
+            if (!isUserAdmin(updated) && (updated.isBranchAdmin || !isUserLawyer(updated))) {
               setSelectedBranchFilter(updated.branchId);
             }
           }
@@ -1566,17 +1678,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updatedList;
     });
 
-    // 2. Perform real update query in Supabase and server API
+    // 2. Perform real update across Supabase profiles, firm_users, and backend /api/users/:id
     try {
       const res = await SupabaseService.updateStaff(userId, mergedUpdates);
       if (res.data) {
         const p = res.data;
-        const bMeta = resolveBranchMeta(p.branch_id, p.branch_name || p.branch);
-        const rMeta = resolveUserRoleMeta(p.role, p.role_id, Boolean(p.is_super_admin), p.email);
+        const bMeta = resolveBranchMeta(p.branch_id || branchMeta.id, p.branch_name || p.branch || branchMeta.name);
+        const rMeta = (p.role_id || '').startsWith('role-custom-')
+          ? { roleId: p.role_id, role: p.role_id, roleTitle: p.role_title || mergedUpdates.roleTitle || 'Custom Role', isSuperAdmin: false, isBranchAdmin: false }
+          : resolveUserRoleMeta(p.role, p.role_id || mergedUpdates.roleId, Boolean(p.is_super_admin), p.email || cleanUpdatedEmail);
 
-        // Instantly update current user if the modified staff member is the active session
         setCurrentUser((current) => {
-          if (current.id === userId || (current.email && p.email && current.email.toLowerCase() === p.email.toLowerCase())) {
+          if (current.id === userId || (current.email && (p.email || cleanUpdatedEmail) && current.email.toLowerCase() === (p.email || cleanUpdatedEmail).toLowerCase())) {
             const updatedSelf: User = {
               ...current,
               name: p.full_name || p.name || current.name,
@@ -1589,10 +1702,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isSuperAdmin: rMeta.isSuperAdmin,
               isBranchAdmin: rMeta.isBranchAdmin,
             };
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updatedSelf));
-            } catch (e) {}
-            if (!updatedSelf.isSuperAdmin && updatedSelf.role !== 'partner' && updatedSelf.role !== 'lawyer') {
+            cacheUserProfile(updatedSelf);
+            if (!isUserAdmin(updatedSelf) && (updatedSelf.isBranchAdmin || !isUserLawyer(updatedSelf))) {
               setSelectedBranchFilter(updatedSelf.branchId);
             }
             return updatedSelf;
@@ -1601,11 +1712,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
-      if (!res.success && res.error) {
-        console.warn('Supabase staff update warning:', res.error);
-      }
-      // 3. Refetch updated staff list from Supabase profiles table so edits persist on reload
       await refreshStaffFromSupabase();
+
+      if (!res.success && res.error) {
+        return { success: false, error: res.error };
+      }
       return { success: true };
     } catch (err: any) {
       console.error('Supabase staff update failed:', err);
@@ -1620,6 +1731,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'Password must be at least 6 characters long.' };
     }
 
+    const target = availableUsers.find((u) => u.id === userId) || (currentUser.id === userId ? currentUser : undefined);
+
     setAvailableUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
@@ -1631,6 +1744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           if (currentUser.id === userId) {
             setCurrentUser(updated);
+            cacheUserProfile(updated);
           }
           return updated;
         }
@@ -1640,6 +1754,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await SupabaseService.updateStaff(userId, {
+        email: target?.email,
         password: newPass.trim(),
         mustChangePassword: false,
       });
@@ -1653,11 +1768,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!userPermissions.canManageUsers) return;
     if (userId === currentUser.id) return; // Super admin cannot suspend own session
 
-    let willSuspend = false;
+    const target = availableUsers.find((u) => u.id === userId);
+    const willSuspend = target ? !target.isSuspended : true;
+
     setAvailableUsers((prev) =>
       prev.map((u) => {
         if (u.id === userId) {
-          willSuspend = !u.isSuspended;
           return {
             ...u,
             isSuspended: willSuspend,
@@ -1670,6 +1786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await SupabaseService.updateStaff(userId, {
+        email: target?.email,
         isSuspended: willSuspend,
         suspendedReason: willSuspend ? (reason || 'Account suspended by Super Admin') : undefined,
       });
@@ -1677,18 +1794,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
   };
 
-  // Real asynchronous staff delete query in Supabase (await supabase.from('staff').delete().eq('id', staffId))
+  // Real asynchronous staff delete query in Supabase
   const deleteUser = async (userId: string): Promise<boolean> => {
     if (!userPermissions.canManageUsers) return false;
     if (userId === currentUser.id) return false;
+
+    const target = availableUsers.find((u) => u.id === userId);
 
     // 1. Optimistic removal from local state
     setAvailableUsers((prev) => prev.filter((u) => u.id !== userId));
 
     // 2. Perform real asynchronous delete from Supabase database tables
     try {
-      await SupabaseService.deleteStaff(userId);
-      // 3. Refetch updated staff list from Supabase so deleted item does not reappear upon refresh
+      await SupabaseService.deleteStaff(userId, target?.email);
       await refreshStaffFromSupabase();
       return true;
     } catch (err) {

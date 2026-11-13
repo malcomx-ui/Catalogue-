@@ -1,4 +1,4 @@
-import { supabase, SupabaseService, resolveBranchMeta } from '../lib/supabase';
+import { supabase, SupabaseService, resolveBranchMeta, resolveUserRoleMeta, safeProfilesUpdate } from '../lib/supabase';
 import { User } from '../types';
 
 export interface StaffUpdatePayload {
@@ -21,149 +21,147 @@ export interface StaffUpdatePayload {
 }
 
 /**
- * Permanently updates a staff member's role and branch assignment in Supabase.
- * 
- * 1. Permanently updates the public `profiles` table in Supabase.
- * 2. Calls backend API to update Supabase Auth user_metadata (via service role).
- * 3. Syncs firm_users and SupabaseService.
- * 4. Calls `await supabase.auth.refreshSession()` to sync auth session metadata.
- * 5. Returns `{ success: boolean, error?: string }`.
+ * Permanently updates a staff member's role and branch assignment across Supabase & backend DB.
  */
 export async function secureUpdateStaff(
   userId: string,
   updates: StaffUpdatePayload | Partial<User>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-
     const rawUpdates = updates as any;
     const resolvedName = (rawUpdates.name || rawUpdates.full_name || '').trim();
-    const resolvedRole = (rawUpdates.roleId || rawUpdates.role || '').trim();
-    const bMeta = resolveBranchMeta(rawUpdates.branchId, rawUpdates.branchName || rawUpdates.branch);
     const resolvedEmail = (rawUpdates.email || '').trim().toLowerCase();
+    const hasRoleChange = rawUpdates.roleId !== undefined || rawUpdates.role !== undefined;
+    const roleMeta = hasRoleChange
+      ? resolveUserRoleMeta(rawUpdates.role, rawUpdates.roleId, rawUpdates.isSuperAdmin, resolvedEmail)
+      : null;
 
-    // 1. Direct update to Supabase public 'profiles' table
-    const profilePayload: Record<string, any> = {};
+    const hasBranchChange =
+      rawUpdates.branchId !== undefined ||
+      rawUpdates.branchName !== undefined ||
+      rawUpdates.branch !== undefined;
+    const bMeta = hasBranchChange
+      ? resolveBranchMeta(rawUpdates.branchId, rawUpdates.branchName || rawUpdates.branch)
+      : null;
+
+    // 1. Direct update to Supabase public 'profiles' table with schema-safe fallback
+    const profilePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
     if (resolvedName) profilePayload.full_name = resolvedName;
-    if (resolvedRole) {
-      profilePayload.role = resolvedRole;
-      profilePayload.role_id = resolvedRole;
-    }
-    if (rawUpdates.roleTitle) {
-      profilePayload.role_title = rawUpdates.roleTitle;
-    }
-    profilePayload.branch = bMeta.name;
-    profilePayload.branch_name = bMeta.name;
-    profilePayload.branch_id = bMeta.id;
     if (resolvedEmail) profilePayload.email = resolvedEmail;
-    if (rawUpdates.isSuperAdmin !== undefined) {
-      profilePayload.is_super_admin = Boolean(rawUpdates.isSuperAdmin);
+    if (roleMeta) {
+      profilePayload.role = roleMeta.role;
+      profilePayload.role_id = roleMeta.roleId;
+      profilePayload.role_title = rawUpdates.roleTitle || roleMeta.roleTitle;
+      profilePayload.is_super_admin = roleMeta.isSuperAdmin;
+      profilePayload.is_branch_admin = roleMeta.isBranchAdmin;
+    } else {
+      if (rawUpdates.roleTitle) profilePayload.role_title = rawUpdates.roleTitle;
+      if (rawUpdates.isSuperAdmin !== undefined) profilePayload.is_super_admin = Boolean(rawUpdates.isSuperAdmin);
+      if (rawUpdates.isBranchAdmin !== undefined) profilePayload.is_branch_admin = Boolean(rawUpdates.isBranchAdmin);
     }
-    if (rawUpdates.isBranchAdmin !== undefined) {
-      profilePayload.is_branch_admin = Boolean(rawUpdates.isBranchAdmin);
+    if (bMeta) {
+      profilePayload.branch = bMeta.name;
+      profilePayload.branch_name = bMeta.name;
+      profilePayload.branch_id = bMeta.id;
     }
-    profilePayload.updated_at = new Date().toISOString();
+    if (rawUpdates.mustChangePassword !== undefined) {
+      profilePayload.must_change_password = Boolean(rawUpdates.mustChangePassword);
+    }
 
-    let profileUpdated = false;
+    let anySuccess = false;
+    let savedData: any = null;
 
-    if (Object.keys(profilePayload).length > 0) {
-      // 1a. Try update by UUID
-      if (isUUID) {
-        let { error, data } = await supabase
-          .from('profiles')
-          .update(profilePayload)
-          .eq('id', userId)
-          .select('*');
-
-        // If 'branch_id' column doesn't exist in Supabase profiles schema, remove and retry
-        if (error && error.message.includes('branch_id')) {
-          delete profilePayload.branch_id;
-          const retry = await supabase
-            .from('profiles')
-            .update(profilePayload)
-            .eq('id', userId)
-            .select('*');
-          error = retry.error;
-          data = retry.data;
-        }
-
-        if (!error && data && data.length > 0) {
-          profileUpdated = true;
-        }
-      }
-
-      // 1b. Try update by Email if not yet updated or if non-UUID ID
-      if (!profileUpdated && resolvedEmail) {
-        let { error: emailErr, data: emailData } = await supabase
-          .from('profiles')
-          .update(profilePayload)
-          .eq('email', resolvedEmail)
-          .select('*');
-
-        if (emailErr && emailErr.message.includes('branch_id')) {
-          const fallback = { ...profilePayload };
-          delete fallback.branch_id;
-          const retry = await supabase.from('profiles').update(fallback).eq('email', resolvedEmail).select('*');
-          emailErr = retry.error;
-          emailData = retry.data;
-        }
-
-        if (!emailErr && emailData && emailData.length > 0) {
-          profileUpdated = true;
+    if (Object.keys(profilePayload).length > 1) {
+      const byId = await safeProfilesUpdate(profilePayload, 'id', userId);
+      if (!byId.error && byId.data && byId.data.length > 0) {
+        anySuccess = true;
+        savedData = byId.data[0];
+      } else if (resolvedEmail) {
+        const byEmail = await safeProfilesUpdate(profilePayload, 'email', resolvedEmail);
+        if (!byEmail.error && byEmail.data && byEmail.data.length > 0) {
+          anySuccess = true;
+          savedData = byEmail.data[0];
         }
       }
     }
 
-    // 2. Call server-side user update API endpoint to update Supabase Auth user_metadata
-    try {
-      const session = (await supabase.auth.getSession())?.data?.session;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+    // 2. Call server-side user update API endpoint (handles Supabase service_role + firm_users + server DB)
+    if (typeof window !== 'undefined') {
+      try {
+        const session = (await supabase.auth.getSession())?.data?.session;
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (session?.access_token) {
+          headers['Authorization'] = `Bearer ${session.access_token}`;
+        }
 
-      const baseUrl = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
-      await fetch(`${baseUrl}/api/users/${encodeURIComponent(userId)}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          userId,
-          id: userId,
-          ...updates,
-          name: resolvedName || updates.name,
-          roleId: resolvedRole || updates.roleId,
-          role: resolvedRole || updates.role,
-          branchName: bMeta.name,
-          branchId: bMeta.id,
-        }),
-      });
-    } catch (apiErr) {
-      console.warn('[secureUpdateStaff] Server API user update warning:', apiErr);
+        const apiRes = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            userId,
+            id: userId,
+            ...updates,
+            name: resolvedName || updates.name,
+            email: resolvedEmail || updates.email,
+            roleId: roleMeta ? roleMeta.roleId : updates.roleId,
+            role: roleMeta ? roleMeta.role : updates.role,
+            roleTitle: roleMeta ? (updates.roleTitle || roleMeta.roleTitle) : updates.roleTitle,
+            isSuperAdmin: roleMeta ? roleMeta.isSuperAdmin : updates.isSuperAdmin,
+            isBranchAdmin: roleMeta ? roleMeta.isBranchAdmin : updates.isBranchAdmin,
+            branchName: bMeta ? bMeta.name : updates.branchName,
+            branchId: bMeta ? bMeta.id : updates.branchId,
+          }),
+        });
+        if (apiRes.ok) {
+          const json = await apiRes.json().catch(() => null);
+          if (json?.success) {
+            anySuccess = true;
+            savedData = savedData || json.profile || json.user;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('[secureUpdateStaff] Server API user update warning:', apiErr);
+      }
     }
 
-    // 3. Sync via SupabaseService (handles firm_users table, self-session update, etc.)
-    await SupabaseService.updateStaff(userId, {
+    // 3. Sync via SupabaseService (handles firm_users table & password embedding, skips duplicate API post)
+    const serviceRes = await SupabaseService.updateStaff(userId, {
       ...updates,
       name: resolvedName || updates.name,
-      role: (resolvedRole || updates.role) as any,
-      roleId: resolvedRole || updates.roleId,
-      branchName: bMeta.name,
-      branchId: bMeta.id,
       email: resolvedEmail || updates.email,
+      role: (roleMeta ? roleMeta.role : updates.role) as any,
+      roleId: roleMeta ? roleMeta.roleId : updates.roleId,
+      roleTitle: roleMeta ? (updates.roleTitle || roleMeta.roleTitle) : updates.roleTitle,
+      isSuperAdmin: roleMeta ? roleMeta.isSuperAdmin : updates.isSuperAdmin,
+      isBranchAdmin: roleMeta ? roleMeta.isBranchAdmin : updates.isBranchAdmin,
+      branchName: bMeta ? bMeta.name : updates.branchName,
+      branchId: bMeta ? bMeta.id : updates.branchId,
+      skipApi: true,
     }).catch((sErr) => {
       console.warn('[secureUpdateStaff] SupabaseService.updateStaff warning:', sErr);
+      return { success: false, data: null };
     });
 
-    // 4. Forces Supabase to re-validate token and sync latest server-side metadata
+    if (serviceRes.success) {
+      anySuccess = true;
+      savedData = savedData || serviceRes.data;
+    }
+
+    // 4. Refresh session only if updating active auth user
     try {
-      if (typeof supabase?.auth?.refreshSession === 'function') {
+      const { data: sess } = await supabase.auth.getSession();
+      if (sess?.session?.user?.id === userId && typeof supabase?.auth?.refreshSession === 'function') {
         await supabase.auth.refreshSession();
       }
     } catch (refreshErr) {
       console.warn('[secureUpdateStaff] Session refresh notice:', refreshErr);
     }
 
-    return { success: true };
+    return anySuccess
+      ? { success: true, data: savedData }
+      : { success: false, error: 'Failed to persist staff changes to database.' };
   } catch (err: any) {
     console.error('[secureUpdateStaff] Error during staff update:', err);
     return { success: false, error: err?.message || 'Failed to update staff in Supabase' };

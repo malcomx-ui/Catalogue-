@@ -17,13 +17,13 @@ export const navItems: NavItemConfig[] = [
     name: 'Firm Analytics', 
     href: '/analytics', 
     tabId: 'analytics',
-    roles: ['Partner', 'Superadmin', 'super_admin', 'partner', 'admin'] // 🔒 Restricted
+    roles: ['Partner', 'Superadmin', 'super_admin', 'partner', 'managing_partner'] // 🔒 Restricted
   },
   { 
     name: 'Conflict Clearance', 
     href: '/conflicts', 
     tabId: 'conflicts',
-    roles: ['Partner', 'Superadmin', 'super_admin', 'partner', 'admin'] // 🔒 Restricted
+    roles: ['Partner', 'Superadmin', 'super_admin', 'partner', 'managing_partner'] // 🔒 Restricted
   },
 ];
 
@@ -36,7 +36,7 @@ export default function Navbar({ userRole }: NavbarProps) {
 
   // Normalize user role from prop or current user context
   const effectiveRole = (userRole || currentUser?.role || 'lawyer').toLowerCase();
-  const isSuperadmin = Boolean(currentUser?.isSuperAdmin || isUserAdmin(currentUser) || effectiveRole === 'superadmin' || effectiveRole === 'super_admin' || effectiveRole === 'admin');
+  const isSuperadmin = Boolean(currentUser?.isSuperAdmin || isUserAdmin(currentUser) || effectiveRole === 'superadmin' || effectiveRole === 'super_admin' || effectiveRole === 'managing_partner');
   const isPartner = Boolean(effectiveRole === 'partner' || effectiveRole.includes('partner'));
 
   // Filter items based on whether the user's role is allowed

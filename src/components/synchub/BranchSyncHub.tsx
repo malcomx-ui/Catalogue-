@@ -39,7 +39,7 @@ export const BranchSyncHub: React.FC = () => {
         </div>
         <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
         <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-          The Regional Offices &amp; Sync Hub is strictly reserved for Super Admins and Admins. Standard counsel and branch staff do not have authorization to view or manage live synchronization circuits.
+          The Regional Offices &amp; Sync Hub is strictly reserved for Super Admins and Managing Partners. Standard counsel and branch staff do not have authorization to view or manage live synchronization circuits.
         </p>
         <button
           onClick={() => setActiveTab('dashboard')}

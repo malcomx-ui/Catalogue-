@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { supabase, handleSaveStaff } from '../../lib/supabase';
+import { supabase, cacheUserProfile } from '../../lib/supabase';
 import {
   Lock,
   Key,
@@ -23,7 +23,7 @@ export const FirstLoginPasswordModal: React.FC<FirstLoginPasswordModalProps> = (
   isOpen,
   onClose,
 }) => {
-  const { currentUser, setCurrentUser, updateUser } = useApp();
+  const { currentUser, setCurrentUser, updateUserPassword } = useApp();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -54,26 +54,34 @@ export const FirstLoginPasswordModal: React.FC<FirstLoginPasswordModalProps> = (
 
     setLoading(true);
     try {
-      // 1. Update Supabase Auth user password
-      const { error: authErr } = await supabase.auth.updateUser({
-        password: cleanPass,
-        data: {
-          must_change_password: false,
-        },
-      });
-
-      if (authErr) throw authErr;
-
-      // 2. Clear must_change_password flag in profiles table
+      // 1. Update Supabase Auth user password if active session exists (non-fatal for backend-authenticated staff)
       try {
-        await supabase
-          .from('profiles')
-          .update({
-            must_change_password: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('email', currentUser.email.toLowerCase());
-      } catch (pe) {}
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          await supabase.auth.updateUser({
+            password: cleanPass,
+            data: { must_change_password: false },
+          });
+        }
+      } catch (authWarn) {
+        console.warn('Supabase Auth updateUser notice:', authWarn);
+      }
+
+      // 2. Persist password update across backend database, profiles, and firm_users
+      const res = await fetch('/api/auth/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          email: currentUser.email,
+          newPassword: cleanPass,
+        }),
+      }).catch(() => null);
+
+      const passRes = await updateUserPassword(currentUser.id, cleanPass);
+      if (!passRes.success && (!res || !res.ok)) {
+        throw new Error(passRes.error || 'Failed to update password.');
+      }
 
       // 3. Clear mustChangePassword in currentUser state while preserving branch and role
       const updatedUser = {
@@ -82,9 +90,7 @@ export const FirstLoginPasswordModal: React.FC<FirstLoginPasswordModalProps> = (
         password: cleanPass,
       };
       setCurrentUser(updatedUser);
-      try {
-        localStorage.setItem('mk_advocates_current_user', JSON.stringify(updatedUser));
-      } catch (e) {}
+      cacheUserProfile(updatedUser);
 
       setSuccess(true);
       setTimeout(() => {

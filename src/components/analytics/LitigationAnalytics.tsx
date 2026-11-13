@@ -16,17 +16,21 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-export const LitigationAnalytics: React.FC = () => {
-  const { cases, branches, hearings, currentUser } = useApp();
+import { isUserAdmin } from '../../lib/supabase';
+import { Lock } from 'lucide-react';
 
-  // Role check: super_admin or branch_admin_finance (and general admin/partner roles in system)
+export const LitigationAnalytics: React.FC = () => {
+  const { cases, branches, currentUser, setActiveTab } = useApp();
+
+  // Strictly restricted to Super Admins / Managing Partners / Finance Officers (NOT Branch Admins)
   const isAdminOrFinance =
+    isUserAdmin(currentUser) ||
     currentUser?.role === 'super_admin' ||
+    currentUser?.role === 'superadmin' ||
     currentUser?.role === 'branch_admin_finance' ||
-    currentUser?.role === 'admin' ||
     currentUser?.role === 'partner' ||
-    Boolean(currentUser?.isSuperAdmin) ||
-    Boolean(currentUser?.isBranchAdmin);
+    currentUser?.role === 'managing_partner' ||
+    Boolean(currentUser?.isSuperAdmin);
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [reportData, setReportData] = useState<CaseReportSummary | null>(null);
@@ -46,8 +50,29 @@ export const LitigationAnalytics: React.FC = () => {
   };
 
   useEffect(() => {
+    if (!isAdminOrFinance) return;
     handleFetchReport(selectedBranchId);
-  }, [selectedBranchId, cases]);
+  }, [selectedBranchId, cases, isAdminOrFinance]);
+
+  if (!isAdminOrFinance) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+          <Lock className="w-6 h-6" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+          Firm Analytics &amp; Valuation Reports are reserved exclusively for the Managing Partner and Super Administrators. Branch Administrators can manage operational registers only within their assigned branch.
+        </p>
+        <button
+          onClick={() => setActiveTab('dashboard')}
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   // Fallback / active calculations
   const totalCasesCount = reportData?.total_cases ?? cases.length;
@@ -291,7 +316,7 @@ export const LitigationAnalytics: React.FC = () => {
 
   // Render Report Actions function matching the exact user specification
   const renderReportActions = (user: typeof currentUser) => {
-    const isAllowed = user?.role === 'super_admin' || user?.role === 'branch_admin_finance' || user?.role === 'admin' || user?.role === 'partner' || Boolean(user?.isSuperAdmin) || Boolean(user?.isBranchAdmin);
+    const isAllowed = isUserAdmin(user) || user?.role === 'super_admin' || user?.role === 'superadmin' || user?.role === 'branch_admin_finance' || user?.role === 'partner' || user?.role === 'managing_partner' || Boolean(user?.isSuperAdmin);
 
     if (!isAllowed) {
       return (
