@@ -321,15 +321,25 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             font-size: 8.5pt !important;
             border-collapse: collapse !important;
           }
+          .mortgage-print-logo {
+            max-height: 48px !important;
+            width: auto !important;
+            object-fit: contain !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .mortgage-print-table thead {
             display: table-header-group;
           }
-          .mortgage-print-table tfoot {
-            display: table-footer-group;
-          }
-          .mortgage-print-table tr {
+          .mortgage-print-table tr,
+          .mortgage-print-totals-row {
             break-inside: avoid;
             page-break-inside: avoid;
+          }
+          .mortgage-print-totals-row td {
+            border-top: 2px solid #1e3a8a !important;
+            background-color: #f8fafc !important;
+            font-weight: 700 !important;
           }
           .mortgage-print-table th,
           .mortgage-print-table td {
@@ -365,66 +375,44 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             text-align: right !important;
           }
           .mortgage-print-table thead tr th:nth-child(1),
-          .mortgage-print-table tbody tr td:nth-child(1) { width: 9% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(1) { width: 9% !important; }
           .mortgage-print-table thead tr th:nth-child(2),
-          .mortgage-print-table tbody tr td:nth-child(2) { width: 10% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(2) { width: 10% !important; }
           .mortgage-print-table thead tr th:nth-child(3),
-          .mortgage-print-table tbody tr td:nth-child(3) { width: 16% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(3) { width: 16% !important; }
           .mortgage-print-table thead tr th:nth-child(4),
-          .mortgage-print-table tbody tr td:nth-child(4) { width: 9% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(4) { width: 9% !important; }
           .mortgage-print-table thead tr th:nth-child(5),
-          .mortgage-print-table tbody tr td:nth-child(5) { width: 24% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(5) { width: 24% !important; }
           .mortgage-print-table thead tr th:nth-child(6),
-          .mortgage-print-table tbody tr td:nth-child(6) { width: 10.5% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(6) { width: 10.5% !important; }
           .mortgage-print-table thead tr th:nth-child(7),
-          .mortgage-print-table tbody tr td:nth-child(7) { width: 10.5% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(7) { width: 10.5% !important; }
           .mortgage-print-table thead tr th:nth-child(8),
-          .mortgage-print-table tbody tr td:nth-child(8) { width: 11% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(8) { width: 11% !important; }
         }
       `}</style>
 
-      {/* Formal Print-Only Legal Crest & Monthly Report Header */}
+      {/* Formal Print-Only Firm Logo & Monthly Report Header */}
       <div className="hidden print:block print-only pb-2.5 mb-3 border-b-2 border-[#1e3a8a]">
         <div className="flex items-center gap-3.5">
-          {/* Embedded Scales of Justice Legal Crest SVG */}
-          <div className="shrink-0 w-10 h-10 rounded-lg border-2 border-[#1e3a8a] bg-slate-50 flex items-center justify-center">
-            <svg
-              viewBox="0 0 40 40"
-              className="w-7 h-7"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M20 5V33M13 33H27M10 12H30"
-                stroke="#1e3a8a"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="20" cy="5.5" r="2" fill="#1e3a8a" />
-              <path
-                d="M10 12L5.5 21.5H14.5L10 12Z"
-                stroke="#1e3a8a"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M5 21.5C5.5 24 7.5 25.5 10 25.5C12.5 25.5 14.5 24 15 21.5H5Z"
-                fill="#1e3a8a"
-              />
-              <path
-                d="M30 12L25.5 21.5H34.5L30 12Z"
-                stroke="#1e3a8a"
-                strokeWidth="1.7"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M25 21.5C25.5 24 27.5 25.5 30 25.5C32.5 25.5 34.5 24 35 21.5H25Z"
-                fill="#1e3a8a"
-              />
-            </svg>
-          </div>
+          <img
+            src="/assets/logo.png"
+            alt="Muhumuza-Kiiza Advocates & Legal Consultants"
+            className="mortgage-print-logo shrink-0"
+            style={{
+              maxHeight: '48px',
+              objectFit: 'contain',
+              WebkitPrintColorAdjust: 'exact',
+              printColorAdjust: 'exact',
+            }}
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.src.endsWith('/logo.png')) {
+                target.src = '/logo.png';
+              }
+            }}
+          />
 
           <div className="min-w-0 flex-1">
             <h1
@@ -454,12 +442,6 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
               <span className="font-semibold text-slate-500">Bank Portfolio:</span>
               <span className="font-semibold text-slate-900">{bankName}</span>
-            </span>
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
-              <span className="font-semibold text-slate-500">Status:</span>
-              <span className="font-semibold text-slate-900">
-                {filters.status || 'All Active'}
-              </span>
             </span>
             {filters.department && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-300 bg-slate-50">
@@ -982,9 +964,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     </tr>
                   );
                 })}
-              </tbody>
-              <tfoot className="hidden print:table-footer-group bg-slate-50 border-t-2 border-[#1e3a8a] font-bold text-slate-900">
-                <tr>
+                <tr
+                  className="hidden print:table-row mortgage-print-totals-row bg-slate-50 border-t-2 border-[#1e3a8a] font-bold text-slate-900"
+                  style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
+                >
                   <td colSpan={5} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
                     TOTAL RECORDS: {filteredMortgages.length} · TOTAL UGX
                   </td>
@@ -998,7 +981,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     {filteredTotals.grandTotal.toLocaleString()}
                   </td>
                 </tr>
-              </tfoot>
+              </tbody>
             </table>
           </div>
           {/* Formal Print-Only Report Footer */}
