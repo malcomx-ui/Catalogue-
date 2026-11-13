@@ -39,7 +39,15 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
-import { supabase, mapRowToCase, resolveBranchId, canUserModifyCase } from '../../lib/supabase';
+import {
+  supabase,
+  mapRowToCase,
+  resolveBranchId,
+  canUserModifyCase,
+  getEffectiveUser,
+  isUserAdmin,
+} from '../../lib/supabase';
+import { resolveCaseBranchForSave, DEFAULT_HQ_BRANCH_NAME } from '../../services/caseService';
 
 export const CaseDetailModal: React.FC = () => {
   const {
@@ -315,7 +323,7 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleDeleteCase = async () => {
     if (!activeCase) return;
-    if (!canUserModifyCase(currentUser, activeCase)) {
+    if (!canUserModifyCase(getEffectiveUser(currentUser), activeCase)) {
       alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
       return;
     }
@@ -343,7 +351,8 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeCase || !canUserModifyCase(currentUser, activeCase)) {
+    const effectiveUser = getEffectiveUser(currentUser);
+    if (!activeCase || !canUserModifyCase(effectiveUser, activeCase)) {
       alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
       return;
     }
@@ -355,6 +364,16 @@ export const CaseDetailModal: React.FC = () => {
     const combinedPersons = validPersons.length > 0 ? validPersons.join(', ') : primaryLead;
 
     const resolvedStatus = editForm.status || activeCase.status || 'Active';
+    const selectedBranchMeta = resolveCaseBranchForSave(
+      {
+        branch: editForm.branch || activeCase.branch_name || activeCase.branch || DEFAULT_HQ_BRANCH_NAME,
+        branchId:
+          branches.find((b) => b.name === editForm.branch)?.id ||
+          activeCase.branch_id ||
+          activeCase.branchId,
+      },
+      effectiveUser
+    );
 
     setIsSavingEdit(true);
     try {
@@ -365,7 +384,9 @@ export const CaseDetailModal: React.FC = () => {
         suit_no: editForm.suit_no.trim(),
         client: editForm.client.trim(),
         clientName: editForm.client.trim(),
-        branch: editForm.branch,
+        branch: selectedBranchMeta.branchName,
+        branchName: selectedBranchMeta.branchName,
+        branchId: selectedBranchMeta.branchId,
         case_type: editForm.case_type,
         status: resolvedStatus as any,
         date_of_instructions: editForm.date_of_instructions,
@@ -522,8 +543,9 @@ export const CaseDetailModal: React.FC = () => {
     return null;
   }
 
-  const canModifyThisCase = canUserModifyCase(currentUser, selectedCase);
-  const isBranchStaffUser = !userPermissions.canViewAllBranches;
+  const effectiveUserForEdit = getEffectiveUser(currentUser);
+  const canModifyThisCase = canUserModifyCase(effectiveUserForEdit, selectedCase);
+  const isBranchStaffUser = !isUserAdmin(effectiveUserForEdit) && !userPermissions.canViewAllBranches;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase, resolveUserRoleMeta } from '../../lib/supabase';
+import { supabase, resolveUserRoleMeta, resolveBranchMeta, cacheUserProfile } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -65,6 +65,11 @@ export default function RefreshSessionButton({
           user.email
         );
 
+        const branchMeta = resolveBranchMeta(
+          freshProfile?.branch_id || user.user_metadata?.branch_id || currentUser.branchId,
+          freshProfile?.branch_name || freshProfile?.branch || user.user_metadata?.branch_name || currentUser.branchName
+        );
+
         const updatedUser = {
           ...currentUser,
           id: user.id,
@@ -73,14 +78,12 @@ export default function RefreshSessionButton({
           role: meta.role as any,
           roleId: meta.roleId,
           roleTitle: freshProfile?.role_title || meta.roleTitle,
-          branchName: freshProfile?.branch || user.user_metadata?.branch_name || currentUser.branchName,
+          branchId: branchMeta.id,
+          branchName: branchMeta.name,
           isSuperAdmin: meta.isSuperAdmin,
           isBranchAdmin: meta.isBranchAdmin,
         };
-        try {
-          localStorage.setItem('mk_case_catalogue_user_v2', JSON.stringify(updatedUser));
-          localStorage.setItem('mk_case_catalogue_auth_v2', 'true');
-        } catch (e) {}
+        cacheUserProfile(updatedUser);
         setCurrentUser(updatedUser);
       }
 

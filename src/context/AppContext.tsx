@@ -26,7 +26,24 @@ import {
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { cleanCaseNumber } from '../utils/caseNumber';
-import { SupabaseService, isSupabaseConfigured, supabase, mapRowToCase, resolveBranchId, resolveBranchMeta, resolveUserRoleMeta, handleSaveStaff, isUserAdmin, isUserLawyer, isBranchStaff, canUserModifyCase } from '../lib/supabase';
+import {
+  SupabaseService,
+  isSupabaseConfigured,
+  supabase,
+  mapRowToCase,
+  resolveBranchId,
+  resolveBranchMeta,
+  resolveUserRoleMeta,
+  handleSaveStaff,
+  isUserAdmin,
+  isUserLawyer,
+  isBranchStaff,
+  canUserModifyCase,
+  cacheUserProfile,
+  clearCachedUserProfile,
+  getCachedUserProfile,
+  getEffectiveUser,
+} from '../lib/supabase';
 
 
 export type NavigationTab = 
@@ -175,13 +192,15 @@ const EMPTY_USER: User = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication & Security state - initialized from storage if active session exists
+  // Authentication & Security state - initialized from localStorage or sessionStorage for mobile/cross-tab compatibility
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true';
-    } catch (e) {
-      return false;
-    }
+      if (localStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true') return true;
+    } catch (e) {}
+    try {
+      if (sessionStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true') return true;
+    } catch (e) {}
+    return Boolean(getCachedUserProfile()?.email);
   });
 
   // Custom Roles state - initialized with Super Admin, Branch Administrator, Team Lead, Advocate, Clerk
@@ -220,16 +239,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return INITIAL_USERS;
   });
 
-  // Current logged in user - pre-warmed from local cache, then immediately refreshed from profiles database table
+  // Current logged in user - pre-warmed from localStorage or sessionStorage, then refreshed from profiles table
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
-      const isAuth = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
-      const savedUserStr = localStorage.getItem(LOCAL_STORAGE_KEY_USER);
-      if (isAuth === 'true' && savedUserStr) {
-        const parsed = JSON.parse(savedUserStr);
-        if (parsed && parsed.email) {
-          return parsed;
-        }
+      const cached = getCachedUserProfile();
+      if (cached && cached.email) {
+        return {
+          ...EMPTY_USER,
+          ...cached,
+          branchId: cached.branchId || 'kla-hq',
+          branchName: cached.branchName || 'Kampala Central (Head Office)',
+        } as User;
       }
     } catch (e) {}
     return EMPTY_USER;
@@ -407,10 +427,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (e) {}
 
-    try {
-      localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
-      localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(loggedInUser));
-    } catch (e) {}
+    cacheUserProfile(loggedInUser);
 
     return loggedInUser;
   };
@@ -502,12 +519,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // 3. Pass authenticated user and profile info back up to the main app state and route by role
+      const fallbackRole =
+        matchedLocal?.role ||
+        (user.user_metadata as any)?.role ||
+        (cleanEmail === 'infosightug@gmail.com' ? 'super_admin' : 'lawyer');
+      const fallbackBranch =
+        matchedLocal?.branchName ||
+        (user.user_metadata as any)?.branch_name ||
+        (user.user_metadata as any)?.branch ||
+        'Kampala Central (Head Office)';
+
       const loggedInUser = handleLoginSuccess({
         user,
         profile: resolvedProfile || {
-          role: 'lawyer',
-          branch: 'Headquarters (Kampala)',
-          full_name: user.email?.split('@')[0] || 'User',
+          role: fallbackRole,
+          role_id: matchedLocal?.roleId || (user.user_metadata as any)?.role_id,
+          is_super_admin: matchedLocal?.isSuperAdmin ?? (user.user_metadata as any)?.is_super_admin,
+          branch_id: matchedLocal?.branchId || (user.user_metadata as any)?.branch_id || 'kla-hq',
+          branch: fallbackBranch,
+          full_name: matchedLocal?.name || (user.user_metadata as any)?.full_name || user.email?.split('@')[0] || 'User',
         },
       });
 
@@ -532,8 +562,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedBranchFilter('all');
     try {
       supabase.auth.signOut().catch(() => {});
-      localStorage.removeItem(LOCAL_STORAGE_KEY_AUTH);
-      localStorage.removeItem(LOCAL_STORAGE_KEY_USER);
+      clearCachedUserProfile();
     } catch (e) {}
   };
   
@@ -682,9 +711,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const authUser = sessionData?.session?.user;
 
         if (!authUser) {
-          const hasAuth = localStorage.getItem(LOCAL_STORAGE_KEY_AUTH);
-          if (!hasAuth && isMounted) {
+          const cached = getCachedUserProfile();
+          const hasAuth = (() => {
+            try {
+              return (
+                localStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true' ||
+                sessionStorage.getItem(LOCAL_STORAGE_KEY_AUTH) === 'true'
+              );
+            } catch {
+              return false;
+            }
+          })();
+          if (!hasAuth && !cached?.email && isMounted) {
             setIsAuthenticated(false);
+          } else if (cached?.email && isMounted) {
+            setCurrentUser((prev) => ({
+              ...EMPTY_USER,
+              ...(prev.email ? prev : {}),
+              ...cached,
+            } as User));
           }
           return;
         }
@@ -711,6 +756,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } catch (e) {}
         }
 
+        if (!freshProfile && authUser.email) {
+          try {
+            const { data: firmUser } = await supabase
+              .from('firm_users')
+              .select('*')
+              .eq('email', authUser.email.trim().toLowerCase())
+              .maybeSingle();
+            if (firmUser) {
+              freshProfile = {
+                role: firmUser.role,
+                role_id: firmUser.role_id,
+                is_super_admin: firmUser.is_super_admin,
+                branch_id: firmUser.branch_id,
+                branch_name: firmUser.branch_name,
+                full_name: firmUser.name,
+              };
+            }
+          } catch (e) {}
+        }
+
         if (!freshProfile) {
           try {
             const token = sessionData?.session?.access_token;
@@ -729,20 +794,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!isMounted) return;
 
-        // Initialize branch_id, branch_name, and role state variables from this fresh server fetch
-        const email = (authUser.email || freshProfile?.email || '').trim().toLowerCase();
-        const fullName = freshProfile?.full_name || freshProfile?.name || authUser.user_metadata?.full_name || email.split('@')[0] || 'User';
+        // Merge with cached profile so mobile/cross-device sessions never lose role/branch permissions
+        const cachedUser = getCachedUserProfile();
+        const email = (authUser.email || freshProfile?.email || cachedUser?.email || '').trim().toLowerCase();
+        const fullName =
+          freshProfile?.full_name ||
+          freshProfile?.name ||
+          authUser.user_metadata?.full_name ||
+          cachedUser?.name ||
+          email.split('@')[0] ||
+          'User';
 
         const roleMeta = resolveUserRoleMeta(
-          freshProfile?.role || authUser.user_metadata?.role,
-          freshProfile?.role_id || freshProfile?.roleId || authUser.user_metadata?.role_id,
-          Boolean(freshProfile?.is_super_admin ?? authUser.user_metadata?.is_super_admin),
+          freshProfile?.role || authUser.user_metadata?.role || cachedUser?.role,
+          freshProfile?.role_id || freshProfile?.roleId || authUser.user_metadata?.role_id || cachedUser?.roleId,
+          Boolean(
+            freshProfile?.is_super_admin ??
+            authUser.user_metadata?.is_super_admin ??
+            cachedUser?.isSuperAdmin
+          ),
           email
         );
 
         const branchMeta = resolveBranchMeta(
-          freshProfile?.branch_id || authUser.user_metadata?.branch_id,
-          freshProfile?.branch_name || freshProfile?.branch || authUser.user_metadata?.branch_name || authUser.user_metadata?.branch
+          freshProfile?.branch_id || authUser.user_metadata?.branch_id || cachedUser?.branchId || 'kla-hq',
+          freshProfile?.branch_name ||
+          freshProfile?.branch ||
+          authUser.user_metadata?.branch_name ||
+          authUser.user_metadata?.branch ||
+          cachedUser?.branchName ||
+          'Kampala Central (Head Office)'
         );
 
         const mustChangePassword = Boolean(
@@ -767,13 +848,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setCurrentUser(freshUser);
         setIsAuthenticated(true);
+        cacheUserProfile(freshUser);
 
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY_AUTH, 'true');
-          localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(freshUser));
-        } catch (e) {}
-
-        if (!freshUser.isSuperAdmin && freshUser.role !== 'partner' && freshUser.role !== 'lawyer') {
+        if (!freshUser.isSuperAdmin && freshUser.role !== 'partner' && freshUser.role !== 'admin' && freshUser.role !== 'lawyer') {
           setSelectedBranchFilter(branchMeta.id);
         }
       } catch (err) {
@@ -1295,9 +1372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!targetUserId || targetUserId === currentUser.id) {
           setCurrentUser(updatedUser);
-          try {
-            localStorage.setItem(LOCAL_STORAGE_KEY_USER, JSON.stringify(updatedUser));
-          } catch (e) {}
+          cacheUserProfile(updatedUser);
         }
 
         await refreshStaffFromSupabase();
@@ -1751,14 +1826,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Add Case - Permanently writes to Supabase
   const addCase = async (caseData: any): Promise<CaseItem> => {
-    // Resolve branch: Branch staff are strictly restricted to their assigned branch
-    const targetBranchId = !userPermissions.canViewAllBranches
-      ? currentUser.branchId
-      : (caseData.branchId || currentUser.branchId);
+    const effectiveUser = getEffectiveUser(currentUser);
+    const isAdminOrGlobal = isUserAdmin(effectiveUser) || userPermissions.canViewAllBranches;
+
+    // Resolve branch: Super Admin & Admin can assign any branch or default to Kampala Central (Head Office)
+    const targetBranchId = !isAdminOrGlobal
+      ? (effectiveUser.branchId || caseData.branchId || 'kla-hq')
+      : (caseData.branchId || caseData.branch_id || effectiveUser.branchId || 'kla-hq');
 
     const branch =
       branches.find((b) => b.id === targetBranchId) ||
-      branches.find((b) => b.id === caseData.branchId || b.name === caseData.branch || b.city.toLowerCase() === (caseData.branch || '').toLowerCase()) ||
+      branches.find(
+        (b) =>
+          b.id === caseData.branchId ||
+          b.name === caseData.branch ||
+          b.name === caseData.branchName ||
+          b.city.toLowerCase() === (caseData.branch || '').toLowerCase()
+      ) ||
+      branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
       branches[0];
 
     const branchCode = (branch.city || 'KLA').substring(0, 3).toUpperCase();
@@ -1934,13 +2019,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Update Case Details - Permanently writes to Supabase
   const updateCase = async (caseId: string, updatedData: Partial<CaseItem>): Promise<CaseItem | null> => {
-    // Enforce strict branch-level isolation: Partners and Superadmins exempt; branch staff restricted to own branch
+    const effectiveUser = getEffectiveUser(currentUser);
+    // Enforce strict branch-level isolation: Super Admins, Admins, and Partners exempt; branch staff restricted to own branch
     const existing = cases.find((c) => c.id === caseId);
-    if (existing && !canUserModifyCase(currentUser, existing)) {
+    if (existing && !canUserModifyCase(effectiveUser, existing)) {
       console.warn('Unauthorized: Branch staff can only update cases strictly belonging to their own branch.');
       return null;
     }
-    if (!canUserModifyCase(currentUser, { branchId: updatedData.branchId, branchName: updatedData.branch || updatedData.branchName })) {
+    if (
+      !isUserAdmin(effectiveUser) &&
+      !canUserModifyCase(effectiveUser, {
+        branchId: updatedData.branchId,
+        branchName: updatedData.branch || updatedData.branchName,
+      })
+    ) {
       // Branch staff cannot reassign case branch
       delete updatedData.branchId;
       delete updatedData.branchName;

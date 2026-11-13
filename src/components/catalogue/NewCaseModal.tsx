@@ -13,7 +13,18 @@ import {
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
-import { supabase, mapCaseToRow, mapRowToCase } from '../../lib/supabase';
+import {
+  supabase,
+  mapCaseToRow,
+  mapRowToCase,
+  getEffectiveUser,
+  isUserAdmin,
+  resolveBranchId,
+} from '../../lib/supabase';
+import {
+  resolveCaseBranchForSave,
+  DEFAULT_HQ_BRANCH_NAME,
+} from '../../services/caseService';
 import { showCleanMessage } from '../../utils/notification';
 
 const empty = {
@@ -52,9 +63,18 @@ export const NewCaseModal: React.FC = () => {
     systemSettings,
   } = useApp();
 
-  const canSelectAnyBranch = userPermissions.canViewAllBranches;
-  const currentUserProfile = currentUser;
-  const isGlobalAdmin = ['partner', 'super_admin'].includes(currentUserProfile?.role) || userPermissions.canViewAllBranches;
+  const effectiveUser = getEffectiveUser(currentUser);
+  const effectiveRoleLower = String(effectiveUser?.role || '').toLowerCase().trim();
+  const isAdminOrSuper =
+    isUserAdmin(effectiveUser) ||
+    ['partner', 'super_admin', 'superadmin', 'admin', 'managing_partner'].includes(effectiveRoleLower) ||
+    Boolean(effectiveUser?.isSuperAdmin || (effectiveUser as any)?.is_super_admin) ||
+    userPermissions.canViewAllBranches;
+
+  const hqBranch =
+    branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
+    branches.find((b) => b.name.toLowerCase().includes('kampala')) ||
+    branches[0];
 
   const intake = systemSettings?.intakeFields || {};
   const getField = (id: string, fallbackLabel: string) => {
@@ -74,9 +94,9 @@ export const NewCaseModal: React.FC = () => {
 
   const [form, setForm] = useState({
     ...empty,
-    branch: currentUser.branchName || branches[0]?.name || 'Kampala Central (Head Office)',
-    person_in_conduct: currentUser.name || '',
-    persons_in_conduct: currentUser.name ? [currentUser.name] : [''],
+    branch: effectiveUser.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
+    person_in_conduct: effectiveUser.name || currentUser.name || '',
+    persons_in_conduct: (effectiveUser.name || currentUser.name) ? [effectiveUser.name || currentUser.name || ''] : [''],
     case_number: '',
     suit_no: '',
   });
@@ -88,21 +108,27 @@ export const NewCaseModal: React.FC = () => {
   // Sync default branch and district when opened
   useEffect(() => {
     if (isNewCaseModalOpen) {
-      const userBranch = branches.find((b) => b.id === currentUser.branchId) || branches[0];
-      const initialBranchName = userBranch ? userBranch.name : branches[0]?.name || '';
+      const userBranch = isAdminOrSuper
+        ? (branches.find((b) => b.id === effectiveUser.branchId || b.name === effectiveUser.branchName) || hqBranch)
+        : (branches.find((b) => b.id === effectiveUser.branchId || b.name === effectiveUser.branchName) || hqBranch);
+      const initialBranchName = userBranch ? userBranch.name : (hqBranch?.name || DEFAULT_HQ_BRANCH_NAME);
       const initialDistrict = userBranch ? userBranch.city : 'Kampala';
-      
+      const userDisplayName = effectiveUser.name || currentUser.name || '';
+
       setForm((prev) => {
-        const initialPersons = prev.persons_in_conduct.length > 0 && prev.persons_in_conduct.some(p => p.trim())
-          ? prev.persons_in_conduct
-          : currentUser.name ? [currentUser.name] : [''];
+        const initialPersons =
+          prev.persons_in_conduct.length > 0 && prev.persons_in_conduct.some((p) => p.trim())
+            ? prev.persons_in_conduct
+            : userDisplayName
+            ? [userDisplayName]
+            : [''];
 
         return {
           ...prev,
           branch: prev.branch || initialBranchName,
           district: prev.district || initialDistrict,
           file_location: prev.file_location || `${initialDistrict.toUpperCase()} OFFICE`,
-          person_in_conduct: prev.person_in_conduct || currentUser.name,
+          person_in_conduct: prev.person_in_conduct || userDisplayName,
           persons_in_conduct: initialPersons,
         };
       });
@@ -189,18 +215,25 @@ export const NewCaseModal: React.FC = () => {
       const assistingAdvocates = validPersons.slice(1);
       const combinedPersons = validPersons.length > 0 ? validPersons.join(', ') : primaryLead;
 
+      const matchedSelectedBranch = branches.find((b) => b.name === form.branch);
+      const { branchId: resolvedBranchId, branchName: resolvedBranchName } = resolveCaseBranchForSave(
+        {
+          branch: form.branch,
+          branchName: form.branch,
+          branchId: matchedSelectedBranch?.id || resolveBranchId(undefined, form.branch),
+        },
+        effectiveUser
+      );
+
       const payload = {
         case_number: finalCaseNumber,
         suitNumber: finalCaseNumber,
         suit_no: form.suit_no.trim(),
         title: form.title.trim(),
-        branch: isGlobalAdmin ? form.branch : (currentUser.branchName || form.branch),
-        branch_id: isGlobalAdmin 
-          ? (branches.find((b) => b.name === form.branch)?.id || form.branch)
-          : (currentUser.branchId || branches.find((b) => b.name === currentUser.branchName)?.id),
-        branchId: isGlobalAdmin 
-          ? (branches.find((b) => b.name === form.branch)?.id || form.branch)
-          : (currentUser.branchId || branches.find((b) => b.name === currentUser.branchName)?.id),
+        branch: resolvedBranchName,
+        branchName: resolvedBranchName,
+        branch_id: resolvedBranchId,
+        branchId: resolvedBranchId,
         client: form.client.trim(),
         clientName: form.client.trim(),
         case_type: form.case_type, // <--- Explicitly included to resolve Supabase cache error
@@ -229,12 +262,8 @@ export const NewCaseModal: React.FC = () => {
       };
 
       const newCaseObject = mapCaseToRow(payload as any, true);
-
-      // Omit branch_id completely for regular staff — let the backend trigger assign it automatically!
-      const isPartnerOrSuperAdmin = currentUserProfile?.role === 'partner' || currentUserProfile?.role === 'super_admin';
-      if (!isPartnerOrSuperAdmin) {
-        delete newCaseObject.branch_id;
-      }
+      newCaseObject.branch_id = resolvedBranchId;
+      newCaseObject.branch_name = resolvedBranchName;
 
       let { data, error } = await supabase
         .from('cases')
@@ -276,8 +305,8 @@ export const NewCaseModal: React.FC = () => {
       setIsNewCaseModalOpen(false);
       setForm({
         ...empty,
-        branch: currentUser.branchName || branches[0]?.name || '',
-        persons_in_conduct: currentUser.name ? [currentUser.name] : [''],
+        branch: effectiveUser.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
+        persons_in_conduct: (effectiveUser.name || currentUser.name) ? [effectiveUser.name || currentUser.name || ''] : [''],
         suit_no: '',
       });
     } catch (err: any) {
@@ -334,8 +363,8 @@ export const NewCaseModal: React.FC = () => {
               {/* Branch Selection Field */}
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-700">Assigned Branch</label>
-                {currentUserProfile?.role === 'partner' || currentUserProfile?.role === 'super_admin' ? (
-                  // Admin / Partner: Can select any branch from the dropdown
+                {isAdminOrSuper ? (
+                  // Super Admin / Admin / Partner: Can select any branch from the dropdown (defaults to Kampala Central HQ if unset)
                   <select
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500"
                     value={form.branch}
@@ -355,12 +384,12 @@ export const NewCaseModal: React.FC = () => {
                     type="text"
                     disabled
                     className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-gray-100 text-gray-700 font-medium cursor-not-allowed"
-                    value={currentUserProfile?.branchName || (currentUserProfile as any)?.branch_name || currentUserProfile?.branchId || (currentUserProfile as any)?.branch_id || 'Your Assigned Branch'}
+                    value={effectiveUser?.branchName || (effectiveUser as any)?.branch_name || effectiveUser?.branchId || (effectiveUser as any)?.branch_id || DEFAULT_HQ_BRANCH_NAME}
                   />
                 )}
                 <p className="text-xs text-gray-500 mt-1">
-                  {currentUserProfile?.role === 'partner' || currentUserProfile?.role === 'super_admin'
-                    ? "Admin Override: You can assign this case to any branch."
+                  {isAdminOrSuper
+                    ? "Admin Override: You can assign this case to any branch (defaults to Kampala Central Head Office)."
                     : "Cases are automatically locked and registered to your assigned branch."}
                 </p>
               </div>

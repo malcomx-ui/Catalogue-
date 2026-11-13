@@ -193,14 +193,23 @@ CREATE POLICY "Enforce branch isolation on case insert"
 ON public.cases
 FOR INSERT
 WITH CHECK (
-  -- Super Admins and Partners can insert for any branch
+  -- Super Admins, Admins, and Partners can insert for any branch regardless of profile branch_id
   EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+    WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        role IN ('partner', 'super_admin', 'superadmin', 'admin')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
         OR is_super_admin = true
-        OR email = 'infosightug@gmail.com'
+        OR LOWER(email) = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  EXISTS (
+    SELECT 1 FROM public.firm_users
+    WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
+      AND (
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        OR is_super_admin = true
       )
   )
   OR
@@ -209,7 +218,7 @@ WITH CHECK (
     branch_id IS NOT NULL AND
     branch_id IN (
       SELECT branch_id FROM public.profiles
-      WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+      WHERE id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email')
     )
   )
 );
@@ -220,33 +229,51 @@ FOR UPDATE
 USING (
   EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+    WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        role IN ('partner', 'super_admin', 'superadmin')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
         OR is_super_admin = true
-        OR email = 'infosightug@gmail.com'
+        OR LOWER(email) = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  EXISTS (
+    SELECT 1 FROM public.firm_users
+    WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
+      AND (
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        OR is_super_admin = true
       )
   )
   OR
   branch_id IN (
     SELECT branch_id FROM public.profiles
-    WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+    WHERE id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email')
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+    WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        role IN ('partner', 'super_admin', 'superadmin')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
         OR is_super_admin = true
-        OR email = 'infosightug@gmail.com'
+        OR LOWER(email) = 'infosightug@gmail.com'
+      )
+  )
+  OR
+  EXISTS (
+    SELECT 1 FROM public.firm_users
+    WHERE LOWER(email) = LOWER(auth.jwt() ->> 'email')
+      AND (
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+        OR is_super_admin = true
       )
   )
   OR
   branch_id IN (
     SELECT branch_id FROM public.profiles
-    WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email'
+    WHERE id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email')
   )
 );
 
@@ -256,11 +283,11 @@ FOR DELETE
 USING (
   EXISTS (
     SELECT 1 FROM public.profiles
-    WHERE (id = auth.uid()::text OR email = auth.jwt() ->> 'email')
+    WHERE (id = auth.uid()::text OR LOWER(email) = LOWER(auth.jwt() ->> 'email'))
       AND (
-        role IN ('partner', 'super_admin', 'superadmin')
+        LOWER(role) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
         OR is_super_admin = true
-        OR email = 'infosightug@gmail.com'
+        OR LOWER(email) = 'infosightug@gmail.com'
       )
   )
 );
@@ -303,28 +330,50 @@ RETURNS TRIGGER AS $$
 DECLARE
   user_branch TEXT;
   user_role TEXT;
-  user_is_super BOOLEAN;
+  user_is_super BOOLEAN := false;
+  caller_email TEXT;
 BEGIN
-  -- Fetch the current user's role and branch_id from their profile
-  SELECT role, branch_id, is_super_admin INTO user_role, user_branch, user_is_super
-  FROM public.profiles
-  WHERE id = auth.uid()::text OR email = auth.jwt() ->> 'email';
+  caller_email := LOWER(COALESCE(auth.jwt() ->> 'email', ''));
 
-  -- Allow global partners and super admins to assign any branch they choose
-  IF user_role IN ('partner', 'super_admin', 'superadmin') OR user_is_super = true THEN
+  -- Fetch the current user's role and branch_id from profiles (with firm_users fallback)
+  SELECT role, branch_id, is_super_admin
+  INTO user_role, user_branch, user_is_super
+  FROM public.profiles
+  WHERE id = auth.uid()::text OR (caller_email <> '' AND LOWER(email) = caller_email)
+  LIMIT 1;
+
+  IF user_role IS NULL AND caller_email <> '' THEN
+    SELECT role, branch_id, is_super_admin
+    INTO user_role, user_branch, user_is_super
+    FROM public.firm_users
+    WHERE LOWER(email) = caller_email
+    LIMIT 1;
+  END IF;
+
+  -- Bypass for Super Admins, Admins, and Partners regardless of profile branch_id
+  IF LOWER(COALESCE(user_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner')
+     OR user_is_super = true
+     OR caller_email = 'infosightug@gmail.com' THEN
+    IF NEW.branch_id IS NULL OR NEW.branch_id = '' THEN
+      NEW.branch_id := COALESCE(NULLIF(user_branch, ''), 'kla-hq');
+    END IF;
+    IF NEW.branch_name IS NULL OR NEW.branch_name = '' THEN
+      NEW.branch_name := 'Kampala Central (Head Office)';
+    END IF;
     RETURN NEW;
   END IF;
 
-  -- Block any non-superadmin attempting to insert into a foreign branch
-  IF NEW.branch_id IS NOT NULL AND user_branch IS NOT NULL AND NEW.branch_id <> user_branch THEN
+  -- Block non-admin staff attempting to insert into a foreign branch when they have a different assigned branch
+  IF NEW.branch_id IS NOT NULL AND NEW.branch_id <> '' AND user_branch IS NOT NULL AND user_branch <> '' AND NEW.branch_id <> user_branch THEN
     RAISE EXCEPTION 'RLS Policy Violation: You cannot insert cases into branch %, only into your assigned branch %.', NEW.branch_id, user_branch;
   END IF;
 
-  -- Automatically lock regular staff members to their own assigned branch if omitted
-  IF NEW.branch_id IS NULL AND user_branch IS NOT NULL THEN
-    NEW.branch_id := user_branch;
-  ELSIF NEW.branch_id IS NULL AND user_branch IS NULL THEN
-    RAISE EXCEPTION 'Access Denied: Your user profile does not have an assigned branch.';
+  -- Default missing branch_id cleanly to user's assigned branch or Kampala HQ
+  IF NEW.branch_id IS NULL OR NEW.branch_id = '' THEN
+    NEW.branch_id := COALESCE(NULLIF(user_branch, ''), 'kla-hq');
+  END IF;
+  IF NEW.branch_name IS NULL OR NEW.branch_name = '' THEN
+    NEW.branch_name := 'Kampala Central (Head Office)';
   END IF;
 
   RETURN NEW;

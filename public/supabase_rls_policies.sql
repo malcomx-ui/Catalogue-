@@ -78,8 +78,8 @@ BEGIN
   WHERE LOWER(email) = LOWER(v_user_email)
   LIMIT 1;
 
-  -- Partners and Superadmins have full multi-branch access for all operations
-  IF v_is_super IS TRUE OR LOWER(v_role) IN ('partner', 'super_admin', 'superadmin', 'managing_partner') THEN
+  -- Super Admins, Admins, and Partners have full multi-branch access for all operations
+  IF v_is_super IS TRUE OR LOWER(COALESCE(v_role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner') OR LOWER(v_user_email) = 'infosightug@gmail.com' THEN
     RETURN TRUE;
   END IF;
 
@@ -87,8 +87,8 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles') THEN
     IF EXISTS (
       SELECT 1 FROM public.profiles 
-      WHERE (id = auth.uid() OR LOWER(email) = LOWER(v_user_email)) 
-      AND (role IN ('partner', 'super_admin', 'superadmin') OR is_super_admin IS TRUE)
+      WHERE (id::text = auth.uid()::text OR LOWER(email) = LOWER(v_user_email)) 
+      AND (LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'admin', 'managing_partner') OR is_super_admin IS TRUE)
     ) THEN
       RETURN TRUE;
     END IF;
