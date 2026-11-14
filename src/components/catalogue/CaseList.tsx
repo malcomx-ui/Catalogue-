@@ -203,10 +203,10 @@ export const CaseList: React.FC = () => {
       {/* Page Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Litigation Cases
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
             Managing {displayCases.length} matters {userPermissions.canViewAllBranches ? 'across all branches' : `in ${effectiveUser?.branchName || currentUser?.branchName || 'Assigned Branch'}`}
           </p>
         </div>
@@ -280,12 +280,12 @@ export const CaseList: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by client, MK case no, suit no, lawyer, title..."
-            className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-sm transition-all"
+            className="block w-full pl-10 pr-10 py-3 border border-slate-200/80 dark:border-slate-700 rounded-xl leading-5 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-xs transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-sm font-medium text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-sm font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               Clear
             </button>
@@ -294,7 +294,7 @@ export const CaseList: React.FC = () => {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 w-full sm:w-auto">
           {/* Branch filter */}
           {userPermissions.canViewAllBranches ? (
@@ -439,11 +439,11 @@ export const CaseList: React.FC = () => {
           }}
         />
       ) : viewMode === 'table' ? (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                <tr className="divide-x divide-slate-200/60">
+              <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                <tr className="divide-x divide-slate-200/60 dark:divide-slate-800">
                   <th className="py-3.5 px-4">MK File No.</th>
                   <th className="py-3.5 px-4">Case Title &amp; Parties</th>
                   <th className="py-3.5 px-4">Court &amp; Division</th>
@@ -454,7 +454,7 @@ export const CaseList: React.FC = () => {
                   <th className="py-3.5 px-4 text-right w-14">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {displayCases.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
@@ -579,16 +579,16 @@ export const CaseList: React.FC = () => {
                     <tr
                       key={caseItem.id}
                       onClick={() => setSelectedCase(caseItem)}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors divide-x divide-slate-100/70"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 cursor-pointer transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70"
                     >
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {fileRef ? (
                           <>
-                            <div className="font-mono tabular-nums font-medium text-slate-900">
+                            <div className="font-mono tabular-nums font-medium text-slate-900 dark:text-slate-100">
                               {fileRef}
                             </div>
                             {caseItem.suit_no && (
-                              <div className="text-[10px] text-blue-700 font-mono tabular-nums font-medium truncate" title="Court Registry Identifier">
+                              <div className="text-[10px] text-blue-700 dark:text-blue-400 font-mono tabular-nums font-medium truncate" title="Court Registry Identifier">
                                 Suit: {caseItem.suit_no}
                               </div>
                             )}
@@ -612,10 +612,10 @@ export const CaseList: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 max-w-xs">
-                        <div className="font-semibold text-slate-900 leading-snug truncate">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100 leading-snug truncate">
                           {caseItem.title}
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                           {caseItem.parties && caseItem.parties.length > 0
                             ? `${caseItem.parties[0]?.name || caseItem.client || ''}${caseItem.parties[1]?.name ? ` v. ${caseItem.parties[1].name}` : caseItem.opposingFirm ? ` v. ${caseItem.opposingFirm}` : ''}`
                             : (caseItem.client || caseItem.clientName || 'Direct Instruction')}
@@ -727,14 +727,14 @@ export const CaseList: React.FC = () => {
           </div>
         </div>
       ) : displayCases.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center shadow-xs">
           {cases.length === 0 ? (
             <div className="max-w-md mx-auto space-y-3.5">
               <div className="w-13 h-13 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200 shadow-2xs">
                 <ShieldCheck className="w-7 h-7" />
               </div>
               <div className="space-y-1">
-                <div className="text-base font-bold text-slate-900">
+                <div className="text-base font-bold text-slate-900 dark:text-slate-100">
                   Client Files Secured & Storage Cleared
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold">
@@ -742,7 +742,7 @@ export const CaseList: React.FC = () => {
                   <span>0 Cases · 0 Hearings · 0 Documents</span>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                 All client matters and demo data have been completely cleared for confidentiality. You can import your firm litigation spreadsheet or register matters manually.
               </p>
               <div className="pt-2 flex items-center justify-center gap-2">
@@ -769,7 +769,7 @@ export const CaseList: React.FC = () => {
               </div>
             </div>
           ) : (
-            <p className="text-xs text-slate-500">No cases found matching your filters.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">No cases found matching your filters.</p>
           )}
         </div>
       ) : (
@@ -779,7 +779,7 @@ export const CaseList: React.FC = () => {
             <div
               key={caseItem.id}
               onClick={() => setSelectedCase(caseItem)}
-              className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
+              className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">

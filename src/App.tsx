@@ -124,7 +124,7 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans-legal print:bg-white">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans print:bg-white">
       {/* Main Body */}
       <div className="flex-1 w-full flex">
         {/* Left Navigation Sidebar with Branch Registries & Roles */}

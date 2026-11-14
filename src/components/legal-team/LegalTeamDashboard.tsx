@@ -551,7 +551,7 @@ export const LegalTeamDashboard: React.FC = () => {
         </div>
 
         {/* Search & Filter Controls */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
           <div className="relative flex-1 min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -559,7 +559,7 @@ export const LegalTeamDashboard: React.FC = () => {
               value={directorySearch}
               onChange={(e) => setDirectorySearch(e.target.value)}
               placeholder="Search legal team by name, email, role, or branch..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/15"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
             />
           </div>
 
@@ -568,7 +568,7 @@ export const LegalTeamDashboard: React.FC = () => {
               <select
                 value={directoryBranchFilter}
                 onChange={(e) => setDirectoryBranchFilter(e.target.value)}
-                className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
+                className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none cursor-pointer"
                 aria-label="Filter team by branch"
               >
                 <option value="all">All Branches</option>
@@ -583,7 +583,7 @@ export const LegalTeamDashboard: React.FC = () => {
             <select
               value={directoryRoleFilter}
               onChange={(e) => setDirectoryRoleFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none cursor-pointer"
+              className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none cursor-pointer"
               aria-label="Filter team by role"
             >
               <option value="all">All Roles</option>
@@ -596,10 +596,10 @@ export const LegalTeamDashboard: React.FC = () => {
 
         {/* Staff Directory Grid */}
         {filteredDirectory.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl py-14 px-6 text-center shadow-xs">
-            <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <h3 className="text-sm font-semibold text-slate-900">No Staff Members Match Your Filter</h3>
-            <p className="text-xs text-slate-500 mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl py-14 px-6 text-center shadow-xs">
+            <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Staff Members Match Your Filter</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Clear your search criteria or switch branch filters to view all legal team members.
             </p>
           </div>
@@ -618,7 +618,7 @@ export const LegalTeamDashboard: React.FC = () => {
                   key={member.key}
                   type="button"
                   onClick={() => setSelectedStaffKey(member.key)}
-                  className="text-left bg-white border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md rounded-2xl p-5 transition-all flex flex-col justify-between gap-4 cursor-pointer group"
+                  className="text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md rounded-2xl p-5 transition-all flex flex-col justify-between gap-4 cursor-pointer group"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
@@ -701,12 +701,12 @@ export const LegalTeamDashboard: React.FC = () => {
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Top Bar: Breadcrumb + Staff Switcher */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5 min-w-0">
           <button
             type="button"
             onClick={() => setSelectedStaffKey(null)}
-            className="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition shrink-0 cursor-pointer"
+            className="p-2 rounded-xl border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition shrink-0 cursor-pointer"
             title="Back to Legal Team directory"
             aria-label="Back to Legal Team directory"
           >
@@ -718,16 +718,16 @@ export const LegalTeamDashboard: React.FC = () => {
           </div>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span>Legal Team</span>
               <span>/</span>
-              <span className="font-semibold text-slate-900 truncate">{selectedMember.name}</span>
+              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">{selectedMember.name}</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate mt-0.5">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate mt-0.5">
               {selectedMember.name}
             </h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-0.5">
-              <span className="font-medium text-slate-700">{selectedMember.roleTitle}</span>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <span className="font-medium text-slate-700 dark:text-slate-300">{selectedMember.roleTitle}</span>
               <span className="inline-flex items-center gap-1">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                 {selectedMember.branchName}
@@ -754,7 +754,7 @@ export const LegalTeamDashboard: React.FC = () => {
             value={selectedMember.key}
             onChange={(e) => setSelectedStaffKey(e.target.value)}
             aria-label="Switch staff member dashboard"
-            className="px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 cursor-pointer max-w-[230px]"
+            className="px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 cursor-pointer max-w-[230px]"
           >
             {members.map((m) => (
               <option key={m.key} value={m.key}>
@@ -766,7 +766,7 @@ export const LegalTeamDashboard: React.FC = () => {
           <button
             type="button"
             onClick={() => openNewEntryComposer('diary')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Diary / Task</span>
@@ -776,59 +776,59 @@ export const LegalTeamDashboard: React.FC = () => {
 
       {/* Personalized Stats & Metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium">Active Case Load</span>
             <Briefcase className="w-4 h-4 text-slate-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
               {memberActiveCases.length}
             </span>
-            <span className="text-xs text-slate-500 font-mono tabular-nums">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
               / {memberCases.length} total
             </span>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium">Completed Milestones</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-700 font-mono tabular-nums">
+            <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
               {totalCompletedMilestones}
             </span>
-            <span className="text-xs text-slate-500 font-mono tabular-nums">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
               {memberClosedCases.length} closed · {completedDiaryMilestonesCount} tasks
             </span>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium">Upcoming Court Dates</span>
-            <CalendarDays className="w-4 h-4 text-blue-600" />
+            <CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-blue-700 font-mono tabular-nums">
+            <span className="text-2xl font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums">
               {upcomingCourtDatesCount}
             </span>
-            <span className="text-xs text-slate-500">Scheduled</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">Scheduled</span>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
             <span className="font-medium">Resolution &amp; Task Rate</span>
-            <TrendingUp className="w-4 h-4 text-amber-600" />
+            <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums">
+            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
               {completionRatePct}%
             </span>
-            <span className="text-xs text-slate-500 font-mono tabular-nums">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
               {memberDiaryEntries.filter((e) => !e.completed && e.entryType !== 'diary').length} pending tasks
             </span>
           </div>
@@ -836,7 +836,7 @@ export const LegalTeamDashboard: React.FC = () => {
       </div>
 
       {/* Workspace Navigation Tabs */}
-      <div className="bg-white border border-slate-200 rounded-xl p-1.5 inline-flex flex-wrap gap-1">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 inline-flex flex-wrap gap-1 shadow-xs">
         <button
           type="button"
           onClick={() => setDashboardTab('schedule')}
@@ -889,10 +889,10 @@ export const LegalTeamDashboard: React.FC = () => {
       {dashboardTab === 'schedule' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Left 7 Columns: Monthly Interactive Calendar */}
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90">
+          <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90 dark:bg-slate-800/60">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900">{monthHeading}</h2>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{monthHeading}</h2>
               </div>
 
               <div className="flex items-center gap-1.5">
@@ -1031,13 +1031,13 @@ export const LegalTeamDashboard: React.FC = () => {
           </div>
 
           {/* Right 5 Columns: Selected Day Agenda & Diary Composer */}
-          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/90 flex items-center justify-between gap-2">
+          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden flex flex-col">
+            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60 flex items-center justify-between gap-2">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                   Selected Date Agenda
                 </span>
-                <h3 className="text-sm font-bold text-slate-900 font-mono tabular-nums">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
                   {new Date(`${selectedDateStr}T00:00:00`).toLocaleDateString('en-GB', {
                     weekday: 'short',
                     day: '2-digit',
@@ -1322,8 +1322,8 @@ export const LegalTeamDashboard: React.FC = () => {
       {/* TAB 2: ASSIGNED CASES & MILESTONES                                  */}
       {/* =================================================================== */}
       {dashboardTab === 'cases' && (
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -1331,11 +1331,11 @@ export const LegalTeamDashboard: React.FC = () => {
                 value={caseSearch}
                 onChange={(e) => setCaseSearch(e.target.value)}
                 placeholder="Search assigned suit number, title, court, or stage..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none"
               />
             </div>
 
-            <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-0.5 shrink-0">
+            <div className="inline-flex rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 shrink-0">
               {(['all', 'active', 'closed'] as const).map((mode) => (
                 <button
                   key={mode}
@@ -1343,8 +1343,8 @@ export const LegalTeamDashboard: React.FC = () => {
                   onClick={() => setCaseStatusScope(mode)}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
                     caseStatusScope === mode
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-slate-900 dark:bg-blue-600 text-white'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   {mode === 'all'
@@ -1359,17 +1359,17 @@ export const LegalTeamDashboard: React.FC = () => {
 
           {displayedMemberCases.length === 0 ? (
             <div className="py-12 px-6 text-center">
-              <Briefcase className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-700">No Matching Matters</p>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <Briefcase className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Matching Matters</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                 No cases match this filter for {selectedMember.name}.
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50/90 border-b border-slate-200">
-                  <tr className="divide-x divide-slate-200/60 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
+                  <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     <th className="py-3.5 px-4">Suit No.</th>
                     <th className="py-3.5 px-4">Matter Title</th>
                     <th className="py-3.5 px-4">Court / Station</th>
@@ -1379,17 +1379,17 @@ export const LegalTeamDashboard: React.FC = () => {
                     <th className="py-3.5 px-4 text-right w-14">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                   {displayedMemberCases.map((c) => (
                     <tr
                       key={c.id}
                       onClick={() => setSelectedCase(c)}
-                      className="hover:bg-slate-50 cursor-pointer transition-colors divide-x divide-slate-100/70"
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70"
                     >
-                      <td className="py-3.5 px-4 font-mono tabular-nums font-semibold text-slate-900 whitespace-nowrap">
+                      <td className="py-3.5 px-4 font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                         {c.suitNumber || c.firmRefNumber}
                       </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-900">{c.title}</td>
+                      <td className="py-3.5 px-4 font-medium text-slate-900 dark:text-slate-100">{c.title}</td>
                       <td className="py-3.5 px-4 text-slate-600">{c.court || c.branchName}</td>
                       <td className="py-3.5 px-4 text-slate-600">{c.stage}</td>
                       <td className="py-3.5 px-4 font-mono tabular-nums text-slate-700 whitespace-nowrap">
@@ -1426,15 +1426,15 @@ export const LegalTeamDashboard: React.FC = () => {
       {dashboardTab === 'logs' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* Diary & Task Logs */}
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90">
-              <h2 className="text-sm font-bold text-slate-900">
+          <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90 dark:bg-slate-800/60">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Personal Diary, Meetings &amp; Task Log
               </h2>
               <select
                 value={logFilter}
                 onChange={(e) => setLogFilter(e.target.value as any)}
-                className="px-2.5 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 cursor-pointer"
+                className="px-2.5 py-1 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 cursor-pointer"
               >
                 <option value="all">All Entries</option>
                 <option value="pending">Pending Tasks</option>
@@ -1448,14 +1448,14 @@ export const LegalTeamDashboard: React.FC = () => {
 
             {displayedLogs.length === 0 ? (
               <div className="py-12 px-6 text-center">
-                <NotebookPen className="w-7 h-7 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700">No Diary Entries Recorded Yet</p>
-                <p className="text-[11px] text-slate-500 mt-1">
+                <NotebookPen className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Diary Entries Recorded Yet</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Use &ldquo;New Diary / Task&rdquo; to log daily notes, meetings, and milestones.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {displayedLogs.map((entry) => {
                   const meta = ENTRY_TYPE_META[entry.entryType] || ENTRY_TYPE_META.diary;
                   return (
@@ -1467,24 +1467,24 @@ export const LegalTeamDashboard: React.FC = () => {
                           >
                             {meta.label}
                           </span>
-                          <span className="font-mono tabular-nums text-[11px] text-slate-500">
+                          <span className="font-mono tabular-nums text-[11px] text-slate-500 dark:text-slate-400">
                             {entry.date} {entry.time ? `· ${entry.time}` : ''}
                           </span>
                           {entry.suitNumber && (
-                            <span className="font-mono tabular-nums text-[11px] text-slate-600">
+                            <span className="font-mono tabular-nums text-[11px] text-slate-600 dark:text-slate-300">
                               [{entry.suitNumber}]
                             </span>
                           )}
                         </div>
                         <div
                           className={`font-semibold text-sm ${
-                            entry.completed ? 'line-through text-slate-400' : 'text-slate-900'
+                            entry.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'
                           }`}
                         >
                           {entry.title}
                         </div>
                         {entry.notes && (
-                          <p className="text-slate-600 whitespace-pre-line">{entry.notes}</p>
+                          <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">{entry.notes}</p>
                         )}
                       </div>
 
@@ -1496,7 +1496,7 @@ export const LegalTeamDashboard: React.FC = () => {
                             className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold cursor-pointer ${
                               entry.completed
                                 ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
                             }`}
                           >
                             {entry.completed ? 'Done' : 'Complete'}
@@ -1519,9 +1519,9 @@ export const LegalTeamDashboard: React.FC = () => {
           </div>
 
           {/* Case Progressive Notes */}
-          <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/90">
-              <h2 className="text-sm font-bold text-slate-900">Case Progressive Notes</h2>
+          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Case Progressive Notes</h2>
             </div>
 
             {memberCaseNotes.length === 0 ? (

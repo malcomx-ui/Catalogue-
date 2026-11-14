@@ -307,25 +307,25 @@ export const NewCaseModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center shrink-0 border border-slate-700/50">
               <Scale className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
                 New Case
               </h2>
-              <p className="text-[11px] sm:text-xs text-slate-500 line-clamp-1">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
                 Register a new matter into the centralized catalogue
               </p>
             </div>
           </div>
           <button
             onClick={() => setIsNewCaseModalOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200/60 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -334,28 +334,28 @@ export const NewCaseModal: React.FC = () => {
 
         {/* Conflict Warning Banner */}
         {conflictWarning && (
-          <div className="bg-amber-50 border-b border-amber-200 px-4 sm:px-6 py-2.5 text-xs text-amber-900 flex items-start gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900/60 px-4 sm:px-6 py-2.5 text-xs text-amber-900 dark:text-amber-300 flex items-start gap-2">
+            <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="font-medium">{conflictWarning}</div>
           </div>
         )}
 
         <form onSubmit={submit} className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 text-xs">
           {/* Section 1: Case details */}
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-              <Scale className="w-4 h-4 text-blue-600" />
+          <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+              <Scale className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Case details</span>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               {/* Branch Selection Field */}
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">Assigned Branch</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Branch</label>
                 {isAdminOrSuper ? (
                   // Super Admin / Admin / Partner: Can select any branch from the dropdown (defaults to Kampala Central HQ if unset)
                   <select
-                    className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 focus:ring-blue-500 focus:border-blue-500"
+                    className="mt-1 block w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-blue-500 focus:border-blue-500"
                     value={form.branch}
                     onChange={(e) => set('branch', e.target.value)}
                     required
@@ -372,11 +372,11 @@ export const NewCaseModal: React.FC = () => {
                   <input
                     type="text"
                     disabled
-                    className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-gray-100 text-gray-700 font-medium cursor-not-allowed"
+                    className="mt-1 block w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-slate-100 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 font-medium cursor-not-allowed"
                     value={effectiveUser?.branchName || (effectiveUser as any)?.branch_name || effectiveUser?.branchId || (effectiveUser as any)?.branch_id || DEFAULT_HQ_BRANCH_NAME}
                   />
                 )}
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {isAdminOrSuper
                     ? "Admin Override: You can assign this case to any branch (defaults to Kampala Central Head Office)."
                     : "Cases are automatically locked and registered to your assigned branch."}
@@ -386,14 +386,14 @@ export const NewCaseModal: React.FC = () => {
               {/* 2. MK Case No. */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="case_number" className="block font-medium text-slate-700">
+                  <label htmlFor="case_number" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('caseNumber', 'MK Case No.').label}
                   </label>
                   {systemSettings?.features?.enableCaseAutoNumbering && (
                     <button
                       type="button"
                       onClick={handleAutoGenerateNumber}
-                      className="text-[10px] text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1"
+                      className="text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium flex items-center gap-1"
                     >
                       <Sparkles className="w-3 h-3" />
                       <span>Auto-Generate</span>
@@ -406,13 +406,13 @@ export const NewCaseModal: React.FC = () => {
                   value={form.case_number}
                   onChange={(e) => set('case_number', e.target.value)}
                   placeholder="Enter MK case number"
-                  className="w-full font-mono tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full font-mono tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               {/* Suit No. */}
               <div className="space-y-1.5">
-                <label htmlFor="suit_no" className="block font-medium text-slate-700">
+                <label htmlFor="suit_no" className="block font-medium text-slate-700 dark:text-slate-300">
                   Suit No.
                 </label>
                 <input
@@ -421,13 +421,13 @@ export const NewCaseModal: React.FC = () => {
                   value={form.suit_no}
                   onChange={(e) => set('suit_no', e.target.value)}
                   placeholder="e.g. HCT-00-CC-CS-0245-2026"
-                  className="w-full font-mono tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full font-mono tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               {/* 3. Client Full Name/Entity */}
               <div className="space-y-1.5">
-                <label htmlFor="client" className="block font-medium text-slate-700">
+                <label htmlFor="client" className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('clientName', 'Client Full Name/Entity').label} *
                 </label>
                 <input
@@ -437,13 +437,13 @@ export const NewCaseModal: React.FC = () => {
                   value={form.client}
                   onChange={(e) => set('client', e.target.value)}
                   placeholder="Client name / corporate entity"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               {/* 4. Case Title */}
               <div className="space-y-1.5">
-                <label htmlFor="title" className="block font-medium text-slate-700">
+                <label htmlFor="title" className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('title', 'Case Title').label} *
                 </label>
                 <input
@@ -453,19 +453,19 @@ export const NewCaseModal: React.FC = () => {
                   value={form.title}
                   onChange={(e) => set('title', e.target.value)}
                   placeholder="Brief subject of the matter"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 font-medium"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600 font-medium"
                 />
               </div>
 
               {/* 5. Nature of case (case_type) */}
               <div className="space-y-1.5">
-                <label className="block font-medium text-slate-700">
+                <label className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('caseType', 'Nature of case').label} *
                 </label>
                 <select
                   value={form.case_type}
                   onChange={(e) => set('case_type', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 >
                   {(systemSettings?.practiceAreas && systemSettings.practiceAreas.length > 0
                     ? systemSettings.practiceAreas
@@ -480,13 +480,13 @@ export const NewCaseModal: React.FC = () => {
 
               {/* 6. Status */}
               <div className="space-y-1.5">
-                <label className="block font-medium text-slate-700">
+                <label className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('status', 'Status').label} *
                 </label>
                 <select
                   value={form.status}
                   onChange={(e) => set('status', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 >
                   {CASE_STATUSES.map((s) => (
                     <option key={s.value} value={s.value}>
@@ -497,7 +497,7 @@ export const NewCaseModal: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="doi" className="block font-medium text-slate-700">
+                <label htmlFor="doi" className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('dateOfInstructions', 'Date of instructions').label}
                 </label>
                 <input
@@ -505,12 +505,12 @@ export const NewCaseModal: React.FC = () => {
                   type="date"
                   value={form.date_of_instructions}
                   onChange={(e) => set('date_of_instructions', e.target.value)}
-                  className="w-full tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="court" className="block font-medium text-slate-700">
+                <label htmlFor="court" className="block font-medium text-slate-700 dark:text-slate-300">
                   {getField('court', 'Court').label} *
                 </label>
                 <input
@@ -519,19 +519,19 @@ export const NewCaseModal: React.FC = () => {
                   value={form.court}
                   onChange={(e) => set('court', e.target.value)}
                   placeholder="e.g. High Court (Commercial Division)"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="district" className="block font-medium text-slate-700">
+                <label htmlFor="district" className="block font-medium text-slate-700 dark:text-slate-300">
                   District
                 </label>
                 <select
                   id="district"
                   value={form.district}
                   onChange={(e) => set('district', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 >
                   <option value="">Select district...</option>
                   {UGANDA_DISTRICTS.map((d) => (
@@ -545,9 +545,9 @@ export const NewCaseModal: React.FC = () => {
           </div>
 
           {/* Section 2: Client & file */}
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-              <FolderOpen className="w-4 h-4 text-amber-600" />
+          <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+              <FolderOpen className="w-4 h-4 text-amber-600 dark:text-amber-400" />
               <span>Client & file</span>
             </div>
 
@@ -559,9 +559,9 @@ export const NewCaseModal: React.FC = () => {
                 idPrefix="new-case-person"
               />
 
-              <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100">
+              <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="space-y-1.5">
-                  <label htmlFor="file_loc" className="block font-medium text-slate-700">
+                  <label htmlFor="file_loc" className="block font-medium text-slate-700 dark:text-slate-300">
                     Location of physical file
                   </label>
                   <input
@@ -570,12 +570,12 @@ export const NewCaseModal: React.FC = () => {
                     value={form.file_location}
                     onChange={(e) => set('file_location', e.target.value)}
                     placeholder="e.g. KAMPALA OFFICE / CAB-2"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="target" className="block font-medium text-slate-700">
+                  <label htmlFor="target" className="block font-medium text-slate-700 dark:text-slate-300">
                     Target
                   </label>
                   <input
@@ -584,7 +584,7 @@ export const NewCaseModal: React.FC = () => {
                     value={form.target}
                     onChange={(e) => set('target', e.target.value)}
                     placeholder="e.g. Recovery of UGX 1.2B"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
@@ -592,15 +592,15 @@ export const NewCaseModal: React.FC = () => {
           </div>
 
           {/* Section 3: Matter details */}
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-              <FileText className="w-4 h-4 text-indigo-600" />
+          <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+              <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <span>Matter details</span>
             </div>
 
             <div className="grid gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="subject" className="block font-medium text-slate-700">
+                <label htmlFor="subject" className="block font-medium text-slate-700 dark:text-slate-300">
                   Subject matter
                 </label>
                 <textarea
@@ -609,12 +609,12 @@ export const NewCaseModal: React.FC = () => {
                   value={form.subject_matter}
                   onChange={(e) => set('subject_matter', e.target.value)}
                   placeholder="Detailed summary of facts, claims, or dispute context..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="notes" className="block font-medium text-slate-700">
+                <label htmlFor="notes" className="block font-medium text-slate-700 dark:text-slate-300">
                   Notes
                 </label>
                 <textarea
@@ -623,21 +623,21 @@ export const NewCaseModal: React.FC = () => {
                   value={form.notes}
                   onChange={(e) => set('notes', e.target.value)}
                   placeholder="Internal notes or client instructions..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 4: Closure & billing */}
-          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-            <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
+          <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+            <div className="text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
               <span>Closure & billing</span>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-1.5">
-                <label htmlFor="billing" className="block font-medium text-slate-700">
+                <label htmlFor="billing" className="block font-medium text-slate-700 dark:text-slate-300">
                   Billing status
                 </label>
                 <input
@@ -646,12 +646,12 @@ export const NewCaseModal: React.FC = () => {
                   value={form.billing_status}
                   onChange={(e) => set('billing_status', e.target.value)}
                   placeholder="e.g. unbilled, Billed, Retainer"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="payment" className="block font-medium text-slate-700">
+                <label htmlFor="payment" className="block font-medium text-slate-700 dark:text-slate-300">
                   Payment status
                 </label>
                 <input
@@ -660,28 +660,28 @@ export const NewCaseModal: React.FC = () => {
                   value={form.payment_status}
                   onChange={(e) => set('payment_status', e.target.value)}
                   placeholder="e.g. Paid, 50% Advance Received"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:border-blue-600"
                 />
               </div>
             </div>
           </div>
 
           {error && (
-            <p className="text-sm font-medium text-red-600 bg-red-50 p-2.5 rounded-md border border-red-200">
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200 dark:border-red-900/60">
               {error}
             </p>
           )}
 
           {/* Footer Actions */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">
+          <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
               * Required fields
             </span>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => setIsNewCaseModalOpen(false)}
-                className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
@@ -693,7 +693,7 @@ export const NewCaseModal: React.FC = () => {
                     ? `View-Only Mode: Creating cases is restricted to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
                     : 'Register new case'
                 }
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4 text-amber-400" />
                 <span>

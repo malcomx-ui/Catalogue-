@@ -91,8 +91,8 @@ export default function CasesPage({ userSession }: CasesPageProps) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cases Directory</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Cases Directory</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Global firm transparency · Read access across all branches · Mutations strictly branch-isolated
           </p>
         </div>
@@ -101,19 +101,19 @@ export default function CasesPage({ userSession }: CasesPageProps) {
         <div className="w-full md:w-[420px]">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
+              <Search className="h-4 w-4 text-slate-400" />
             </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by client, MK case no, suit no, lawyer, title..."
-              className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-xs transition-all"
+              className="block w-full pl-10 pr-10 py-2.5 border border-slate-200/80 dark:border-slate-700 rounded-xl leading-5 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm shadow-xs transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs font-medium text-gray-400 hover:text-gray-600"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 Clear
               </button>
@@ -123,29 +123,29 @@ export default function CasesPage({ userSession }: CasesPageProps) {
       </div>
 
       {/* Results Table */}
-      <div className="bg-white shadow-xs rounded-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 shadow-xs rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-500 text-sm">Searching records...</div>
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-sm">Searching records...</div>
         ) : cases.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 text-sm">
+          <div className="p-12 text-center text-slate-500 dark:text-slate-400 text-sm">
             No cases match your search criteria.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 border-collapse">
-              <thead className="bg-slate-50/90 border-b border-slate-200">
-                <tr className="divide-x divide-slate-200/60">
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">MK Case No</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Case Title</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Client</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Lead Counsel</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Branch</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Access</th>
-                  <th className="px-5 py-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider w-14">Actions</th>
+            <table className="min-w-full divide-y divide-slate-200/80 dark:divide-slate-800 border-collapse">
+              <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
+                <tr className="divide-x divide-slate-200/60 dark:divide-slate-800">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">MK Case No</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Case Title</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Client</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Lead Counsel</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Branch</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Access</th>
+                  <th className="px-5 py-3.5 text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-14">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
+              <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
                 {cases.map((c) => {
                   const canModify = canUserModifyCase(effectiveUser, c);
                   return (
@@ -156,22 +156,22 @@ export default function CasesPage({ userSession }: CasesPageProps) {
                           setSelectedCase(mapRowToCase(c));
                         }
                       }}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer divide-x divide-slate-100/70"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer divide-x divide-slate-100/70 dark:divide-slate-800/70"
                     >
                       <td className="px-5 py-3.5 whitespace-nowrap text-xs">
-                        <div className="font-mono tabular-nums font-bold text-indigo-600" title="MK Case No.">
+                        <div className="font-mono tabular-nums font-bold text-indigo-600 dark:text-indigo-400" title="MK Case No.">
                           {c.case_number}
                         </div>
                         {c.suit_no && (
-                          <div className="text-[10px] text-blue-700 font-mono tabular-nums font-medium truncate" title="Court Registry Suit No.">
+                          <div className="text-[10px] text-blue-700 dark:text-blue-400 font-mono tabular-nums font-medium truncate" title="Court Registry Suit No.">
                             Suit: {c.suit_no}
                           </div>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-slate-900 font-medium max-w-xs truncate">
+                      <td className="px-5 py-3.5 text-xs text-slate-900 dark:text-slate-100 font-medium max-w-xs truncate">
                         {c.case_title}
                       </td>
-                      <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600">
+                      <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">
                         {c.client_name}
                       </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-xs text-slate-600">

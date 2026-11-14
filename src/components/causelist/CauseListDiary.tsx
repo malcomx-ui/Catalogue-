@@ -274,35 +274,35 @@ export const CauseListDiary: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               Cause List &amp; Calendar Diary
             </h1>
             {weeklyCount > 0 && (
               <button
                 type="button"
                 onClick={() => setIsWeeklyAlertOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 hover:bg-amber-100 transition-colors cursor-pointer tabular-nums"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/90 dark:border-amber-800/80 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors cursor-pointer tabular-nums"
                 title="View Weekly Matters Alert"
               >
-                <Bell className="w-3 h-3 text-amber-600" />
+                <Bell className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                 <span>{weeklyCount} this week</span>
               </button>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Synchronized hearing dates, filing deadlines, and procedural milestones across all 7 regional offices
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Dual View Toggle: List vs Interactive Calendar */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -310,20 +310,20 @@ export const CauseListDiary: React.FC = () => {
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'calendar'
-                  ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-semibold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              <CalendarDays className="w-3.5 h-3.5 text-blue-600" />
+              <CalendarDays className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>Interactive Calendar</span>
             </button>
           </div>
 
           <button
             onClick={() => setIsScheduleOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs min-h-[34px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-2xs min-h-[34px]"
             title="Schedule a court hearing or filing fixture"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -332,20 +332,20 @@ export const CauseListDiary: React.FC = () => {
 
           <button
             onClick={() => setPrintableCauseDate(todayStr)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium transition-colors shadow-2xs min-h-[34px]"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-medium transition-colors shadow-2xs min-h-[34px]"
             title="Print Daily Cause List"
           >
-            <Printer className="w-3.5 h-3.5 text-slate-500" />
+            <Printer className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             <span>Print Cause Sheet</span>
           </button>
         </div>
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {/* Date range filter buttons */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
             {[
               { id: 'all', label: 'All Dates' },
               { id: 'week', label: 'This Week (7 Days)' },
@@ -355,10 +355,10 @@ export const CauseListDiary: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setDateFilter(tab.id as any)}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
                   dateFilter === tab.id
-                    ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-semibold'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {tab.label}
@@ -370,7 +370,7 @@ export const CauseListDiary: React.FC = () => {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-slate-700 min-h-[34px] focus:outline-none focus:border-blue-600 font-medium"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 min-h-[34px] focus:outline-none focus:border-blue-600 font-medium"
           >
             <option value="all">All Matters &amp; Fixtures</option>
             <option value="hearing">Court Hearings Only</option>
@@ -382,7 +382,7 @@ export const CauseListDiary: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs text-slate-700 min-h-[34px] focus:outline-none focus:border-blue-600 font-medium"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 min-h-[34px] focus:outline-none focus:border-blue-600 font-medium"
           >
             <option value="all">All Statuses</option>
             <option value="Scheduled">Scheduled</option>
@@ -392,7 +392,7 @@ export const CauseListDiary: React.FC = () => {
           </select>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500 font-mono tabular-nums">
+        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
           <span>{filteredEvents.length} fixtures in view</span>
         </div>
       </div>
@@ -401,12 +401,12 @@ export const CauseListDiary: React.FC = () => {
       {viewMode === 'list' && (
         <div className="space-y-3">
           {filteredEvents.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center space-y-2">
-              <CalendarDays className="w-10 h-10 text-slate-300 mx-auto" />
-              <h3 className="font-semibold text-sm text-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs p-12 text-center space-y-2">
+              <CalendarDays className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto" />
+              <h3 className="font-semibold text-sm text-slate-800 dark:text-slate-200">
                 No fixtures found matching current criteria
               </h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 Try switching the date filter to &ldquo;All Dates&rdquo; or click &ldquo;Schedule Fixture&rdquo; to add a new court appearance or procedural deadline.
               </p>
             </div>
@@ -417,25 +417,25 @@ export const CauseListDiary: React.FC = () => {
 
               const typeBadgeClass =
                 ev.type === 'milestone'
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                  ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80'
                   : ev.type === 'deadline'
-                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                  : 'bg-blue-50 text-blue-700 border-blue-200';
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/80'
+                  : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/80';
 
               return (
                 <div
                   key={ev.id}
-                  className={`bg-white p-5 rounded-2xl border transition-all shadow-xs hover:shadow-md hover:border-slate-300 flex flex-col sm:flex-row sm:items-start justify-between gap-4 text-xs ${
+                  className={`bg-white dark:bg-slate-900 p-5 rounded-2xl border transition-all shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 flex flex-col sm:flex-row sm:items-start justify-between gap-4 text-xs ${
                     isToday
-                      ? 'border-l-4 border-l-rose-500 border-slate-200 bg-rose-50/10'
+                      ? 'border-l-4 border-l-rose-500 border-slate-200/80 dark:border-slate-800 bg-rose-50/10 dark:bg-rose-950/10'
                       : isUpcomingWeek
-                      ? 'border-l-4 border-l-amber-500 border-slate-200'
-                      : 'border-slate-200'
+                      ? 'border-l-4 border-l-amber-500 border-slate-200/80 dark:border-slate-800'
+                      : 'border-slate-200/80 dark:border-slate-800'
                   }`}
                 >
                   <div className="space-y-2 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono tabular-nums font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">
+                      <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full text-xs">
                         {new Date(ev.date).toLocaleDateString('en-GB', {
                           weekday: 'short',
                           day: 'numeric',
@@ -449,61 +449,61 @@ export const CauseListDiary: React.FC = () => {
                       )}
 
                       <span className="text-slate-400">·</span>
-                      <span className="font-medium text-slate-700 flex items-center gap-1 tabular-nums">
+                      <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1 tabular-nums">
                         <Clock className="w-3 h-3 text-slate-400" />
                         {ev.time}
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] border ${typeBadgeClass}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full font-medium text-xs border ${typeBadgeClass}`}>
                         {ev.typeLabel}
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className="text-blue-700 font-medium flex items-center gap-1">
-                        <Building2 className="w-3 h-3 text-blue-500" />
+                      <span className="text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-blue-500 dark:text-blue-400" />
                         {ev.branchName}
                       </span>
                     </div>
 
-                    <h3 className="font-semibold text-sm text-slate-900 leading-snug">
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 leading-snug">
                       {ev.title}
                     </h3>
 
                     {/* Reference numbers */}
                     <div className="flex flex-wrap items-center gap-2 font-mono tabular-nums text-[11px]">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700">
                         MK: <strong>{ev.mkCaseNo}</strong>
                       </span>
                       {ev.suitNo && (
-                        <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200 font-mono tabular-nums">
+                        <span className="bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-md border border-blue-200/80 dark:border-blue-800 font-mono tabular-nums">
                           Court Suit No: <strong>{ev.suitNo}</strong>
                         </span>
                       )}
                     </div>
 
-                    <div className="text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                      <strong className="text-slate-900">Business in Court:</strong> {ev.purpose}
+                    <div className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                      <strong className="text-slate-900 dark:text-slate-100">Business in Court:</strong> {ev.purpose}
                     </div>
 
-                    <div className="text-[11px] text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
-                      <span>Court: <strong className="text-slate-800">{ev.court} ({ev.courtRoom})</strong></span>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Court: <strong className="text-slate-800 dark:text-slate-200">{ev.court} ({ev.courtRoom})</strong></span>
                       {ev.judge && (
-                        <span>Judge: <strong className="text-slate-800">{ev.judge}</strong></span>
+                        <span>Judge: <strong className="text-slate-800 dark:text-slate-200">{ev.judge}</strong></span>
                       )}
                       {ev.counsel && (
-                        <span>Counsel: <strong className="text-slate-800">{ev.counsel}</strong></span>
+                        <span>Counsel: <strong className="text-slate-800 dark:text-slate-200">{ev.counsel}</strong></span>
                       )}
                     </div>
 
                     {ev.notes && (
-                      <div className="text-[11px] text-slate-600 bg-amber-50/60 border border-amber-200/60 p-2 rounded">
+                      <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/60 p-2.5 rounded-xl">
                         <strong>Directions / Notes:</strong> {ev.notes}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                     <StatusBadge status={ev.status} size="xs" />
 
                     <div className="flex items-center gap-1.5 mt-2">
@@ -512,7 +512,7 @@ export const CauseListDiary: React.FC = () => {
                           href={ev.virtualCourtUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-[11px] font-medium hover:bg-blue-100 flex items-center gap-1"
+                          className="px-2 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded-lg text-[11px] font-medium hover:bg-blue-100 dark:hover:bg-blue-900/60 flex items-center gap-1"
                         >
                           <Video className="w-3 h-3" />
                           <span>Link</span>
@@ -522,7 +522,7 @@ export const CauseListDiary: React.FC = () => {
                       {ev.hearingItem && (
                         <button
                           onClick={() => setSelectedHearingForOutcome(ev.hearingItem!)}
-                          className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded text-[11px] font-medium transition-colors"
+                          className="px-2.5 py-1 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-lg text-[11px] font-medium transition-colors"
                         >
                           Record Outcome
                         </button>
@@ -531,7 +531,7 @@ export const CauseListDiary: React.FC = () => {
                       {ev.caseItem && (
                         <button
                           onClick={() => setSelectedCase(ev.caseItem!)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded text-[11px] font-medium transition-colors border border-slate-200"
+                          className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-[11px] font-medium transition-colors border border-slate-200/80 dark:border-slate-700"
                         >
                           Case
                         </button>
@@ -549,12 +549,12 @@ export const CauseListDiary: React.FC = () => {
       {viewMode === 'calendar' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Calendar Grid (8 cols) */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
             {/* Calendar Month Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-blue-600" />
-                <h2 className="text-base font-bold text-slate-900">
+                <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                   {monthName}
                 </h2>
               </div>
@@ -563,14 +563,14 @@ export const CauseListDiary: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleTodayClick}
-                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
                 >
                   Today
                 </button>
                 <button
                   type="button"
                   onClick={handlePrevMonth}
-                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                  className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   title="Previous Month"
                 >
                   <ChevronLeft className="w-5 h-5" />
@@ -578,7 +578,7 @@ export const CauseListDiary: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleNextMonth}
-                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                  className="p-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                   title="Next Month"
                 >
                   <ChevronRight className="w-5 h-5" />
@@ -587,7 +587,7 @@ export const CauseListDiary: React.FC = () => {
             </div>
 
             {/* Days of week header */}
-            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100">
+            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800">
               <span>Sun</span>
               <span>Mon</span>
               <span>Tue</span>
@@ -601,7 +601,7 @@ export const CauseListDiary: React.FC = () => {
             <div className="grid grid-cols-7 gap-1.5">
               {/* Empty leading day slots */}
               {Array.from({ length: firstDayIndex }).map((_, idx) => (
-                <div key={`empty-${idx}`} className="h-20 bg-slate-50/50 rounded-lg border border-transparent" />
+                <div key={`empty-${idx}`} className="h-20 bg-slate-50/50 dark:bg-slate-800/30 rounded-xl border border-transparent" />
               ))}
 
               {/* Month day cells */}
@@ -616,31 +616,31 @@ export const CauseListDiary: React.FC = () => {
                   <div
                     key={dateKey}
                     onClick={() => setSelectedDayStr(dateKey)}
-                    className={`h-20 p-1.5 rounded-lg border text-left cursor-pointer transition-all flex flex-col justify-between ${
+                    className={`h-20 p-1.5 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
                       isSelected
-                        ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-500/20'
+                        ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40 ring-2 ring-blue-500/20'
                         : isToday
-                        ? 'border-rose-400 bg-rose-50/20'
+                        ? 'border-rose-400 bg-rose-50/20 dark:bg-rose-950/30'
                         : dayEvents.length > 0
-                        ? 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/70'
-                        : 'border-slate-100 bg-white hover:bg-slate-50/50'
+                        ? 'border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
+                        : 'border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50/50 dark:hover:bg-slate-800/40'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <span
-                        className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
+                        className={`text-xs font-bold tabular-nums w-6 h-6 rounded-full flex items-center justify-center ${
                           isToday
                             ? 'bg-rose-600 text-white'
                             : isSelected
                             ? 'bg-blue-600 text-white'
-                            : 'text-slate-800'
+                            : 'text-slate-800 dark:text-slate-200'
                         }`}
                       >
                         {dayNum}
                       </span>
 
                       {dayEvents.length > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-900 text-white font-mono">
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-900 dark:bg-blue-600 text-white font-mono tabular-nums">
                           {dayEvents.length}
                         </span>
                       )}
@@ -651,13 +651,13 @@ export const CauseListDiary: React.FC = () => {
                       {dayEvents.slice(0, 2).map((ev) => (
                         <div
                           key={ev.id}
-                          className="text-[9px] truncate px-1 py-0.5 rounded font-medium bg-slate-100 text-slate-800"
+                          className="text-[9px] truncate px-1 py-0.5 rounded font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                         >
                           {ev.mkCaseNo || ev.title}
                         </div>
                       ))}
                       {dayEvents.length > 2 && (
-                        <div className="text-[8px] text-slate-400 font-medium pl-1">
+                        <div className="text-[8px] text-slate-400 font-medium pl-1 tabular-nums">
                           +{dayEvents.length - 2} more
                         </div>
                       )}
@@ -669,13 +669,13 @@ export const CauseListDiary: React.FC = () => {
           </div>
 
           {/* Selected Day Agenda (4 cols) */}
-          <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4 flex flex-col justify-between">
+          <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 flex flex-col justify-between">
             <div>
-              <div className="border-b border-slate-100 pb-3">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Day Agenda
                 </div>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 mt-0.5 tabular-nums">
                   {new Date(selectedDayStr + 'T00:00:00').toLocaleDateString('en-GB', {
                     weekday: 'long',
                     day: 'numeric',
@@ -683,7 +683,7 @@ export const CauseListDiary: React.FC = () => {
                     year: 'numeric',
                   })}
                 </h3>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 tabular-nums">
                   {selectedDayEvents.length} matter{selectedDayEvents.length === 1 ? '' : 's'} scheduled
                 </div>
               </div>
@@ -698,35 +698,35 @@ export const CauseListDiary: React.FC = () => {
                   selectedDayEvents.map((ev) => (
                     <div
                       key={ev.id}
-                      className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5 text-xs hover:border-slate-300 transition-colors"
+                      className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                     >
                       <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-semibold text-blue-700">{ev.time}</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-white border border-slate-200 text-slate-700">
+                        <span className="font-semibold tabular-nums text-blue-700 dark:text-blue-400">{ev.time}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300">
                           {ev.typeLabel}
                         </span>
                       </div>
 
-                      <div className="font-bold text-slate-900 leading-snug">
+                      <div className="font-bold text-slate-900 dark:text-slate-100 leading-snug">
                         {ev.title}
                       </div>
 
-                      <div className="font-mono text-[10px] text-slate-600">
+                      <div className="font-mono tabular-nums text-[10px] text-slate-600 dark:text-slate-400">
                         MK: <strong>{ev.mkCaseNo}</strong>
-                        {ev.suitNo && <span className="ml-1 text-blue-800">· Suit: {ev.suitNo}</span>}
+                        {ev.suitNo && <span className="ml-1 text-blue-800 dark:text-blue-400">· Suit: {ev.suitNo}</span>}
                       </div>
 
-                      <div className="text-[11px] text-slate-600 bg-white p-2 rounded border border-slate-100">
+                      <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
                         {ev.purpose}
                       </div>
 
-                      <div className="text-[10px] text-slate-500 flex justify-between pt-1">
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 flex justify-between pt-1">
                         <span>{ev.court}</span>
                         {ev.caseItem && (
                           <button
                             type="button"
                             onClick={() => setSelectedCase(ev.caseItem!)}
-                            className="text-blue-600 hover:text-blue-800 font-semibold"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold"
                           >
                             View Case &rarr;
                           </button>
@@ -738,13 +738,13 @@ export const CauseListDiary: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-100">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setPrintableCauseDate(selectedDayStr)}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
               >
-                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                 <span>Print Cause List for This Day</span>
               </button>
             </div>

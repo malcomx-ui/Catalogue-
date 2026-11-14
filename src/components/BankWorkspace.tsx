@@ -606,23 +606,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       </div>
 
       {/* Header with Back Button & Record Action */}
-      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow w-full min-w-0">
+      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow w-full min-w-0">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
           <button
             onClick={onBack}
-            className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium flex items-center gap-1.5 transition shrink-0 cursor-pointer"
+            className="px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium flex items-center gap-1.5 transition shrink-0 cursor-pointer"
           >
             <span>←</span>
             <span>Back to Portfolios</span>
           </button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{bankName}</h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold whitespace-nowrap tabular-nums">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">{bankName}</h1>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 font-medium whitespace-nowrap tabular-nums">
                 {mortgages.length} Files Loaded
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Active Securities &amp; 19-Column Mortgage Register ·{' '}
               {isGlobalAdmin
                 ? 'Unrestricted Firm-Wide Custody'
@@ -632,9 +632,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto lg:justify-end">
-          <div className="text-left sm:text-right sm:border-r sm:border-slate-200 sm:pr-4 mr-auto lg:mr-0">
-            <span className="text-xs text-slate-500 block">Total Portfolio Value</span>
-            <span className="text-sm font-bold text-blue-700 font-mono tabular-nums whitespace-nowrap">
+          <div className="text-left sm:text-right sm:border-r sm:border-slate-200 dark:sm:border-slate-800 sm:pr-4 mr-auto lg:mr-0">
+            <span className="text-xs text-slate-500 dark:text-slate-400 block">Total Portfolio Value</span>
+            <span className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums whitespace-nowrap">
               {totalValue > 0 ? `UGX ${(totalValue / 1e9).toFixed(2)}B` : 'UGX 0'}
             </span>
           </div>
@@ -752,33 +752,33 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       {/* Filtered Summary Strip (Screen only; hidden when printing) */}
       {!loading && mortgages.length > 0 && (
         <div className="no-print kpi-summary-cards grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 w-full min-w-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
-            <span className="text-[11px] font-semibold text-slate-500 block">Showing Files</span>
-            <span className="text-base font-bold text-slate-900 font-mono tabular-nums truncate block mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Showing Files</span>
+            <span className="text-base font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums truncate block mt-1">
               {filteredMortgages.length} <span className="text-xs font-normal text-slate-400">/ {mortgages.length}</span>
             </span>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
-            <span className="text-[11px] font-semibold text-slate-500 block">Loan Facilities</span>
-            <span className="text-sm font-bold text-slate-900 font-mono tabular-nums truncate block mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Loan Facilities</span>
+            <span className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.loan.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
-            <span className="text-[11px] font-semibold text-slate-500 block">Total Disbursements</span>
-            <span className="text-sm font-bold text-amber-700 font-mono tabular-nums truncate block mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Total Disbursements</span>
+            <span className="text-sm font-bold text-amber-700 dark:text-amber-400 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.disbursements.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
-            <span className="text-[11px] font-semibold text-slate-500 block">Legal Fees + 18% VAT</span>
-            <span className="text-sm font-bold text-indigo-700 font-mono tabular-nums truncate block mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Legal Fees + 18% VAT</span>
+            <span className="text-sm font-bold text-indigo-700 dark:text-indigo-400 font-mono tabular-nums truncate block mt-1">
               UGX {(filteredTotals.legalFees + filteredTotals.vat).toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0 sm:col-span-2 md:col-span-1">
-            <span className="text-[11px] font-semibold text-slate-500 block">Grand Total Billed</span>
-            <span className="text-sm font-bold text-blue-700 font-mono tabular-nums truncate block mt-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0 sm:col-span-2 md:col-span-1">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Grand Total Billed</span>
+            <span className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.grandTotal.toLocaleString()}
             </span>
           </div>
@@ -786,9 +786,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       )}
 
       {/* Full Register Container (Table + All-Fields Cards View) */}
-      <div className="mortgage-print-table-wrap bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full min-w-0">
+      <div className="mortgage-print-table-wrap bg-white dark:bg-slate-900 print:bg-white rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden w-full min-w-0">
         {!loading && filteredMortgages.length > 0 && (
-          <div className="no-print px-5 py-3 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="no-print px-5 py-3 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-2xs">
                 <button
@@ -884,24 +884,24 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         ) : (
           <>
             {viewMode === 'cards' && (
-              <div className="no-print p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40">
+              <div className="no-print p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40 dark:bg-slate-950/40">
             {filteredMortgages.map((m, idx) => {
               const canModify = canUserModifyMortgage(effectiveUser, m);
               return (
               <div
                 key={m.id || idx}
                 onClick={() => setSelectedRecordForView(m)}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 hover:shadow-md transition-all p-5 space-y-3.5 cursor-pointer"
+                className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md transition-all p-5 space-y-3.5 cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                       <span className="font-mono tabular-nums text-slate-400">#{idx + 1}</span>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 tabular-nums">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200/80 dark:border-emerald-800/80 tabular-nums">
                         {m.month_sheet || m.source_sheet || '-'}
                         {m.record_year ? ` ${m.record_year}` : ''}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200/80 dark:border-slate-700">
                         {m.branch || m.client_branch_location || m.bank_branch || 'No Branch'}
                       </span>
                       {!canModify && (
@@ -919,14 +919,14 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900 mt-1.5 truncate">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1.5 truncate">
                       {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
                     </h3>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                     {confirmDeleteId === String(m.id) && canModify ? (
-                      <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full">
+                      <div className="inline-flex items-center gap-1 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 px-2 py-1 rounded-full">
                         <button
                           type="button"
                           disabled={deletingId === String(m.id)}
@@ -938,7 +938,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="px-2 py-0.5 rounded-full bg-white text-slate-600 border border-slate-200 text-[10px] font-medium"
+                          className="px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-medium"
                         >
                           Cancel
                         </button>
@@ -978,11 +978,11 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 </div>
 
                 {/* Prominent Property Description */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                     Property Description
                   </span>
-                  <p className="text-xs text-slate-800 font-medium mt-0.5 whitespace-normal leading-relaxed">
+                  <p className="text-xs text-slate-800 dark:text-slate-200 font-medium mt-0.5 whitespace-normal leading-relaxed">
                     {m.property_description || m.description || m.title_deed_no || (
                       <span className="italic text-slate-400">Not recorded in source data</span>
                     )}
@@ -991,72 +991,72 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
 
                 {/* Financial Breakdown Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Loan Amount</span>
-                    <span className="font-mono tabular-nums font-bold text-slate-900">{formatUGX(m.loan_amount)}</span>
+                    <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">{formatUGX(m.loan_amount)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Stamp Duty</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.stamp_duty)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.stamp_duty)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Extra Copies</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.extra_copies)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.extra_copies)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Registration</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.registration_fee ?? m.registration)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.registration_fee ?? m.registration)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Other Fees</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Bank Charges</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.bank_charges)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.bank_charges)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Transport</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.transport)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.transport)}</span>
                   </div>
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                  <div className="bg-white dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5">
                     <span className="text-slate-400 block">Linkage Fees</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.linkage_fees)}</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700 dark:text-slate-300">{formatUGX(m.linkage_fees)}</span>
                   </div>
                 </div>
 
                 {/* Totals Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-blue-50/50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/60 rounded-xl p-3">
                   <div>
-                    <span className="text-slate-500 block">Total Disb.</span>
-                    <span className="font-mono tabular-nums font-bold text-amber-700">{formatUGX(m.total_disbursements)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Total Disb.</span>
+                    <span className="font-mono tabular-nums font-bold text-amber-700 dark:text-amber-400">{formatUGX(m.total_disbursements)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Legal Fees</span>
-                    <span className="font-mono tabular-nums font-bold text-indigo-700">{formatUGX(m.legal_fees)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Legal Fees</span>
+                    <span className="font-mono tabular-nums font-bold text-indigo-700 dark:text-indigo-400">{formatUGX(m.legal_fees)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">VAT 18%</span>
-                    <span className="font-mono tabular-nums font-semibold text-slate-800">{formatUGX(m.vat_18 ?? m.vat)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">VAT 18%</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-800 dark:text-slate-200">{formatUGX(m.vat_18 ?? m.vat)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Grand Total</span>
-                    <span className="font-mono tabular-nums font-bold text-blue-700">{formatUGX(m.grand_total)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Grand Total</span>
+                    <span className="font-mono tabular-nums font-bold text-blue-700 dark:text-blue-400">{formatUGX(m.grand_total)}</span>
                   </div>
                 </div>
 
                 {/* Dates, Status & Comments */}
-                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+                <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-slate-400">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span>Receipt: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_receipt)}</strong></span>
-                    <span>Payment: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_payment)}</strong></span>
-                    <span>Return: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_return)}</strong></span>
+                    <span>Receipt: <strong className="font-mono tabular-nums text-slate-800 dark:text-slate-200">{formatDate(m.date_of_receipt)}</strong></span>
+                    <span>Payment: <strong className="font-mono tabular-nums text-slate-800 dark:text-slate-200">{formatDate(m.date_of_payment)}</strong></span>
+                    <span>Return: <strong className="font-mono tabular-nums text-slate-800 dark:text-slate-200">{formatDate(m.date_of_return)}</strong></span>
                   </div>
                   <StatusBadge size="xs" status={m.status || 'Active / Processing'} />
                 </div>
                 {m.comments && (
-                  <p className="text-[11px] text-slate-600 bg-amber-50/50 border border-amber-100 rounded-xl px-3 py-2">
-                    <span className="font-semibold text-slate-700">Comments:</span> {m.comments}
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-amber-50/50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50 rounded-xl px-3 py-2">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Comments:</span> {m.comments}
                   </p>
                 )}
               </div>
@@ -1072,39 +1072,39 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
               }`}
             >
               <table className="mortgage-print-table table-fixed w-full min-w-[1230px] text-left border-collapse">
-              <thead className="bg-slate-50/90 border-b border-slate-200">
-                <tr className="divide-x divide-slate-200/60 print:divide-x-0">
-                  <th className="w-[110px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+              <thead className="bg-slate-50/90 dark:bg-slate-800/60 print:bg-slate-50 border-b border-slate-200/80 dark:border-slate-800">
+                <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 print:divide-x-0">
+                  <th className="w-[110px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Date of Receipt
                   </th>
-                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Branch
                   </th>
-                  <th className="w-[180px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[180px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Client Name
                   </th>
-                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     RIM No
                   </th>
-                  <th className="w-[240px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[240px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Description
                   </th>
-                  <th className="print-col-num w-[130px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[130px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Loan Amount
                   </th>
-                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     <span className="print:hidden">Total Disb.</span>
                     <span className="hidden print:inline">Total Disbursements</span>
                   </th>
-                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Grand Total
                   </th>
-                  <th className="print:hidden w-[64px] py-3.5 px-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                  <th className="print:hidden w-[64px] py-3.5 px-3 text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 bg-white text-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900 print:bg-white text-slate-800 dark:text-slate-200 print:text-slate-800">
                 {filteredMortgages.map((m, idx) => {
                   const receiptText = formatDate(m.date_of_receipt);
                   const branchText =
@@ -1122,22 +1122,22 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                     <tr
                       key={m.id || idx}
                       onClick={() => setSelectedRecordForView(m)}
-                      className="hover:bg-slate-50/90 transition-colors cursor-pointer divide-x divide-slate-100/70 print:divide-x-0"
+                      className="hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors cursor-pointer divide-x divide-slate-100/70 dark:divide-slate-800 print:divide-x-0"
                     >
                       <td
-                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums text-slate-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums text-slate-600 dark:text-slate-400 print:text-slate-600 truncate whitespace-nowrap"
                         title={receiptText}
                       >
                         {receiptText}
                       </td>
                       <td
-                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 truncate whitespace-nowrap"
                         title={canModifyRow ? branchText : `${branchText} (View-only)`}
                       >
                         {branchText}
                         {!canModifyRow && (
                           <span
-                            className="print:hidden ml-1 text-amber-600 inline-flex align-middle"
+                            className="print:hidden ml-1 text-amber-600 dark:text-amber-400 inline-flex align-middle"
                             title="View-only (external branch)"
                           >
                             <Lock className="w-3 h-3" />
@@ -1145,37 +1145,37 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         )}
                       </td>
                       <td
-                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-semibold text-slate-900 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-semibold text-slate-900 dark:text-slate-100 print:text-slate-900 truncate whitespace-nowrap"
                         title={clientText}
                       >
                         {clientText}
                       </td>
                       <td
-                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums font-medium text-blue-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums font-medium text-blue-600 dark:text-blue-400 print:text-blue-600 truncate whitespace-nowrap"
                         title={rimText}
                       >
                         {rimText}
                       </td>
                       <td
-                        className="print-col-text py-3.5 px-3.5 text-left text-xs text-slate-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs text-slate-700 dark:text-slate-300 print:text-slate-700 truncate whitespace-nowrap"
                         title={descText || 'No description'}
                       >
                         {descText || <span className="text-slate-400 italic">-</span>}
                       </td>
                       <td
-                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-slate-900 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 print:text-slate-900 truncate whitespace-nowrap"
                         title={formatUGX(m.loan_amount, false)}
                       >
                         {loanText}
                       </td>
                       <td
-                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-amber-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-amber-700 dark:text-amber-400 print:text-amber-700 truncate whitespace-nowrap"
                         title={formatUGX(m.total_disbursements, false)}
                       >
                         {disbText}
                       </td>
                       <td
-                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-bold text-blue-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-bold text-blue-700 dark:text-blue-400 print:text-blue-700 truncate whitespace-nowrap"
                         title={formatUGX(m.grand_total, false)}
                       >
                         {grandText}
@@ -1258,7 +1258,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       {/* Full Record Detail View Modal (All Fields) */}
       {selectedRecordForView && (
         <div className="no-print fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden">
             <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white flex items-center justify-between shrink-0">
               <div>
                 <div className="flex items-center gap-2 text-xs text-blue-300">
@@ -1289,62 +1289,62 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
 
             <div className="p-6 overflow-y-auto space-y-5 text-xs">
               {/* Section 1: Core Particulars */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
                   1. File Particulars &amp; Security Description
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <span className="text-slate-500 block">Bank Name</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Bank Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
                       {selectedRecordForView.client_bank_name || selectedRecordForView.bank_name || bankName}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Branch Station</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Branch Station</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
                       {selectedRecordForView.branch || selectedRecordForView.client_branch_location || selectedRecordForView.bank_branch || '-'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Record Year &amp; Month</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Record Year &amp; Month</span>
+                    <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                       {selectedRecordForView.month_sheet || '-'} {selectedRecordForView.record_year || ''}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Status</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Status</span>
                     <div className="mt-1">
                       <StatusBadge size="xs" status={selectedRecordForView.status || 'Active / Processing'} />
                     </div>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Client / Mortgagor Name</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Client / Mortgagor Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-slate-100">
                       {selectedRecordForView.client_name || selectedRecordForView.mortgagor_name || '-'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">RIM NO.</span>
-                    <span className="font-mono font-semibold text-blue-700">
+                    <span className="text-slate-500 dark:text-slate-400 block">RIM NO.</span>
+                    <span className="font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">
                       {selectedRecordForView.rim_no || '-'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Loan Amount</span>
-                    <span className="font-mono font-bold text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Loan Amount</span>
+                    <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">
                       {formatUGX(selectedRecordForView.loan_amount, false)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Source Sheet</span>
-                    <span className="font-medium text-slate-700">
+                    <span className="text-slate-500 dark:text-slate-400 block">Source Sheet</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
                       {selectedRecordForView.source_sheet || '-'}
                     </span>
                   </div>
                   <div className="col-span-2 sm:col-span-4">
-                    <span className="text-slate-500 block">Property Description</span>
-                    <span className="font-medium text-slate-900">
+                    <span className="text-slate-500 dark:text-slate-400 block">Property Description</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
                       {selectedRecordForView.property_description || selectedRecordForView.description || '-'}
                     </span>
                   </div>
@@ -1352,97 +1352,97 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
               </div>
 
               {/* Section 2: Disbursements & Legal Fees */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
                   2. Statutory Disbursements, Legal Fees &amp; Grand Total
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
-                    <span className="text-slate-500 block">Stamp Duty</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.stamp_duty, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Stamp Duty</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.stamp_duty, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Extra Copies</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.extra_copies, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Extra Copies</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.extra_copies, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Registration Fee</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.registration_fee ?? selectedRecordForView.registration, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Registration Fee</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.registration_fee ?? selectedRecordForView.registration, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Other Fees</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.other_fees ?? selectedRecordForView.other_disbursements ?? selectedRecordForView.other, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Other Fees</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.other_fees ?? selectedRecordForView.other_disbursements ?? selectedRecordForView.other, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Bank Charges</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.bank_charges, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Bank Charges</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.bank_charges, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Transport</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.transport, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Transport</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.transport, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Linkage Fees</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.linkage_fees, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Linkage Fees</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.linkage_fees, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Total Disbursements</span>
-                    <span className="font-mono font-bold text-amber-700">{formatUGX(selectedRecordForView.total_disbursements, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Total Disbursements</span>
+                    <span className="font-mono tabular-nums font-bold text-amber-700 dark:text-amber-400">{formatUGX(selectedRecordForView.total_disbursements, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Legal Fees</span>
-                    <span className="font-mono font-bold text-indigo-700">{formatUGX(selectedRecordForView.legal_fees, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Legal Fees</span>
+                    <span className="font-mono tabular-nums font-bold text-indigo-700 dark:text-indigo-400">{formatUGX(selectedRecordForView.legal_fees, false)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">VAT (18%)</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatUGX(selectedRecordForView.vat_18 ?? selectedRecordForView.vat, false)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">VAT (18%)</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatUGX(selectedRecordForView.vat_18 ?? selectedRecordForView.vat, false)}</span>
                   </div>
                   <div className="col-span-2 bg-blue-900 text-white p-2.5 rounded-lg flex items-center justify-between">
                     <span className="font-semibold text-blue-200">Grand Total</span>
-                    <span className="font-mono font-bold text-sm">{formatUGX(selectedRecordForView.grand_total, false)}</span>
+                    <span className="font-mono tabular-nums font-bold text-sm">{formatUGX(selectedRecordForView.grand_total, false)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Section 3: Dates & Comments */}
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <h3 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
                   3. Dates, Assignment &amp; Comments
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <div>
-                    <span className="text-slate-500 block">Date of Receipt</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_receipt)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Date of Receipt</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatDate(selectedRecordForView.date_of_receipt)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Date of Payment</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_payment)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Date of Payment</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatDate(selectedRecordForView.date_of_payment)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Date of Return</span>
-                    <span className="font-mono font-semibold text-slate-900">{formatDate(selectedRecordForView.date_of_return)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Date of Return</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{formatDate(selectedRecordForView.date_of_return)}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Department</span>
-                    <span className="font-medium text-slate-800">{selectedRecordForView.department || 'Banking & Securities'}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Department</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{selectedRecordForView.department || 'Banking & Securities'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Assigned Advocate</span>
-                    <span className="font-medium text-slate-800">{selectedRecordForView.assigned_lawyer_name || '-'}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Assigned Advocate</span>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">{selectedRecordForView.assigned_lawyer_name || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">Created At</span>
-                    <span className="font-mono text-slate-600">{formatDate(selectedRecordForView.created_at)}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Created At</span>
+                    <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400">{formatDate(selectedRecordForView.created_at)}</span>
                   </div>
                   <div className="col-span-2 sm:col-span-3">
-                    <span className="text-slate-500 block">Comments / Remarks</span>
-                    <span className="font-medium text-slate-900">{selectedRecordForView.comments || '-'}</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Comments / Remarks</span>
+                    <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.comments || '-'}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
               {(() => {
                 const canModifySelected = canUserModifyMortgage(effectiveUser, selectedRecordForView);
                 const isConfirming = confirmDeleteId === String(selectedRecordForView.id);

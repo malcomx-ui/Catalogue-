@@ -34,13 +34,13 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
         <div className="bg-[#0B132B] text-slate-100 p-5 border-b border-slate-800 flex items-center justify-between">
           <div>
             <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
               Court Outcome Log
             </div>
-            <h3 className="font-serif-legal text-lg font-bold text-white tabular-nums">
+            <h3 className="font-sans text-lg font-bold text-white tabular-nums">
               Record Proceedings: {hearing.suitNumber}
             </h3>
           </div>
@@ -54,21 +54,21 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div>
-            <label className="block font-medium text-slate-700 mb-1">Hearing Status Outcome</label>
+            <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Hearing Status Outcome</label>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { id: 'Completed', label: 'Concluded / Done', color: 'border-emerald-500 text-emerald-800 bg-emerald-50' },
-                { id: 'Adjourned', label: 'Adjourned', color: 'border-amber-500 text-amber-800 bg-amber-50' },
-                { id: 'Part-Heard', label: 'Part-Heard', color: 'border-blue-500 text-blue-800 bg-blue-50' },
+                { id: 'Completed', label: 'Concluded / Done', color: 'border-emerald-500 text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60' },
+                { id: 'Adjourned', label: 'Adjourned', color: 'border-amber-500 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60' },
+                { id: 'Part-Heard', label: 'Part-Heard', color: 'border-blue-500 text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60' },
               ].map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
                   onClick={() => setStatus(opt.id as any)}
-                  className={`py-2 px-2.5 rounded-lg border text-center font-medium transition-all ${
+                  className={`py-2 px-2.5 rounded-xl border text-center font-medium transition-all ${
                     status === opt.id
                       ? `${opt.color} ring-2 ring-amber-400 font-bold`
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   {opt.label}
@@ -78,7 +78,7 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
           </div>
 
           <div>
-            <label className="block font-medium text-slate-700 mb-1">
+            <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
               Court Notes & Bench Remarks:
             </label>
             <textarea
@@ -87,53 +87,53 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
               value={courtNotes}
               onChange={(e) => setCourtNotes(e.target.value)}
               placeholder="e.g. PW1 concluded cross-examination. Exhibit P4 admitted without objection. Defendant counsel requested 14 days to prepare defense witnesses..."
-              className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 focus:outline-none focus:border-amber-500"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500"
             />
           </div>
 
           {status !== 'Completed' && (
-            <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div className="font-semibold text-slate-800 text-[11px] uppercase tracking-wider">
+            <div className="space-y-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wider">
                 Adjournment & Next Court Date
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-600 mb-1">Next Appearance Date:</label>
+                  <label className="block text-slate-600 dark:text-slate-400 mb-1">Next Appearance Date:</label>
                   <input
                     type="date"
                     required={status === 'Adjourned' || status === 'Part-Heard'}
                     value={nextHearingDate}
                     onChange={(e) => setNextHearingDate(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 tabular-nums focus:outline-none focus:border-amber-500"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-900 dark:text-slate-100 tabular-nums focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 mb-1">Court Order / Direction:</label>
+                  <label className="block text-slate-600 dark:text-slate-400 mb-1">Court Order / Direction:</label>
                   <input
                     type="text"
                     value={nextDirections}
                     onChange={(e) => setNextDirections(e.target.value)}
                     placeholder="e.g. For Defense Case / DW1"
-                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 text-slate-600 hover:text-slate-900 font-medium"
+              className="px-3.5 py-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-xs"
+              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl shadow-xs"
             >
               Update Docket Record
             </button>

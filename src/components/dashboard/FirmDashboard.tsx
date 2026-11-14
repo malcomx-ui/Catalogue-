@@ -402,7 +402,7 @@ export const FirmDashboard: React.FC = () => {
   const userBranchName = effectiveUser?.branchName || currentUser?.branchName || 'Fort Portal Office';
 
   return (
-    <div className="space-y-6 text-slate-900 pb-16 max-w-7xl mx-auto">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100 pb-16 max-w-7xl mx-auto">
       {/* 1. TOP HERO BANNER (Muhumuza-Kiiza ADVOCATES & LEGAL CONSULTANTS) */}
       <section className="bg-slate-950 text-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden">
         {/* Subtle decorative background glow */}
@@ -543,21 +543,21 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               TOTAL CASES
             </span>
-            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 group-hover:bg-slate-200 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
               <Briefcase className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tight">
               {branchScopedCases.length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {userPermissions.canViewAllBranches ? 'Across all firm dockets' : `In ${userBranchName}`}
             </p>
           </div>
@@ -569,21 +569,21 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               ACTIVE
             </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900/60 transition-colors">
               <Activity className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-950 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-emerald-950 dark:text-emerald-300 tabular-nums tracking-tight">
               {activeCases.length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Ongoing &amp; in progress
             </p>
           </div>
@@ -592,21 +592,21 @@ export const FirmDashboard: React.FC = () => {
         {/* UPCOMING */}
         <div
           onClick={() => setActiveTab('causelist')}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               UPCOMING
             </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-100 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:bg-amber-100 dark:group-hover:bg-amber-900/60 transition-colors">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-950 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-amber-950 dark:text-amber-300 tabular-nums tracking-tight">
               {upcomingHearings.length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Next 30 days scheduled
             </p>
           </div>
@@ -618,21 +618,21 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               CLOSED
             </span>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:bg-rose-100 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:bg-rose-100 dark:group-hover:bg-rose-900/60 transition-colors">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-rose-950 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-rose-950 dark:text-rose-300 tabular-nums tracking-tight">
               {closedCases.length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Resolved &amp; concluded
             </p>
           </div>
@@ -644,21 +644,21 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               ARCHIVED
             </span>
-            <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 group-hover:bg-zinc-200 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-slate-800 flex items-center justify-center text-zinc-600 dark:text-slate-300 group-hover:bg-zinc-200 dark:group-hover:bg-slate-700 transition-colors">
               <Archive className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-slate-100 tabular-nums tracking-tight">
               {archivedCases.length}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               In registry archives
             </p>
           </div>
@@ -669,10 +669,10 @@ export const FirmDashboard: React.FC = () => {
       <section className="space-y-3.5">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
               Branch Overview
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {userPermissions.canViewAllBranches
                 ? 'Live matter counts and operational status breakdown by regional circuit'
                 : `Live matter counts and operational status breakdown for ${userBranchName}`}
@@ -684,7 +684,7 @@ export const FirmDashboard: React.FC = () => {
               setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
               setActiveTab('catalogue');
             }}
-            className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
           >
             <span>{userPermissions.canViewAllBranches ? 'All cases' : 'Branch cases'}</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -707,10 +707,10 @@ export const FirmDashboard: React.FC = () => {
                     setSelectedBranchFilter(b.id);
                   }
                 }}
-                className={`bg-white border rounded-2xl p-5 sm:p-6 shadow-xs transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
+                className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 sm:p-6 shadow-xs transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
                   isSelected
-                    ? 'border-blue-600 ring-2 ring-blue-600/20 bg-blue-50/20 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+                    ? 'border-blue-600 ring-2 ring-blue-600/20 bg-blue-50/20 dark:bg-blue-950/20 shadow-sm'
+                    : 'border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'
                 }`}
               >
                 <div>
@@ -718,16 +718,16 @@ export const FirmDashboard: React.FC = () => {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                           {b.name}
                         </h3>
                         {b.isHeadquarters && (
-                          <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.2 rounded-full shrink-0">
+                          <span className="text-[9px] font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 px-1.5 py-0.2 rounded-full shrink-0">
                             HQ
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-slate-400" />
                         <span>{b.city}</span>
                       </p>
@@ -740,7 +740,7 @@ export const FirmDashboard: React.FC = () => {
                         setSelectedBranchFilter(b.id);
                         setActiveTab('catalogue');
                       }}
-                      className="text-xs text-slate-400 group-hover:text-blue-600 transition-colors flex items-center font-medium shrink-0 pt-0.5"
+                      className="text-xs text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center font-medium shrink-0 pt-0.5"
                     >
                       <span>View</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -750,17 +750,17 @@ export const FirmDashboard: React.FC = () => {
                   {/* Body: Large Total Case Count + Upcoming Hearings */}
                   <div className="mt-4 flex items-baseline justify-between pt-1">
                     <div>
-                      <span className="text-3xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+                      <span className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums tracking-tight">
                         {stats.total}
                       </span>
-                      <span className="text-xs text-slate-500 font-normal ml-1.5">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-normal ml-1.5">
                         matters
                       </span>
                     </div>
 
                     {stats.upcoming > 0 ? (
-                      <div className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 rounded-full flex items-center gap-1 tabular-nums">
-                        <Calendar className="w-3 h-3 text-amber-600" />
+                      <div className="text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200/70 dark:border-amber-800/80 px-2.5 py-0.5 rounded-full flex items-center gap-1 tabular-nums">
+                        <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                         <span>{stats.upcoming} upcoming</span>
                       </div>
                     ) : (
@@ -772,20 +772,20 @@ export const FirmDashboard: React.FC = () => {
                 </div>
 
                 {/* Status Breakdown Strip (Active, Inactive, Closed, Archived) */}
-                <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-1.5 text-[11px]">
-                  <div className="flex items-center justify-between px-2.5 py-1 bg-emerald-50/80 text-emerald-800 border border-emerald-200/70 rounded-full">
+                <div className="mt-4 pt-3.5 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-1.5 text-[11px]">
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 rounded-full">
                     <span>Active</span>
                     <strong className="font-mono tabular-nums">{stats.active}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2.5 py-1 bg-amber-50/80 text-amber-800 border border-amber-200/70 rounded-full">
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60 rounded-full">
                     <span>Pending</span>
                     <strong className="font-mono tabular-nums">{stats.inactive}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2.5 py-1 bg-rose-50/80 text-rose-800 border border-rose-200/70 rounded-full">
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-rose-50/80 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60 rounded-full">
                     <span>Closed</span>
                     <strong className="font-mono tabular-nums">{stats.closed}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-full">
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-100 dark:bg-slate-800 text-zinc-700 dark:text-slate-300 border border-zinc-200 dark:border-slate-700 rounded-full">
                     <span>Archived</span>
                     <strong className="font-mono tabular-nums">{stats.archived}</strong>
                   </div>
@@ -802,17 +802,17 @@ export const FirmDashboard: React.FC = () => {
         <div className="lg:col-span-8 space-y-3.5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
                 Recent Cases
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Latest filings and updated matters across selected docket
               </p>
             </div>
             <button
               type="button"
               onClick={() => setActiveTab('catalogue')}
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <span>
                 {userPermissions.canViewAllBranches
@@ -823,7 +823,7 @@ export const FirmDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             {recentCases.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400">
                 No cases found in this branch docket.
@@ -839,24 +839,24 @@ export const FirmDashboard: React.FC = () => {
                   <div
                     key={c.id}
                     onClick={() => setSelectedCase(c)}
-                    className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                    className="p-4 sm:p-5 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                         {c.title}
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-2">
-                        <span className="font-mono tabular-nums text-slate-700 font-medium">{caseNo}</span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="text-slate-600">{branchName}</span>
-                        <span aria-hidden="true" className="text-slate-300">·</span>
-                        <span className="text-slate-500 uppercase">{clientName}</span>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                        <span className="font-mono tabular-nums text-slate-700 dark:text-slate-300 font-medium">{caseNo}</span>
+                        <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+                        <span className="text-slate-600 dark:text-slate-400">{branchName}</span>
+                        <span aria-hidden="true" className="text-slate-300 dark:text-slate-700">·</span>
+                        <span className="text-slate-500 dark:text-slate-400 uppercase">{clientName}</span>
                       </div>
                     </div>
 
                     <div className="shrink-0 flex items-center gap-2">
                       {renderStatusBadge(status)}
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors hidden sm:block" />
+                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors hidden sm:block" />
                     </div>
                   </div>
                 );
@@ -868,18 +868,18 @@ export const FirmDashboard: React.FC = () => {
         {/* RIGHT COLUMN: Upcoming Hearings (4 cols) */}
         <div className="lg:col-span-4 space-y-3.5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-1.5">
               <span>Upcoming Hearings</span>
-              <span className="text-xs font-mono tabular-nums font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-mono tabular-nums font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
                 {upcomingHearings.length}
               </span>
             </h2>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow min-h-[220px] flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow min-h-[220px] flex flex-col justify-between">
             {upcomingHearings.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-12 text-xs text-slate-400 text-center">
-                <Calendar className="w-8 h-8 text-slate-300 mb-2" />
+                <Calendar className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
                 <p>No upcoming hearings scheduled.</p>
               </div>
             ) : (
@@ -890,18 +890,18 @@ export const FirmDashboard: React.FC = () => {
                     onClick={() => {
                       if (h.caseItem) setSelectedCase(h.caseItem);
                     }}
-                    className="p-3.5 bg-slate-50 hover:bg-slate-100/90 rounded-xl cursor-pointer transition-colors text-xs border border-slate-200/80 group"
+                    className="p-3.5 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100/90 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition-colors text-xs border border-slate-200/80 dark:border-slate-700/80 group"
                   >
                     <div className="flex items-center justify-between text-[11px] font-semibold mb-1.5">
-                      <span className="text-amber-800 bg-amber-100/80 border border-amber-200 px-2 py-0.5 rounded-full font-mono tabular-nums">
+                      <span className="text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200/90 dark:border-rose-800/80 px-2.5 py-0.5 rounded-full font-mono tabular-nums">
                         {new Date(h.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
-                      <span className="text-slate-600 font-mono tabular-nums">{h.time}</span>
+                      <span className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">{h.time}</span>
                     </div>
-                    <div className="font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                    <div className="font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {h.title}
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-1 truncate flex items-center gap-1">
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 truncate flex items-center gap-1">
                       <Scale className="w-3 h-3 text-slate-400 shrink-0" />
                       <span className="truncate">{h.court}</span>
                     </div>
@@ -910,11 +910,11 @@ export const FirmDashboard: React.FC = () => {
               </div>
             )}
 
-            <div className="pt-4 mt-3 border-t border-slate-100 text-right">
+            <div className="pt-4 mt-3 border-t border-slate-100 dark:border-slate-800 text-right">
               <button
                 type="button"
                 onClick={() => setActiveTab('causelist')}
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 ml-auto cursor-pointer"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold transition-colors flex items-center gap-1 ml-auto cursor-pointer"
               >
                 <span>Open Cause Diary</span>
                 <ChevronRight className="w-3.5 h-3.5" />

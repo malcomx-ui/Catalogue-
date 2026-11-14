@@ -52,9 +52,9 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-6">
-      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-900 text-white">
           <div>
             <h2 className="text-base font-bold text-white">
               Schedule Court Hearing / Fixture
@@ -72,9 +72,9 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700 dark:text-slate-300">
           <div>
-            <label className="block font-semibold text-slate-800 mb-1">
+            <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
               Select Litigation Matter / Case *
             </label>
             <select
@@ -89,7 +89,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                   setPresidingJudge(c.presidingJudge);
                 }
               }}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
             >
               {cases.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -101,7 +101,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Hearing Date *
               </label>
               <input
@@ -109,12 +109,12 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 value={hearingDate}
                 onChange={(e) => setHearingDate(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Appearance Time *
               </label>
               <input
@@ -123,20 +123,20 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 onChange={(e) => setHearingTime(e.target.value)}
                 placeholder="09:30 AM"
                 required
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Court & Division
               </label>
               <select
                 value={division}
                 onChange={(e) => setDivision(e.target.value as any)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               >
                 <option value="High Court (Commercial Division)">Commercial Division</option>
                 <option value="High Court (Land Division)">Land Division</option>
@@ -150,7 +150,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Courtroom / Station
               </label>
               <input
@@ -158,14 +158,14 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 value={courtRoom}
                 onChange={(e) => setCourtRoom(e.target.value)}
                 placeholder="Court Room 2"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Presiding Judicial Officer
               </label>
               <input
@@ -173,12 +173,12 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 value={presidingJudge}
                 onChange={(e) => setPresidingJudge(e.target.value)}
                 placeholder="Hon. Justice..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-800 mb-1">
+              <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
                 Hearing Purpose *
               </label>
               <input
@@ -187,13 +187,13 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 onChange={(e) => setHearingPurpose(e.target.value)}
                 placeholder="Mention / Scheduling / Cross-Examination / Ruling"
                 required
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
               />
             </div>
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-800 mb-1">
+            <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
               Lead Counsel Appearing
             </label>
             <input
@@ -201,12 +201,12 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
               value={leadCounsel}
               onChange={(e) => setLeadCounsel(e.target.value)}
               placeholder="Advocate Name"
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
             />
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-800 mb-1">
+            <label className="block font-semibold text-slate-800 dark:text-slate-200 mb-1">
               Registry Notes / Preparation Checklist
             </label>
             <textarea
@@ -214,21 +214,21 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Ensure trial bundle is lodged, witness summons extracted, authorities served on opposing counsel..."
               rows={2}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900"
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200">
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors"
+              className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-medium shadow-xs transition-colors"
             >
               Fixture Hearing
             </button>

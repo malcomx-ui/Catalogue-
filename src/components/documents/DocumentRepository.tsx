@@ -82,17 +82,17 @@ export const DocumentRepository: React.FC = () => {
       {/* Title & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Case Documents & Pleadings
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Central repository for court filings, submissions, and affidavits
           </p>
         </div>
 
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors shadow-2xs min-h-[38px] sm:min-h-0"
+          className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs min-h-[38px] sm:min-h-0"
         >
           <Upload className="w-3.5 h-3.5" />
           <span>Upload Document</span>
@@ -100,7 +100,7 @@ export const DocumentRepository: React.FC = () => {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 flex-1 w-full sm:max-w-md">
           <div className="relative flex-1 min-w-[180px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -109,14 +109,14 @@ export const DocumentRepository: React.FC = () => {
               value={searchDocQuery}
               onChange={(e) => setSearchDocQuery(e.target.value)}
               placeholder="Search document title, suit no., or filing counsel..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white min-h-[38px] sm:min-h-0"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600 focus:bg-white dark:focus:bg-slate-900 min-h-[38px] sm:min-h-0"
             />
           </div>
 
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 min-h-[38px] sm:min-h-0"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-700 dark:text-slate-200 min-h-[38px] sm:min-h-0"
           >
             <option value="all">All Types</option>
             <option value="Plaint">Plaints</option>
@@ -127,17 +127,17 @@ export const DocumentRepository: React.FC = () => {
           </select>
         </div>
 
-        <div className="text-xs text-slate-500 font-mono tabular-nums">
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
           {filteredDocs.length} documents
         </div>
       </div>
 
       {/* Documents Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[640px]">
-          <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-            <tr className="divide-x divide-slate-200/60">
+          <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+            <tr className="divide-x divide-slate-200/60 dark:divide-slate-800">
               <th className="py-3.5 px-4">Document Title</th>
               <th className="py-3.5 px-4">Suit No.</th>
               <th className="py-3.5 px-4">Type</th>
@@ -147,7 +147,7 @@ export const DocumentRepository: React.FC = () => {
               <th className="py-3.5 px-4 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {filteredDocs.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-10 text-center text-slate-400">
@@ -159,14 +159,14 @@ export const DocumentRepository: React.FC = () => {
                 const matchedCase = cases.find((c) => c.id === doc.caseId);
 
                 return (
-                  <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100/70">
+                  <tr key={doc.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors divide-x divide-slate-100/70 dark:divide-slate-800">
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900 flex items-center gap-2">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                         <span className="truncate max-w-xs">{doc.title}</span>
                       </div>
                       {doc.summary && (
-                        <div className="text-[11px] text-slate-500 truncate max-w-xs mt-0.5 pl-6">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xs mt-0.5 pl-6">
                           {doc.summary}
                         </div>
                       )}
@@ -174,7 +174,7 @@ export const DocumentRepository: React.FC = () => {
 
                     <td className="py-3 px-4 whitespace-nowrap">
                       {doc.suitNumber ? (
-                        <span className="font-mono tabular-nums font-medium text-slate-800">{doc.suitNumber}</span>
+                        <span className="font-mono tabular-nums font-medium text-slate-800 dark:text-slate-200">{doc.suitNumber}</span>
                       ) : (
                         <span className="text-slate-400 italic text-xs font-sans font-normal">None</span>
                       )}
@@ -184,15 +184,15 @@ export const DocumentRepository: React.FC = () => {
                       <StatusBadge tone="slate" label={doc.documentType} showDot={false} size="xs" />
                     </td>
 
-                    <td className="py-3 px-4 font-mono tabular-nums text-slate-600 whitespace-nowrap">
+                    <td className="py-3 px-4 font-mono tabular-nums text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       {doc.filingDate}
                     </td>
 
-                    <td className="py-3 px-4 text-slate-700 whitespace-nowrap">
+                    <td className="py-3 px-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                       {doc.filedBy}
                     </td>
 
-                    <td className="py-3 px-4 font-mono tabular-nums text-slate-500 whitespace-nowrap">
+                    <td className="py-3 px-4 font-mono tabular-nums text-slate-500 dark:text-slate-400 whitespace-nowrap">
                       {doc.fileSize}
                     </td>
 
@@ -231,13 +231,13 @@ export const DocumentRepository: React.FC = () => {
       {/* Upload Modal */}
       {isUploadOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 max-w-md w-full space-y-4 text-xs">
-            <div className="flex items-center justify-between font-bold text-sm text-slate-900 pb-3 border-b border-slate-100">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800 p-6 max-w-md w-full space-y-4 text-xs">
+            <div className="flex items-center justify-between font-bold text-sm text-slate-900 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
               <span>Upload Document</span>
               <button
                 type="button"
                 onClick={() => setIsUploadOpen(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
                 aria-label="Close modal"
               >
                 <X className="w-4 h-4" />
@@ -246,11 +246,11 @@ export const DocumentRepository: React.FC = () => {
 
             <form onSubmit={handleUploadSubmit} className="space-y-3">
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Select Case:</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Select Case:</label>
                 <select
                   value={targetCaseId}
                   onChange={(e) => setTargetCaseId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded p-1.5"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl p-2"
                 >
                   {cases.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -261,24 +261,24 @@ export const DocumentRepository: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Document Title:</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Document Title:</label>
                 <input
                   type="text"
                   required
                   value={docTitle}
                   onChange={(e) => setDocTitle(e.target.value)}
                   placeholder="e.g. Affidavit in Support of Chamber Summons"
-                  className="w-full bg-slate-50 border border-slate-300 rounded p-1.5"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl p-2"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-700 font-medium mb-1">Type:</label>
+                  <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Type:</label>
                   <select
                     value={docType}
                     onChange={(e) => setDocType(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-1.5"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl p-2"
                   >
                     <option value="Plaint">Plaint</option>
                     <option value="Written Statement of Defense">WSD</option>
@@ -288,38 +288,38 @@ export const DocumentRepository: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-medium mb-1">Filing Counsel:</label>
+                  <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Filing Counsel:</label>
                   <input
                     type="text"
                     disabled
                     value={currentUser?.name || ''}
-                    className="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-slate-600"
+                    className="w-full bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-slate-600 dark:text-slate-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">Notes / Summary:</label>
+                <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">Notes / Summary:</label>
                 <textarea
                   rows={2}
                   value={docSummary}
                   onChange={(e) => setDocSummary(e.target.value)}
                   placeholder="Summary of document..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded p-1.5"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl p-2"
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t">
+              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
-                  className="px-3 py-1.5 text-slate-600 hover:text-slate-900"
+                  className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium"
+                  className="px-4 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-medium"
                 >
                   Save Document
                 </button>

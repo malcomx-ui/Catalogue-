@@ -168,35 +168,35 @@ export const ClientsDirectory: React.FC = () => {
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Litigation</span>
             <span>/</span>
-            <span className="text-slate-900 font-semibold">Clients</span>
+            <span className="text-slate-900 dark:text-slate-100 font-semibold">Clients</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight mt-1">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mt-1">
             Client Registry &amp; Represented Parties
           </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Consolidated directory of represented litigants, institutional clients, and linked court files.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <div className="text-right pr-3 border-r border-slate-200">
-            <span className="text-[11px] font-medium text-slate-500 block">Registered Clients</span>
-            <span className="text-lg font-bold text-slate-900 tabular-nums font-mono">{clients.length}</span>
+          <div className="text-right pr-3 border-r border-slate-200 dark:border-slate-800">
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">Registered Clients</span>
+            <span className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums font-mono">{clients.length}</span>
           </div>
           <div className="text-right">
-            <span className="text-[11px] font-medium text-slate-500 block">With Active Suits</span>
-            <span className="text-lg font-bold text-emerald-700 tabular-nums font-mono">{totalActiveClients}</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">With Active Suits</span>
+            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums font-mono">{totalActiveClients}</span>
           </div>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1 min-w-0">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -204,18 +204,18 @@ export const ClientsDirectory: React.FC = () => {
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
             placeholder="Search client name, suit number, lead advocate, or station..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400"
+            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/15 focus:border-slate-400"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {userPermissions.canViewAllBranches && (
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl px-2.5 py-1.5">
               <Building2 className="w-3.5 h-3.5 text-slate-400" />
               <select
                 value={selectedBranchFilter}
                 onChange={(e) => setSelectedBranchFilter(e.target.value)}
-                className="text-xs font-medium text-slate-700 bg-transparent focus:outline-none cursor-pointer"
+                className="text-xs font-medium text-slate-700 dark:text-slate-200 bg-transparent focus:outline-none cursor-pointer"
                 aria-label="Filter clients by branch"
               >
                 <option value="all">All Branches</option>
@@ -228,16 +228,16 @@ export const ClientsDirectory: React.FC = () => {
             </div>
           )}
 
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+          <div className="inline-flex rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5">
             {(['all', 'active', 'closed'] as const).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => setStatusScope(mode)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 cursor-pointer ${
                   statusScope === mode
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-slate-900 dark:bg-blue-600 text-white'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 {mode === 'all' ? 'All Clients' : mode === 'active' ? 'Active Matters' : 'Closed Matters'}
@@ -248,18 +248,18 @@ export const ClientsDirectory: React.FC = () => {
       </div>
 
       {/* Clients Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
         {filteredClients.length === 0 ? (
           <div className="py-14 px-6 text-center">
-            <Users className="w-8 h-8 text-slate-300 mx-auto mb-2.5" />
-            <h3 className="text-sm font-semibold text-slate-900">No Matching Clients Found</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2.5" />
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Matching Clients Found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
               Adjust your branch or search filter, or register a new litigation matter to populate client records.
             </p>
             <button
               type="button"
               onClick={() => navigateToRoute('catalogue')}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition whitespace-nowrap shrink-0 cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-blue-700 transition whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Go to Cases</span>
@@ -269,7 +269,7 @@ export const ClientsDirectory: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 divide-x divide-slate-200/60">
+                <tr className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 divide-x divide-slate-200/60 dark:divide-slate-800">
                   <th className="py-3.5 px-4">Client / Represented Party</th>
                   <th className="py-3.5 px-4">Capacity</th>
                   <th className="py-3.5 px-4">Branch Station</th>
@@ -280,41 +280,41 @@ export const ClientsDirectory: React.FC = () => {
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                 {filteredClients.map((cl) => {
                   const isExpanded = expandedClientKey === cl.normalizedKey;
                   return (
                     <React.Fragment key={cl.normalizedKey}>
                       <tr
                         onClick={() => setExpandedClientKey(isExpanded ? null : cl.normalizedKey)}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer divide-x divide-slate-100/70"
+                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer divide-x divide-slate-100/70 dark:divide-slate-800"
                       >
-                        <td className="py-3 px-4 font-semibold text-slate-900">
+                        <td className="py-3 px-4 font-semibold text-slate-900 dark:text-slate-100">
                           <div className="flex items-center gap-2">
                             <ChevronRight
                               className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-                                isExpanded ? 'rotate-90 text-slate-700' : ''
+                                isExpanded ? 'rotate-90 text-slate-700 dark:text-slate-200' : ''
                               }`}
                             />
                             <span>{cl.name}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
                           {cl.partyTypes.slice(0, 2).join(', ') || 'Client'}
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
                           {cl.branches.slice(0, 2).join(', ') || '-'}
                         </td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
                           {cl.leadCounsel.slice(0, 2).join(', ') || 'Unassigned'}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-emerald-700">
+                        <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
                           {cl.activeMatters}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900">
+                        <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
                           {cl.totalMatters}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-700">
+                        <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">
                           {cl.totalClaimUGX > 0 ? cl.totalClaimUGX.toLocaleString() : '-'}
                         </td>
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
@@ -339,28 +339,28 @@ export const ClientsDirectory: React.FC = () => {
                       </tr>
 
                       {isExpanded && (
-                        <tr className="bg-slate-50/70">
-                          <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5 tabular-nums">
+                        <tr className="bg-slate-50/70 dark:bg-slate-800/40">
+                          <td colSpan={8} className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
+                            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5 tabular-nums">
                               Linked Court Files ({cl.cases.length})
                             </div>
-                            <div className="divide-y divide-slate-200/70 border border-slate-200 rounded-xl bg-white overflow-hidden">
+                            <div className="divide-y divide-slate-200/70 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 overflow-hidden">
                               {cl.cases.map((c) => (
                                 <div
                                   key={c.id}
                                   onClick={() => setSelectedCase(c)}
-                                  className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                  className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors"
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     <Scale className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-800 whitespace-nowrap">
+                                    <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                                       {c.suitNumber || c.firmRefNumber}
                                     </span>
-                                    <span className="text-xs font-medium text-slate-900 truncate">
+                                    <span className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
                                       {c.title}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-3 text-[11px] text-slate-500 shrink-0">
+                                  <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
                                     <span>{c.branchName || c.branch}</span>
                                     <StatusBadge status={c.status || 'Active'} size="xs" />
                                   </div>

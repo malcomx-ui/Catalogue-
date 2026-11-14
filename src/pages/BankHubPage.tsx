@@ -69,8 +69,8 @@ export const BankHubPage: React.FC<{
       {/* Header with Title, Month/Year Selector and Excel Import */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Mortgage Portfolios</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Mortgage Portfolios</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Select a lending partner to manage branch registers and mortgage files.
           </p>
         </div>
@@ -78,7 +78,7 @@ export const BankHubPage: React.FC<{
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add New Mortgage</span>
@@ -88,19 +88,19 @@ export const BankHubPage: React.FC<{
             <button
               type="button"
               onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Import Excel</span>
             </button>
           )}
 
-          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-xs">
-            <label className="text-xs font-medium text-slate-700 pl-1">Month:</label>
+          <div className="flex items-center space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300 pl-1">Month:</label>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-blue-700 focus:outline-none cursor-pointer"
+              className="rounded-lg border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 focus:outline-none cursor-pointer"
             >
               {MONTHS.map((m) => (
                 <option key={m} value={m}>
@@ -110,12 +110,12 @@ export const BankHubPage: React.FC<{
             </select>
           </div>
 
-          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-xs">
-            <label className="text-xs font-medium text-slate-700 pl-1">Financial Year:</label>
+          <div className="flex items-center space-x-2 bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300 pl-1">Financial Year:</label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-blue-700 focus:outline-none cursor-pointer tabular-nums"
+              className="rounded-lg border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:text-blue-400 focus:outline-none cursor-pointer tabular-nums"
             >
               <option value={2026}>2026</option>
               <option value={2027}>2027</option>
@@ -178,24 +178,24 @@ export const BankHubPage: React.FC<{
             <div
               key={b.bank_name}
               onClick={() => onSelectBank(b.bank_name)}
-              className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+              className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
             >
               <div>
-                <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/80 rounded-full group-hover:bg-blue-100 transition">
+                <span className="text-xs font-medium px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 transition">
                   Lending Partner
                 </span>
-                <h3 className="text-lg font-bold text-slate-900 mt-3 group-hover:text-blue-700 transition">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-3 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition">
                   {b.bank_name}
                 </h3>
               </div>
-              <div className="border-t border-slate-100 pt-4 grid grid-cols-2 gap-2">
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4 grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-xs text-slate-500 block">Active Files ({selectedYear})</span>
-                  <span className="text-base font-bold text-slate-900 font-mono tabular-nums">{b.file_count}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Active Files ({selectedYear})</span>
+                  <span className="text-base font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">{b.file_count}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-slate-500 block">Portfolio Value</span>
-                  <span className="text-sm font-bold text-blue-600 font-mono tabular-nums">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Portfolio Value</span>
+                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono tabular-nums">
                     {b.total_loan > 0 ? `UGX ${(b.total_loan / 1e9).toFixed(2)}B` : 'UGX 0'}
                   </span>
                 </div>

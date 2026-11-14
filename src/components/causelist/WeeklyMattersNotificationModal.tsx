@@ -169,7 +169,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Top Accent Header */}
         <div className="bg-gradient-to-r from-[#0b132b] via-[#1c2541] to-[#3a506b] text-white p-5 sm:p-6 flex items-start justify-between">
           <div className="flex items-start gap-3.5">
@@ -178,7 +178,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2.5 py-0.5 rounded-full">
                   Upcoming Matters (Next 7 Days)
                 </span>
                 <span className="text-[11px] text-slate-300">
@@ -206,16 +206,16 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
         </div>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3 bg-slate-50/50">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3 bg-slate-50/50 dark:bg-slate-950/50">
           {weeklyMatters.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="font-semibold text-sm text-slate-900">
+              <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
                 Clear Docket for the Next 7 Days
               </h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
                 No active court hearings, mentions, or procedural milestones are flagged for this week.
               </p>
             </div>
@@ -233,7 +233,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
               return (
                 <div
                   key={m.id}
-                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs"
+                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                         size="xs"
                       />
 
-                      <span className="font-mono tabular-nums font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]">
+                      <span className="font-mono tabular-nums font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full text-xs">
                         {new Date(m.date).toLocaleDateString('en-GB', {
                           weekday: 'short',
                           day: 'numeric',
@@ -252,7 +252,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className="font-medium text-slate-700 flex items-center gap-1 tabular-nums">
+                      <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1 tabular-nums">
                         <Clock className="w-3 h-3 text-slate-400" />
                         {m.time}
                       </span>
@@ -261,17 +261,17 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                       <StatusBadge tone="slate" label={m.typeLabel} size="xs" showDot={false} />
                     </div>
 
-                    <h4 className="font-bold text-sm text-slate-900 leading-snug truncate">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 leading-snug truncate">
                       {m.title}
                     </h4>
 
                     {/* Case and Registry Identifiers */}
                     <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                      <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded border border-slate-200/80 dark:border-slate-700">
                         MK: <strong>{m.caseNumber}</strong>
                       </span>
                       {m.suitNo ? (
-                        <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200">
+                        <span className="bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded border border-blue-200/80 dark:border-blue-800">
                           Court Suit No: <strong>{m.suitNo}</strong>
                         </span>
                       ) : (
@@ -280,36 +280,36 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                         </span>
                       )}
                       {m.branchName && (
-                        <span className="text-blue-700 font-sans font-medium">
+                        <span className="text-blue-700 dark:text-blue-400 font-sans font-medium">
                           {m.branchName}
                         </span>
                       )}
                     </div>
 
                     {/* Purpose in court */}
-                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-slate-700 text-xs">
-                      <strong className="text-slate-900">Business in Court:</strong> {m.purpose}
+                    <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-xl p-2 text-slate-700 dark:text-slate-300 text-xs">
+                      <strong className="text-slate-900 dark:text-slate-100">Business in Court:</strong> {m.purpose}
                     </div>
 
                     {/* Court and Counsel details */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 pt-0.5">
-                      <span>Court: <strong className="text-slate-700">{m.court}</strong></span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                      <span>Court: <strong className="text-slate-700 dark:text-slate-200">{m.court}</strong></span>
                       {m.judge && (
-                        <span>Judge: <strong className="text-slate-700">{m.judge}</strong></span>
+                        <span>Judge: <strong className="text-slate-700 dark:text-slate-200">{m.judge}</strong></span>
                       )}
                       {m.counsel && (
-                        <span>Counsel: <strong className="text-slate-700">{m.counsel}</strong></span>
+                        <span>Counsel: <strong className="text-slate-700 dark:text-slate-200">{m.counsel}</strong></span>
                       )}
                     </div>
                   </div>
 
                   {/* Right Actions */}
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                     {m.caseItem && (
                       <button
                         type="button"
                         onClick={() => handleOpenCase(m)}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
+                        className="px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
                       >
                         <span>View Case</span>
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -323,9 +323,9 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-          <div className="text-slate-500 text-[11px] flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-blue-600" />
+        <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500 dark:text-slate-400 text-[11px] flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>Automatic firm-wide synchronization across all 7 regional branches</span>
           </div>
 
@@ -333,7 +333,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
             <button
               type="button"
               onClick={handleGoToDiary}
-              className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-lg transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-semibold rounded-xl transition-colors flex items-center gap-1.5"
             >
               <span>Open Cause Diary</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -341,7 +341,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg transition-colors shadow-2xs"
+              className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-2xs"
             >
               Acknowledge
             </button>
