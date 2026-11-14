@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isUserAdmin, isAdminFinanceAssistant } from '../../lib/supabase';
+import { isUserAdmin, resolveUserRoleMeta } from '../../lib/supabase';
 import {
   Shield,
   ShieldCheck,
@@ -58,7 +58,7 @@ export const AccessRolesManager: React.FC = () => {
   const [copiedSql, setCopiedSql] = useState(false);
   const [isRefreshingStaff, setIsRefreshingStaff] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
-  const [statusBanner, setStatusBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [statusBanner, setStatusBanner] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
 
   // Audit Logs Filter State
   const [auditSearch, setAuditSearch] = useState('');
@@ -143,11 +143,11 @@ export const AccessRolesManager: React.FC = () => {
     );
   }
 
-  const showToast = (type: 'success' | 'error', message: string) => {
+  const showToast = (type: 'success' | 'warning' | 'error', message: string) => {
     setStatusBanner({ type, message });
     setTimeout(() => {
       setStatusBanner((prev) => (prev?.message === message ? null : prev));
-    }, 4500);
+    }, 5500);
   };
 
   const handleInlineRoleChange = async (user: User, newRoleId: string) => {
@@ -163,7 +163,11 @@ export const AccessRolesManager: React.FC = () => {
         isBranchAdmin: newRoleId === 'role-admin',
       });
       if (res.success) {
-        showToast('success', `${user.name} updated to ${selectedRole?.name || newRoleId}.`);
+        if (res.warning) {
+          showToast('warning', `${user.name} set to ${selectedRole?.name || newRoleId}. ${res.warning}`);
+        } else {
+          showToast('success', `${user.name} updated to ${selectedRole?.name || newRoleId}.`);
+        }
       } else {
         showToast('error', res.error || 'Could not update role.');
       }
@@ -447,12 +451,16 @@ $$;`;
           className={`px-4 py-3 rounded-xl border text-xs font-medium flex items-center justify-between gap-3 ${
             statusBanner.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : statusBanner.type === 'warning'
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
               : 'bg-rose-50 border-rose-200 text-rose-800'
           }`}
         >
           <div className="flex items-center gap-2">
             {statusBanner.type === 'success' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : statusBanner.type === 'warning' ? (
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             ) : (
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             )}
@@ -525,18 +533,22 @@ $$;`;
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {availableUsers.map((user) => {
-                    const isSelf = user.id === currentUser.id;
+                    const isSelf = user.id === currentUser?.id;
                     const isPrimaryOwner = user.email.toLowerCase() === 'infosightug@gmail.com';
                     const isRowUpdating = updatingUserId === user.id;
+                    const normalizedMeta = resolveUserRoleMeta(
+                      user.role,
+                      user.roleId,
+                      user.isSuperAdmin,
+                      user.email
+                    );
                     const resolvedRoleValue =
-                      roles.some((r) => r.id === user.roleId)
+                      user.roleId?.startsWith('role-custom-') && roles.some((r) => r.id === user.roleId)
+                        ? user.roleId
+                        : roles.some((r) => r.id === normalizedMeta.roleId)
+                        ? normalizedMeta.roleId
+                        : roles.some((r) => r.id === user.roleId)
                         ? user.roleId!
-                        : isAdminFinanceAssistant(user)
-                        ? 'role-admin-finance-assistant'
-                        : user.isSuperAdmin
-                        ? 'role-super-admin'
-                        : user.isBranchAdmin
-                        ? 'role-admin'
                         : 'role-advocate';
                     const resolvedBranchValue =
                       branches.some((b) => b.id === user.branchId)
@@ -673,7 +685,13 @@ $$;`;
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {roles.map((role) => {
-              const assignedCount = availableUsers.filter((u) => u.roleId === role.id).length;
+              const assignedCount = availableUsers.filter((u) => {
+                const effectiveRoleId =
+                  u.roleId?.startsWith('role-custom-') && roles.some((r) => r.id === u.roleId)
+                    ? u.roleId
+                    : resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, u.email).roleId;
+                return effectiveRoleId === role.id;
+              }).length;
               return (
                 <div key={role.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-4">
                   <div className="space-y-2">
@@ -1242,7 +1260,11 @@ $$;`;
           onSave={async (updates) => {
             const res = await updateUser(editTargetUser.id, updates);
             if (res.success) {
-              showToast('success', `${updates.name || editTargetUser.name} updated and synced.`);
+              if (res.warning) {
+                showToast('warning', `${updates.name || editTargetUser.name} updated. ${res.warning}`);
+              } else {
+                showToast('success', `${updates.name || editTargetUser.name} updated and synced.`);
+              }
               setEditTargetUser(null);
             }
             return res;

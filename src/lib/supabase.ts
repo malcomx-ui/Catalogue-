@@ -234,11 +234,11 @@ export async function safeProfilesUpdate(
 
   for (let attempt = 0; attempt < 6; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(cleanPayload)
-      .eq(matchCol, matchVal)
-      .select('*');
+    const baseQuery = supabase.from('profiles').update(cleanPayload);
+    const { data, error } = await (matchCol === 'email'
+      ? baseQuery.ilike('email', matchVal)
+      : baseQuery.eq(matchCol, matchVal)
+    ).select('*');
     if (!error) return { data, error: null };
     if (String(error?.code || '') === '22P02' && matchCol === 'id') {
       return { data: null, error: null };
@@ -1007,9 +1007,11 @@ export const SupabaseService = {
   async updateStaff(
     staffId: string,
     updates: Partial<User> & { skipApi?: boolean; previousEmail?: string }
-  ): Promise<{ success: boolean; data?: any; error?: string; warning?: string }> {
+  ): Promise<{ success: boolean; profileUpdated?: boolean; data?: any; error?: string; warning?: string }> {
     let updatedRecord: any = null;
     let anySuccess = false;
+    let profileUpdated = false;
+    let lastProfileError: string | undefined;
     let apiExplicitError: string | undefined;
 
     const cleanEmail = updates.email ? updates.email.trim().toLowerCase() : undefined;
@@ -1085,24 +1087,35 @@ export const SupabaseService = {
           const resById = await safeProfilesUpdate(profilePayload, 'id', staffId);
           if (!resById.error && resById.data && resById.data.length > 0) {
             anySuccess = true;
+            profileUpdated = true;
             updatedRecord = resById.data[0];
+          } else if (resById.error) {
+            lastProfileError = resById.error.message;
           }
         }
-        if (!anySuccess && lookupEmail) {
+        if (!profileUpdated && lookupEmail) {
           const resByEmail = await safeProfilesUpdate(profilePayload, 'email', lookupEmail);
           if (!resByEmail.error && resByEmail.data && resByEmail.data.length > 0) {
             anySuccess = true;
+            profileUpdated = true;
+            lastProfileError = undefined;
             updatedRecord = resByEmail.data[0];
+          } else if (resByEmail.error && !lastProfileError) {
+            lastProfileError = resByEmail.error.message;
           }
         }
-        if (!anySuccess && cleanEmail && cleanEmail !== lookupEmail) {
+        if (!profileUpdated && cleanEmail && cleanEmail !== lookupEmail) {
           const resByNewEmail = await safeProfilesUpdate(profilePayload, 'email', cleanEmail);
           if (!resByNewEmail.error && resByNewEmail.data && resByNewEmail.data.length > 0) {
             anySuccess = true;
+            profileUpdated = true;
+            lastProfileError = undefined;
             updatedRecord = resByNewEmail.data[0];
+          } else if (resByNewEmail.error && !lastProfileError) {
+            lastProfileError = resByNewEmail.error.message;
           }
         }
-        if (!anySuccess && (cleanEmail || prevEmail)) {
+        if (!profileUpdated && (cleanEmail || prevEmail)) {
           const generatedId = isUuidString(staffId)
             ? staffId
             : typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -1115,10 +1128,15 @@ export const SupabaseService = {
           });
           if (!upsertRes.error && upsertRes.data && upsertRes.data.length > 0) {
             anySuccess = true;
+            profileUpdated = true;
+            lastProfileError = undefined;
             updatedRecord = upsertRes.data[0];
+          } else if (upsertRes.error && !lastProfileError) {
+            lastProfileError = upsertRes.error.message;
           }
         }
-      } catch (e) {
+      } catch (e: any) {
+        lastProfileError = e?.message;
         console.warn('Profiles update notice:', e);
       }
 
@@ -1168,7 +1186,7 @@ export const SupabaseService = {
               const byEmail = await supabase
                 .from('firm_users')
                 .update(firmUserPayload)
-                .eq('email', lookupEmail)
+                .ilike('email', lookupEmail)
                 .select('*');
               if (!byEmail.error && byEmail.data && byEmail.data.length > 0) {
                 fuData = byEmail.data;
@@ -1233,7 +1251,11 @@ export const SupabaseService = {
           const json = await apiRes.json().catch(() => null);
           if (apiRes.ok && json?.success) {
             anySuccess = true;
-            updatedRecord = updatedRecord || json.profile || json.user;
+            if (json.profileUpdated) {
+              profileUpdated = true;
+              lastProfileError = undefined;
+            }
+            updatedRecord = (json.profileUpdated ? json.profile : null) || updatedRecord || json.profile || json.user;
           } else if (!apiRes.ok) {
             apiExplicitError = json?.error || `Server rejected update (${apiRes.status})`;
           }
@@ -1246,6 +1268,7 @@ export const SupabaseService = {
     if (apiExplicitError && !anySuccess) {
       return {
         success: false,
+        profileUpdated,
         error: apiExplicitError,
       };
     }
@@ -1255,14 +1278,22 @@ export const SupabaseService = {
     if (!anySuccess && !backendReachable) {
       return {
         success: true,
+        profileUpdated: false,
         data: updatedRecord,
-        warning: 'Saved locally. Run the latest Supabase RLS SQL migration if cloud sync is required across devices.',
+        warning: lastProfileError
+          ? `Saved locally. Supabase profiles RLS blocked direct write (${lastProfileError}).`
+          : 'Saved locally. Run the latest Supabase RLS SQL migration if cloud sync is required across devices.',
       };
     }
 
     return {
       success: anySuccess,
+      profileUpdated,
       data: updatedRecord,
+      warning:
+        anySuccess && !profileUpdated
+          ? 'Saved in firm server directory; run the Supabase profiles RLS policy if cloud sync across devices is needed.'
+          : undefined,
       error: anySuccess ? undefined : 'Could not persist staff updates to Supabase or backend server.',
     };
   },

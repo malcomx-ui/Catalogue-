@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, Branch, CustomRole } from '../../types';
+import { resolveUserRoleMeta } from '../../lib/supabase';
 import {
   UserCheck,
   Building2,
@@ -36,9 +37,16 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
   const [email, setEmail] = useState(user.email);
   const [password, setPassword] = useState(user.password || '');
   const [showPassword, setShowPassword] = useState(false);
-  const [roleId, setRoleId] = useState(
-    user.roleId || roles.find((r) => r.id === 'role-advocate')?.id || 'role-advocate'
-  );
+  const [roleId, setRoleId] = useState(() => {
+    if (user.roleId?.startsWith('role-custom-') && roles.some((r) => r.id === user.roleId)) {
+      return user.roleId;
+    }
+    const meta = resolveUserRoleMeta(user.role, user.roleId, user.isSuperAdmin, user.email);
+    if (roles.some((r) => r.id === meta.roleId)) {
+      return meta.roleId;
+    }
+    return user.roleId || roles.find((r) => r.id === 'role-advocate')?.id || 'role-advocate';
+  });
   const [branchId, setBranchId] = useState(user.branchId || branches[0]?.id || 'kla-hq');
   const [rollNo, setRollNo] = useState(user.advocateRollNo || '');
   const [mustChangePassword, setMustChangePassword] = useState(user.mustChangePassword ?? false);

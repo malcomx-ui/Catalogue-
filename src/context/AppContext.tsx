@@ -85,11 +85,11 @@ interface AppContextType {
   addCustomRole: (roleData: Omit<CustomRole, 'id' | 'isSystem'>) => void;
   updateCustomRole: (roleId: string, updates: Partial<CustomRole>) => void;
   deleteCustomRole: (roleId: string) => boolean;
-  assignUserRole: (userId: string, roleId: string) => Promise<{ success: boolean; error?: string }>;
+  assignUserRole: (userId: string, roleId: string) => Promise<{ success: boolean; error?: string; warning?: string }>;
   
   // User Management (Super Admin)
   addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
-  updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string; warning?: string }>;
   handleSaveStaff: (userId: string, newName: string, newRole: string, newBranchId?: string, options?: any) => Promise<{ success: boolean; error?: string }>;
   updateUserPassword: (userId: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
   toggleSuspendUser: (userId: string, reason?: string) => Promise<void>;
@@ -186,8 +186,8 @@ const EMPTY_USER: User = {
   id: '',
   name: 'Authorised Staff',
   email: '',
-  role: 'branch_staff',
-  roleId: 'role-clerk',
+  role: 'lawyer',
+  roleId: '',
   roleTitle: 'Unauthenticated User',
   branchId: 'kla-hq',
   branchName: 'Kampala Central (Head Office)',
@@ -217,7 +217,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const existingIds = new Set(parsed.map((r: CustomRole) => r.id));
           const mergedDefaults = parsed.map((r: CustomRole) => {
             const def = DEFAULT_ROLES.find((d) => d.id === r.id);
-            return def ? { ...def, ...r, permissions: { ...def.permissions, ...(r.permissions || {}) } } : r;
+            if (!def) return r;
+            const mergedPerms: RolePermissions = { ...def.permissions, ...(r.permissions || {}) };
+            if (def.id === 'role-admin') {
+              mergedPerms.canViewAllBranches = false;
+              mergedPerms.canBulkImport = false;
+              mergedPerms.canBulkExport = false;
+              mergedPerms.canManageRoles = false;
+              mergedPerms.canManageUsers = false;
+              mergedPerms.canManageBranches = false;
+              mergedPerms.canManageSettings = false;
+            }
+            return {
+              ...r,
+              ...def,
+              isSystem: true,
+              permissions: mergedPerms,
+            };
           });
           DEFAULT_ROLES.forEach((def) => {
             if (!existingIds.has(def.id)) {
@@ -870,23 +886,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return;
         }
 
-        // Fetch fresh profile row directly from database 'profiles' table joined with auth session
+        // Fetch fresh profile row (preferring merged /api/profiles when newer than stale RLS-locked profiles)
         let freshProfile: any = null;
         try {
-          const { data: pById, error: idErr } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .maybeSingle();
-          if (pById && !idErr) freshProfile = pById;
+          const token = sessionData?.session?.access_token;
+          const headers: Record<string, string> = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          const apiRes = await fetch('/api/profiles', { headers });
+          if (apiRes.ok) {
+            const apiJson = await apiRes.json();
+            const pList = apiJson.profiles || apiJson.data || [];
+            freshProfile = pList.find(
+              (p: any) => p.id === authUser.id || (p.email && p.email.toLowerCase() === authUser.email?.toLowerCase())
+            );
+          }
         } catch (e) {}
+
+        if (!freshProfile) {
+          try {
+            const { data: pById, error: idErr } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            if (pById && !idErr) freshProfile = pById;
+          } catch (e) {}
+        }
 
         if (!freshProfile && authUser.email) {
           try {
             const { data: pEmail, error: emErr } = await supabase
               .from('profiles')
               .select('*')
-              .eq('email', authUser.email.trim().toLowerCase())
+              .ilike('email', authUser.email.trim().toLowerCase())
               .maybeSingle();
             if (pEmail && !emErr) freshProfile = pEmail;
           } catch (e) {}
@@ -897,7 +929,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const { data: firmUser } = await supabase
               .from('firm_users')
               .select('*')
-              .eq('email', authUser.email.trim().toLowerCase())
+              .ilike('email', authUser.email.trim().toLowerCase())
               .maybeSingle();
             if (firmUser) {
               freshProfile = {
@@ -908,22 +940,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 branch_name: firmUser.branch_name,
                 full_name: firmUser.name,
               };
-            }
-          } catch (e) {}
-        }
-
-        if (!freshProfile) {
-          try {
-            const token = sessionData?.session?.access_token;
-            const headers: Record<string, string> = {};
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const apiRes = await fetch('/api/profiles', { headers });
-            if (apiRes.ok) {
-              const apiJson = await apiRes.json();
-              const pList = apiJson.profiles || apiJson.data || [];
-              freshProfile = pList.find(
-                (p: any) => p.id === authUser.id || (p.email && p.email.toLowerCase() === authUser.email?.toLowerCase())
-              );
             }
           } catch (e) {}
         }
@@ -1387,7 +1403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const assignUserRole = async (userId: string, roleId: string): Promise<{ success: boolean; error?: string }> => {
+  const assignUserRole = async (userId: string, roleId: string): Promise<{ success: boolean; error?: string; warning?: string }> => {
     if (!userPermissions.canManageUsers && !userPermissions.canManageRoles) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
@@ -1616,7 +1632,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Super Admin can edit/change user details including name, email, password, role, branch
-  const updateUser = async (userId: string, updates: Partial<User>): Promise<{ success: boolean; error?: string }> => {
+  const updateUser = async (userId: string, updates: Partial<User>): Promise<{ success: boolean; error?: string; warning?: string }> => {
     if (!userPermissions.canManageUsers && !isUserAdmin(currentUser)) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
@@ -1664,9 +1680,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : null;
 
     const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : target.password;
+    const nowIso = new Date().toISOString();
 
-    const mergedUpdates: Partial<User> = {
+    const mergedUpdates: Partial<User> & { previousEmail?: string; updatedAt?: string } = {
       ...updates,
+      previousEmail: target.email,
+      updatedAt: nowIso,
       name: updates.name !== undefined ? updates.name.trim() : target.name,
       email: cleanUpdatedEmail,
       roleId: roleMeta ? roleMeta.roleId : target.roleId,
@@ -1681,34 +1700,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : target.advocateRollNo,
     };
 
+    const optimisticUpdatedUser: User & { updatedAt?: string } = {
+      ...target,
+      name: mergedUpdates.name || target.name,
+      email: mergedUpdates.email || target.email,
+      password: newPassword,
+      temporaryPassword: updates.mustChangePassword ? newPassword : target.temporaryPassword,
+      mustChangePassword: mergedUpdates.mustChangePassword,
+      roleId: mergedUpdates.roleId,
+      role: (mergedUpdates.role || target.role) as any,
+      roleTitle: mergedUpdates.roleTitle || target.roleTitle,
+      branchId: branchMeta.id,
+      branchName: branchMeta.name,
+      advocateRollNo: mergedUpdates.advocateRollNo,
+      isSuperAdmin: mergedUpdates.isSuperAdmin,
+      isBranchAdmin: mergedUpdates.isBranchAdmin,
+      updatedAt: nowIso,
+    };
+
     // 1. Optimistic local state update for instant UI and permission re-evaluation
     setAvailableUsers((prev) => {
       const updatedList = prev.map((u) => {
         if (u.id === userId || (u.email && target.email && u.email.toLowerCase() === target.email.toLowerCase())) {
-          const updated: User = {
-            ...u,
-            name: mergedUpdates.name || u.name,
-            email: mergedUpdates.email || u.email,
-            password: newPassword,
-            temporaryPassword: updates.mustChangePassword ? newPassword : u.temporaryPassword,
-            mustChangePassword: mergedUpdates.mustChangePassword,
-            roleId: mergedUpdates.roleId,
-            role: (mergedUpdates.role || u.role) as any,
-            roleTitle: mergedUpdates.roleTitle || u.roleTitle,
-            branchId: branchMeta.id,
-            branchName: branchMeta.name,
-            advocateRollNo: mergedUpdates.advocateRollNo,
-            isSuperAdmin: mergedUpdates.isSuperAdmin,
-            isBranchAdmin: mergedUpdates.isBranchAdmin,
-          };
           if (currentUser.id === userId || (currentUser.email && target.email && currentUser.email.toLowerCase() === target.email.toLowerCase())) {
-            setCurrentUser(updated);
-            cacheUserProfile(updated);
-            if (!canUserViewAllBranches(updated)) {
-              setSelectedBranchFilter(updated.branchId);
+            setCurrentUser(optimisticUpdatedUser);
+            cacheUserProfile(optimisticUpdatedUser);
+            if (!canUserViewAllBranches(optimisticUpdatedUser)) {
+              setSelectedBranchFilter(optimisticUpdatedUser.branchId);
             }
           }
-          return updated;
+          return optimisticUpdatedUser;
         }
         return u;
       });
@@ -1752,12 +1773,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
-      await refreshStaffFromSupabase();
+      if (res.profileUpdated !== false) {
+        await refreshStaffFromSupabase();
+      } else {
+        // Supabase profiles RLS blocked cloud write; keep authoritative local/server update intact instead of letting stale cloud rows revert UI
+        await refreshStaffFromSupabase();
+        if (res.success) {
+          setAvailableUsers((prev) => {
+            const pinned = prev.map((u) =>
+              u.id === userId || (u.email && cleanUpdatedEmail && u.email.toLowerCase() === cleanUpdatedEmail)
+                ? { ...u, ...optimisticUpdatedUser }
+                : u
+            );
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(pinned));
+            } catch (e) {}
+            return pinned;
+          });
+        }
+      }
 
       if (!res.success && res.error) {
         return { success: false, error: res.error };
       }
-      return { success: true };
+      return { success: true, warning: res.warning };
     } catch (err: any) {
       console.error('Supabase staff update failed:', err);
       await refreshStaffFromSupabase();
