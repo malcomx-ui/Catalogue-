@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
 import { isUserAdmin, isAdminFinanceAssistant, getEffectiveUser } from '../../lib/supabase';
 import { getUserRoleLabel, getUserRoleBadge } from '../../types';
+import { buildLegalTeamDirectory } from '../../utils/legalTeam';
 import RefreshSessionButton from '../auth/RefreshSessionButton';
 import {
   Briefcase,
@@ -15,7 +16,6 @@ import {
   Shield,
   LogOut,
   Plus,
-  UserCheck,
   X,
   Sliders,
   LayoutDashboard,
@@ -25,21 +25,27 @@ import {
   Banknote,
   Landmark,
   Scale,
-  Sparkles,
+  Search,
+  FileSpreadsheet,
+  UserCircle2,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const {
     activeTab,
     setActiveTab,
+    navigateToRoute,
+    mortgageAction,
+    triggerMortgageAction,
+    selectedStaffKey,
+    setSelectedStaffKey,
     cases,
     hearings,
     documents,
     branches,
+    availableUsers,
     selectedBranchFilter,
     setSelectedBranchFilter,
-    selectedLawyerFilter,
-    setSelectedLawyerFilter,
     userPermissions,
     currentUser,
     logout,
@@ -49,18 +55,34 @@ export const Sidebar: React.FC = () => {
     systemSettings,
   } = useApp();
 
-  // Collapsible navigation state
-  const [isBranchesOpen, setIsBranchesOpen] = React.useState<boolean>(false);
-  const [isCounselHovered, setIsCounselHovered] = React.useState<boolean>(false);
-  const [isCounselClicked, setIsCounselClicked] = React.useState<boolean>(false);
-
-  const isCounselExpanded = isCounselHovered || isCounselClicked;
-
   const effectiveUser = getEffectiveUser(currentUser);
-  const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
   const isAdmin = isUserAdmin(effectiveUser);
+  const canBulkImportMortgages = isAdmin || Boolean(userPermissions.canBulkImport);
 
-  const branchScopedCases = React.useMemo(() => {
+  // Collapsible dropdown states (auto-expand when current route is inside that section)
+  const [isLitigationOpen, setIsLitigationOpen] = useState<boolean>(
+    activeTab === 'catalogue' || activeTab === 'clients' || activeTab === 'causelist'
+  );
+  const [isMortgagesOpen, setIsMortgagesOpen] = useState<boolean>(activeTab === 'mortgages');
+  const [isBranchesOpen, setIsBranchesOpen] = useState<boolean>(activeTab === 'branches');
+  const [isLegalTeamOpen, setIsLegalTeamOpen] = useState<boolean>(activeTab === 'legal_team');
+  const [teamSearch, setTeamSearch] = useState<string>('');
+
+  useEffect(() => {
+    if (activeTab === 'catalogue' || activeTab === 'clients' || activeTab === 'causelist') {
+      setIsLitigationOpen(true);
+    } else if (activeTab === 'mortgages') {
+      setIsMortgagesOpen(true);
+    } else if (activeTab === 'branches') {
+      setIsBranchesOpen(true);
+    } else if (activeTab === 'legal_team') {
+      setIsLegalTeamOpen(true);
+    }
+  }, [activeTab]);
+
+  const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
+
+  const branchScopedCases = useMemo(() => {
     if (userPermissions?.canViewAllBranches) return cases;
     const targetBranch = branches.find((b) => b.id === effectiveUser?.branchId);
     const targetCity = targetBranch?.city?.toLowerCase() || '';
@@ -76,67 +98,51 @@ export const Sidebar: React.FC = () => {
     });
   }, [cases, branches, effectiveUser?.branchId, effectiveUser?.branchName, userPermissions?.canViewAllBranches]);
 
-  // Group 1: Core Operational Modules
-  const operationalNavItems: { id: NavigationTab; label: string; icon: any; count?: number; onClick?: () => void }[] = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-    },
-    {
-      id: 'catalogue',
-      label: 'Cases',
-      icon: Briefcase,
-      count: branchScopedCases.length,
-    },
-    {
-      id: 'catalogue',
-      label: 'Clients',
-      icon: Users,
-      onClick: () => {
-        setSelectedBranchFilter(userPermissions?.canViewAllBranches ? 'all' : effectiveUser?.branchId || 'all');
-        setActiveTab('catalogue');
-      },
-    },
-    {
-      id: 'causelist',
-      label: 'Deadlines',
-      icon: CalendarDays,
-      count: activeHearingsCount > 0 ? activeHearingsCount : undefined,
-    },
-    {
-      id: 'debt_recovery',
-      label: 'Debt Recovery',
-      icon: Banknote,
-    },
-    {
-      id: 'mortgages',
-      label: 'Mortgages',
-      icon: Landmark,
-    },
-  ];
+  const legalTeamMembers = useMemo(
+    () =>
+      buildLegalTeamDirectory({
+        availableUsers,
+        cases,
+        hearings,
+        branches,
+        canViewAllBranches: Boolean(userPermissions?.canViewAllBranches),
+        userBranchId: effectiveUser?.branchId,
+        userBranchName: effectiveUser?.branchName,
+      }),
+    [
+      availableUsers,
+      cases,
+      hearings,
+      branches,
+      userPermissions?.canViewAllBranches,
+      effectiveUser?.branchId,
+      effectiveUser?.branchName,
+    ]
+  );
 
-  if (systemSettings.features.enableDocuments) {
-    operationalNavItems.push({
-      id: 'documents',
-      label: 'Pleading Documents',
-      icon: FolderOpen,
-      count: documents.length,
-    });
-  }
+  const filteredTeamMembers = useMemo(() => {
+    const q = teamSearch.trim().toLowerCase();
+    if (!q) return legalTeamMembers;
+    return legalTeamMembers.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.roleTitle.toLowerCase().includes(q) ||
+        m.branchName.toLowerCase().includes(q)
+    );
+  }, [legalTeamMembers, teamSearch]);
 
   const isPartnerOrSuperadmin = Boolean(
     effectiveUser?.isSuperAdmin ||
-    isAdmin ||
-    effectiveUser?.role === 'partner' ||
-    effectiveUser?.role === 'super_admin' ||
-    effectiveUser?.role === 'superadmin' ||
-    effectiveUser?.role === 'managing_partner' ||
-    effectiveUser?.role?.toLowerCase().includes('partner')
+      isAdmin ||
+      effectiveUser?.role === 'partner' ||
+      effectiveUser?.role === 'super_admin' ||
+      effectiveUser?.role === 'superadmin' ||
+      effectiveUser?.role === 'managing_partner' ||
+      effectiveUser?.role?.toLowerCase().includes('partner')
   );
 
-  // Group 2: Intelligence & Risk Management
-  const intelligenceNavItems: { id: NavigationTab; label: string; icon: any; count?: number; onClick?: () => void }[] = [];
+  // Secondary modules (Intelligence & Administration)
+  const intelligenceNavItems: { id: NavigationTab; label: string; icon: any }[] = [];
   if (isPartnerOrSuperadmin && systemSettings.features.enableConflicts) {
     intelligenceNavItems.push({
       id: 'conflicts',
@@ -144,7 +150,6 @@ export const Sidebar: React.FC = () => {
       icon: ShieldCheck,
     });
   }
-
   if (isPartnerOrSuperadmin && systemSettings.features.enableAnalytics) {
     intelligenceNavItems.push({
       id: 'analytics',
@@ -153,7 +158,6 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  // Group 3: Administrative & Multi-Circuit Control
   const administrativeNavItems: { id: NavigationTab; label: string; icon: any; count?: number; badge?: string }[] = [];
   if (isAdmin && systemSettings.features.enableBranchSync) {
     administrativeNavItems.push({
@@ -163,7 +167,6 @@ export const Sidebar: React.FC = () => {
       count: branches.length,
     });
   }
-
   if (userPermissions?.canManageRoles || effectiveUser?.isSuperAdmin) {
     administrativeNavItems.push({
       id: 'roles',
@@ -172,7 +175,6 @@ export const Sidebar: React.FC = () => {
       badge: 'ADMIN',
     });
   }
-
   if (userPermissions?.canManageSettings || effectiveUser?.isSuperAdmin) {
     administrativeNavItems.push({
       id: 'settings',
@@ -181,88 +183,34 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  const handleBranchClick = (branchId: string, isMobile = false) => {
-    setSelectedBranchFilter(branchId);
-    if (activeTab !== 'catalogue') {
-      setActiveTab('catalogue');
-    }
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
+  const closeMobileIfOpen = (isMobile: boolean) => {
+    if (isMobile) setIsMobileMenuOpen(false);
   };
 
-  const handleLawyerClick = (lawyerName: string, isMobile = false) => {
-    setSelectedLawyerFilter(lawyerName);
-    if (activeTab !== 'catalogue') {
-      setActiveTab('catalogue');
-    }
-    if (isMobile) {
-      setIsMobileMenuOpen(false);
-    }
-  };
-
-  const activeLawyers = React.useMemo(() => {
-    const map = new Map<string, number>();
-
-    branchScopedCases.forEach((c) => {
-      const counselSet = new Set<string>();
-
-      if (c.leadAdvocate) {
-        c.leadAdvocate.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean).forEach((l) => counselSet.add(l));
-      }
-      (c.assistingAdvocates || []).forEach((l) => {
-        if (l && l.trim()) counselSet.add(l.trim());
-      });
-      if (c.person_in_conduct) {
-        c.person_in_conduct.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean).forEach((l) => counselSet.add(l));
-      }
-      (c.persons_in_conduct || []).forEach((l) => {
-        if (l && l.trim()) counselSet.add(l.trim());
-      });
-
-      counselSet.forEach((lawyer) => {
-        map.set(lawyer, (map.get(lawyer) || 0) + 1);
-      });
-    });
-
-    return Array.from(map.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        return a.name.localeCompare(b.name);
-      });
-  }, [branchScopedCases]);
-
-  const renderNavButton = (
-    item: { id: NavigationTab; label: string; icon: any; count?: number; badge?: string; onClick?: () => void },
+  const renderSecondaryNavButton = (
+    item: { id: NavigationTab; label: string; icon: any; count?: number; badge?: string },
     isMobile = false
   ) => {
     const Icon = item.icon;
-    const isActive = activeTab === item.id && item.label !== 'Clients';
-
+    const isActive = activeTab === item.id;
     return (
       <button
-        key={item.label}
+        key={item.id}
+        type="button"
         onClick={() => {
-          if (item.onClick) {
-            item.onClick();
-          } else {
-            setActiveTab(item.id);
-          }
-          if (isMobile) setIsMobileMenuOpen(false);
+          setActiveTab(item.id);
+          closeMobileIfOpen(isMobile);
         }}
-        className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
+        className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[36px] group cursor-pointer ${
           isActive
-            ? 'bg-slate-900 text-white shadow-xs font-semibold'
+            ? 'bg-slate-900 text-white font-semibold'
             : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <Icon
-            className={`w-4 h-4 shrink-0 transition-colors ${
-              isActive
-                ? 'text-white'
-                : 'text-slate-400 group-hover:text-slate-700'
+            className={`w-4 h-4 shrink-0 ${
+              isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
             }`}
           />
           <span className="truncate">{item.label}</span>
@@ -270,10 +218,10 @@ export const Sidebar: React.FC = () => {
 
         {item.count !== undefined ? (
           <span
-            className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded transition-colors ${
+            className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
               isActive
                 ? 'bg-slate-800 text-slate-200'
-                : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200/80 group-hover:text-slate-700'
+                : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200/80'
             }`}
           >
             {item.count}
@@ -286,6 +234,9 @@ export const Sidebar: React.FC = () => {
       </button>
     );
   };
+
+  const isLitigationParentActive =
+    activeTab === 'catalogue' || activeTab === 'clients' || activeTab === 'causelist';
 
   const renderSidebarBody = (isMobile = false) => (
     <div className="flex flex-col flex-1 h-full select-none">
@@ -308,121 +259,374 @@ export const Sidebar: React.FC = () => {
               ERP
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 truncate mt-1">
-            Central Case Catalogue
-          </p>
+          <p className="text-[11px] text-slate-500 truncate mt-1">Central Case Catalogue</p>
         </div>
       </div>
 
       {/* Scrollable Navigation Body */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
-        {/* Group 1: Operations */}
-        <div className="space-y-1">
-          <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Operations
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
+        {/* =============================================================== */}
+        {/* 1. DASHBOARD (Top-Level Navigation Item)                        */}
+        {/* =============================================================== */}
+        <button
+          type="button"
+          onClick={() => {
+            navigateToRoute('dashboard');
+            closeMobileIfOpen(isMobile);
+          }}
+          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            activeTab === 'dashboard'
+              ? 'bg-slate-900 text-white font-semibold'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <LayoutDashboard
+              className={`w-4 h-4 shrink-0 ${
+                activeTab === 'dashboard' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+              }`}
+            />
+            <span className="truncate">Dashboard</span>
           </div>
-          {operationalNavItems.map((item) => renderNavButton(item, isMobile))}
-        </div>
+        </button>
 
-        {/* Group 2: Intelligence & Risk Management (If Allowed) */}
-        {intelligenceNavItems.length > 0 && (
-          <div className="space-y-1 pt-1 border-t border-slate-100">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Intelligence &amp; Risk
-            </div>
-            {intelligenceNavItems.map((item) => renderNavButton(item, isMobile))}
-          </div>
-        )}
-
-        {/* Regional Branches Section (Collapsible) */}
-        <div className="pt-1 border-t border-slate-100 space-y-1">
+        {/* =============================================================== */}
+        {/* 2. LITIGATION (Collapsible Dropdown: Cases, Clients, Deadlines) */}
+        {/* =============================================================== */}
+        <div className="space-y-0.5">
           <button
             type="button"
-            onClick={() => setIsBranchesOpen((prev) => !prev)}
-            className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase hover:text-slate-900 hover:bg-slate-100/70 rounded-lg transition-colors group cursor-pointer"
+            onClick={() => setIsLitigationOpen((prev) => !prev)}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+              isLitigationParentActive
+                ? 'bg-slate-100 text-slate-900 font-semibold'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+            }`}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <Building2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
-              <span className="truncate">Branches ({userPermissions.canViewAllBranches ? branches.length : 1})</span>
-              {selectedBranchFilter !== 'all' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" title="Filtered by branch" />
-              )}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Scale
+                className={`w-4 h-4 shrink-0 ${
+                  isLitigationParentActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'
+                }`}
+              />
+              <span className="truncate">Litigation</span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {userPermissions.canManageBranches && (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTab('roles');
-                    if (isMobile) setIsMobileMenuOpen(false);
-                  }}
-                  title="Add or manage branches in Super Admin Center"
-                  className="text-[10px] text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-1 py-0.5 rounded flex items-center gap-0.5 font-sans lowercase mr-0.5 font-semibold"
-                >
-                  <Plus className="w-2.5 h-2.5" /> add
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-mono tabular-nums text-slate-400">
+                {branchScopedCases.length}
+              </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
-                  isBranchesOpen ? 'rotate-180' : ''
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                  isLitigationOpen ? 'rotate-180' : ''
                 }`}
               />
             </div>
           </button>
 
-          {/* Expanded Branches List */}
+          {isLitigationOpen && (
+            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+              {/* Cases (/litigation/cases) */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToRoute('catalogue');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  activeTab === 'catalogue'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Briefcase className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                  <span className="truncate">Cases</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                    activeTab === 'catalogue'
+                      ? 'bg-slate-800 text-slate-200'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {branchScopedCases.length}
+                </span>
+              </button>
+
+              {/* Clients (/litigation/clients) */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToRoute('clients');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  activeTab === 'clients'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Users className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                  <span className="truncate">Clients</span>
+                </div>
+              </button>
+
+              {/* Deadlines (/litigation/deadlines) */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToRoute('causelist');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  activeTab === 'causelist'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <CalendarDays className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                  <span className="truncate">Deadlines</span>
+                </div>
+                {activeHearingsCount > 0 && (
+                  <span
+                    className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                      activeTab === 'causelist'
+                        ? 'bg-slate-800 text-slate-200'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {activeHearingsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* =============================================================== */}
+        {/* 3. MORTGAGES (Collapsible Dropdown: Workspace, Add, Import)     */}
+        {/* =============================================================== */}
+        <div className="space-y-0.5">
+          <button
+            type="button"
+            onClick={() => setIsMortgagesOpen((prev) => !prev)}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+              activeTab === 'mortgages'
+                ? 'bg-slate-100 text-slate-900 font-semibold'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Landmark
+                className={`w-4 h-4 shrink-0 ${
+                  activeTab === 'mortgages' ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'
+                }`}
+              />
+              <span className="truncate">Mortgages</span>
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                isMortgagesOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
+          {isMortgagesOpen && (
+            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+              {/* Bank Workspace (/mortgages/bank-workspace) */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerMortgageAction('workspace');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  activeTab === 'mortgages' && mortgageAction === 'workspace'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                <span className="truncate">Bank Workspace</span>
+              </button>
+
+              {/* Add New Mortgage (/mortgages/add) */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerMortgageAction('add');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  activeTab === 'mortgages' && mortgageAction === 'add'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                <span className="truncate">Add New Mortgage</span>
+              </button>
+
+              {/* Import Mortgages (/mortgages/import) */}
+              {canBulkImportMortgages && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerMortgageAction('import');
+                    closeMobileIfOpen(isMobile);
+                  }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                    activeTab === 'mortgages' && mortgageAction === 'import'
+                      ? 'bg-slate-900 text-white font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                  <span className="truncate">Import Mortgages</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* =============================================================== */}
+        {/* 4. DEBT RECOVERY (Top-Level Navigation Item)                    */}
+        {/* =============================================================== */}
+        <button
+          type="button"
+          onClick={() => {
+            navigateToRoute('debt_recovery');
+            closeMobileIfOpen(isMobile);
+          }}
+          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            activeTab === 'debt_recovery'
+              ? 'bg-slate-900 text-white font-semibold'
+              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Banknote
+              className={`w-4 h-4 shrink-0 ${
+                activeTab === 'debt_recovery' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+              }`}
+            />
+            <span className="truncate">Debt Recovery</span>
+          </div>
+        </button>
+
+        {/* =============================================================== */}
+        {/* 5. BRANCHES (Collapsible Dropdown: /branches & Stations)        */}
+        {/* =============================================================== */}
+        <div className="space-y-0.5">
+          <button
+            type="button"
+            onClick={() => setIsBranchesOpen((prev) => !prev)}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+              activeTab === 'branches'
+                ? 'bg-slate-100 text-slate-900 font-semibold'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Building2
+                className={`w-4 h-4 shrink-0 ${
+                  activeTab === 'branches' ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'
+                }`}
+              />
+              <span className="truncate">
+                Branches ({userPermissions.canViewAllBranches ? branches.length : 1})
+              </span>
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
+                isBranchesOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+
           {isBranchesOpen && (
-            <div className="space-y-0.5 pt-1 pl-1">
+            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+              {/* Branch Locations / Management Overview (/branches) */}
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToRoute('branches');
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                  activeTab === 'branches'
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <span className="truncate">Branch Management</span>
+                <span
+                  className={`text-[10px] font-mono tabular-nums ${
+                    activeTab === 'branches' ? 'text-slate-300' : 'text-slate-400'
+                  }`}
+                >
+                  {userPermissions.canViewAllBranches ? branches.length : 1}
+                </span>
+              </button>
+
               {userPermissions.canViewAllBranches && (
                 <button
-                  onClick={() => handleBranchClick('all', isMobile)}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[32px] cursor-pointer ${
-                    selectedBranchFilter === 'all'
-                      ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
+                  type="button"
+                  onClick={() => {
+                    setSelectedBranchFilter('all');
+                    navigateToRoute('catalogue', { branchId: 'all' });
+                    closeMobileIfOpen(isMobile);
+                  }}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[30px] cursor-pointer ${
+                    activeTab === 'catalogue' && selectedBranchFilter === 'all'
+                      ? 'bg-blue-50 text-blue-900 font-semibold'
                       : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                   }`}
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        selectedBranchFilter === 'all' ? 'bg-blue-600' : 'bg-slate-300'
-                      }`}
-                    />
-                    <span className="truncate">All Branches</span>
-                  </div>
+                  <span className="truncate">All Stations</span>
                   <span className="text-[10px] font-mono tabular-nums text-slate-400">{cases.length}</span>
                 </button>
               )}
 
-              <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-0.5 max-h-44 overflow-y-auto pr-0.5">
                 {branches
-                  .filter((branch) => userPermissions?.canViewAllBranches || branch.id === effectiveUser?.branchId)
+                  .filter(
+                    (branch) =>
+                      userPermissions?.canViewAllBranches || branch.id === effectiveUser?.branchId
+                  )
                   .map((branch) => {
-                    const isSelected = selectedBranchFilter === branch.id || (!userPermissions?.canViewAllBranches && branch.id === effectiveUser?.branchId);
+                    const isSelected =
+                      activeTab === 'catalogue' && selectedBranchFilter === branch.id;
                     return (
                       <button
                         key={branch.id}
-                        onClick={() => handleBranchClick(branch.id, isMobile)}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[32px] cursor-pointer ${
+                        type="button"
+                        onClick={() => {
+                          setSelectedBranchFilter(branch.id);
+                          navigateToRoute('catalogue', { branchId: branch.id });
+                          closeMobileIfOpen(isMobile);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[30px] cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200/80 shadow-2xs'
+                            ? 'bg-blue-50 text-blue-900 font-semibold'
                             : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                         }`}
                       >
-                        <div className="flex items-center gap-2 truncate min-w-0">
+                        <div className="flex items-center gap-1.5 truncate min-w-0">
                           <MapPin
                             className={`w-3 h-3 shrink-0 ${
                               isSelected ? 'text-blue-600' : 'text-slate-400'
                             }`}
                           />
-                          <div className="truncate">
-                            <span className="truncate">{branch.city}</span>
-                            {branch.isHeadquarters && (
-                              <span className="ml-1 text-[9px] font-mono font-bold text-blue-700 bg-blue-100/80 px-1 py-0.2 rounded">HQ</span>
-                            )}
-                          </div>
+                          <span className="truncate">{branch.city}</span>
+                          {branch.isHeadquarters && (
+                            <span className="text-[9px] font-mono font-bold text-slate-600 bg-slate-100 px-1 rounded">
+                              HQ
+                            </span>
+                          )}
                         </div>
-
                         <span className="text-[10px] font-mono tabular-nums text-slate-400 shrink-0">
                           {branch.caseCount ?? 0}
                         </span>
@@ -434,106 +638,122 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Filter by Counsel Section (Hover / Click Expandable) */}
-        <div
-          className="pt-1 border-t border-slate-100 space-y-1 transition-all"
-          onMouseEnter={() => setIsCounselHovered(true)}
-          onMouseLeave={() => {
-            setIsCounselHovered(false);
-            setIsCounselClicked(false);
-          }}
-        >
+        {/* =============================================================== */}
+        {/* 6. LEGAL TEAM (Renamed from Litigation Counsel; Staff Dropdown) */}
+        {/* =============================================================== */}
+        <div className="space-y-0.5">
           <button
             type="button"
-            onClick={() => setIsCounselClicked((prev) => !prev)}
-            className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold tracking-wider text-slate-500 uppercase hover:text-slate-900 hover:bg-slate-100/70 rounded-lg transition-colors group cursor-pointer"
+            onClick={() => setIsLegalTeamOpen((prev) => !prev)}
+            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+              activeTab === 'legal_team'
+                ? 'bg-slate-100 text-slate-900 font-semibold'
+                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+            }`}
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <UserCheck className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors shrink-0" />
-              <span className="truncate">Litigation Counsel ({activeLawyers.length})</span>
-              {selectedLawyerFilter !== 'all' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" title="Counsel filter active" />
-              )}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Users
+                className={`w-4 h-4 shrink-0 ${
+                  activeTab === 'legal_team' ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'
+                }`}
+              />
+              <span className="truncate">Legal Team</span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {selectedLawyerFilter !== 'all' && (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleLawyerClick('all', isMobile);
-                  }}
-                  className="text-[10px] text-indigo-600 hover:text-indigo-800 lowercase font-sans font-semibold px-1 hover:bg-indigo-50 rounded mr-0.5"
-                  title="Clear counsel filter"
-                >
-                  clear
-                </span>
-              )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-[10px] font-mono tabular-nums text-slate-400">
+                {legalTeamMembers.length}
+              </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 ${
-                  isCounselExpanded ? 'rotate-180' : ''
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                  isLegalTeamOpen ? 'rotate-180' : ''
                 }`}
               />
             </div>
           </button>
 
-          {isCounselExpanded && (
-            <div className="space-y-0.5 pt-1 pl-1">
+          {isLegalTeamOpen && (
+            <div className="pl-4 ml-3 border-l border-slate-200 space-y-1.5 py-1">
+              {/* Directory Link */}
               <button
-                onClick={() => handleLawyerClick('all', isMobile)}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[32px] cursor-pointer ${
-                  selectedLawyerFilter === 'all'
-                    ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                type="button"
+                onClick={() => {
+                  setSelectedStaffKey(null);
+                  closeMobileIfOpen(isMobile);
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                  activeTab === 'legal_team' && !selectedStaffKey
+                    ? 'bg-slate-900 text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
-                <div className="flex items-center gap-2 truncate">
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      selectedLawyerFilter === 'all' ? 'bg-indigo-600' : 'bg-slate-300'
-                    }`}
-                  />
-                  <span className="truncate">All Counsel</span>
-                </div>
-                <span className="text-[10px] font-mono tabular-nums text-slate-400">{branchScopedCases.length}</span>
+                <span className="truncate">Team Directory</span>
+                <span
+                  className={`text-[10px] font-mono tabular-nums ${
+                    activeTab === 'legal_team' && !selectedStaffKey ? 'text-slate-300' : 'text-slate-400'
+                  }`}
+                >
+                  {legalTeamMembers.length}
+                </span>
               </button>
 
-              <div className="space-y-0.5 max-h-44 overflow-y-auto pr-1">
-                {activeLawyers.length === 0 ? (
-                  <div className="px-3 py-2 text-[11px] text-slate-400 italic">
-                    No counsel assigned yet
+              {/* Inline Search inside Legal Team Dropdown */}
+              <div className="relative pr-0.5">
+                <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  placeholder="Find staff member..."
+                  className="w-full pl-7 pr-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:outline-none focus:border-slate-400"
+                />
+              </div>
+
+              {/* Staff Member List -> Opens Individual Staff Dashboard */}
+              <div className="space-y-0.5 max-h-52 overflow-y-auto pr-0.5">
+                {filteredTeamMembers.length === 0 ? (
+                  <div className="px-2.5 py-2 text-[11px] text-slate-400 italic">
+                    No matching staff
                   </div>
                 ) : (
-                  activeLawyers.map((lawyer) => {
-                    const isSelected =
-                      selectedLawyerFilter.toLowerCase() === lawyer.name.toLowerCase();
+                  filteredTeamMembers.map((member) => {
+                    const isMemberSelected =
+                      activeTab === 'legal_team' &&
+                      selectedStaffKey?.toLowerCase() === member.key.toLowerCase();
                     return (
                       <button
-                        key={lawyer.name}
-                        onClick={() => handleLawyerClick(lawyer.name, isMobile)}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-all min-h-[32px] cursor-pointer ${
-                          isSelected
-                            ? 'bg-indigo-50 text-indigo-900 font-semibold border border-indigo-200/80 shadow-2xs'
-                            : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                        key={member.key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStaffKey(member.key);
+                          closeMobileIfOpen(isMobile);
+                        }}
+                        title={`${member.name} — ${member.roleTitle}`}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                          isMemberSelected
+                            ? 'bg-slate-900 text-white font-semibold'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                         }`}
-                        title={lawyer.name}
                       >
-                        <div className="flex items-center gap-2 truncate min-w-0">
-                          <UserCheck
-                            className={`w-3 h-3 shrink-0 ${
-                              isSelected ? 'text-indigo-600' : 'text-slate-400'
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserCircle2
+                            className={`w-3.5 h-3.5 shrink-0 ${
+                              isMemberSelected ? 'text-white' : 'text-slate-400'
                             }`}
                           />
-                          <span className="truncate font-medium">{lawyer.name}</span>
+                          <div className="min-w-0">
+                            <div className="truncate text-[11.5px] leading-tight">
+                              {member.name}
+                            </div>
+                          </div>
                         </div>
-
                         <span
-                          className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded ${
-                            isSelected
-                              ? 'bg-indigo-200 text-indigo-900 font-bold'
+                          className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded shrink-0 ${
+                            isMemberSelected
+                              ? 'bg-slate-800 text-slate-200'
                               : 'bg-slate-100 text-slate-500'
                           }`}
                         >
-                          {lawyer.count}
+                          {member.activeCasesCount}
                         </span>
                       </button>
                     );
@@ -544,28 +764,75 @@ export const Sidebar: React.FC = () => {
           )}
         </div>
 
-        {/* Group 4: Administrative Section (Separated cleanly) */}
-        {administrativeNavItems.length > 0 && (
-          <div className="space-y-1 pt-1 border-t border-slate-100">
-            <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Administration &amp; Registry
+        {/* =============================================================== */}
+        {/* SECONDARY SECTIONS (Documents, Intelligence, Administration)    */}
+        {/* =============================================================== */}
+        {systemSettings.features.enableDocuments && (
+          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Registry Files
             </div>
-            {administrativeNavItems.map((item) => renderNavButton(item, isMobile))}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('documents');
+                closeMobileIfOpen(isMobile);
+              }}
+              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[36px] group cursor-pointer ${
+                activeTab === 'documents'
+                  ? 'bg-slate-900 text-white font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FolderOpen
+                  className={`w-4 h-4 shrink-0 ${
+                    activeTab === 'documents' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                  }`}
+                />
+                <span className="truncate">Pleading Documents</span>
+              </div>
+              <span
+                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                  activeTab === 'documents' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {documents.length}
+              </span>
+            </button>
           </div>
         )}
 
-        {/* Cloud Deploy (Supabase & Vercel) Shortcut */}
+        {intelligenceNavItems.length > 0 && (
+          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Intelligence &amp; Risk
+            </div>
+            {intelligenceNavItems.map((item) => renderSecondaryNavButton(item, isMobile))}
+          </div>
+        )}
+
+        {administrativeNavItems.length > 0 && (
+          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Administration &amp; Registry
+            </div>
+            {administrativeNavItems.map((item) => renderSecondaryNavButton(item, isMobile))}
+          </div>
+        )}
+
         {isAdmin && (
-          <div className="pt-1">
+          <div className="pt-2">
             <button
+              type="button"
               onClick={() => {
-                if (isMobile) setIsMobileMenuOpen(false);
+                closeMobileIfOpen(isMobile);
                 setIsCpanelMigrationModalOpen(true);
               }}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/80 text-emerald-950 hover:from-emerald-100 hover:to-teal-100 transition-all shadow-xs group cursor-pointer"
+              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 hover:bg-emerald-100/80 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
+                <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center">
                   <Cloud className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-left">
@@ -573,7 +840,7 @@ export const Sidebar: React.FC = () => {
                   <div className="text-[10px] text-emerald-700">Deploy &amp; Sync Hub</div>
                 </div>
               </div>
-              <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
+              <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
                 Live
               </span>
             </button>
@@ -582,7 +849,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* User Session & Security Lockout Card */}
-      <div className="p-3 m-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs shadow-2xs">
+      <div className="p-3 m-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
             Active Session
@@ -592,7 +859,11 @@ export const Sidebar: React.FC = () => {
               {effectiveUser?.isSuperAdmin ? 'Super Admin' : 'Admin'}
             </span>
           ) : isAdminFinanceAssistant(effectiveUser) ? (
-            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getUserRoleBadge('admin_finance_assistant')}`}>
+            <span
+              className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getUserRoleBadge(
+                'admin_finance_assistant'
+              )}`}
+            >
               Finance Asst
             </span>
           ) : (
@@ -606,15 +877,18 @@ export const Sidebar: React.FC = () => {
           {effectiveUser?.name || currentUser?.name || 'Legal Counsel'}
         </div>
         <p className="text-[11px] text-slate-500 truncate mt-0.5">
-          {effectiveUser?.roleTitle || getUserRoleLabel(effectiveUser?.roleId || effectiveUser?.role) || effectiveUser?.email}
+          {effectiveUser?.roleTitle ||
+            getUserRoleLabel(effectiveUser?.roleId || effectiveUser?.role) ||
+            effectiveUser?.email}
         </p>
 
         <div className="mt-2.5 space-y-1.5 pt-2 border-t border-slate-200/80">
           <RefreshSessionButton compact />
 
           <button
+            type="button"
             onClick={() => {
-              if (isMobile) setIsMobileMenuOpen(false);
+              closeMobileIfOpen(isMobile);
               logout();
             }}
             className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-600 hover:text-red-700 hover:bg-red-50 py-1.5 rounded-lg transition-colors cursor-pointer"
@@ -630,22 +904,19 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       {/* Desktop Persistent Sidebar */}
-      <aside className="no-print hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 min-h-screen sticky top-0 h-screen overflow-hidden shadow-2xs z-30">
+      <aside className="no-print hidden lg:flex w-64 bg-white border-r border-slate-200/80 flex-col shrink-0 min-h-screen sticky top-0 h-screen overflow-hidden z-30">
         {renderSidebarBody(false)}
       </aside>
 
       {/* Mobile Slide-Over Drawer */}
       {isMobileMenuOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden flex">
-          {/* Backdrop overlay */}
           <div
             className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMobileMenuOpen(false)}
           />
 
-          {/* Slide-in drawer container */}
           <div className="relative w-72 max-w-[85vw] bg-white h-full shadow-2xl flex flex-col z-10 overflow-hidden">
-            {/* Drawer Header */}
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/90">
               <div className="flex items-center gap-2.5">
                 <img
@@ -665,6 +936,7 @@ export const Sidebar: React.FC = () => {
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center cursor-pointer"
                 aria-label="Close navigation drawer"
@@ -673,7 +945,6 @@ export const Sidebar: React.FC = () => {
               </button>
             </div>
 
-            {/* Drawer Body */}
             {renderSidebarBody(true)}
           </div>
         </div>

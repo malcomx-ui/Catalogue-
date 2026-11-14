@@ -4,15 +4,16 @@ import { BankWorkspace } from '../BankWorkspace';
 import { useApp } from '../../context/AppContext';
 
 export const MortgagesModule: React.FC = () => {
-  const { currentUser } = useApp();
+  const { currentUser, mortgageAction, mortgageActionNonce } = useApp();
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
   return (
     <div className="w-full min-w-0 h-full min-h-[500px] flex flex-col">
       {!selectedBank ? (
         <BankHubPage
+          externalAction={mortgageAction}
+          externalActionNonce={mortgageActionNonce}
           onSelectBank={(bankName) => {
-            console.log('[MortgagesModule] Bank selected:', bankName);
             setSelectedBank(bankName);
           }}
         />
@@ -20,8 +21,9 @@ export const MortgagesModule: React.FC = () => {
         <BankWorkspace
           bankName={selectedBank}
           currentUser={currentUser}
+          externalAction={mortgageAction}
+          externalActionNonce={mortgageActionNonce}
           onBack={() => {
-            console.log('[MortgagesModule] Returned back to portfolio list');
             setSelectedBank(null);
           }}
         />
@@ -31,3 +33,4 @@ export const MortgagesModule: React.FC = () => {
 };
 
 export default MortgagesModule;
+

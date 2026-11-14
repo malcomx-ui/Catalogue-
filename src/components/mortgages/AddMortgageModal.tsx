@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { MortgageService } from '../../services/mortgageService';
+import { MortgageService, DEFAULT_BANKS } from '../../services/mortgageService';
 import {
   getEffectiveUser,
   isUserAdmin,
@@ -22,6 +22,7 @@ import {
 
 export interface AddMortgageModalProps {
   bankName?: string;
+  allowBankSelection?: boolean;
   defaultMonth?: string;
   currentUser?: any;
   onClose: () => void;
@@ -38,6 +39,7 @@ const MONTHS = [
 
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   bankName = 'Centenary Bank',
+  allowBankSelection = false,
   defaultMonth,
   currentUser,
   onClose,
@@ -46,6 +48,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
   const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || 'Kampala Central (Head Office)';
+  const [selectedBank, setSelectedBank] = useState<string>(bankName);
 
   // Reporting Period (defaults to selected month if provided, else current year and current month)
   const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
@@ -177,8 +180,8 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
     // Exact live database column mapping (without non-existent PGRST204 columns):
     const payload = {
-      bank_name: bankName,
-      client_bank_name: bankName,
+      bank_name: selectedBank,
+      client_bank_name: selectedBank,
       date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10),
       branch: resolvedBranch,
       client_name: clientName.trim(),
@@ -251,7 +254,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  {bankName}
+                  {selectedBank}
                 </span>
                 <span className="text-[11px] text-slate-300">19-Column Tracker Register</span>
               </div>
@@ -286,8 +289,28 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         {/* Form Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
-          {/* Reporting Period: Record Year & Month Sheet */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/60 p-4 rounded-xl border border-blue-100">
+          {/* Reporting Period: Lending Partner, Record Year & Month Sheet */}
+          <div className={`grid grid-cols-1 ${allowBankSelection ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 bg-blue-50/60 p-4 rounded-xl border border-blue-100`}>
+            {allowBankSelection && (
+              <div>
+                <label className="block font-bold text-blue-900 mb-1">
+                  Lending Bank / SACCO <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  name="bank_name"
+                  required
+                  value={selectedBank}
+                  onChange={(e) => setSelectedBank(e.target.value)}
+                  className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  {DEFAULT_BANKS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block font-bold text-blue-900 mb-1">
                 Record Year <span className="text-rose-500">*</span>

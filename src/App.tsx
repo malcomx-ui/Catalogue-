@@ -25,6 +25,9 @@ import { MobileBottomNav } from './components/common/MobileBottomNav';
 import { CpanelMigrationModal } from './components/common/CpanelMigrationModal';
 import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceholder';
 import { MortgagesModule } from './components/modules/MortgagesModule';
+import { ClientsDirectory } from './components/litigation/ClientsDirectory';
+import { BranchesDirectory } from './components/branches/BranchesDirectory';
+import { LegalTeamDashboard } from './components/legal-team/LegalTeamDashboard';
 import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
 import { NotificationToast } from './components/common/NotificationToast';
 import { isUserAdmin, getEffectiveUser, supabase } from './lib/supabase';
@@ -131,6 +134,7 @@ const MainLayout: React.FC = () => {
         <main className="flex-1 p-3 sm:p-6 lg:p-8 min-w-0 pb-24 lg:pb-8 print:p-0">
           {activeTab === 'dashboard' && <FirmDashboard />}
           {activeTab === 'catalogue' && <CaseList />}
+          {activeTab === 'clients' && <ClientsDirectory />}
           {activeTab === 'causelist' && <CauseListDiary />}
           {activeTab === 'debt_recovery' && <DebtRecoveryPlaceholder />}
           {activeTab === 'mortgages' && (
@@ -138,6 +142,8 @@ const MainLayout: React.FC = () => {
               <MortgagesModule />
             </div>
           )}
+          {activeTab === 'branches' && <BranchesDirectory />}
+          {activeTab === 'legal_team' && <LegalTeamDashboard />}
           {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : <FirmDashboard />)}
           {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : <FirmDashboard />)}
           {activeTab === 'documents' && <DocumentRepository />}

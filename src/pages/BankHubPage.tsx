@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { FileSpreadsheet, AlertTriangle, Copy, Check, X } from 'lucide-react';
+import { FileSpreadsheet, AlertTriangle, Copy, Check, X, Plus } from 'lucide-react';
 import { MortgageService, BankSummary, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
-import { useApp } from '../context/AppContext';
+import { AddMortgageModal } from '../components/AddMortgageModal';
+import { useApp, MortgageViewAction } from '../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
+import { showCleanMessage } from '../utils/notification';
 
-export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }> = ({ onSelectBank }) => {
+export const BankHubPage: React.FC<{
+  onSelectBank: (bankName: string) => void;
+  externalAction?: MortgageViewAction;
+  externalActionNonce?: number;
+}> = ({ onSelectBank, externalAction, externalActionNonce }) => {
   const { currentUser, userPermissions } = useApp();
   const canBulkImportMortgages = isUserAdmin(getEffectiveUser(currentUser)) || Boolean(userPermissions.canBulkImport);
   const [banksSummary, setBanksSummary] = useState<BankSummary[]>([
@@ -18,12 +24,31 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => MONTHS[new Date().getMonth()]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
 
   useEffect(() => {
     fetchPortfolios();
   }, [selectedYear]);
+
+  useEffect(() => {
+    if (!externalActionNonce) return;
+    if (externalAction === 'add') {
+      setIsImportModalOpen(false);
+      setIsAddModalOpen(true);
+    } else if (externalAction === 'import') {
+      if (canBulkImportMortgages) {
+        setIsAddModalOpen(false);
+        setIsImportModalOpen(true);
+      } else {
+        showCleanMessage('Bulk mortgage import is restricted to Firm Administrators and Super Admins.', 'warning');
+      }
+    } else if (externalAction === 'workspace') {
+      setIsAddModalOpen(false);
+      setIsImportModalOpen(false);
+    }
+  }, [externalAction, externalActionNonce, canBulkImportMortgages]);
 
   const fetchPortfolios = async () => {
     setLoading(true);
@@ -50,11 +75,20 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add New Mortgage</span>
+          </button>
+
           {canBulkImportMortgages && (
             <button
               type="button"
               onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Import Excel</span>
@@ -169,6 +203,24 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
             </div>
           ))}
         </div>
+      )}
+
+      {isAddModalOpen && (
+        <AddMortgageModal
+          bankName="Centenary Bank"
+          allowBankSelection
+          defaultMonth={selectedMonth}
+          currentUser={currentUser}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={(_, meta) => {
+            if (meta && meta.cloudSaved === false && meta.cloudError) {
+              setCloudRlsNotice(meta.cloudError);
+            } else if (meta?.cloudSaved) {
+              setCloudRlsNotice(null);
+            }
+            fetchPortfolios();
+          }}
+        />
       )}
 
       {canBulkImportMortgages && isImportModalOpen && (

@@ -35,6 +35,8 @@ export interface BankWorkspaceProps {
   bankName: string;
   currentUser?: any;
   onBack: () => void;
+  externalAction?: 'workspace' | 'add' | 'import';
+  externalActionNonce?: number;
 }
 
 const formatUGX = (val: any, dashIfZero = true): string => {
@@ -83,7 +85,13 @@ const formatPrintTimestamp = (date: Date = new Date()): string => {
   }
 };
 
-export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentUser, onBack }) => {
+export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
+  bankName,
+  currentUser,
+  onBack,
+  externalAction,
+  externalActionNonce,
+}) => {
   const [mortgages, setMortgages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -156,6 +164,28 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   useEffect(() => {
     loadBankData();
   }, [bankName]);
+
+  useEffect(() => {
+    if (!externalActionNonce) return;
+    if (externalAction === 'add') {
+      if (canAddInActiveBranchView) {
+        setIsImportModalOpen(false);
+        setIsModalOpen(true);
+      } else {
+        showCleanMessage(addDisabledTooltip, 'warning');
+      }
+    } else if (externalAction === 'import') {
+      if (isGlobalAdmin) {
+        setIsModalOpen(false);
+        setIsImportModalOpen(true);
+      } else {
+        showCleanMessage('Bulk mortgage import is restricted to Firm Administrators and Super Admins.', 'warning');
+      }
+    } else if (externalAction === 'workspace') {
+      setIsModalOpen(false);
+      setIsImportModalOpen(false);
+    }
+  }, [externalAction, externalActionNonce]);
 
   useEffect(() => {
     async function loadLawyers() {

@@ -13,6 +13,8 @@ import {
   RolePermissions,
   SystemSettings,
   AuditLog,
+  StaffDiaryEntry,
+  StaffDiaryEntryType,
 } from '../types';
 import {
   INITIAL_BRANCHES,
@@ -50,9 +52,12 @@ import {
 import { showCleanMessage } from '../utils/notification';
 
 
+export type MortgageViewAction = 'workspace' | 'add' | 'import';
+
 export type NavigationTab = 
   | 'dashboard'
   | 'catalogue' 
+  | 'clients'
   | 'causelist' 
   | 'synchub' 
   | 'conflicts' 
@@ -61,7 +66,96 @@ export type NavigationTab =
   | 'roles'
   | 'settings'
   | 'debt_recovery'
-  | 'mortgages';
+  | 'mortgages'
+  | 'branches'
+  | 'legal_team';
+
+const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageAction?: MortgageViewAction }> = [
+  { prefix: '/litigation/cases', tab: 'catalogue' },
+  { prefix: '/litigation/clients', tab: 'clients' },
+  { prefix: '/litigation/deadlines', tab: 'causelist' },
+  { prefix: '/mortgages/bank-workspace', tab: 'mortgages', mortgageAction: 'workspace' },
+  { prefix: '/mortgages/add', tab: 'mortgages', mortgageAction: 'add' },
+  { prefix: '/mortgages/import', tab: 'mortgages', mortgageAction: 'import' },
+  { prefix: '/mortgages', tab: 'mortgages', mortgageAction: 'workspace' },
+  { prefix: '/debt-recovery', tab: 'debt_recovery' },
+  { prefix: '/branches', tab: 'branches' },
+  { prefix: '/legal-team', tab: 'legal_team' },
+  { prefix: '/documents', tab: 'documents' },
+  { prefix: '/conflicts', tab: 'conflicts' },
+  { prefix: '/analytics', tab: 'analytics' },
+  { prefix: '/sync-hub', tab: 'synchub' },
+  { prefix: '/roles', tab: 'roles' },
+  { prefix: '/settings', tab: 'settings' },
+  { prefix: '/dashboard', tab: 'dashboard' },
+];
+
+export const getRoutePathForTab = (
+  tab: NavigationTab,
+  options?: { staffKey?: string | null; mortgageAction?: MortgageViewAction }
+): string => {
+  switch (tab) {
+    case 'dashboard':
+      return '/dashboard';
+    case 'catalogue':
+      return '/litigation/cases';
+    case 'clients':
+      return '/litigation/clients';
+    case 'causelist':
+      return '/litigation/deadlines';
+    case 'mortgages':
+      if (options?.mortgageAction === 'add') return '/mortgages/add';
+      if (options?.mortgageAction === 'import') return '/mortgages/import';
+      return '/mortgages/bank-workspace';
+    case 'debt_recovery':
+      return '/debt-recovery';
+    case 'branches':
+      return '/branches';
+    case 'legal_team':
+      return options?.staffKey ? `/legal-team/${encodeURIComponent(options.staffKey)}` : '/legal-team';
+    case 'documents':
+      return '/documents';
+    case 'conflicts':
+      return '/conflicts';
+    case 'analytics':
+      return '/analytics';
+    case 'synchub':
+      return '/sync-hub';
+    case 'roles':
+      return '/roles';
+    case 'settings':
+      return '/settings';
+    default:
+      return '/dashboard';
+  }
+};
+
+const parsePathnameRoute = (pathname: string): {
+  tab: NavigationTab;
+  staffKey: string | null;
+  mortgageAction: MortgageViewAction;
+} => {
+  const clean = (pathname || '/').replace(/\/+$/, '') || '/';
+  if (clean.startsWith('/legal-team/')) {
+    const rawKey = clean.slice('/legal-team/'.length);
+    let decoded = rawKey;
+    try {
+      decoded = decodeURIComponent(rawKey);
+    } catch {
+      decoded = rawKey;
+    }
+    return { tab: 'legal_team', staffKey: decoded || null, mortgageAction: 'workspace' };
+  }
+  const match = ROUTE_TO_TAB_MAP.find((r) => clean === r.prefix || clean.startsWith(`${r.prefix}/`));
+  if (match) {
+    return {
+      tab: match.tab,
+      staffKey: null,
+      mortgageAction: match.mortgageAction || 'workspace',
+    };
+  }
+  return { tab: 'dashboard', staffKey: null, mortgageAction: 'workspace' };
+};
 
 interface AppContextType {
   currentUser: User;
@@ -115,6 +209,20 @@ interface AppContextType {
   
   activeTab: NavigationTab;
   setActiveTab: (tab: NavigationTab) => void;
+  navigateToRoute: (
+    tab: NavigationTab,
+    options?: { staffKey?: string | null; mortgageAction?: MortgageViewAction; branchId?: string; pushUrl?: boolean }
+  ) => void;
+  mortgageAction: MortgageViewAction;
+  mortgageActionNonce: number;
+  triggerMortgageAction: (action: MortgageViewAction) => void;
+  selectedStaffKey: string | null;
+  setSelectedStaffKey: (staffKey: string | null, pushUrl?: boolean) => void;
+  staffDiaryEntries: StaffDiaryEntry[];
+  addStaffDiaryEntry: (entry: Omit<StaffDiaryEntry, 'id' | 'createdAt'>) => StaffDiaryEntry;
+  updateStaffDiaryEntry: (id: string, updates: Partial<StaffDiaryEntry>) => void;
+  deleteStaffDiaryEntry: (id: string) => void;
+  toggleStaffDiaryComplete: (id: string) => void;
   
   searchQuery: string;
   setSearchQuery: (q: string) => void;
@@ -181,6 +289,7 @@ const LOCAL_STORAGE_KEY_AUTH = 'mk_case_catalogue_auth_v4';
 const LOCAL_STORAGE_KEY_ROLES = 'mk_case_catalogue_roles_v3';
 const LOCAL_STORAGE_KEY_USERS = 'mk_case_catalogue_users_v3';
 const LOCAL_STORAGE_KEY_BRANCHES = 'mk_case_catalogue_branches_v3';
+const LOCAL_STORAGE_KEY_STAFF_DIARY = 'mk_staff_diary_entries_v1';
 
 const EMPTY_USER: User = {
   id: '',
@@ -336,8 +445,155 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
   const [selectedLawyerFilter, setSelectedLawyerFilter] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
+  const initialRoute = React.useMemo(() => {
+    if (typeof window === 'undefined') {
+      return { tab: 'dashboard' as NavigationTab, staffKey: null as string | null, mortgageAction: 'workspace' as MortgageViewAction };
+    }
+    const p = window.location.pathname || '/';
+    if (p.includes('update-password') || p.includes('reset-password')) {
+      return { tab: 'dashboard' as NavigationTab, staffKey: null, mortgageAction: 'workspace' as MortgageViewAction };
+    }
+    return parsePathnameRoute(p);
+  }, []);
+  const [activeTab, setActiveTabState] = useState<NavigationTab>(initialRoute.tab);
+  const [selectedStaffKey, setSelectedStaffKeyState] = useState<string | null>(initialRoute.staffKey);
+  const [mortgageAction, setMortgageAction] = useState<MortgageViewAction>(initialRoute.mortgageAction);
+  const [mortgageActionNonce, setMortgageActionNonce] = useState<number>(() =>
+    initialRoute.mortgageAction !== 'workspace' ? 1 : 0
+  );
+  const [staffDiaryEntries, setStaffDiaryEntries] = useState<StaffDiaryEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY_STAFF_DIARY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return [];
+  });
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY_STAFF_DIARY, JSON.stringify(staffDiaryEntries));
+    } catch {
+      // ignore storage errors
+    }
+  }, [staffDiaryEntries]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      const parsed = parsePathnameRoute(window.location.pathname);
+      setActiveTabState(parsed.tab);
+      setSelectedStaffKeyState(parsed.staffKey);
+      setMortgageAction(parsed.mortgageAction);
+      if (parsed.mortgageAction !== 'workspace') {
+        setMortgageActionNonce((n) => n + 1);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const pushHistoryPath = (
+    tab: NavigationTab,
+    options?: { staffKey?: string | null; mortgageAction?: MortgageViewAction }
+  ) => {
+    if (typeof window === 'undefined') return;
+    const targetPath = getRoutePathForTab(tab, options);
+    const currentPath = window.location.pathname || '/';
+    if (currentPath !== targetPath && !currentPath.includes('update-password') && !currentPath.includes('reset-password')) {
+      try {
+        window.history.pushState({ tab, ...options }, '', targetPath);
+      } catch {
+        // ignore history error in restricted contexts
+      }
+    }
+  };
+
+  const navigateToRoute = (
+    tab: NavigationTab,
+    options?: { staffKey?: string | null; mortgageAction?: MortgageViewAction; branchId?: string; pushUrl?: boolean }
+  ) => {
+    if (options?.branchId !== undefined) {
+      setSelectedBranchFilter(options.branchId);
+    }
+    if (tab === 'legal_team') {
+      const nextStaff = options?.staffKey !== undefined ? options.staffKey : null;
+      setSelectedStaffKeyState(nextStaff);
+    } else if (options?.staffKey !== undefined) {
+      setSelectedStaffKeyState(options.staffKey);
+    }
+
+    const nextMortgageAction = options?.mortgageAction || 'workspace';
+    if (tab === 'mortgages') {
+      setMortgageAction(nextMortgageAction);
+      setMortgageActionNonce((n) => n + 1);
+    }
+
+    setActiveTabState(tab);
+    if (options?.pushUrl !== false) {
+      pushHistoryPath(tab, {
+        staffKey: tab === 'legal_team' ? (options?.staffKey !== undefined ? options.staffKey : null) : undefined,
+        mortgageAction: tab === 'mortgages' ? nextMortgageAction : undefined,
+      });
+    }
+  };
+
+  const setActiveTab = (tab: NavigationTab) => {
+    navigateToRoute(tab, {
+      staffKey: tab === 'legal_team' ? selectedStaffKey : undefined,
+      mortgageAction: tab === 'mortgages' ? 'workspace' : undefined,
+    });
+  };
+
+  const triggerMortgageAction = (action: MortgageViewAction) => {
+    navigateToRoute('mortgages', { mortgageAction: action });
+  };
+
+  const setSelectedStaffKey = (staffKey: string | null, pushUrl = true) => {
+    setSelectedStaffKeyState(staffKey);
+    setActiveTabState('legal_team');
+    if (pushUrl) {
+      pushHistoryPath('legal_team', { staffKey });
+    }
+  };
+
+  const addStaffDiaryEntry = (entry: Omit<StaffDiaryEntry, 'id' | 'createdAt'>): StaffDiaryEntry => {
+    const newEntry: StaffDiaryEntry = {
+      ...entry,
+      id: `sdiary-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: new Date().toISOString(),
+      completed: entry.completed ?? false,
+    };
+    setStaffDiaryEntries((prev) => [newEntry, ...prev]);
+    return newEntry;
+  };
+
+  const updateStaffDiaryEntry = (id: string, updates: Partial<StaffDiaryEntry>) => {
+    setStaffDiaryEntries((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
+      )
+    );
+  };
+
+  const deleteStaffDiaryEntry = (id: string) => {
+    setStaffDiaryEntries((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const toggleStaffDiaryComplete = (id: string) => {
+    setStaffDiaryEntries((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, completed: !item.completed, updatedAt: new Date().toISOString() }
+          : item
+      )
+    );
+  };
 
   // Effective role permissions calculation based on current user
   const userPermissions: RolePermissions = useMemo(() => {
@@ -3095,6 +3351,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteBranch,
         activeTab,
         setActiveTab,
+        navigateToRoute,
+        mortgageAction,
+        mortgageActionNonce,
+        triggerMortgageAction,
+        selectedStaffKey,
+        setSelectedStaffKey,
+        staffDiaryEntries,
+        addStaffDiaryEntry,
+        updateStaffDiaryEntry,
+        deleteStaffDiaryEntry,
+        toggleStaffDiaryComplete,
         searchQuery,
         setSearchQuery,
         cases,

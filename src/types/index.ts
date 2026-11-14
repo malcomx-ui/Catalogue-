@@ -498,6 +498,24 @@ export interface CaseAuditLog {
   created_at: string;
 }
 
+export type StaffDiaryEntryType = 'diary' | 'meeting' | 'deadline' | 'milestone';
+
+export interface StaffDiaryEntry {
+  id: string;
+  staffKey: string;
+  staffName: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  entryType: StaffDiaryEntryType;
+  title: string;
+  notes: string;
+  caseId?: string;
+  suitNumber?: string;
+  completed?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export { 
   type UserProfile,
   isSystemAdmin,
@@ -509,4 +527,5 @@ export {
   canAccessGlobalSettings,
   canManageFirm 
 } from '../utils/permissions';
+
 
