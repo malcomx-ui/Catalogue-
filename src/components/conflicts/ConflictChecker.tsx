@@ -16,6 +16,7 @@ import {
 import { isUserAdmin } from '../../lib/supabase';
 import { showCleanMessage } from '../../utils/notification';
 import { Lock } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
 
 export const ConflictChecker: React.FC = () => {
   const { runConflictCheck, currentUser, setSelectedCase, cases, setActiveTab } = useApp();
@@ -66,7 +67,7 @@ export const ConflictChecker: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
           <ShieldAlert className="w-4 h-4" />
           <span>Professional Conduct & Ethics</span>
@@ -122,20 +123,23 @@ export const ConflictChecker: React.FC = () => {
         <div className="space-y-4">
           {result.hasConflict ? (
             /* CONFLICT DETECTED */
-            <div className="bg-amber-50/70 border border-amber-300 rounded-xl p-5 shadow-xs">
+            <div className="bg-amber-50/70 border border-amber-300 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-amber-100 border border-amber-300 text-amber-800 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5 text-amber-700" />
                 </div>
 
                 <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-serif-legal text-lg font-bold text-amber-950">
                       Conflict Notice: Representation Bar Flagged
                     </h3>
-                    <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
-                      {result.matchedCases.length} Match(es) Found
-                    </span>
+                    <StatusBadge
+                      tone="amber"
+                      label={`${result.matchedCases.length} Match(es) Found`}
+                      size="xs"
+                      className="tabular-nums"
+                    />
                   </div>
                   <p className="text-xs text-amber-900 leading-relaxed">
                     The search query <strong className="underline">"{result.searchQuery}"</strong> matches active entities or adverse parties in firm dockets. Under Advocates (Professional Conduct) Regulations, partners must review ethical boundaries prior to accepting a retainer.
@@ -156,16 +160,16 @@ export const ConflictChecker: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className="bg-white p-3.5 rounded-lg border border-amber-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        className="bg-white p-4 rounded-xl border border-amber-200 shadow-xs hover:shadow-sm transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             {match.suitNumber ? (
-                              <span className="font-mono-legal font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
+                              <span className="font-mono-legal tabular-nums font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
                                 {match.suitNumber}
                               </span>
                             ) : (
-                              <span className="text-[11px] italic text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                              <span className="text-[11px] italic text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
                                 No case number
                               </span>
                             )}
@@ -194,7 +198,7 @@ export const ConflictChecker: React.FC = () => {
                           {originalCase && (
                             <button
                               onClick={() => setSelectedCase(originalCase)}
-                              className="mt-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded text-[11px] font-medium transition-colors"
+                              className="mt-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-medium transition-colors"
                             >
                               Inspect Docket
                             </button>
@@ -208,20 +212,22 @@ export const ConflictChecker: React.FC = () => {
             </div>
           ) : (
             /* CONFLICT CLEARANCE APPROVED */
-            <div className="bg-emerald-50/70 border border-emerald-300 rounded-xl p-5 shadow-xs">
+            <div className="bg-emerald-50/70 border border-emerald-300 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center shrink-0">
                   <ShieldCheck className="w-5 h-5 text-emerald-700" />
                 </div>
 
                 <div className="space-y-1 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-serif-legal text-lg font-bold text-emerald-950">
                       Conflict Clearance Verified: Clean Certificate
                     </h3>
-                    <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded">
-                      No Ethical Bars Found
-                    </span>
+                    <StatusBadge
+                      status="Cleared"
+                      label="No Ethical Bars Found"
+                      size="xs"
+                    />
                   </div>
                   <p className="text-xs text-emerald-900 leading-relaxed">
                     Zero adverse records or active client conflicts found for <strong className="underline">"{result.searchQuery}"</strong> across all 7 regional branches (Kampala Central HQ, Fort Portal, Mbarara, Gulu, Masindi, Masaka, Jinja). Retainer intake approved.
@@ -229,7 +235,7 @@ export const ConflictChecker: React.FC = () => {
 
                   <div className="mt-3 pt-3 border-t border-emerald-200/80 flex items-center justify-between text-xs text-emerald-800">
                     <div>
-                      Verified by: <strong className="text-emerald-950">{result.checkedBy}</strong> · Timestamp: <span className="font-mono-legal">{new Date(result.timestamp).toLocaleString()}</span>
+                      Verified by: <strong className="text-emerald-950">{result.checkedBy}</strong> · Timestamp: <span className="font-mono-legal tabular-nums">{new Date(result.timestamp).toLocaleString()}</span>
                     </div>
 
                     <button

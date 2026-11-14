@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { Search, X } from 'lucide-react';
 import { MONTHS } from '../../services/mortgageService';
 
 export interface MortgageFilters {
@@ -83,29 +83,29 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   );
 
   return (
-    <div className={`bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-3 w-full min-w-0 ${className}`}>
+    <div className={`bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3 w-full min-w-0 ${className}`}>
       {/* Top Controls Row */}
       <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between min-w-0">
         {/* Search input with live clear */}
         <div className="relative w-full flex-1 min-w-0">
-          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-            🔍
+          <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <Search className="w-4 h-4" />
           </span>
           <input
             type="text"
             placeholder="Search by mortgagor, RIM no, deed, or notes..."
             value={filters.search}
             onChange={(e) => updateFilter('search', e.target.value)}
-            className="w-full pl-9 pr-8 py-2 border border-gray-300 rounded-lg text-xs md:text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 bg-gray-50/50 hover:bg-white transition"
+            className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-xs md:text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 placeholder-slate-400 bg-slate-50/70 hover:bg-white transition"
           />
           {filters.search && (
             <button
               type="button"
               onClick={() => updateFilter('search', '')}
-              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-xs text-gray-400 hover:text-gray-700"
+              className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
               title="Clear search"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

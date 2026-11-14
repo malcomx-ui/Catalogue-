@@ -32,6 +32,8 @@ import {
 import { CustomRole, RolePermissions, User, Branch, AuditLog, getUserRoleLabel, getUserRoleBadge } from '../../types';
 import { StaffWelcomeModal } from './StaffWelcomeModal';
 import { EditStaffModal } from './EditStaffModal';
+import { StatusBadge } from '../common/StatusBadge';
+import { RowActionMenu } from '../common/RowActionMenu';
 
 export const AccessRolesManager: React.FC = () => {
   const {
@@ -535,16 +537,16 @@ $$;`;
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px]">
-                  <tr>
-                    <th className="py-3 px-4">Staff Name &amp; Contact</th>
-                    <th className="py-3 px-4">Assigned Role</th>
-                    <th className="py-3 px-4">Branch Station</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr className="divide-x divide-slate-200/60">
+                    <th className="py-3.5 px-4">Staff Name &amp; Contact</th>
+                    <th className="py-3.5 px-4">Assigned Role</th>
+                    <th className="py-3.5 px-4">Branch Station</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -572,7 +574,7 @@ $$;`;
                         : branches[0]?.id || 'kla-hq';
 
                     return (
-                      <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                      <tr key={user.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100/70">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5 font-semibold text-slate-900">
                             <span>{user.name}</span>
@@ -593,7 +595,7 @@ $$;`;
                               ))}
                             </select>
                             <div>
-                              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${getUserRoleBadge(resolvedRoleValue)}`}>
+                              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getUserRoleBadge(resolvedRoleValue)}`}>
                                 {getUserRoleLabel(resolvedRoleValue)}
                               </span>
                             </div>
@@ -612,62 +614,58 @@ $$;`;
                           </select>
                         </td>
                         <td className="py-3 px-4">
-                          {user.isSuspended ? (
-                            <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded-full text-[11px] font-bold">Suspended</span>
-                          ) : (
-                            <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full text-[11px] font-medium">Active</span>
-                          )}
+                          <StatusBadge
+                            status={user.isSuspended ? 'Suspended' : 'Active'}
+                            size="xs"
+                          />
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setWelcomeUser(user)}
-                              className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50"
-                              title="View Login Credentials & Welcome Package"
-                            >
-                              <Mail className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditTargetUser(user)}
-                              className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100"
-                              title="Edit Account, Password, Role & Branch"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            {!isPrimaryOwner && !isSelf && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (user.isSuspended) {
-                                      toggleSuspendUser(user.id);
-                                      showToast('success', `${user.name} reactivated.`);
-                                    } else {
-                                      setSuspendTargetUser(user);
-                                    }
-                                  }}
-                                  className={`p-1.5 rounded-lg ${
-                                    user.isSuspended
-                                      ? 'text-emerald-600 hover:bg-emerald-50'
-                                      : 'text-amber-600 hover:bg-amber-50'
-                                  }`}
-                                  title={user.isSuspended ? 'Reactivate User' : 'Suspend User'}
-                                >
-                                  {user.isSuspended ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteTargetUser(user)}
-                                  className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg"
-                                  title="Delete User"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                          </div>
+                          <RowActionMenu
+                            ariaLabel={`Actions for ${user.name}`}
+                            items={[
+                              {
+                                id: 'welcome',
+                                label: 'Credentials & Welcome',
+                                icon: <Mail className="w-3.5 h-3.5" />,
+                                onClick: () => setWelcomeUser(user),
+                              },
+                              {
+                                id: 'edit',
+                                label: 'Edit Account & Role',
+                                icon: <Edit2 className="w-3.5 h-3.5" />,
+                                onClick: () => setEditTargetUser(user),
+                              },
+                              ...(!isPrimaryOwner && !isSelf
+                                ? [
+                                    {
+                                      id: 'suspend',
+                                      label: user.isSuspended ? 'Reactivate Account' : 'Suspend Account',
+                                      icon: user.isSuspended ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <Ban className="w-3.5 h-3.5" />
+                                      ),
+                                      dividerBefore: true,
+                                      onClick: () => {
+                                        if (user.isSuspended) {
+                                          toggleSuspendUser(user.id);
+                                          showToast('success', `${user.name} reactivated.`);
+                                        } else {
+                                          setSuspendTargetUser(user);
+                                        }
+                                      },
+                                    },
+                                    {
+                                      id: 'delete',
+                                      label: 'Delete Account',
+                                      icon: <Trash2 className="w-3.5 h-3.5" />,
+                                      danger: true,
+                                      onClick: () => setDeleteTargetUser(user),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -709,17 +707,17 @@ $$;`;
                 return effectiveRoleId === role.id;
               }).length;
               return (
-                <div key={role.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-4">
+                <div key={role.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${role.badgeColor || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${role.badgeColor || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                           {role.isSuperAdmin ? 'SUPER ADMIN' : role.isSystem ? 'SYSTEM ROLE' : 'CUSTOM ROLE'}
                         </span>
                         <h3 className="text-sm font-bold text-slate-900 mt-1.5">{role.name}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-mono tabular-nums text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
                           {assignedCount} staff
                         </span>
                         {!role.isSystem && !role.isSuperAdmin && (
@@ -777,7 +775,7 @@ $$;`;
             {branches.map((branch) => {
               const staffCount = availableUsers.filter((u) => u.branchId === branch.id).length;
               return (
-                <div key={branch.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                <div key={branch.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
@@ -796,10 +794,10 @@ $$;`;
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     ) : (
-                      <span className="text-[10px] font-mono font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">HQ</span>
+                      <StatusBadge tone="emerald" label="HQ" showDot={false} size="xs" />
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-600">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-600 tabular-nums">
                     <span>{staffCount} assigned staff</span>
                     <span className="font-mono font-semibold">{branch.caseCount || 0} matters</span>
                   </div>
@@ -812,7 +810,7 @@ $$;`;
 
       {/* TAB 4: SUPABASE RLS */}
       {activeSubTab === 'rls' && (
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900">Supabase Row Level Security (RLS)</h2>
@@ -842,26 +840,26 @@ $$;`;
       {/* TAB 5: AUDIT TRAIL */}
       {activeSubTab === 'audit' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
               <div className="text-[10px] font-bold uppercase text-slate-400">Total Logged Events</div>
-              <div className="text-xl font-bold text-slate-900 mt-1">{auditStats.total}</div>
+              <div className="text-xl font-bold text-slate-900 mt-1 tabular-nums">{auditStats.total}</div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
               <div className="text-[10px] font-bold uppercase text-emerald-600">Inserts</div>
-              <div className="text-xl font-bold text-emerald-700 mt-1">{auditStats.inserts}</div>
+              <div className="text-xl font-bold text-emerald-700 mt-1 tabular-nums">{auditStats.inserts}</div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
-              <div className="text-[10px] font-bold uppercase text-blue-600">Updates</div>
-              <div className="text-xl font-bold text-blue-700 mt-1">{auditStats.updates}</div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="text-[10px] font-bold uppercase text-amber-600">Updates</div>
+              <div className="text-xl font-bold text-amber-700 mt-1 tabular-nums">{auditStats.updates}</div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
               <div className="text-[10px] font-bold uppercase text-rose-600">Deletes</div>
-              <div className="text-xl font-bold text-rose-700 mt-1">{auditStats.deletes}</div>
+              <div className="text-xl font-bold text-rose-700 mt-1 tabular-nums">{auditStats.deletes}</div>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 flex-1">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -914,40 +912,50 @@ $$;`;
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px]">
-                  <tr>
-                    <th className="py-2.5 px-4">Timestamp</th>
-                    <th className="py-2.5 px-4">Action</th>
-                    <th className="py-2.5 px-4">Matter No.</th>
-                    <th className="py-2.5 px-4">Actor</th>
-                    <th className="py-2.5 px-4">Branch</th>
-                    <th className="py-2.5 px-4 text-right">Inspect</th>
+                <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr className="divide-x divide-slate-200/60">
+                    <th className="py-3 px-4">Timestamp</th>
+                    <th className="py-3 px-4">Action</th>
+                    <th className="py-3 px-4">Matter No.</th>
+                    <th className="py-3 px-4">Actor</th>
+                    <th className="py-3 px-4">Branch</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredAuditLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">No audit events match current filters.</td>
+                      <td colSpan={6} className="py-10 text-center text-slate-400">No audit events match current filters.</td>
                     </tr>
                   ) : (
                     filteredAuditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="py-2.5 px-4 font-mono text-[11px] text-slate-600">{new Date(log.created_at).toLocaleString()}</td>
-                        <td className="py-2.5 px-4 font-bold">{log.action}</td>
-                        <td className="py-2.5 px-4 font-mono">{log.case_number || log.case_id || '—'}</td>
-                        <td className="py-2.5 px-4">{log.user_email || 'System'}</td>
-                        <td className="py-2.5 px-4">{log.branch || '—'}</td>
-                        <td className="py-2.5 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setInspectLog(log)}
-                            className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100/70">
+                        <td className="py-3 px-4 font-mono tabular-nums text-[11px] text-slate-600">{new Date(log.created_at).toLocaleString()}</td>
+                        <td className="py-3 px-4">
+                          <StatusBadge
+                            tone={log.action === 'INSERT' ? 'emerald' : log.action === 'DELETE' ? 'rose' : 'amber'}
+                            label={log.action}
+                            size="xs"
+                          />
+                        </td>
+                        <td className="py-3 px-4 font-mono tabular-nums">{log.case_number || log.case_id || '—'}</td>
+                        <td className="py-3 px-4">{log.user_email || 'System'}</td>
+                        <td className="py-3 px-4">{log.branch || '—'}</td>
+                        <td className="py-3 px-4 text-right">
+                          <RowActionMenu
+                            ariaLabel={`Actions for audit log ${log.id}`}
+                            items={[
+                              {
+                                id: 'inspect',
+                                label: 'Inspect Event Payload',
+                                icon: <Eye className="w-3.5 h-3.5" />,
+                                onClick: () => setInspectLog(log),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     ))

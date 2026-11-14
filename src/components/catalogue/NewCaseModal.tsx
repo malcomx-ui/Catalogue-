@@ -307,7 +307,7 @@ export const NewCaseModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
-      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-2.5">
@@ -342,7 +342,7 @@ export const NewCaseModal: React.FC = () => {
 
         <form onSubmit={submit} className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 text-xs">
           {/* Section 1: Case details */}
-          <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
               <Scale className="w-4 h-4 text-blue-600" />
               <span>Case details</span>
@@ -406,7 +406,7 @@ export const NewCaseModal: React.FC = () => {
                   value={form.case_number}
                   onChange={(e) => set('case_number', e.target.value)}
                   placeholder="Enter MK case number"
-                  className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full font-mono tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
@@ -421,7 +421,7 @@ export const NewCaseModal: React.FC = () => {
                   value={form.suit_no}
                   onChange={(e) => set('suit_no', e.target.value)}
                   placeholder="e.g. HCT-00-CC-CS-0245-2026"
-                  className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full font-mono tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
@@ -505,7 +505,7 @@ export const NewCaseModal: React.FC = () => {
                   type="date"
                   value={form.date_of_instructions}
                   onChange={(e) => set('date_of_instructions', e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  className="w-full tabular-nums bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
@@ -545,7 +545,7 @@ export const NewCaseModal: React.FC = () => {
           </div>
 
           {/* Section 2: Client & file */}
-          <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
               <FolderOpen className="w-4 h-4 text-amber-600" />
               <span>Client & file</span>
@@ -592,7 +592,7 @@ export const NewCaseModal: React.FC = () => {
           </div>
 
           {/* Section 3: Matter details */}
-          <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
               <FileText className="w-4 h-4 text-indigo-600" />
               <span>Matter details</span>
@@ -630,7 +630,7 @@ export const NewCaseModal: React.FC = () => {
           </div>
 
           {/* Section 4: Closure & billing */}
-          <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+          <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
             <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
               <span>Closure & billing</span>
             </div>

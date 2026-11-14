@@ -8,6 +8,7 @@ import {
   resolveBranchMeta,
 } from '../../lib/supabase';
 import { showCleanMessage } from '../../utils/notification';
+import { X, FileText, ArrowRightLeft, Calculator, Loader2 } from 'lucide-react';
 
 export interface EditMortgageModalProps {
   record: any;
@@ -324,52 +325,57 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                 {record?.client_bank_name || 'Lending Partner'}
               </span>
-              <span className="text-xs text-gray-400">File Ref: {rimNo || record?.file_number || 'N/A'}</span>
+              <span className="text-xs text-gray-400 tabular-nums">File Ref: {rimNo || record?.file_number || 'N/A'}</span>
             </div>
             <h2 className="text-lg font-bold text-white mt-1">Edit Mortgage File &amp; Department Transfer</h2>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition"
+            aria-label="Close modal"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-gray-50 border-b border-gray-200 px-6 flex space-x-6 text-xs font-semibold shrink-0">
+        <div className="bg-slate-50 border-b border-slate-200 px-6 flex space-x-6 text-xs font-semibold shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSubTab('details')}
-            className={`py-3 border-b-2 transition ${
+            className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'details'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            📋 File Particulars &amp; Status
+            <FileText className="w-3.5 h-3.5" />
+            <span>File Particulars &amp; Status</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab('transfer')}
-            className={`py-3 border-b-2 transition ${
+            className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'transfer'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            🔄 Branch, Department &amp; Lawyer Assignment
+            <ArrowRightLeft className="w-3.5 h-3.5" />
+            <span>Branch, Department &amp; Lawyer Assignment</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveSubTab('fees')}
-            className={`py-3 border-b-2 transition ${
+            className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'fees'
                 ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
-            💰 Fees &amp; Disbursement Ledger
+            <Calculator className="w-3.5 h-3.5" />
+            <span>Fees &amp; Disbursement Ledger</span>
           </button>
         </div>
 
@@ -391,14 +397,14 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {activeSubTab === 'details' && (
             <div className="space-y-4">
               {/* Reporting Period: Year & Month Sheet */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
                 <div>
                   <label className="block text-xs font-bold text-blue-900 mb-1">Record Year *</label>
                   <input 
                     type="number" 
                     value={recordYear} 
                     onChange={(e) => setRecordYear(Number(e.target.value))} 
-                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950" 
+                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950 tabular-nums" 
                     required 
                   />
                 </div>
@@ -476,7 +482,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     step="any"
                     value={loanAmount}
                     onChange={(e) => setLoanAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono font-semibold"
+                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono tabular-nums font-semibold"
                   />
                 </div>
 
@@ -586,7 +592,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {/* TAB 2: Branch, Department & Lawyer Assignment */}
           {activeSubTab === 'transfer' && (
             <div className="space-y-5">
-              <div className="bg-indigo-50/70 p-4 rounded-xl border border-indigo-100">
+              <div className="bg-indigo-50/70 p-5 rounded-2xl border border-indigo-100">
                 <h4 className="text-xs font-bold text-indigo-900 mb-1">Station &amp; Department Transfer Controls</h4>
                 <p className="text-[11px] text-indigo-700">
                   Reassign the mortgage file across regional branch registries or transfer jurisdiction to specialized firm practice groups.
@@ -670,7 +676,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {/* TAB 3: Fees & Disbursement Ledger */}
           {activeSubTab === 'fees' && (
             <div className="space-y-5">
-              <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200">
+              <div className="bg-blue-50/70 p-5 rounded-2xl border border-blue-200">
                 <label className="block font-semibold text-blue-900 mb-1 text-xs">
                   Professional Legal Fees (Base for 18% VAT) *
                 </label>
@@ -680,7 +686,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   step="any"
                   value={legalFees}
                   onChange={(e) => setLegalFees(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full border border-blue-300 rounded-lg p-2 font-mono bg-white text-blue-950 font-bold focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                  className="w-full border border-blue-300 rounded-lg p-2 font-mono tabular-nums bg-white text-blue-950 font-bold focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                 />
               </div>
 
@@ -808,38 +814,38 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
               </div>
 
               {/* Calculation Summary Card */}
-              <div className="bg-slate-900 text-white rounded-xl p-5 space-y-4 border border-slate-800 shadow-md">
+              <div className="bg-slate-900 text-white rounded-2xl p-5 space-y-4 border border-slate-800 shadow-md">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
                     Updated Auto-Calculated Ledger
                   </span>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono">
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono tabular-nums">
                     Total Disbursements + Legal Fees + 18% VAT
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                  <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700">
                     <span className="text-[11px] text-slate-400 block mb-1">Total Disbursements</span>
-                    <span className="font-mono font-bold text-sm text-amber-300">
+                    <span className="font-mono tabular-nums font-bold text-sm text-amber-300">
                       UGX {totalDisbursements.toLocaleString()}
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                  <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700">
                     <span className="text-[11px] text-slate-400 block mb-1">Legal Fees</span>
-                    <span className="font-mono font-bold text-sm text-blue-300">
+                    <span className="font-mono tabular-nums font-bold text-sm text-blue-300">
                       UGX {(Number(legalFees) || 0).toLocaleString()}
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-800/80 rounded-lg border border-slate-700">
+                  <div className="p-3 bg-slate-800/80 rounded-xl border border-slate-700">
                     <span className="text-[11px] text-slate-400 block mb-1">VAT 18%</span>
-                    <span className="font-mono font-bold text-sm text-indigo-300">
+                    <span className="font-mono tabular-nums font-bold text-sm text-indigo-300">
                       UGX {vat.toLocaleString()}
                     </span>
                   </div>
-                  <div className="p-3 bg-blue-600/20 rounded-lg border border-blue-500/40">
+                  <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/40">
                     <span className="text-[11px] text-blue-200 block mb-1">Grand Total</span>
-                    <span className="font-mono font-bold text-base text-white">
+                    <span className="font-mono tabular-nums font-bold text-base text-white">
                       UGX {grandTotal.toLocaleString()}
                     </span>
                   </div>
@@ -851,25 +857,28 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           </fieldset>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 shrink-0">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg font-medium transition"
+              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg font-medium transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !canModifyRecord}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition inline-flex items-center gap-1.5"
             >
-              {!canModifyRecord
-                ? 'View-Only (External Branch)'
-                : loading
-                ? 'Saving Changes...'
-                : 'Save & Update Record'}
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>
+                {!canModifyRecord
+                  ? 'View-Only (External Branch)'
+                  : loading
+                  ? 'Saving Changes...'
+                  : 'Save & Update Record'}
+              </span>
             </button>
           </div>
         </form>

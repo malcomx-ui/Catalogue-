@@ -19,9 +19,8 @@ import {
   Bell,
   Building2,
   List,
-  Layers,
-  Filter,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
 
 export interface UnifiedDiaryEvent {
   id: string;
@@ -282,10 +281,10 @@ export const CauseListDiary: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsWeeklyAlertOpen(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200 transition-colors cursor-pointer animate-pulse"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/90 hover:bg-amber-100 transition-colors cursor-pointer tabular-nums"
                 title="View Weekly Matters Alert"
               >
-                <Bell className="w-3 h-3 text-amber-700" />
+                <Bell className="w-3 h-3 text-amber-600" />
                 <span>{weeklyCount} this week</span>
               </button>
             )}
@@ -343,7 +342,7 @@ export const CauseListDiary: React.FC = () => {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2">
           {/* Date range filter buttons */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
@@ -393,16 +392,16 @@ export const CauseListDiary: React.FC = () => {
           </select>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
+        <div className="flex items-center gap-3 text-xs text-slate-500 font-mono tabular-nums">
           <span>{filteredEvents.length} fixtures in view</span>
         </div>
       </div>
 
       {/* VIEW MODE 1: CAUSE LIST VIEW */}
       {viewMode === 'list' && (
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {filteredEvents.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center space-y-2">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center space-y-2">
               <CalendarDays className="w-10 h-10 text-slate-300 mx-auto" />
               <h3 className="font-semibold text-sm text-slate-800">
                 No fixtures found matching current criteria
@@ -426,7 +425,7 @@ export const CauseListDiary: React.FC = () => {
               return (
                 <div
                   key={ev.id}
-                  className={`bg-white p-4 rounded-xl border transition-all shadow-2xs hover:border-slate-300 flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs ${
+                  className={`bg-white p-5 rounded-2xl border transition-all shadow-xs hover:shadow-md hover:border-slate-300 flex flex-col sm:flex-row sm:items-start justify-between gap-4 text-xs ${
                     isToday
                       ? 'border-l-4 border-l-rose-500 border-slate-200 bg-rose-50/10'
                       : isUpcomingWeek
@@ -434,9 +433,9 @@ export const CauseListDiary: React.FC = () => {
                       : 'border-slate-200'
                   }`}
                 >
-                  <div className="space-y-1.5 flex-1 min-w-0">
+                  <div className="space-y-2 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-mono tabular-nums font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-full text-[11px]">
                         {new Date(ev.date).toLocaleDateString('en-GB', {
                           weekday: 'short',
                           day: 'numeric',
@@ -446,19 +445,17 @@ export const CauseListDiary: React.FC = () => {
                       </span>
 
                       {isToday && (
-                        <span className="bg-rose-500 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase tracking-wider animate-pulse">
-                          TODAY
-                        </span>
+                        <StatusBadge tone="rose" label="TODAY" showDot={false} size="xs" />
                       )}
 
                       <span className="text-slate-400">·</span>
-                      <span className="font-medium text-slate-700 flex items-center gap-1">
+                      <span className="font-medium text-slate-700 flex items-center gap-1 tabular-nums">
                         <Clock className="w-3 h-3 text-slate-400" />
                         {ev.time}
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className={`px-2 py-0.5 rounded font-semibold text-[10px] border ${typeBadgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded-full font-semibold text-[10px] border ${typeBadgeClass}`}>
                         {ev.typeLabel}
                       </span>
 
@@ -474,12 +471,12 @@ export const CauseListDiary: React.FC = () => {
                     </h3>
 
                     {/* Reference numbers */}
-                    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                    <div className="flex flex-wrap items-center gap-2 font-mono tabular-nums text-[11px]">
+                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
                         MK: <strong>{ev.mkCaseNo}</strong>
                       </span>
                       {ev.suitNo && (
-                        <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded border border-blue-200 font-mono">
+                        <span className="bg-blue-50 text-blue-800 px-2 py-0.5 rounded-md border border-blue-200 font-mono tabular-nums">
                           Court Suit No: <strong>{ev.suitNo}</strong>
                         </span>
                       )}
@@ -507,17 +504,7 @@ export const CauseListDiary: React.FC = () => {
                   </div>
 
                   <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                    <span
-                      className={`px-2.5 py-0.5 rounded text-[10px] font-semibold ${
-                        ev.status === 'Completed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : ev.status === 'Adjourned'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {ev.status}
-                    </span>
+                    <StatusBadge status={ev.status} size="xs" />
 
                     <div className="flex items-center gap-1.5 mt-2">
                       {ev.virtualCourtUrl && (

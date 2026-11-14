@@ -16,6 +16,7 @@ import {
   Edit3,
   Check,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
 
 export const BranchesDirectory: React.FC = () => {
   const {
@@ -149,7 +150,7 @@ export const BranchesDirectory: React.FC = () => {
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <span>Branches</span>
@@ -169,7 +170,7 @@ export const BranchesDirectory: React.FC = () => {
             <button
               type="button"
               onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Branch Location</span>
@@ -179,26 +180,26 @@ export const BranchesDirectory: React.FC = () => {
       </div>
 
       {/* Summary Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
           <span className="text-[11px] font-medium text-slate-500 block">Active Stations</span>
           <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1 block">
             {visibleBranches.length}
           </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
           <span className="text-[11px] font-medium text-slate-500 block">Total Case Files</span>
           <span className="text-2xl font-bold text-slate-900 font-mono tabular-nums mt-1 block">
             {branchMetrics.reduce((acc, m) => acc + m.totalCases, 0)}
           </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
           <span className="text-[11px] font-medium text-slate-500 block">Active Litigation</span>
           <span className="text-2xl font-bold text-emerald-700 font-mono tabular-nums mt-1 block">
             {branchMetrics.reduce((acc, m) => acc + m.activeCount, 0)}
           </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
           <span className="text-[11px] font-medium text-slate-500 block">Assigned Staff</span>
           <span className="text-2xl font-bold text-blue-700 font-mono tabular-nums mt-1 block">
             {branchMetrics.reduce((acc, m) => acc + m.staffCount, 0)}
@@ -211,7 +212,7 @@ export const BranchesDirectory: React.FC = () => {
         {branchMetrics.map(({ branch, totalCases, activeCount, closedCount, staffCount }) => (
           <div
             key={branch.id}
-            className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col justify-between gap-4 hover:border-slate-300 transition-colors"
+            className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between gap-4"
           >
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-2">
@@ -222,9 +223,7 @@ export const BranchesDirectory: React.FC = () => {
                       {branch.city}
                     </span>
                     {branch.isHeadquarters && (
-                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900 text-white">
-                        HQ
-                      </span>
+                      <StatusBadge tone="emerald" label="HQ" showDot={false} size="xs" />
                     )}
                   </div>
                   <h2 className="text-base font-bold text-slate-900 mt-1 truncate">{branch.name}</h2>

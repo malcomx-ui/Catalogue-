@@ -36,9 +36,11 @@ import {
   FileCheck,
   FileClock,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
+import { StatusBadge } from '../common/StatusBadge';
 import {
   supabase,
   mapRowToCase,
@@ -724,13 +726,13 @@ export const CaseDetailModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
-      <div className="relative w-full max-w-4xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 flex items-start justify-between gap-3 sm:gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs flex-wrap">
               {selectedCase.case_number || selectedCase.suitNumber ? (
-                <span className="font-mono font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded" title="MK Case No.">
+                <span className="font-mono tabular-nums font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded" title="MK Case No.">
                   MK: {selectedCase.case_number || selectedCase.suitNumber}
                 </span>
               ) : (
@@ -741,7 +743,7 @@ export const CaseDetailModal: React.FC = () => {
               {selectedCase.suit_no && (
                 <>
                   <span className="text-slate-300">·</span>
-                  <span className="font-mono font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]" title="Court Registry Identifier">
+                  <span className="font-mono tabular-nums font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]" title="Court Registry Identifier">
                     Court Suit No: {selectedCase.suit_no}
                   </span>
                 </>
@@ -749,14 +751,15 @@ export const CaseDetailModal: React.FC = () => {
               {selectedCase.firmRefNumber && selectedCase.firmRefNumber !== (selectedCase.case_number || selectedCase.suitNumber) && (
                 <>
                   <span className="text-slate-300">·</span>
-                  <span className="text-slate-500 font-mono">{selectedCase.firmRefNumber}</span>
+                  <span className="text-slate-500 font-mono tabular-nums">{selectedCase.firmRefNumber}</span>
                 </>
               )}
               <span className="text-slate-300">·</span>
               <span className="text-blue-700 font-medium">{selectedCase.branchName || selectedCase.branch}</span>
               {isLoadingRecord && (
-                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium animate-pulse border border-blue-200">
-                  Syncing Supabase...
+                <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-medium border border-blue-200">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Syncing Supabase...</span>
                 </span>
               )}
             </div>
@@ -860,7 +863,7 @@ export const CaseDetailModal: React.FC = () => {
             )}
 
             {/* Card 1: Case details */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
                 <Scale className="w-4 h-4 text-blue-600" />
                 <span>Case details</span>
@@ -1063,7 +1066,7 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Card 2: Client & file */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
                 <FolderOpen className="w-4 h-4 text-amber-600" />
                 <span>Client & file</span>
@@ -1110,7 +1113,7 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Card 3: Matter details */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
               <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
                 <FileText className="w-4 h-4 text-indigo-600" />
                 <span>Matter details</span>
@@ -1148,7 +1151,7 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Card 4: Closure & billing */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
+            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
               <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
                 <span>Closure & billing</span>
               </div>
@@ -1281,7 +1284,7 @@ export const CaseDetailModal: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className={`pb-2.5 px-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    className={`pb-2.5 px-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap tabular-nums ${
                       activeTab === tab.id
                         ? 'border-slate-900 text-slate-900 font-bold'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1355,7 +1358,7 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'overview' && (
                 <div className="space-y-4">
                   {/* Card: Suit No. */}
-                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-2">
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-2">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div>
                         <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
@@ -1398,7 +1401,7 @@ export const CaseDetailModal: React.FC = () => {
                   </div>
 
                   {/* Card 1: Case details */}
-                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-3">
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
                         <Scale className="w-4 h-4 text-blue-600" />
@@ -1476,54 +1479,22 @@ export const CaseDetailModal: React.FC = () => {
                             ))}
                           </select>
                         ) : (
-                          <span className={`inline-block px-2.5 py-0.5 rounded font-medium text-[10px] border ${
-                            (() => {
-                              const s = (selectedCase.status || '').toLowerCase();
-                              if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
-                                return 'bg-slate-100 text-slate-700 border-slate-300';
-                              }
-                              if (s.includes('archived')) {
-                                return 'bg-zinc-100 text-zinc-700 border-zinc-300';
-                              }
-                              if (s.includes('execution') || s.includes('decree')) {
-                                return 'bg-amber-100 text-amber-900 border-amber-300';
-                              }
-                              if (s.includes('active') || s.includes('ongoing')) {
-                                return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                              }
-                              if (s.includes('mention')) {
-                                return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-                              }
-                              if (s.includes('ruling') || s.includes('judgment')) {
-                                return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                              }
-                              if (s.includes('pending') || s.includes('instruction')) {
-                                return 'bg-amber-50 text-amber-700 border-amber-200';
-                              }
-                              if (s.includes('adjourn')) {
-                                return 'bg-purple-50 text-purple-700 border-purple-200';
-                              }
-                              if (s.includes('dormant') || s.includes('inactive')) {
-                                return 'bg-rose-50 text-rose-700 border-rose-200';
-                              }
-                              return 'bg-blue-50 text-blue-700 border-blue-200';
-                            })()
-                          }`}>
-                            {selectedCase.status || 'Active'}
-                          </span>
+                          <div className="mt-1">
+                            <StatusBadge status={selectedCase.status || 'Active'} size="xs" />
+                          </div>
                         )}
                       </div>
 
                       {/* 7. Date of instructions */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('dateOfInstructions', 'Date of instructions').label}</span>
-                        <span className="text-slate-800">{selectedCase.date_of_instructions || selectedCase.filingDate || '—'}</span>
+                        <span className="text-slate-800 tabular-nums">{selectedCase.date_of_instructions || selectedCase.filingDate || '—'}</span>
                       </div>
 
                       {/* 8. Hearing date */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('nextHearingDate', 'Hearing date').label}</span>
-                        <span className="font-semibold text-slate-900">{selectedCase.hearing_date || selectedCase.nextHearingDate || 'Not set'}</span>
+                        <span className="font-semibold text-slate-900 tabular-nums">{selectedCase.hearing_date || selectedCase.nextHearingDate || 'Not set'}</span>
                       </div>
 
                       {/* 9. Court */}
@@ -1541,7 +1512,7 @@ export const CaseDetailModal: React.FC = () => {
                   </div>
 
                   {/* Card 2: Client & file */}
-                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-3">
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
                     <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
                       <FolderOpen className="w-4 h-4 text-amber-600" />
                       <span>Client & file</span>
@@ -1635,7 +1606,7 @@ export const CaseDetailModal: React.FC = () => {
                   </div>
 
                   {/* Card 3: Matter details & Continuous Notes Trail */}
-                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-3">
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
                     <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
                       <FileText className="w-4 h-4 text-indigo-600" />
                       <span>Matter details & Progressive Tracking</span>
@@ -1755,7 +1726,7 @@ export const CaseDetailModal: React.FC = () => {
                   </div>
 
                   {/* Card 4: Closure & billing */}
-                  <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-3">
+                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
                     <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
                       <span>Closure & billing</span>
                     </div>
@@ -1763,7 +1734,7 @@ export const CaseDetailModal: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('yearOfClosure', 'Year of closure').label}</span>
-                        <span className="font-mono text-slate-800">{selectedCase.year_of_closure || '— (Active)'}</span>
+                        <span className="font-mono tabular-nums text-slate-800">{selectedCase.year_of_closure || '— (Active)'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('billingStatus', 'Billing status').label}</span>
@@ -1775,7 +1746,7 @@ export const CaseDetailModal: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">Claim UGX</span>
-                        <span className="font-mono font-medium text-slate-800">UGX {selectedCase.claimValueUGX ? selectedCase.claimValueUGX.toLocaleString() : '—'}</span>
+                        <span className="font-mono tabular-nums font-medium text-slate-800">UGX {selectedCase.claimValueUGX ? selectedCase.claimValueUGX.toLocaleString() : '—'}</span>
                       </div>
                     </div>
 
@@ -1795,12 +1766,12 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'notes' && (
                 <div className="space-y-4">
                   {/* Top Header / Actions */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 p-3.5 rounded-lg border border-indigo-100">
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
                         <StickyNote className="w-4 h-4 text-indigo-700" />
                         <span className="font-bold text-indigo-950 text-sm">Continuous Notes Trail</span>
-                        <span className="bg-indigo-200/80 text-indigo-900 font-mono font-bold text-[10px] px-2 py-0.5 rounded-full">
+                        <span className="bg-indigo-200/80 text-indigo-900 font-mono tabular-nums font-bold text-[10px] px-2 py-0.5 rounded-full">
                           {(selectedCase.progressiveNotes || []).length} Progressive Entries
                         </span>
                       </div>
@@ -2057,7 +2028,7 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'movement' && (
                 <div className="space-y-4">
                   {/* Top Custody Summary Card */}
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
@@ -2439,16 +2410,14 @@ export const CaseDetailModal: React.FC = () => {
                       No hearings scheduled yet for this matter.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
                       {caseHearings.map((h) => (
-                        <div key={h.id} className="p-3.5 bg-white flex items-center justify-between">
+                        <div key={h.id} className="p-4 bg-white flex items-center justify-between hover:bg-slate-50/70 transition-colors">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-900">{h.hearingDate}</span>
-                              <span className="text-slate-400">at {h.hearingTime}</span>
-                              <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">
-                                {h.status}
-                              </span>
+                              <span className="font-semibold text-slate-900 tabular-nums">{h.hearingDate}</span>
+                              <span className="text-slate-400 tabular-nums">at {h.hearingTime}</span>
+                              <StatusBadge status={h.status || 'Scheduled'} size="xs" />
                             </div>
                             <div className="font-medium text-slate-800">{h.hearingPurpose}</div>
                             <div className="text-[11px] text-slate-500">{h.courtName} · {h.presidingJudge}</div>
@@ -2516,16 +2485,16 @@ export const CaseDetailModal: React.FC = () => {
                       No documents indexed for this case yet.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
                       {caseDocs.map((d) => (
-                        <div key={d.id} className="p-3.5 bg-white flex items-center justify-between">
+                        <div key={d.id} className="p-4 bg-white flex items-center justify-between hover:bg-slate-50/70 transition-colors">
                           <div className="space-y-1">
                             <div className="font-semibold text-slate-900">{d.title}</div>
-                            <div className="text-[11px] text-slate-500">
+                            <div className="text-[11px] text-slate-500 tabular-nums">
                               {d.documentType} · Filed {d.filingDate} by {d.filedBy}
                             </div>
                           </div>
-                          <span className="font-mono text-[11px] text-slate-400">{d.fileSize}</span>
+                          <span className="font-mono tabular-nums text-[11px] text-slate-400">{d.fileSize}</span>
                         </div>
                       ))}
                     </div>

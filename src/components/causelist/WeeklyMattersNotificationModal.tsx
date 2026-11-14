@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ExternalLink,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
 
 export interface WeeklyMatterItem {
   id: string;
@@ -173,7 +174,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
         <div className="bg-gradient-to-r from-[#0b132b] via-[#1c2541] to-[#3a506b] text-white p-5 sm:p-6 flex items-start justify-between">
           <div className="flex items-start gap-3.5">
             <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0 mt-0.5 shadow-inner">
-              <Bell className="w-6 h-6 animate-bounce" />
+              <Bell className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -187,7 +188,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
               <h2 className="text-xl font-bold text-white mt-1">
                 Weekly Court Fixtures &amp; Deadlines
               </h2>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-300 mt-0.5 tabular-nums">
                 {weeklyMatters.length === 0
                   ? 'No court appearances or procedural deadlines scheduled this week.'
                   : `You have ${weeklyMatters.length} matter${weeklyMatters.length === 1 ? '' : 's'} requiring counsel attention in the next 7 days.`}
@@ -207,7 +208,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
         {/* Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-3 bg-slate-50/50">
           {weeklyMatters.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center space-y-3">
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mx-auto flex items-center justify-center">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
@@ -223,12 +224,6 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
               const isToday = m.daysRemaining === 0;
               const isTomorrow = m.daysRemaining === 1;
 
-              const badgeColor = isToday
-                ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200 animate-pulse'
-                : isTomorrow
-                ? 'bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-200'
-                : 'bg-blue-50 text-blue-700 border-blue-200';
-
               const timeLabel = isToday
                 ? 'TODAY'
                 : isTomorrow
@@ -238,15 +233,17 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
               return (
                 <div
                   key={m.id}
-                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs"
+                  className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs"
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase border ${badgeColor}`}>
-                        {timeLabel}
-                      </span>
+                      <StatusBadge
+                        tone={isToday ? 'rose' : isTomorrow ? 'amber' : 'slate'}
+                        label={timeLabel}
+                        size="xs"
+                      />
 
-                      <span className="font-mono font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                      <span className="font-mono tabular-nums font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-full text-[11px]">
                         {new Date(m.date).toLocaleDateString('en-GB', {
                           weekday: 'short',
                           day: 'numeric',
@@ -255,15 +252,13 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className="font-medium text-slate-700 flex items-center gap-1">
+                      <span className="font-medium text-slate-700 flex items-center gap-1 tabular-nums">
                         <Clock className="w-3 h-3 text-slate-400" />
                         {m.time}
                       </span>
 
                       <span className="text-slate-400">·</span>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                        {m.typeLabel}
-                      </span>
+                      <StatusBadge tone="slate" label={m.typeLabel} size="xs" showDot={false} />
                     </div>
 
                     <h4 className="font-bold text-sm text-slate-900 leading-snug truncate">
@@ -271,7 +266,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                     </h4>
 
                     {/* Case and Registry Identifiers */}
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono tabular-nums">
                       <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
                         MK: <strong>{m.caseNumber}</strong>
                       </span>

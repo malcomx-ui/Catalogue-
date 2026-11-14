@@ -201,16 +201,16 @@ export const Sidebar: React.FC = () => {
           setActiveTab(item.id);
           closeMobileIfOpen(isMobile);
         }}
-        className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[36px] group cursor-pointer ${
+        className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
           isActive
-            ? 'bg-slate-900 text-white font-semibold'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+            ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-xs'
+            : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <Icon
             className={`w-4 h-4 shrink-0 ${
-              isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+              isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-700'
             }`}
           />
           <span className="truncate">{item.label}</span>
@@ -218,7 +218,7 @@ export const Sidebar: React.FC = () => {
 
         {item.count !== undefined ? (
           <span
-            className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+            className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${
               isActive
                 ? 'bg-slate-800 text-slate-200'
                 : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200/80'
@@ -227,7 +227,7 @@ export const Sidebar: React.FC = () => {
             {item.count}
           </span>
         ) : item.badge ? (
-          <span className="text-[9px] font-bold font-mono tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="text-[9px] font-bold font-mono tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
             {item.badge}
           </span>
         ) : null}
@@ -264,7 +264,11 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Scrollable Navigation Body */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-3 py-3.5 space-y-1.5">
+        <div className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          Core Workspace
+        </div>
+
         {/* =============================================================== */}
         {/* 1. DASHBOARD (Top-Level Navigation Item)                        */}
         {/* =============================================================== */}
@@ -274,16 +278,16 @@ export const Sidebar: React.FC = () => {
             navigateToRoute('dashboard');
             closeMobileIfOpen(isMobile);
           }}
-          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+          className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
             activeTab === 'dashboard'
-              ? 'bg-slate-900 text-white font-semibold'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+              ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-xs'
+              : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <LayoutDashboard
               className={`w-4 h-4 shrink-0 ${
-                activeTab === 'dashboard' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                activeTab === 'dashboard' ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-700'
               }`}
             />
             <span className="truncate">Dashboard</span>
@@ -297,10 +301,10 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsLitigationOpen((prev) => !prev)}
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
               isLitigationParentActive
-                ? 'bg-slate-100 text-slate-900 font-semibold'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+                ? 'border-l-slate-900 bg-slate-100/90 text-slate-900 font-semibold'
+                : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -316,15 +320,15 @@ export const Sidebar: React.FC = () => {
                 {branchScopedCases.length}
               </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                  isLitigationOpen ? 'rotate-180' : ''
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ease-out ${
+                  isLitigationOpen ? 'rotate-180 text-slate-700' : ''
                 }`}
               />
             </div>
           </button>
 
           {isLitigationOpen && (
-            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+            <div className="pl-3.5 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
               {/* Cases (/litigation/cases) */}
               <button
                 type="button"
@@ -332,10 +336,10 @@ export const Sidebar: React.FC = () => {
                   navigateToRoute('catalogue');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                   activeTab === 'catalogue'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -343,7 +347,7 @@ export const Sidebar: React.FC = () => {
                   <span className="truncate">Cases</span>
                 </div>
                 <span
-                  className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${
                     activeTab === 'catalogue'
                       ? 'bg-slate-800 text-slate-200'
                       : 'bg-slate-100 text-slate-500'
@@ -360,10 +364,10 @@ export const Sidebar: React.FC = () => {
                   navigateToRoute('clients');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                   activeTab === 'clients'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -379,10 +383,10 @@ export const Sidebar: React.FC = () => {
                   navigateToRoute('causelist');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[34px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                   activeTab === 'causelist'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
@@ -391,7 +395,7 @@ export const Sidebar: React.FC = () => {
                 </div>
                 {activeHearingsCount > 0 && (
                   <span
-                    className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                    className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${
                       activeTab === 'causelist'
                         ? 'bg-slate-800 text-slate-200'
                         : 'bg-slate-100 text-slate-500'
@@ -412,10 +416,10 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsMortgagesOpen((prev) => !prev)}
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
               activeTab === 'mortgages'
-                ? 'bg-slate-100 text-slate-900 font-semibold'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+                ? 'border-l-slate-900 bg-slate-100/90 text-slate-900 font-semibold'
+                : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -427,14 +431,14 @@ export const Sidebar: React.FC = () => {
               <span className="truncate">Mortgages</span>
             </div>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-                isMortgagesOpen ? 'rotate-180' : ''
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ease-out shrink-0 ${
+                isMortgagesOpen ? 'rotate-180 text-slate-700' : ''
               }`}
             />
           </button>
 
           {isMortgagesOpen && (
-            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+            <div className="pl-3.5 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
               {/* Bank Workspace (/mortgages/bank-workspace) */}
               <button
                 type="button"
@@ -442,10 +446,10 @@ export const Sidebar: React.FC = () => {
                   triggerMortgageAction('workspace');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center gap-2 text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                   activeTab === 'mortgages' && mortgageAction === 'workspace'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5 shrink-0 opacity-80" />
@@ -459,10 +463,10 @@ export const Sidebar: React.FC = () => {
                   triggerMortgageAction('add');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center gap-2 text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                   activeTab === 'mortgages' && mortgageAction === 'add'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <Plus className="w-3.5 h-3.5 shrink-0 opacity-80" />
@@ -477,10 +481,10 @@ export const Sidebar: React.FC = () => {
                     triggerMortgageAction('import');
                     closeMobileIfOpen(isMobile);
                   }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center gap-2 text-xs transition-colors min-h-[34px] cursor-pointer ${
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center gap-2 text-xs transition-all duration-150 min-h-[34px] cursor-pointer ${
                     activeTab === 'mortgages' && mortgageAction === 'import'
-                      ? 'bg-slate-900 text-white font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                      ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                      : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                   }`}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 shrink-0 opacity-80" />
@@ -500,16 +504,16 @@ export const Sidebar: React.FC = () => {
             navigateToRoute('debt_recovery');
             closeMobileIfOpen(isMobile);
           }}
-          className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+          className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
             activeTab === 'debt_recovery'
-              ? 'bg-slate-900 text-white font-semibold'
-              : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+              ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-xs'
+              : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <Banknote
               className={`w-4 h-4 shrink-0 ${
-                activeTab === 'debt_recovery' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                activeTab === 'debt_recovery' ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-700'
               }`}
             />
             <span className="truncate">Debt Recovery</span>
@@ -523,10 +527,10 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsBranchesOpen((prev) => !prev)}
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
               activeTab === 'branches'
-                ? 'bg-slate-100 text-slate-900 font-semibold'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+                ? 'border-l-slate-900 bg-slate-100/90 text-slate-900 font-semibold'
+                : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -535,19 +539,19 @@ export const Sidebar: React.FC = () => {
                   activeTab === 'branches' ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-700'
                 }`}
               />
-              <span className="truncate">
+              <span className="truncate tabular-nums">
                 Branches ({userPermissions.canViewAllBranches ? branches.length : 1})
               </span>
             </div>
             <ChevronDown
-              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-                isBranchesOpen ? 'rotate-180' : ''
+              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ease-out shrink-0 ${
+                isBranchesOpen ? 'rotate-180 text-slate-700' : ''
               }`}
             />
           </button>
 
           {isBranchesOpen && (
-            <div className="pl-4 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
+            <div className="pl-3.5 ml-3 border-l border-slate-200 space-y-0.5 py-0.5">
               {/* Branch Locations / Management Overview (/branches) */}
               <button
                 type="button"
@@ -555,10 +559,10 @@ export const Sidebar: React.FC = () => {
                   navigateToRoute('branches');
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[32px] cursor-pointer ${
                   activeTab === 'branches'
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <span className="truncate">Branch Management</span>
@@ -579,10 +583,10 @@ export const Sidebar: React.FC = () => {
                     navigateToRoute('catalogue', { branchId: 'all' });
                     closeMobileIfOpen(isMobile);
                   }}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[30px] cursor-pointer ${
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[30px] cursor-pointer ${
                     activeTab === 'catalogue' && selectedBranchFilter === 'all'
-                      ? 'bg-blue-50 text-blue-900 font-semibold'
-                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                      ? 'border-l-blue-600 bg-blue-50 text-blue-900 font-semibold'
+                      : 'border-l-transparent text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                   }`}
                 >
                   <span className="truncate">All Stations</span>
@@ -608,10 +612,10 @@ export const Sidebar: React.FC = () => {
                           navigateToRoute('catalogue', { branchId: branch.id });
                           closeMobileIfOpen(isMobile);
                         }}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[30px] cursor-pointer ${
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[30px] cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-50 text-blue-900 font-semibold'
-                            : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                            ? 'border-l-blue-600 bg-blue-50 text-blue-900 font-semibold'
+                            : 'border-l-transparent text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
                         }`}
                       >
                         <div className="flex items-center gap-1.5 truncate min-w-0">
@@ -645,10 +649,10 @@ export const Sidebar: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsLegalTeamOpen((prev) => !prev)}
-            className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[38px] group cursor-pointer ${
+            className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
               activeTab === 'legal_team'
-                ? 'bg-slate-100 text-slate-900 font-semibold'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/80'
+                ? 'border-l-slate-900 bg-slate-100/90 text-slate-900 font-semibold'
+                : 'border-l-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -664,15 +668,15 @@ export const Sidebar: React.FC = () => {
                 {legalTeamMembers.length}
               </span>
               <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                  isLegalTeamOpen ? 'rotate-180' : ''
+                className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ease-out ${
+                  isLegalTeamOpen ? 'rotate-180 text-slate-700' : ''
                 }`}
               />
             </div>
           </button>
 
           {isLegalTeamOpen && (
-            <div className="pl-4 ml-3 border-l border-slate-200 space-y-1.5 py-1">
+            <div className="pl-3.5 ml-3 border-l border-slate-200 space-y-1.5 py-1">
               {/* Directory Link */}
               <button
                 type="button"
@@ -680,10 +684,10 @@ export const Sidebar: React.FC = () => {
                   setSelectedStaffKey(null);
                   closeMobileIfOpen(isMobile);
                 }}
-                className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[32px] cursor-pointer ${
                   activeTab === 'legal_team' && !selectedStaffKey
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                    ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                 }`}
               >
                 <span className="truncate">Team Directory</span>
@@ -704,7 +708,7 @@ export const Sidebar: React.FC = () => {
                   value={teamSearch}
                   onChange={(e) => setTeamSearch(e.target.value)}
                   placeholder="Find staff member..."
-                  className="w-full pl-7 pr-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-md focus:bg-white focus:outline-none focus:border-slate-400"
+                  className="w-full pl-7 pr-2 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-slate-400"
                 />
               </div>
 
@@ -728,16 +732,16 @@ export const Sidebar: React.FC = () => {
                           closeMobileIfOpen(isMobile);
                         }}
                         title={`${member.name} — ${member.roleTitle}`}
-                        className={`w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs transition-colors min-h-[32px] cursor-pointer ${
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg border-l-[3px] flex items-center justify-between text-xs transition-all duration-150 min-h-[32px] cursor-pointer ${
                           isMemberSelected
-                            ? 'bg-slate-900 text-white font-semibold'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                            ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-2xs'
+                            : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <UserCircle2
                             className={`w-3.5 h-3.5 shrink-0 ${
-                              isMemberSelected ? 'text-white' : 'text-slate-400'
+                              isMemberSelected ? 'text-blue-400' : 'text-slate-400'
                             }`}
                           />
                           <div className="min-w-0">
@@ -747,7 +751,7 @@ export const Sidebar: React.FC = () => {
                           </div>
                         </div>
                         <span
-                          className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded shrink-0 ${
+                          className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded-full shrink-0 ${
                             isMemberSelected
                               ? 'bg-slate-800 text-slate-200'
                               : 'bg-slate-100 text-slate-500'
@@ -768,8 +772,8 @@ export const Sidebar: React.FC = () => {
         {/* SECONDARY SECTIONS (Documents, Intelligence, Administration)    */}
         {/* =============================================================== */}
         {systemSettings.features.enableDocuments && (
-          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
-            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="pt-2.5 mt-2.5 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Registry Files
             </div>
             <button
@@ -778,22 +782,22 @@ export const Sidebar: React.FC = () => {
                 setActiveTab('documents');
                 closeMobileIfOpen(isMobile);
               }}
-              className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between text-xs font-medium transition-colors min-h-[36px] group cursor-pointer ${
+              className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] flex items-center justify-between text-xs font-medium transition-all duration-150 min-h-[38px] group cursor-pointer ${
                 activeTab === 'documents'
-                  ? 'bg-slate-900 text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                  ? 'border-l-blue-500 bg-slate-900 text-white font-semibold shadow-xs'
+                  : 'border-l-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 hover:border-l-slate-300'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <FolderOpen
                   className={`w-4 h-4 shrink-0 ${
-                    activeTab === 'documents' ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
+                    activeTab === 'documents' ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-700'
                   }`}
                 />
                 <span className="truncate">Pleading Documents</span>
               </div>
               <span
-                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full ${
                   activeTab === 'documents' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'
                 }`}
               >
@@ -804,8 +808,8 @@ export const Sidebar: React.FC = () => {
         )}
 
         {intelligenceNavItems.length > 0 && (
-          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
-            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="pt-2.5 mt-2.5 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Intelligence &amp; Risk
             </div>
             {intelligenceNavItems.map((item) => renderSecondaryNavButton(item, isMobile))}
@@ -813,8 +817,8 @@ export const Sidebar: React.FC = () => {
         )}
 
         {administrativeNavItems.length > 0 && (
-          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1">
-            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="pt-2.5 mt-2.5 border-t border-slate-100 space-y-1">
+            <div className="px-3 pb-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
               Administration &amp; Registry
             </div>
             {administrativeNavItems.map((item) => renderSecondaryNavButton(item, isMobile))}
@@ -822,17 +826,17 @@ export const Sidebar: React.FC = () => {
         )}
 
         {isAdmin && (
-          <div className="pt-2">
+          <div className="pt-2.5">
             <button
               type="button"
               onClick={() => {
                 closeMobileIfOpen(isMobile);
                 setIsCpanelMigrationModalOpen(true);
               }}
-              className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 hover:bg-emerald-100/80 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 hover:bg-emerald-100/80 hover:shadow-sm transition-all cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-700 text-white flex items-center justify-center">
+                <div className="w-7 h-7 rounded-xl bg-emerald-700 text-white flex items-center justify-center">
                   <Cloud className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-left">
@@ -840,7 +844,7 @@ export const Sidebar: React.FC = () => {
                   <div className="text-[10px] text-emerald-700">Deploy &amp; Sync Hub</div>
                 </div>
               </div>
-              <span className="text-[9px] bg-emerald-200/80 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold">
                 Live
               </span>
             </button>
@@ -849,7 +853,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* User Session & Security Lockout Card */}
-      <div className="p-3 m-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+      <div className="p-3.5 m-2.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs shadow-2xs">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
             Active Session

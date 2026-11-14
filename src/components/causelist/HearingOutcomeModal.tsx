@@ -34,13 +34,13 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
-        <div className="bg-[#0B132B] text-slate-100 p-4 border-b border-slate-800 flex items-center justify-between">
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-[#0B132B] text-slate-100 p-5 border-b border-slate-800 flex items-center justify-between">
           <div>
             <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
               Court Outcome Log
             </div>
-            <h3 className="font-serif-legal text-lg font-bold text-white">
+            <h3 className="font-serif-legal text-lg font-bold text-white tabular-nums">
               Record Proceedings: {hearing.suitNumber}
             </h3>
           </div>
@@ -52,7 +52,7 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
           <div>
             <label className="block font-medium text-slate-700 mb-1">Hearing Status Outcome</label>
             <div className="grid grid-cols-3 gap-2">
@@ -92,7 +92,7 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
           </div>
 
           {status !== 'Completed' && (
-            <div className="space-y-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
               <div className="font-semibold text-slate-800 text-[11px] uppercase tracking-wider">
                 Adjournment & Next Court Date
               </div>
@@ -105,7 +105,7 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
                     required={status === 'Adjourned' || status === 'Part-Heard'}
                     value={nextHearingDate}
                     onChange={(e) => setNextHearingDate(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 tabular-nums focus:outline-none focus:border-amber-500"
                   />
                 </div>
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
 import { cleanCaseNumber } from '../../utils/caseNumber';
+import { StatusBadge } from '../common/StatusBadge';
 
 export const ImportExcelModal: React.FC = () => {
   const {
@@ -317,7 +318,7 @@ export const ImportExcelModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
-      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
           <div className="flex items-center gap-2">
@@ -358,13 +359,13 @@ export const ImportExcelModal: React.FC = () => {
             <>
               {/* Batch Processing Indicator */}
               {isProcessing && batchProgress && (
-                <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2.5">
+                <div className="p-5 rounded-2xl bg-blue-50/80 border border-blue-200 space-y-2.5">
                   <div className="flex items-center justify-between text-xs font-semibold text-blue-900">
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                       Saving to Supabase Database (Batch Insert)...
                     </span>
-                    <span className="font-mono text-blue-700">
+                    <span className="font-mono tabular-nums text-blue-700">
                       {batchProgress.processed} / {batchProgress.total} records ({Math.round((batchProgress.processed / (batchProgress.total || 1)) * 100)}%)
                     </span>
                   </div>
@@ -385,7 +386,7 @@ export const ImportExcelModal: React.FC = () => {
               {/* Dropzone */}
               <div
                 onClick={() => !isProcessing && fileInputRef.current?.click()}
-                className={`border-2 border-dashed ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'} border-slate-300 rounded-xl p-8 text-center transition-colors bg-slate-50/50 group`}
+                className={`border-2 border-dashed ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-blue-500 hover:bg-blue-50/30'} border-slate-300 rounded-2xl p-8 text-center transition-colors bg-slate-50/50 group`}
               >
                 <input
                   ref={fileInputRef}
@@ -408,7 +409,7 @@ export const ImportExcelModal: React.FC = () => {
                 </p>
 
                 {file && (
-                  <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium tabular-nums">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>File loaded ({Math.round(file.size / 1024)} KB)</span>
                   </div>
@@ -435,41 +436,39 @@ export const ImportExcelModal: React.FC = () => {
               {parsedRows.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
-                    <span>Detected {parsedRows.length} Cases in File</span>
+                    <span className="tabular-nums">Detected {parsedRows.length} Cases in File</span>
                     <span className="text-slate-500 font-normal">Previewing first 5 rows:</span>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-x-auto max-h-56">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-700 sticky top-0">
-                        <tr>
-                          <th className="p-2 border-b">MK Case No</th>
-                          <th className="p-2 border-b">Title</th>
-                          <th className="p-2 border-b">Branch</th>
-                          <th className="p-2 border-b">District</th>
-                          <th className="p-2 border-b">Status</th>
-                          <th className="p-2 border-b">Person(s) in Conduct</th>
+                  <div className="border border-slate-200 rounded-2xl overflow-x-auto max-h-56 shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-50/90 text-slate-600 sticky top-0 border-b border-slate-200">
+                        <tr className="divide-x divide-slate-200/60">
+                          <th className="py-2.5 px-3 font-semibold">MK Case No</th>
+                          <th className="py-2.5 px-3 font-semibold">Title</th>
+                          <th className="py-2.5 px-3 font-semibold">Branch</th>
+                          <th className="py-2.5 px-3 font-semibold">District</th>
+                          <th className="py-2.5 px-3 font-semibold">Status</th>
+                          <th className="py-2.5 px-3 font-semibold">Person(s) in Conduct</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {parsedRows.slice(0, 5).map((row, i) => (
-                          <tr key={i} className="hover:bg-slate-50">
-                            <td className="p-2 font-mono text-slate-600">
+                          <tr key={i} className="hover:bg-slate-50/80 divide-x divide-slate-100/70">
+                            <td className="py-2.5 px-3 font-mono tabular-nums text-slate-600">
                               {row.case_number ? (
                                 row.case_number
                               ) : (
                                 <span className="text-slate-400 italic font-sans font-normal">None</span>
                               )}
                             </td>
-                            <td className="p-2 font-medium text-slate-900 truncate max-w-[200px]">{row.title || row.client}</td>
-                            <td className="p-2 text-slate-600 truncate max-w-[120px]">{row.branch || 'Head Office'}</td>
-                            <td className="p-2 text-slate-600">{row.district || 'Kampala'}</td>
-                            <td className="p-2">
-                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 capitalize">
-                                {row.status || 'Active'}
-                              </span>
+                            <td className="py-2.5 px-3 font-medium text-slate-900 truncate max-w-[200px]">{row.title || row.client}</td>
+                            <td className="py-2.5 px-3 text-slate-600 truncate max-w-[120px]">{row.branch || 'Head Office'}</td>
+                            <td className="py-2.5 px-3 text-slate-600">{row.district || 'Kampala'}</td>
+                            <td className="py-2.5 px-3">
+                              <StatusBadge status={row.status || 'Active'} size="xs" />
                             </td>
-                            <td className="p-2 text-slate-700 truncate max-w-[160px]">
+                            <td className="py-2.5 px-3 text-slate-700 truncate max-w-[160px]">
                               {row.persons_in_conduct?.length > 1
                                 ? `${row.persons_in_conduct[0]} (+${row.persons_in_conduct.length - 1} more)`
                                 : row.person_in_conduct || '—'}

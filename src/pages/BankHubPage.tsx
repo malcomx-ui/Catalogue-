@@ -95,12 +95,12 @@ export const BankHubPage: React.FC<{
             </button>
           )}
 
-          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-gray-200 shadow-xs">
-            <label className="text-xs font-medium text-gray-700">Month:</label>
+          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-xs">
+            <label className="text-xs font-medium text-slate-700 pl-1">Month:</label>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 focus:outline-none cursor-pointer"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-blue-700 focus:outline-none cursor-pointer"
             >
               {MONTHS.map((m) => (
                 <option key={m} value={m}>
@@ -110,12 +110,12 @@ export const BankHubPage: React.FC<{
             </select>
           </div>
 
-          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-gray-200 shadow-xs">
-            <label className="text-xs font-medium text-gray-700">Financial Year:</label>
+          <div className="flex items-center space-x-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-xs">
+            <label className="text-xs font-medium text-slate-700 pl-1">Financial Year:</label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-blue-600 focus:outline-none cursor-pointer"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-blue-700 focus:outline-none cursor-pointer tabular-nums"
             >
               <option value={2026}>2026</option>
               <option value={2027}>2027</option>
@@ -171,31 +171,31 @@ export const BankHubPage: React.FC<{
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-gray-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
+        <div className="text-center py-12 text-slate-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {banksSummary.map((b) => (
             <div
               key={b.bank_name}
               onClick={() => onSelectBank(b.bank_name)}
-              className="bg-white p-6 rounded-xl shadow-xs border border-gray-200 hover:border-blue-500 hover:shadow-md transition cursor-pointer flex flex-col justify-between space-y-4 group"
+              className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
             >
               <div>
-                <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full group-hover:bg-blue-100 transition">
+                <span className="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200/80 rounded-full group-hover:bg-blue-100 transition">
                   Lending Partner
                 </span>
-                <h3 className="text-lg font-bold text-gray-900 mt-3 group-hover:text-blue-700 transition">
+                <h3 className="text-lg font-bold text-slate-900 mt-3 group-hover:text-blue-700 transition">
                   {b.bank_name}
                 </h3>
               </div>
-              <div className="border-t border-gray-100 pt-4 grid grid-cols-2 gap-2">
+              <div className="border-t border-slate-100 pt-4 grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-xs text-gray-500 block">Active Files ({selectedYear})</span>
-                  <span className="text-base font-semibold text-gray-900">{b.file_count}</span>
+                  <span className="text-xs text-slate-500 block">Active Files ({selectedYear})</span>
+                  <span className="text-base font-bold text-slate-900 font-mono tabular-nums">{b.file_count}</span>
                 </div>
                 <div>
-                  <span className="text-xs text-gray-500 block">Portfolio Value</span>
-                  <span className="text-sm font-bold text-blue-600 font-mono">
+                  <span className="text-xs text-slate-500 block">Portfolio Value</span>
+                  <span className="text-sm font-bold text-blue-600 font-mono tabular-nums">
                     {b.total_loan > 0 ? `UGX ${(b.total_loan / 1e9).toFixed(2)}B` : 'UGX 0'}
                   </span>
                 </div>

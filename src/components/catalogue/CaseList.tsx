@@ -23,7 +23,12 @@ import {
   Scale,
   ShieldCheck,
   Layers,
+  Edit3,
+  Copy,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
+import { RowActionMenu } from '../common/RowActionMenu';
+import { showCleanMessage } from '../../utils/notification';
 
 export const CaseList: React.FC = () => {
   const {
@@ -193,38 +198,6 @@ export const CaseList: React.FC = () => {
     return true;
   });
 
-  const getStatusBadgeColor = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
-      return 'bg-slate-100 text-slate-700 border-slate-300';
-    }
-    if (s.includes('archived')) {
-      return 'bg-zinc-100 text-zinc-700 border-zinc-300';
-    }
-    if (s.includes('execution') || s.includes('decree')) {
-      return 'bg-amber-100 text-amber-900 border-amber-300';
-    }
-    if (s.includes('active') || s.includes('ongoing')) {
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    }
-    if (s.includes('mention')) {
-      return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-    }
-    if (s.includes('ruling') || s.includes('judgment')) {
-      return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    }
-    if (s.includes('pending') || s.includes('instruction')) {
-      return 'bg-amber-50 text-amber-700 border-amber-200';
-    }
-    if (s.includes('adjourn')) {
-      return 'bg-purple-50 text-purple-700 border-purple-200';
-    }
-    if (s.includes('dormant') || s.includes('inactive')) {
-      return 'bg-rose-50 text-rose-700 border-rose-200';
-    }
-    return 'bg-blue-50 text-blue-700 border-blue-200';
-  };
-
   return (
     <div className="space-y-4">
       {/* Page Title & Actions */}
@@ -321,7 +294,7 @@ export const CaseList: React.FC = () => {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-2.5">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap items-center gap-2 flex-1 w-full sm:w-auto">
           {/* Branch filter */}
           {userPermissions.canViewAllBranches ? (
@@ -448,7 +421,7 @@ export const CaseList: React.FC = () => {
           )}
         </div>
 
-        <div className="text-xs text-slate-400 font-mono">
+        <div className="text-xs text-slate-500 font-mono tabular-nums">
           Showing {displayCases.length} of {filteredCases.length}
         </div>
       </div>
@@ -466,19 +439,19 @@ export const CaseList: React.FC = () => {
           }}
         />
       ) : viewMode === 'table' ? (
-        <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">MK File No.</th>
-                  <th className="py-3 px-4">Case Title & Parties</th>
-                  <th className="py-3 px-4">Court & Division</th>
-                  <th className="py-3 px-4">Branch</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Next Hearing</th>
-                  <th className="py-3 px-4">Lead Counsel</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                <tr className="divide-x divide-slate-200/60">
+                  <th className="py-3.5 px-4">MK File No.</th>
+                  <th className="py-3.5 px-4">Case Title &amp; Parties</th>
+                  <th className="py-3.5 px-4">Court &amp; Division</th>
+                  <th className="py-3.5 px-4">Branch</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4">Next Hearing</th>
+                  <th className="py-3.5 px-4">Lead Counsel</th>
+                  <th className="py-3.5 px-4 text-right w-14">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -599,25 +572,28 @@ export const CaseList: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  displayCases.map((caseItem) => (
+                  displayCases.map((caseItem) => {
+                    const canModifyRow = canUserModifyCase(effectiveUser, caseItem);
+                    const fileRef = caseItem.case_number || caseItem.suitNumber || '';
+                    return (
                     <tr
                       key={caseItem.id}
                       onClick={() => setSelectedCase(caseItem)}
-                      className="hover:bg-slate-50/80 cursor-pointer transition-colors"
+                      className="hover:bg-slate-50/80 cursor-pointer transition-colors divide-x divide-slate-100/70"
                     >
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {caseItem.case_number || caseItem.suitNumber ? (
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {fileRef ? (
                           <>
-                            <div className="font-mono font-medium text-slate-900">
-                              {caseItem.case_number || caseItem.suitNumber}
+                            <div className="font-mono tabular-nums font-medium text-slate-900">
+                              {fileRef}
                             </div>
                             {caseItem.suit_no && (
-                              <div className="text-[10px] text-blue-700 font-mono font-medium truncate" title="Court Registry Identifier">
+                              <div className="text-[10px] text-blue-700 font-mono tabular-nums font-medium truncate" title="Court Registry Identifier">
                                 Suit: {caseItem.suit_no}
                               </div>
                             )}
-                            {caseItem.firmRefNumber && caseItem.firmRefNumber !== (caseItem.case_number || caseItem.suitNumber) && (
-                              <div className="text-[10px] text-slate-400 font-sans">{caseItem.firmRefNumber}</div>
+                            {caseItem.firmRefNumber && caseItem.firmRefNumber !== fileRef && (
+                              <div className="text-[10px] text-slate-400 font-sans tabular-nums">{caseItem.firmRefNumber}</div>
                             )}
                           </>
                         ) : (
@@ -626,7 +602,7 @@ export const CaseList: React.FC = () => {
                               e.stopPropagation();
                               setSelectedCase(caseItem);
                             }}
-                            className="inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2 py-0.5 rounded font-medium cursor-pointer transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-2.5 py-0.5 rounded-full font-medium cursor-pointer transition-colors shadow-2xs"
                             title="Click to enter MK File No. manually"
                           >
                             <Plus className="w-2.5 h-2.5" />
@@ -635,7 +611,7 @@ export const CaseList: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-3 px-4 max-w-xs">
+                      <td className="py-3.5 px-4 max-w-xs">
                         <div className="font-semibold text-slate-900 leading-snug truncate">
                           {caseItem.title}
                         </div>
@@ -646,35 +622,34 @@ export const CaseList: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-medium text-slate-800">{caseItem.division.replace('High Court ', '')}</div>
                         <div className="text-[10px] text-slate-400">{caseItem.presidingJudge}</div>
                       </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-600 font-medium">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-600 font-medium">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span>{(caseItem.branchName || caseItem.branch || 'Unassigned').replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}</span>
-                          {!canUserModifyCase(effectiveUser, caseItem) && (
-                            <span
-                              className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
+                          {!canModifyRow && (
+                            <StatusBadge
+                              tone="amber"
+                              size="xs"
+                              showDot={false}
+                              label="View Only"
                               title="Branch custody isolation: View only outside your assigned branch"
-                            >
-                              🔒 View Only
-                            </span>
+                            />
                           )}
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
-                          {caseItem.status || 'Active'}
-                        </span>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <StatusBadge status={caseItem.status || 'Active'} />
                       </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {caseItem.nextHearingDate ? (
                           <div>
-                            <div className="font-mono font-medium text-slate-900">{caseItem.nextHearingDate}</div>
+                            <div className="font-mono tabular-nums font-medium text-slate-900">{caseItem.nextHearingDate}</div>
                             <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
                               {caseItem.nextHearingPurpose || 'Hearing'}
                             </div>
@@ -684,7 +659,7 @@ export const CaseList: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-700">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-700">
                         {caseItem.leadAdvocate ? (
                           <button
                             type="button"
@@ -693,7 +668,7 @@ export const CaseList: React.FC = () => {
                               const counselName = caseItem.leadAdvocate.split(',')[0].trim();
                               setSelectedLawyerFilter(counselName);
                             }}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors group ${
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors group ${
                               selectedLawyerFilter.toLowerCase() === caseItem.leadAdvocate.split(',')[0].trim().toLowerCase()
                                 ? 'bg-indigo-100 text-indigo-900 font-bold border border-indigo-300 shadow-2xs'
                                 : 'hover:bg-indigo-50 hover:text-indigo-700 text-slate-700'
@@ -708,30 +683,51 @@ export const CaseList: React.FC = () => {
                         )}
                       </td>
 
-                      <td className="py-3 px-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCase(caseItem);
-                          }}
-                          className={`px-2.5 py-1 rounded font-medium transition-colors text-xs ${
-                            canUserModifyCase(effectiveUser, caseItem)
-                              ? 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200'
-                              : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200'
-                          }`}
-                        >
-                          {canUserModifyCase(effectiveUser, caseItem) ? 'View / Edit' : 'View Only'}
-                        </button>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <RowActionMenu
+                          ariaLabel={`Actions for ${fileRef || caseItem.title}`}
+                          items={[
+                            {
+                              id: 'view',
+                              label: 'Inspect Case Dossier',
+                              icon: <Eye className="w-3.5 h-3.5" />,
+                              onClick: () => setSelectedCase(caseItem),
+                            },
+                            {
+                              id: 'edit',
+                              label: canModifyRow ? 'Edit / Update Matter' : 'Edit (View Only)',
+                              icon: <Edit3 className="w-3.5 h-3.5" />,
+                              disabled: !canModifyRow,
+                              disabledReason: `View-Only: Mutations restricted to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`,
+                              onClick: () => setSelectedCase(caseItem),
+                            },
+                            ...(fileRef
+                              ? [
+                                  {
+                                    id: 'copy-ref',
+                                    label: 'Copy File Reference',
+                                    icon: <Copy className="w-3.5 h-3.5" />,
+                                    dividerBefore: true,
+                                    onClick: () => {
+                                      navigator.clipboard?.writeText(fileRef);
+                                      showCleanMessage(`Copied ${fileRef} to clipboard.`, 'info');
+                                    },
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </td>
                     </tr>
-                  ))
+                  );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
       ) : displayCases.length === 0 ? (
-        <div className="bg-white rounded-lg border border-slate-200 p-8 text-center shadow-2xs">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
           {cases.length === 0 ? (
             <div className="max-w-md mx-auto space-y-3.5">
               <div className="w-13 h-13 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200 shadow-2xs">
@@ -778,52 +774,53 @@ export const CaseList: React.FC = () => {
         </div>
       ) : (
         /* Cards View */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {displayCases.map((caseItem) => (
             <div
               key={caseItem.id}
               onClick={() => setSelectedCase(caseItem)}
-              className="bg-white p-4 rounded-lg border border-slate-200 hover:border-slate-300 shadow-2xs cursor-pointer transition-all flex flex-col justify-between"
+              className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-slate-300 shadow-xs hover:shadow-md cursor-pointer transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  {caseItem.case_number || caseItem.suitNumber ? (
-                    <span className="font-mono text-xs font-semibold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {caseItem.case_number || caseItem.suitNumber}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/80 inline-flex items-center gap-1 shadow-2xs">
-                      <Plus className="w-2.5 h-2.5" /> Enter MK File No.
-                    </span>
-                  )}
-                  {caseItem.suit_no && (
-                    <span className="font-mono text-[10px] text-blue-800 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium" title="Court Registry Identifier">
-                      Suit: {caseItem.suit_no}
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {!canUserModifyCase(effectiveUser, caseItem) && (
-                      <span
-                        className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
-                        title="Branch custody isolation: View only outside your assigned branch"
-                      >
-                        🔒 View Only
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {caseItem.case_number || caseItem.suitNumber ? (
+                      <span className="font-mono tabular-nums text-xs font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-full">
+                        {caseItem.case_number || caseItem.suitNumber}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/80 inline-flex items-center gap-1 shadow-2xs">
+                        <Plus className="w-2.5 h-2.5" /> Enter MK File No.
                       </span>
                     )}
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border capitalize ${getStatusBadgeColor(caseItem.status)}`}>
-                      {caseItem.status || 'Active'}
-                    </span>
+                    {caseItem.suit_no && (
+                      <span className="font-mono tabular-nums text-[10px] text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-medium" title="Court Registry Identifier">
+                        Suit: {caseItem.suit_no}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                    {!canUserModifyCase(effectiveUser, caseItem) && (
+                      <StatusBadge
+                        tone="amber"
+                        size="xs"
+                        showDot={false}
+                        label="View Only"
+                        title="Branch custody isolation: View only outside your assigned branch"
+                      />
+                    )}
+                    <StatusBadge size="xs" status={caseItem.status || 'Active'} />
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-sm text-slate-900 mt-2 leading-snug">
+                <h3 className="font-semibold text-sm text-slate-900 mt-2.5 leading-snug">
                   {caseItem.title}
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                   {caseItem.briefSummary}
                 </p>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs text-slate-500 space-y-1">
+                <div className="mt-3.5 pt-3 border-t border-slate-100 text-xs text-slate-500 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span>Court:</span>
                     <strong className="text-slate-700 font-medium">{caseItem.division}</strong>
@@ -843,7 +840,7 @@ export const CaseList: React.FC = () => {
                         }}
                         className={`text-xs font-medium flex items-center gap-1 transition-colors ${
                           selectedLawyerFilter.toLowerCase() === caseItem.leadAdvocate.split(',')[0].trim().toLowerCase()
-                            ? 'text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shadow-2xs'
+                            ? 'text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 shadow-2xs'
                             : 'text-slate-700 hover:text-indigo-700 hover:underline'
                         }`}
                         title={`Filter catalogue by ${caseItem.leadAdvocate.split(',')[0].trim()}`}
@@ -859,9 +856,9 @@ export const CaseList: React.FC = () => {
               </div>
 
               {caseItem.nextHearingDate && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 p-2 rounded">
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 px-3 py-2 rounded-xl">
                   <span className="text-slate-500">Next Hearing:</span>
-                  <span className="font-mono font-semibold text-slate-900">{caseItem.nextHearingDate}</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900">{caseItem.nextHearingDate}</span>
                 </div>
               )}
             </div>

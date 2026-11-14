@@ -30,6 +30,8 @@ import {
   resolveBranchId,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
+import { StatusBadge } from './common/StatusBadge';
+import { RowActionMenu } from './common/RowActionMenu';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -604,23 +606,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       </div>
 
       {/* Header with Back Button & Record Action */}
-      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-200 shadow-xs w-full min-w-0">
+      <div className="no-print flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow w-full min-w-0">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 min-w-0">
           <button
             onClick={onBack}
-            className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center gap-1.5 transition shrink-0"
+            className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-medium flex items-center gap-1.5 transition shrink-0 cursor-pointer"
           >
             <span>←</span>
             <span>Back to Portfolios</span>
           </button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{bankName}</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-semibold whitespace-nowrap">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 truncate">{bankName}</h1>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold whitespace-nowrap tabular-nums">
                 {mortgages.length} Files Loaded
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Active Securities &amp; 19-Column Mortgage Register ·{' '}
               {isGlobalAdmin
                 ? 'Unrestricted Firm-Wide Custody'
@@ -630,9 +632,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto lg:justify-end">
-          <div className="text-left sm:text-right sm:border-r sm:border-gray-200 sm:pr-4 mr-auto lg:mr-0">
-            <span className="text-xs text-gray-500 block">Total Portfolio Value</span>
-            <span className="text-sm font-bold text-blue-700 font-mono whitespace-nowrap">
+          <div className="text-left sm:text-right sm:border-r sm:border-slate-200 sm:pr-4 mr-auto lg:mr-0">
+            <span className="text-xs text-slate-500 block">Total Portfolio Value</span>
+            <span className="text-sm font-bold text-blue-700 font-mono tabular-nums whitespace-nowrap">
               {totalValue > 0 ? `UGX ${(totalValue / 1e9).toFixed(2)}B` : 'UGX 0'}
             </span>
           </div>
@@ -749,34 +751,34 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
 
       {/* Filtered Summary Strip (Screen only; hidden when printing) */}
       {!loading && mortgages.length > 0 && (
-        <div className="no-print kpi-summary-cards grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 w-full min-w-0">
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
-            <span className="text-[11px] font-semibold text-gray-500 block">Showing Files</span>
-            <span className="text-base font-bold text-gray-900 font-mono truncate block">
-              {filteredMortgages.length} <span className="text-xs font-normal text-gray-400">/ {mortgages.length}</span>
+        <div className="no-print kpi-summary-cards grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 w-full min-w-0">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 block">Showing Files</span>
+            <span className="text-base font-bold text-slate-900 font-mono tabular-nums truncate block mt-1">
+              {filteredMortgages.length} <span className="text-xs font-normal text-slate-400">/ {mortgages.length}</span>
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
-            <span className="text-[11px] font-semibold text-gray-500 block">Loan Facilities</span>
-            <span className="text-sm font-bold text-slate-900 font-mono truncate block">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 block">Loan Facilities</span>
+            <span className="text-sm font-bold text-slate-900 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.loan.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
-            <span className="text-[11px] font-semibold text-gray-500 block">Total Disbursements</span>
-            <span className="text-sm font-bold text-amber-700 font-mono truncate block">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 block">Total Disbursements</span>
+            <span className="text-sm font-bold text-amber-700 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.disbursements.toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0">
-            <span className="text-[11px] font-semibold text-gray-500 block">Legal Fees + 18% VAT</span>
-            <span className="text-sm font-bold text-indigo-700 font-mono truncate block">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
+            <span className="text-[11px] font-semibold text-slate-500 block">Legal Fees + 18% VAT</span>
+            <span className="text-sm font-bold text-indigo-700 font-mono tabular-nums truncate block mt-1">
               UGX {(filteredTotals.legalFees + filteredTotals.vat).toLocaleString()}
             </span>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-2xs min-w-0 sm:col-span-2 md:col-span-1">
-            <span className="text-[11px] font-semibold text-gray-500 block">Grand Total Billed</span>
-            <span className="text-sm font-bold text-blue-700 font-mono truncate block">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0 sm:col-span-2 md:col-span-1">
+            <span className="text-[11px] font-semibold text-slate-500 block">Grand Total Billed</span>
+            <span className="text-sm font-bold text-blue-700 font-mono tabular-nums truncate block mt-1">
               UGX {filteredTotals.grandTotal.toLocaleString()}
             </span>
           </div>
@@ -784,9 +786,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       )}
 
       {/* Full Register Container (Table + All-Fields Cards View) */}
-      <div className="mortgage-print-table-wrap bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden w-full min-w-0">
+      <div className="mortgage-print-table-wrap bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden w-full min-w-0">
         {!loading && filteredMortgages.length > 0 && (
-          <div className="no-print px-4 py-2.5 bg-slate-50/80 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2">
+          <div className="no-print px-5 py-3 bg-slate-50/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-2xs">
                 <button
@@ -889,101 +891,94 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
               <div
                 key={m.id || idx}
                 onClick={() => setSelectedRecordForView(m)}
-                className="bg-white rounded-xl border border-gray-200 shadow-2xs hover:border-blue-300 hover:shadow-sm transition p-4 space-y-3 cursor-pointer"
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 hover:shadow-md transition-all p-5 space-y-3.5 cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                      <span className="font-mono text-gray-400">#{idx + 1}</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                      <span className="font-mono tabular-nums text-slate-400">#{idx + 1}</span>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200 tabular-nums">
                         {m.month_sheet || m.source_sheet || '-'}
                         {m.record_year ? ` ${m.record_year}` : ''}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-medium border border-slate-200">
                         {m.branch || m.client_branch_location || m.bank_branch || 'No Branch'}
                       </span>
                       {!canModify && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
-                          <Lock className="w-2.5 h-2.5" />
-                          <span>View Only</span>
-                        </span>
+                        <StatusBadge
+                          tone="amber"
+                          size="xs"
+                          showDot={false}
+                          icon={<Lock className="w-2.5 h-2.5" />}
+                          label="View Only"
+                        />
                       )}
                       {m.rim_no && (
-                        <span className="font-mono font-semibold text-blue-600">
+                        <span className="font-mono tabular-nums font-semibold text-blue-600">
                           RIM: {m.rim_no}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 mt-1.5 truncate">
+                    <h3 className="text-sm font-bold text-slate-900 mt-1.5 truncate">
                       {m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A'}
                     </h3>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedRecordForView(m)}
-                      className="px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 font-semibold text-[11px] border border-slate-200 inline-flex items-center gap-1 transition"
-                    >
-                      <Eye className="w-3 h-3" />
-                      <span>View</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!canModify}
-                      onClick={() => handleEditRequest(m)}
-                      title={
-                        canModify
-                          ? 'Edit mortgage record'
-                          : `View-Only: Editing disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
-                      }
-                      className="px-2 py-1 rounded font-semibold text-[11px] border inline-flex items-center gap-1 transition bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {canModify ? <Edit3 className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                      <span>{canModify ? 'Edit' : 'Locked'}</span>
-                    </button>
                     {confirmDeleteId === String(m.id) && canModify ? (
-                      <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                      <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-1 rounded-full">
                         <button
                           type="button"
                           disabled={deletingId === String(m.id)}
                           onClick={() => handleDeleteRecord(m)}
-                          className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-semibold disabled:opacity-50"
+                          className="px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-semibold disabled:opacity-50"
                         >
-                          {deletingId === String(m.id) ? '...' : 'Confirm'}
+                          {deletingId === String(m.id) ? '...' : 'Confirm Delete'}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDeleteId(null)}
-                          className="px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200 text-[10px] font-medium"
+                          className="px-2 py-0.5 rounded-full bg-white text-slate-600 border border-slate-200 text-[10px] font-medium"
                         >
                           Cancel
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        disabled={!canModify}
-                        onClick={() => {
-                          if (!canModify) return;
-                          setConfirmDeleteId(String(m.id));
-                        }}
-                        title={
-                          canModify
-                            ? 'Delete mortgage record'
-                            : `View-Only: Deleting disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
-                        }
-                        className="px-2 py-1 rounded font-semibold text-[11px] border inline-flex items-center gap-1 transition bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {canModify ? <Trash2 className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                        <span>Delete</span>
-                      </button>
+                      <RowActionMenu
+                        ariaLabel={`Actions for ${m.client_name || 'mortgage record'}`}
+                        items={[
+                          {
+                            id: 'view',
+                            label: 'Inspect Full Record',
+                            icon: <Eye className="w-3.5 h-3.5" />,
+                            onClick: () => setSelectedRecordForView(m),
+                          },
+                          {
+                            id: 'edit',
+                            label: canModify ? 'Edit / Transfer File' : 'Edit (View Only)',
+                            icon: <Edit3 className="w-3.5 h-3.5" />,
+                            disabled: !canModify,
+                            disabledReason: `View-Only: Editing disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`,
+                            onClick: () => handleEditRequest(m),
+                          },
+                          {
+                            id: 'delete',
+                            label: canModify ? 'Delete File' : 'Delete (View Only)',
+                            icon: <Trash2 className="w-3.5 h-3.5" />,
+                            danger: true,
+                            dividerBefore: true,
+                            disabled: !canModify,
+                            disabledReason: `View-Only: Deleting disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`,
+                            onClick: () => setConfirmDeleteId(String(m.id)),
+                          },
+                        ]}
+                      />
                     )}
                   </div>
                 </div>
 
                 {/* Prominent Property Description */}
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                     Property Description
                   </span>
@@ -996,74 +991,72 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
 
                 {/* Financial Breakdown Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Loan Amount</span>
-                    <span className="font-mono font-bold text-gray-900">{formatUGX(m.loan_amount)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Loan Amount</span>
+                    <span className="font-mono tabular-nums font-bold text-slate-900">{formatUGX(m.loan_amount)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Stamp Duty</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.stamp_duty)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Stamp Duty</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.stamp_duty)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Extra Copies</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.extra_copies)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Extra Copies</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.extra_copies)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Registration</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.registration_fee ?? m.registration)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Registration</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.registration_fee ?? m.registration)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Other Fees</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Other Fees</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.other_fees ?? m.other_disbursements ?? m.other)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Bank Charges</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.bank_charges)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Bank Charges</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.bank_charges)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Transport</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.transport)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Transport</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.transport)}</span>
                   </div>
-                  <div className="bg-white border border-gray-100 rounded p-2">
-                    <span className="text-gray-400 block">Linkage Fees</span>
-                    <span className="font-mono font-semibold text-gray-700">{formatUGX(m.linkage_fees)}</span>
+                  <div className="bg-white border border-slate-200/80 rounded-xl p-2.5">
+                    <span className="text-slate-400 block">Linkage Fees</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-700">{formatUGX(m.linkage_fees)}</span>
                   </div>
                 </div>
 
                 {/* Totals Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-blue-50/50 border border-blue-100 rounded-lg p-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-blue-50/50 border border-blue-100 rounded-xl p-3">
                   <div>
-                    <span className="text-gray-500 block">Total Disb.</span>
-                    <span className="font-mono font-bold text-amber-700">{formatUGX(m.total_disbursements)}</span>
+                    <span className="text-slate-500 block">Total Disb.</span>
+                    <span className="font-mono tabular-nums font-bold text-amber-700">{formatUGX(m.total_disbursements)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Legal Fees</span>
-                    <span className="font-mono font-bold text-indigo-700">{formatUGX(m.legal_fees)}</span>
+                    <span className="text-slate-500 block">Legal Fees</span>
+                    <span className="font-mono tabular-nums font-bold text-indigo-700">{formatUGX(m.legal_fees)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">VAT 18%</span>
-                    <span className="font-mono font-semibold text-slate-800">{formatUGX(m.vat_18 ?? m.vat)}</span>
+                    <span className="text-slate-500 block">VAT 18%</span>
+                    <span className="font-mono tabular-nums font-semibold text-slate-800">{formatUGX(m.vat_18 ?? m.vat)}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block">Grand Total</span>
-                    <span className="font-mono font-bold text-blue-700">{formatUGX(m.grand_total)}</span>
+                    <span className="text-slate-500 block">Grand Total</span>
+                    <span className="font-mono tabular-nums font-bold text-blue-700">{formatUGX(m.grand_total)}</span>
                   </div>
                 </div>
 
                 {/* Dates, Status & Comments */}
-                <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-600">
+                <div className="pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span>Receipt: <strong className="font-mono text-gray-800">{formatDate(m.date_of_receipt)}</strong></span>
-                    <span>Payment: <strong className="font-mono text-gray-800">{formatDate(m.date_of_payment)}</strong></span>
-                    <span>Return: <strong className="font-mono text-gray-800">{formatDate(m.date_of_return)}</strong></span>
+                    <span>Receipt: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_receipt)}</strong></span>
+                    <span>Payment: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_payment)}</strong></span>
+                    <span>Return: <strong className="font-mono tabular-nums text-slate-800">{formatDate(m.date_of_return)}</strong></span>
                   </div>
-                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold text-[10px]">
-                    {m.status || 'Active / Processing'}
-                  </span>
+                  <StatusBadge size="xs" status={m.status || 'Active / Processing'} />
                 </div>
                 {m.comments && (
-                  <p className="text-[11px] text-gray-600 bg-amber-50/50 border border-amber-100 rounded px-2.5 py-1.5">
-                    <span className="font-semibold text-gray-700">Comments:</span> {m.comments}
+                  <p className="text-[11px] text-slate-600 bg-amber-50/50 border border-amber-100 rounded-xl px-3 py-2">
+                    <span className="font-semibold text-slate-700">Comments:</span> {m.comments}
                   </p>
                 )}
               </div>
@@ -1078,37 +1071,40 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 viewMode === 'cards' ? 'hidden print:block' : ''
               }`}
             >
-              <table className="mortgage-print-table table-fixed w-full min-w-[1180px] text-left border-collapse">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="w-[110px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+              <table className="mortgage-print-table table-fixed w-full min-w-[1230px] text-left border-collapse">
+              <thead className="bg-slate-50/90 border-b border-slate-200">
+                <tr className="divide-x divide-slate-200/60 print:divide-x-0">
+                  <th className="w-[110px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Date of Receipt
                   </th>
-                  <th className="w-[120px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Branch
                   </th>
-                  <th className="w-[180px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[180px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Client Name
                   </th>
-                  <th className="w-[120px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     RIM No
                   </th>
-                  <th className="w-[240px] py-3 px-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="w-[240px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Description
                   </th>
-                  <th className="print-col-num w-[130px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[130px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Loan Amount
                   </th>
-                  <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     <span className="print:hidden">Total Disb.</span>
                     <span className="hidden print:inline">Total Disbursements</span>
                   </th>
-                  <th className="print-col-num w-[140px] py-3 px-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider truncate whitespace-nowrap">
+                  <th className="print-col-num w-[140px] py-3.5 px-3.5 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider truncate whitespace-nowrap">
                     Grand Total
+                  </th>
+                  <th className="print:hidden w-[64px] py-3.5 px-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                    Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white text-gray-800">
+              <tbody className="divide-y divide-slate-100 bg-white text-slate-800">
                 {filteredMortgages.map((m, idx) => {
                   const receiptText = formatDate(m.date_of_receipt);
                   const branchText =
@@ -1126,16 +1122,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                     <tr
                       key={m.id || idx}
                       onClick={() => setSelectedRecordForView(m)}
-                      className="hover:bg-blue-50/50 transition-colors cursor-pointer"
+                      className="hover:bg-slate-50/90 transition-colors cursor-pointer divide-x divide-slate-100/70 print:divide-x-0"
                     >
                       <td
-                        className="print-col-text py-3 px-3.5 text-left text-xs font-mono text-gray-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums text-slate-600 truncate whitespace-nowrap"
                         title={receiptText}
                       >
                         {receiptText}
                       </td>
                       <td
-                        className="print-col-text py-3 px-3.5 text-left text-xs font-medium text-gray-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 truncate whitespace-nowrap"
                         title={canModifyRow ? branchText : `${branchText} (View-only)`}
                       >
                         {branchText}
@@ -1149,40 +1145,77 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         )}
                       </td>
                       <td
-                        className="print-col-text py-3 px-3.5 text-left text-xs font-semibold text-gray-900 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-semibold text-slate-900 truncate whitespace-nowrap"
                         title={clientText}
                       >
                         {clientText}
                       </td>
                       <td
-                        className="print-col-text py-3 px-3.5 text-left text-xs font-mono font-medium text-blue-600 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums font-medium text-blue-600 truncate whitespace-nowrap"
                         title={rimText}
                       >
                         {rimText}
                       </td>
                       <td
-                        className="print-col-text py-3 px-3.5 text-left text-xs text-gray-700 truncate whitespace-nowrap"
+                        className="print-col-text py-3.5 px-3.5 text-left text-xs text-slate-700 truncate whitespace-nowrap"
                         title={descText || 'No description'}
                       >
-                        {descText || <span className="text-gray-400 italic">-</span>}
+                        {descText || <span className="text-slate-400 italic">-</span>}
                       </td>
                       <td
-                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-semibold text-gray-900 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-slate-900 truncate whitespace-nowrap"
                         title={formatUGX(m.loan_amount, false)}
                       >
                         {loanText}
                       </td>
                       <td
-                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-semibold text-amber-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-semibold text-amber-700 truncate whitespace-nowrap"
                         title={formatUGX(m.total_disbursements, false)}
                       >
                         {disbText}
                       </td>
                       <td
-                        className="print-col-num py-3 px-3.5 text-right text-xs font-mono font-bold text-blue-700 truncate whitespace-nowrap"
+                        className="print-col-num py-3.5 px-3.5 text-right text-xs font-mono tabular-nums font-bold text-blue-700 truncate whitespace-nowrap"
                         title={formatUGX(m.grand_total, false)}
                       >
                         {grandText}
+                      </td>
+                      <td
+                        className="print:hidden py-3.5 px-3 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <RowActionMenu
+                          ariaLabel={`Actions for ${clientText}`}
+                          items={[
+                            {
+                              id: 'view',
+                              label: 'Inspect Full Record',
+                              icon: <Eye className="w-3.5 h-3.5" />,
+                              onClick: () => setSelectedRecordForView(m),
+                            },
+                            {
+                              id: 'edit',
+                              label: canModifyRow ? 'Edit / Transfer File' : 'Edit (View Only)',
+                              icon: <Edit3 className="w-3.5 h-3.5" />,
+                              disabled: !canModifyRow,
+                              disabledReason: `View-Only: Editing disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`,
+                              onClick: () => handleEditRequest(m),
+                            },
+                            {
+                              id: 'delete',
+                              label: canModifyRow ? 'Delete Record' : 'Delete (View Only)',
+                              icon: <Trash2 className="w-3.5 h-3.5" />,
+                              danger: true,
+                              dividerBefore: true,
+                              disabled: !canModifyRow,
+                              disabledReason: `View-Only: Deleting disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`,
+                              onClick: () => {
+                                setConfirmDeleteId(String(m.id));
+                                setSelectedRecordForView(m);
+                              },
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   );
@@ -1194,13 +1227,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   <td colSpan={5} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
                     TOTAL RECORDS: {filteredMortgages.length} · TOTAL UGX
                   </td>
-                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono tabular-nums">
                     {filteredTotals.loan.toLocaleString()}
                   </td>
-                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono text-amber-800">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono tabular-nums text-amber-800">
                     {filteredTotals.disbursements.toLocaleString()}
                   </td>
-                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono text-blue-800">
+                  <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono tabular-nums text-blue-800">
                     {filteredTotals.grandTotal.toLocaleString()}
                   </td>
                 </tr>
@@ -1281,9 +1314,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-500 block">Status</span>
-                    <span className="font-semibold text-blue-700">
-                      {selectedRecordForView.status || 'Active / Processing'}
-                    </span>
+                    <div className="mt-1">
+                      <StatusBadge size="xs" status={selectedRecordForView.status || 'Active / Processing'} />
+                    </div>
                   </div>
                   <div>
                     <span className="text-slate-500 block">Client / Mortgagor Name</span>

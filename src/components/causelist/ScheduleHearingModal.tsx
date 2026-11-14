@@ -52,9 +52,9 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-6">
-      <div className="relative w-full max-w-xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
           <div>
             <h2 className="text-base font-bold text-white">
               Schedule Court Hearing / Fixture
@@ -72,7 +72,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs text-slate-700">
           <div>
             <label className="block font-semibold text-slate-800 mb-1">
               Select Litigation Matter / Case *
@@ -109,7 +109,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 value={hearingDate}
                 onChange={(e) => setHearingDate(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
 
@@ -123,7 +123,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
                 onChange={(e) => setHearingTime(e.target.value)}
                 placeholder="09:30 AM"
                 required
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-900 tabular-nums focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>

@@ -11,8 +11,10 @@ import {
   ChevronRight,
   Scale,
   ArrowUpRight,
-  Filter,
+  ChevronDown,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
+import { RowActionMenu } from '../common/RowActionMenu';
 
 interface ClientSummary {
   name: string;
@@ -166,7 +168,7 @@ export const ClientsDirectory: React.FC = () => {
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       {/* Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-xl p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <span>Litigation</span>
@@ -194,7 +196,7 @@ export const ClientsDirectory: React.FC = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1 min-w-0">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -246,7 +248,7 @@ export const ClientsDirectory: React.FC = () => {
       </div>
 
       {/* Clients Table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
         {filteredClients.length === 0 ? (
           <div className="py-14 px-6 text-center">
             <Users className="w-8 h-8 text-slate-300 mx-auto mb-2.5" />
@@ -257,7 +259,7 @@ export const ClientsDirectory: React.FC = () => {
             <button
               type="button"
               onClick={() => navigateToRoute('catalogue')}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition whitespace-nowrap shrink-0 cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 transition whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Go to Cases</span>
@@ -267,15 +269,15 @@ export const ClientsDirectory: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="py-3 px-4">Client / Represented Party</th>
-                  <th className="py-3 px-4">Capacity</th>
-                  <th className="py-3 px-4">Branch Station</th>
-                  <th className="py-3 px-4">Lead Counsel</th>
-                  <th className="py-3 px-4 text-right">Active</th>
-                  <th className="py-3 px-4 text-right">Total</th>
-                  <th className="py-3 px-4 text-right">Claim Value (UGX)</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500 divide-x divide-slate-200/60">
+                  <th className="py-3.5 px-4">Client / Represented Party</th>
+                  <th className="py-3.5 px-4">Capacity</th>
+                  <th className="py-3.5 px-4">Branch Station</th>
+                  <th className="py-3.5 px-4">Lead Counsel</th>
+                  <th className="py-3.5 px-4 text-right">Active</th>
+                  <th className="py-3.5 px-4 text-right">Total</th>
+                  <th className="py-3.5 px-4 text-right">Claim Value (UGX)</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
@@ -285,12 +287,12 @@ export const ClientsDirectory: React.FC = () => {
                     <React.Fragment key={cl.normalizedKey}>
                       <tr
                         onClick={() => setExpandedClientKey(isExpanded ? null : cl.normalizedKey)}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer divide-x divide-slate-100/70"
                       >
                         <td className="py-3 px-4 font-semibold text-slate-900">
                           <div className="flex items-center gap-2">
                             <ChevronRight
-                              className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
+                              className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
                                 isExpanded ? 'rotate-90 text-slate-700' : ''
                               }`}
                             />
@@ -316,33 +318,42 @@ export const ClientsDirectory: React.FC = () => {
                           {cl.totalClaimUGX > 0 ? cl.totalClaimUGX.toLocaleString() : '-'}
                         </td>
                         <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => handleFilterCasesForClient(cl.name)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
-                          >
-                            <span>View Matters</span>
-                            <ArrowUpRight className="w-3 h-3" />
-                          </button>
+                          <RowActionMenu
+                            ariaLabel={`Actions for ${cl.name}`}
+                            items={[
+                              {
+                                id: 'view-matters',
+                                label: 'View Client Matters',
+                                icon: <ArrowUpRight className="w-3.5 h-3.5" />,
+                                onClick: () => handleFilterCasesForClient(cl.name),
+                              },
+                              {
+                                id: 'toggle-files',
+                                label: isExpanded ? 'Collapse Court Files' : `Expand Files (${cl.cases.length})`,
+                                icon: <ChevronDown className="w-3.5 h-3.5" />,
+                                onClick: () => setExpandedClientKey(isExpanded ? null : cl.normalizedKey),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
 
                       {isExpanded && (
                         <tr className="bg-slate-50/70">
-                          <td colSpan={8} className="px-6 py-3 border-t border-slate-100">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                          <td colSpan={8} className="px-6 py-4 border-t border-slate-100">
+                            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2.5 tabular-nums">
                               Linked Court Files ({cl.cases.length})
                             </div>
-                            <div className="divide-y divide-slate-200/70 border border-slate-200 rounded-lg bg-white overflow-hidden">
+                            <div className="divide-y divide-slate-200/70 border border-slate-200 rounded-xl bg-white overflow-hidden">
                               {cl.cases.map((c) => (
                                 <div
                                   key={c.id}
                                   onClick={() => setSelectedCase(c)}
-                                  className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 hover:bg-slate-50 cursor-pointer"
+                                  className="px-4 py-3 flex flex-wrap items-center justify-between gap-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
                                     <Scale className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                    <span className="font-mono text-[11px] font-semibold text-slate-800 whitespace-nowrap">
+                                    <span className="font-mono tabular-nums text-[11px] font-semibold text-slate-800 whitespace-nowrap">
                                       {c.suitNumber || c.firmRefNumber}
                                     </span>
                                     <span className="text-xs font-medium text-slate-900 truncate">
@@ -351,9 +362,7 @@ export const ClientsDirectory: React.FC = () => {
                                   </div>
                                   <div className="flex items-center gap-3 text-[11px] text-slate-500 shrink-0">
                                     <span>{c.branchName || c.branch}</span>
-                                    <span className="px-2 py-0.5 rounded border border-slate-200 bg-slate-50 font-medium text-slate-700">
-                                      {c.status || 'Active'}
-                                    </span>
+                                    <StatusBadge status={c.status || 'Active'} size="xs" />
                                   </div>
                                 </div>
                               ))}

@@ -12,7 +12,9 @@ import {
   UserCheck,
   Lock,
   Archive,
+  X,
 } from 'lucide-react';
+import { StatusBadge } from '../common/StatusBadge';
 
 export const BranchSyncHub: React.FC = () => {
   const {
@@ -171,34 +173,34 @@ export const BranchSyncHub: React.FC = () => {
       </div>
 
       {/* Firm-Wide Live Case Synchronization Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Matters</div>
-          <div className="text-xl font-extrabold text-emerald-700 mt-1">{overallMetrics.active}</div>
-          <div className="text-[11px] text-slate-400">across 7 circuits</div>
+          <div className="text-2xl font-extrabold text-emerald-700 mt-1 tabular-nums">{overallMetrics.active}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">across 7 circuits</div>
         </div>
-        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending / Mention</div>
-          <div className="text-xl font-extrabold text-amber-700 mt-1">{overallMetrics.pending}</div>
-          <div className="text-[11px] text-slate-400">awaiting proceedings</div>
+          <div className="text-2xl font-extrabold text-amber-700 mt-1 tabular-nums">{overallMetrics.pending}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">awaiting proceedings</div>
         </div>
-        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Closed Matters</div>
-          <div className="text-xl font-extrabold text-slate-700 mt-1">{overallMetrics.closed}</div>
-          <div className="text-[11px] text-slate-400">judgments &amp; decrees</div>
+          <div className="text-2xl font-extrabold text-slate-700 mt-1 tabular-nums">{overallMetrics.closed}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">judgments &amp; decrees</div>
         </div>
-        <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
             <Archive className="w-3 h-3 text-zinc-500" />
             Archived Matters
           </div>
-          <div className="text-xl font-extrabold text-zinc-800 mt-1">{overallMetrics.archived}</div>
-          <div className="text-[11px] text-slate-400">in branch safe archives</div>
+          <div className="text-2xl font-extrabold text-zinc-800 mt-1 tabular-nums">{overallMetrics.archived}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">in branch safe archives</div>
         </div>
       </div>
 
       {/* Firm Organizational Structure Banner */}
-      <div className="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="font-semibold text-slate-900">Firm Governance:</span>
           <span>1 Partner (Managing Partner)</span>
@@ -207,24 +209,24 @@ export const BranchSyncHub: React.FC = () => {
           <span className="text-slate-300">·</span>
           <span>Each with Team Lead, Lawyers, Office Admin & Clerk</span>
         </div>
-        <div className="text-slate-400 font-mono text-[11px]">
+        <div className="text-slate-400 font-mono tabular-nums text-[11px]">
           Central Core DB: <strong className="text-emerald-600 font-medium">Replicated ({lastGlobalSync})</strong>
         </div>
       </div>
 
       {/* Regional Branch Nodes Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {branches.map((b) => {
           const metrics = getBranchCaseMetrics(b);
           return (
           <div
             key={b.id}
-            className="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between"
+            className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between"
           >
             <div>
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-700">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
                     <Building2 className="w-4 h-4" />
                   </div>
                   <div>
@@ -233,13 +235,12 @@ export const BranchSyncHub: React.FC = () => {
                   </div>
                 </div>
 
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                    b.isHeadquarters ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  {b.isHeadquarters ? 'Head Office' : 'Regional'}
-                </span>
+                <StatusBadge
+                  tone={b.isHeadquarters ? 'emerald' : 'slate'}
+                  label={b.isHeadquarters ? 'Head Office' : 'Regional'}
+                  showDot={false}
+                  size="xs"
+                />
               </div>
 
               {/* Exact Staff Hierarchy */}
@@ -278,22 +279,22 @@ export const BranchSyncHub: React.FC = () => {
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-slate-500 font-semibold text-[11px]">Case Registry Metrics</span>
-                    <span className="font-mono text-xs font-bold text-slate-900">{metrics.total} total</span>
+                    <span className="font-mono tabular-nums text-xs font-bold text-slate-900">{metrics.total} total</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded px-2 py-1 flex items-center justify-between">
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] tabular-nums">
+                    <div className="bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
                       <span className="font-medium">Active:</span>
                       <strong className="font-bold">{metrics.active}</strong>
                     </div>
-                    <div className="bg-amber-50 text-amber-800 border border-amber-200/80 rounded px-2 py-1 flex items-center justify-between">
+                    <div className="bg-amber-50 text-amber-800 border border-amber-200/80 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
                       <span className="font-medium">Pending:</span>
                       <strong className="font-bold">{metrics.pending}</strong>
                     </div>
-                    <div className="bg-slate-100 text-slate-800 border border-slate-200 rounded px-2 py-1 flex items-center justify-between">
+                    <div className="bg-slate-100 text-slate-800 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
                       <span className="font-medium">Closed:</span>
                       <strong className="font-bold">{metrics.closed}</strong>
                     </div>
-                    <div className="bg-zinc-100 text-zinc-800 border border-zinc-200 rounded px-2 py-1 flex items-center justify-between">
+                    <div className="bg-zinc-100 text-zinc-800 border border-zinc-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
                       <span className="font-medium flex items-center gap-1">
                         <Archive className="w-3 h-3 text-zinc-600 inline" />
                         Archived:
@@ -330,8 +331,8 @@ export const BranchSyncHub: React.FC = () => {
       {/* Staff Drawer Modal */}
       {selectedBranch && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-5 max-w-lg w-full space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 max-w-lg w-full space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-sm text-slate-900">
                   {selectedBranch.name} — Staff Directory
@@ -341,48 +342,41 @@ export const BranchSyncHub: React.FC = () => {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedBranchId(null)}
-                className="text-slate-400 hover:text-slate-700"
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                aria-label="Close modal"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="space-y-2 text-xs">
               {(!selectedBranch.staff || selectedBranch.staff.length === 0) ? (
-                <div className="p-4 text-center text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                <div className="p-4 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
                   No staff registered for this branch yet. Use the Super Admin Access Roles & Staff center to add counsel and clerks.
                 </div>
               ) : (
                 selectedBranch.staff.map((s) => (
                   <div
                     key={s.id}
-                    className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between"
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between"
                   >
                     <div>
                       <div className="font-semibold text-slate-900">{s.name}</div>
                       <div className="text-[11px] text-slate-500">{s.email}</div>
                       {s.advocateRollNo && (
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        <div className="text-[10px] text-slate-400 font-mono tabular-nums mt-0.5">
                           Roll: {s.advocateRollNo}
                         </div>
                       )}
                     </div>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                        s.role === 'partner'
-                          ? 'bg-purple-100 text-purple-800'
-                          : s.role === 'team_lead'
-                          ? 'bg-blue-100 text-blue-800'
-                          : s.role === 'office_admin'
-                          ? 'bg-amber-100 text-amber-800'
-                          : s.role === 'clerk'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {s.roleTitle}
-                    </span>
+                    <StatusBadge
+                      tone={s.role === 'clerk' ? 'emerald' : s.role === 'office_admin' ? 'amber' : 'slate'}
+                      label={s.roleTitle}
+                      showDot={false}
+                      size="xs"
+                    />
                   </div>
                 ))
               )}

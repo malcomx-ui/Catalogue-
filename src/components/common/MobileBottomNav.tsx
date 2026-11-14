@@ -71,7 +71,7 @@ export const MobileBottomNav: React.FC = () => {
         <Briefcase className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Cases</span>
         {branchScopedCasesCount > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono bg-slate-900 text-white rounded-full px-1 min-w-[14px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-slate-900 text-white rounded-full px-1.5 min-w-[16px] text-center">
             {branchScopedCasesCount}
           </span>
         )}
@@ -89,7 +89,7 @@ export const MobileBottomNav: React.FC = () => {
         <CalendarDays className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Diary</span>
         {scheduledHearingsCount > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono bg-blue-600 text-white rounded-full px-1 min-w-[14px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-blue-600 text-white rounded-full px-1.5 min-w-[16px] text-center">
             {scheduledHearingsCount}
           </span>
         )}
@@ -107,7 +107,7 @@ export const MobileBottomNav: React.FC = () => {
         <FolderOpen className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Docs</span>
         {documents.length > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono bg-emerald-600 text-white rounded-full px-1 min-w-[14px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-emerald-600 text-white rounded-full px-1.5 min-w-[16px] text-center">
             {documents.length}
           </span>
         )}

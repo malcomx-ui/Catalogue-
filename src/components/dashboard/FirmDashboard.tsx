@@ -26,6 +26,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { WeeklyMattersNotificationModal } from '../causelist/WeeklyMattersNotificationModal';
+import { StatusBadge } from '../common/StatusBadge';
 
 export const FirmDashboard: React.FC = () => {
   const {
@@ -393,55 +394,9 @@ export const FirmDashboard: React.FC = () => {
     return branchScopedCases.slice(0, 8);
   }, [branchScopedCases]);
 
-  // Helper for case status badge styling
+  // Helper for case status badge styling using unified StatusBadge
   const renderStatusBadge = (rawStatus: string = 'Active') => {
-    const s = rawStatus.toLowerCase();
-    if (s.includes('archived')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-300">
-          <Archive className="w-3 h-3 text-zinc-500" />
-          <span>Archived</span>
-        </span>
-      );
-    }
-    if (s.includes('closed') || s.includes('concluded') || s.includes('resolved')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-          <CheckCircle2 className="w-3 h-3 text-slate-500" />
-          <span>Closed</span>
-        </span>
-      );
-    }
-    if (s.includes('ruling') || s.includes('judgment')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
-          <Clock className="w-3 h-3 text-amber-600" />
-          <span>Pending Ruling / Judgment</span>
-        </span>
-      );
-    }
-    if (s.includes('execution')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-300">
-          <Gavel className="w-3 h-3 text-rose-600" />
-          <span>At Execution</span>
-        </span>
-      );
-    }
-    if (s.includes('mention')) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-300">
-          <Calendar className="w-3 h-3 text-blue-600" />
-          <span>Mention</span>
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300">
-        <Activity className="w-3 h-3 text-emerald-600" />
-        <span>Active</span>
-      </span>
-    );
+    return <StatusBadge status={rawStatus || 'Active'} />;
   };
 
   const userBranchName = effectiveUser?.branchName || currentUser?.branchName || 'Fort Portal Office';
@@ -503,8 +458,8 @@ export const FirmDashboard: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
               title="Open Upcoming Weekly Matters Notification"
             >
-              <Bell className="w-4 h-4 text-slate-950 animate-bounce" />
-              <span>Weekly Matters ({weeklyMatters.length})</span>
+              <Bell className="w-4 h-4 text-slate-950" />
+              <span className="tabular-nums">Weekly Matters ({weeklyMatters.length})</span>
             </button>
           )}
 
@@ -581,20 +536,20 @@ export const FirmDashboard: React.FC = () => {
       )}
 
       {/* 2. 5 KPI STAT CARDS ROW */}
-      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* TOTAL CASES */}
         <div
           onClick={() => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               TOTAL CASES
             </span>
-            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 group-hover:bg-slate-200 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 group-hover:bg-slate-200 transition-colors">
               <Briefcase className="w-4 h-4" />
             </div>
           </div>
@@ -614,13 +569,13 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               ACTIVE
             </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:bg-emerald-100 transition-colors">
               <Activity className="w-4 h-4" />
             </div>
           </div>
@@ -637,13 +592,13 @@ export const FirmDashboard: React.FC = () => {
         {/* UPCOMING */}
         <div
           onClick={() => setActiveTab('causelist')}
-          className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               UPCOMING
             </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-100 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:bg-amber-100 transition-colors">
               <Calendar className="w-4 h-4" />
             </div>
           </div>
@@ -663,18 +618,18 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               CLOSED
             </span>
-            <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-slate-200 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:bg-rose-100 transition-colors">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums tracking-tight">
+            <div className="text-2xl sm:text-3xl font-extrabold text-rose-950 tabular-nums tracking-tight">
               {closedCases.length}
             </div>
             <p className="text-xs text-slate-500 mt-1">
@@ -689,13 +644,13 @@ export const FirmDashboard: React.FC = () => {
             setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
-          className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+          className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               ARCHIVED
             </span>
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-600 group-hover:bg-zinc-200 transition-colors">
+            <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 group-hover:bg-zinc-200 transition-colors">
               <Archive className="w-4 h-4" />
             </div>
           </div>
@@ -752,10 +707,10 @@ export const FirmDashboard: React.FC = () => {
                     setSelectedBranchFilter(b.id);
                   }
                 }}
-                className={`bg-white border rounded-xl p-5 shadow-xs transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
+                className={`bg-white border rounded-2xl p-5 sm:p-6 shadow-xs transition-all duration-200 cursor-pointer flex flex-col justify-between group ${
                   isSelected
                     ? 'border-blue-600 ring-2 ring-blue-600/20 bg-blue-50/20 shadow-sm'
-                    : 'border-slate-200/80 hover:border-slate-300 hover:shadow-md'
+                    : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
                 }`}
               >
                 <div>
@@ -767,7 +722,7 @@ export const FirmDashboard: React.FC = () => {
                           {b.name}
                         </h3>
                         {b.isHeadquarters && (
-                          <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.2 rounded shrink-0">
+                          <span className="text-[9px] font-mono font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.2 rounded-full shrink-0">
                             HQ
                           </span>
                         )}
@@ -804,12 +759,12 @@ export const FirmDashboard: React.FC = () => {
                     </div>
 
                     {stats.upcoming > 0 ? (
-                      <div className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/70 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <div className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/70 px-2.5 py-0.5 rounded-full flex items-center gap-1 tabular-nums">
                         <Calendar className="w-3 h-3 text-amber-600" />
                         <span>{stats.upcoming} upcoming</span>
                       </div>
                     ) : (
-                      <span className="text-[11px] text-slate-400 font-mono">
+                      <span className="text-[11px] text-slate-400 font-mono tabular-nums">
                         0 upcoming
                       </span>
                     )}
@@ -818,23 +773,20 @@ export const FirmDashboard: React.FC = () => {
 
                 {/* Status Breakdown Strip (Active, Inactive, Closed, Archived) */}
                 <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-1.5 text-[11px]">
-                  <div className="flex items-center justify-between px-2 py-1 bg-emerald-50/70 text-emerald-800 border border-emerald-200/60 rounded-md">
-                    <span>Active:</span>
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-emerald-50/80 text-emerald-800 border border-emerald-200/70 rounded-full">
+                    <span>Active</span>
                     <strong className="font-mono tabular-nums">{stats.active}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2 py-1 bg-amber-50/70 text-amber-800 border border-amber-200/60 rounded-md">
-                    <span>Pending:</span>
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-amber-50/80 text-amber-800 border border-amber-200/70 rounded-full">
+                    <span>Pending</span>
                     <strong className="font-mono tabular-nums">{stats.inactive}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2 py-1 bg-slate-100/70 text-slate-700 border border-slate-200/60 rounded-md">
-                    <span>Closed:</span>
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-rose-50/80 text-rose-800 border border-rose-200/70 rounded-full">
+                    <span>Closed</span>
                     <strong className="font-mono tabular-nums">{stats.closed}</strong>
                   </div>
-                  <div className="flex items-center justify-between px-2 py-1 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-md">
-                    <span className="flex items-center gap-1">
-                      <Archive className="w-2.5 h-2.5 text-zinc-500" />
-                      Archived:
-                    </span>
+                  <div className="flex items-center justify-between px-2.5 py-1 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-full">
+                    <span>Archived</span>
                     <strong className="font-mono tabular-nums">{stats.archived}</strong>
                   </div>
                 </div>
@@ -871,7 +823,7 @@ export const FirmDashboard: React.FC = () => {
             </button>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-xl divide-y divide-slate-100 shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             {recentCases.length === 0 ? (
               <div className="p-8 text-center text-xs text-slate-400">
                 No cases found in this branch docket.
@@ -887,14 +839,14 @@ export const FirmDashboard: React.FC = () => {
                   <div
                     key={c.id}
                     onClick={() => setSelectedCase(c)}
-                    className="p-4 sm:p-4.5 hover:bg-slate-50/80 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                    className="p-4 sm:p-5 hover:bg-slate-50/80 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-xs sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                         {c.title}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-1 flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-slate-700 font-medium">{caseNo}</span>
+                        <span className="font-mono tabular-nums text-slate-700 font-medium">{caseNo}</span>
                         <span aria-hidden="true" className="text-slate-300">·</span>
                         <span className="text-slate-600">{branchName}</span>
                         <span aria-hidden="true" className="text-slate-300">·</span>
@@ -918,13 +870,13 @@ export const FirmDashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               <span>Upcoming Hearings</span>
-              <span className="text-xs font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-mono tabular-nums font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
                 {upcomingHearings.length}
               </span>
             </h2>
           </div>
 
-          <div className="bg-white border border-slate-200/80 rounded-xl p-5 shadow-xs min-h-[220px] flex flex-col justify-between">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow min-h-[220px] flex flex-col justify-between">
             {upcomingHearings.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center py-12 text-xs text-slate-400 text-center">
                 <Calendar className="w-8 h-8 text-slate-300 mb-2" />
@@ -941,10 +893,10 @@ export const FirmDashboard: React.FC = () => {
                     className="p-3.5 bg-slate-50 hover:bg-slate-100/90 rounded-xl cursor-pointer transition-colors text-xs border border-slate-200/80 group"
                   >
                     <div className="flex items-center justify-between text-[11px] font-semibold mb-1.5">
-                      <span className="text-amber-800 bg-amber-100/80 border border-amber-200 px-1.5 py-0.2 rounded font-mono">
+                      <span className="text-amber-800 bg-amber-100/80 border border-amber-200 px-2 py-0.5 rounded-full font-mono tabular-nums">
                         {new Date(h.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
-                      <span className="text-slate-600 font-mono">{h.time}</span>
+                      <span className="text-slate-600 font-mono tabular-nums">{h.time}</span>
                     </div>
                     <div className="font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
                       {h.title}

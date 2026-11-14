@@ -263,7 +263,7 @@ export const SystemSettingsManager: React.FC = () => {
       )}
 
       {/* Sub-tab Navigation */}
-      <div className="bg-white rounded-xl p-1.5 border border-slate-200 shadow-2xs flex items-center gap-1 overflow-x-auto text-xs">
+      <div className="bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs flex items-center gap-1 overflow-x-auto text-xs">
         <button
           onClick={() => setActiveTab('intake')}
           className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
@@ -329,7 +329,7 @@ export const SystemSettingsManager: React.FC = () => {
       {activeTab === 'intake' && (
         <div className="space-y-4">
           {/* Quick Presets & Explanation */}
-          <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             <div>
               <strong className="text-purple-950 block text-sm font-bold">Dynamic Case Intake Requirements</strong>
               <p className="text-purple-900 text-xs mt-0.5">
@@ -364,7 +364,7 @@ export const SystemSettingsManager: React.FC = () => {
           </div>
 
           {/* Case Auto-Numbering Rule */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
@@ -417,15 +417,16 @@ export const SystemSettingsManager: React.FC = () => {
           </div>
 
           {/* Intake Field Configuration Table */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow">
+            <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
                 <span className="font-bold text-slate-800 text-xs">Standard Case Entry Fields &amp; Labels</span>
-                <p className="text-[11px] text-purple-700 font-medium">
-                  ✏️ Click any label to change its name. Your custom name will immediately appear on the case intake form!
+                <p className="text-[11px] text-purple-700 font-medium flex items-center gap-1 mt-0.5">
+                  <Edit2 className="w-3 h-3 shrink-0" />
+                  <span>Click any label to change its name. Your custom name will immediately appear on the case intake form.</span>
                 </p>
               </div>
-              <span className="text-[11px] text-slate-500 shrink-0">{Object.keys(formData.intakeFields).length} Intake Fields Configured</span>
+              <span className="text-[11px] text-slate-500 tabular-nums shrink-0">{Object.keys(formData.intakeFields).length} Intake Fields Configured</span>
             </div>
 
             <div className="divide-y divide-slate-100">
@@ -535,7 +536,7 @@ export const SystemSettingsManager: React.FC = () => {
           </div>
 
           {/* Custom User-Defined Fields */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
@@ -654,16 +655,16 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 2: OPERATIONAL FEATURE TOGGLES */}
       {activeTab === 'features' && (
         <div className="space-y-4">
-          <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-4 text-xs">
+          <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-5 text-xs">
             <strong className="text-indigo-950 block text-sm font-bold">Operational Modules &amp; Feature Flags</strong>
             <p className="text-indigo-900 text-xs mt-0.5">
               Turn modules on or off across the law firm. Changes apply instantly to all navigation menus and client interfaces.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Feature 1 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Cause List Diary &amp; Court Fixtures</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -684,7 +685,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Pleadings &amp; Document Repository</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -705,7 +706,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Conflict of Interest Clearance Engine</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -726,7 +727,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Regional Branch Circuits &amp; Sync Hub</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -747,7 +748,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Litigation Analytics &amp; Win/Loss Ratios</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -768,7 +769,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <strong className="text-slate-900 text-xs block font-bold">Physical Registry Cabinet Tracking</strong>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -789,7 +790,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Security Policy 1: Password Change on First Login */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <div className="flex items-center gap-1.5">
                   <Key className="w-3.5 h-3.5 text-blue-600" />
@@ -813,7 +814,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {/* Security Policy 2: Public Registration (Strict Lock) */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-2 flex items-start justify-between shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <div className="flex items-center gap-1.5">
                   <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
@@ -842,7 +843,7 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 3: COURTS & TRIBUNALS LIST */}
       {activeTab === 'courts' && (
         <div className="space-y-4">
-          <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
               <strong className="text-blue-950 block text-sm font-bold">Judicial Forums, Courts &amp; Tribunals</strong>
               <p className="text-blue-900 text-xs mt-0.5">
@@ -868,11 +869,11 @@ export const SystemSettingsManager: React.FC = () => {
             </form>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs divide-y divide-slate-100">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100">
             {formData.courtList.map((courtName, idx) => (
               <div key={courtName} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 font-mono text-[11px] flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
                     {idx + 1}
                   </span>
                   <span className="font-semibold text-slate-800">{courtName}</span>
@@ -895,7 +896,7 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 4: PRACTICE AREAS */}
       {activeTab === 'practice' && (
         <div className="space-y-4">
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
               <strong className="text-emerald-950 block text-sm font-bold">Practice Areas &amp; Substantive Matter Classifications</strong>
               <p className="text-emerald-900 text-xs mt-0.5">
@@ -921,11 +922,11 @@ export const SystemSettingsManager: React.FC = () => {
             </form>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs divide-y divide-slate-100">
+          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100">
             {formData.practiceAreas.map((area, idx) => (
               <div key={area} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-700 font-mono text-[11px] flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-700 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
                     {idx + 1}
                   </span>
                   <span className="font-semibold text-slate-800">{area}</span>
@@ -947,7 +948,7 @@ export const SystemSettingsManager: React.FC = () => {
 
       {/* TAB 5: FIRM PROFILE & METADATA */}
       {activeTab === 'firm' && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4 text-xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow space-y-4 text-xs">
           <div>
             <h4 className="font-bold text-slate-900 text-sm">Firm Metadata &amp; Regional Header Configuration</h4>
             <p className="text-slate-500 text-xs mt-0.5">

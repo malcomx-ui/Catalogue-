@@ -18,6 +18,7 @@ import {
   FileText,
   Receipt,
   RotateCcw,
+  Loader2,
 } from 'lucide-react';
 
 export interface AddMortgageModalProps {
@@ -290,7 +291,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
           {/* Reporting Period: Lending Partner, Record Year & Month Sheet */}
-          <div className={`grid grid-cols-1 ${allowBankSelection ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 bg-blue-50/60 p-4 rounded-xl border border-blue-100`}>
+          <div className={`grid grid-cols-1 ${allowBankSelection ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 bg-blue-50/60 p-5 rounded-2xl border border-blue-100`}>
             {allowBankSelection && (
               <div>
                 <label className="block font-bold text-blue-900 mb-1">
@@ -321,7 +322,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 required
                 value={recordYear}
                 onChange={(e) => setRecordYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
-                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
             <div>
@@ -345,7 +346,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 1: Identification & Core Particulars */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
             <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
               <FileText className="w-3.5 h-3.5 text-blue-600" />
               <span>1. Basic File Particulars &amp; Receipt</span>
@@ -362,7 +363,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   required
                   value={dateOfReceipt}
                   onChange={(e) => setDateOfReceipt(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
@@ -417,7 +418,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="e.g. 1029482"
                   value={rimNo}
                   onChange={(e) => setRimNo(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
@@ -435,7 +436,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                     placeholder="0"
                     value={loanAmount}
                     onChange={(e) => setLoanAmount(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-3 py-2 font-mono text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-3 py-2 font-mono tabular-nums text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -457,7 +458,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 2: Itemized Disbursements (Columns 7 - 13) */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
                 <Receipt className="w-3.5 h-3.5 text-amber-600" />
@@ -571,7 +572,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   disabled={autoCalcDisbursements}
                   value={autoCalcDisbursements ? calculatedDisbursements : manualDisbursements}
                   onChange={(e) => setManualDisbursements(e.target.value)}
-                  className={`w-36 text-right border rounded-lg px-3 py-1 font-mono font-bold ${
+                  className={`w-36 text-right border rounded-lg px-3 py-1 font-mono tabular-nums font-bold ${
                     autoCalcDisbursements
                       ? 'bg-amber-50 border-amber-300 text-amber-900'
                       : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
@@ -583,7 +584,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 3: Legal Fees, VAT & Grand Total (Columns 14 - 16) */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
                 <Calculator className="w-3.5 h-3.5 text-emerald-600" />
@@ -624,7 +625,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={legalFees}
                   onChange={(e) => setLegalFees(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
@@ -640,7 +641,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   disabled={autoCalcVat}
                   value={autoCalcVat ? calculatedVat : manualVat}
                   onChange={(e) => setManualVat(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 font-mono font-medium focus:outline-none ${
+                  className={`w-full border rounded-lg px-3 py-2 font-mono tabular-nums font-medium focus:outline-none ${
                     autoCalcVat
                       ? 'bg-slate-100 border-slate-300 text-slate-700'
                       : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
@@ -660,7 +661,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   disabled={autoCalcGrandTotal}
                   value={autoCalcGrandTotal ? calculatedGrandTotal : manualGrandTotal}
                   onChange={(e) => setManualGrandTotal(e.target.value)}
-                  className={`w-full border rounded-lg px-3 py-2 font-mono font-bold text-base focus:outline-none ${
+                  className={`w-full border rounded-lg px-3 py-2 font-mono tabular-nums font-bold text-base focus:outline-none ${
                     autoCalcGrandTotal
                       ? 'bg-gradient-to-r from-blue-900 to-indigo-900 text-white border-blue-700'
                       : 'bg-white border-blue-400 text-blue-900 focus:ring-2 focus:ring-blue-500'
@@ -671,7 +672,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 4: Settlement Dates & Comments (Columns 17 - 19) */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
             <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
               <Calendar className="w-3.5 h-3.5 text-indigo-600" />
               <span>4. Payment, Return Dates &amp; Comments</span>
@@ -735,7 +736,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               disabled={loading}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition flex items-center gap-1.5"
             >
-              {loading && <span className="animate-spin text-sm">⏳</span>}
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? 'Saving Record...' : 'Save Mortgage Record'}</span>
             </button>
           </div>

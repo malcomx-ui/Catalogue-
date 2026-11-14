@@ -10,10 +10,12 @@ import {
   DollarSign,
   Gavel,
   ShieldAlert,
-  PieChart,
   RefreshCw,
   Database,
   CheckCircle2,
+  Printer,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 import { isUserAdmin } from '../../lib/supabase';
@@ -330,26 +332,32 @@ export const LitigationAnalytics: React.FC = () => {
       <div className="admin-report-actions flex flex-wrap items-center gap-2">
         {/* 1. Print directly using browser print stylesheet */}
         <button
+          type="button"
           onClick={() => window.print()}
-          className="btn-print px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+          className="btn-print px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
         >
-          🖨️ Print Report
+          <Printer className="w-3.5 h-3.5" />
+          <span>Print Report</span>
         </button>
 
         {/* 2. Download directly as a PDF */}
         <button
+          type="button"
           onClick={downloadReportAsPDF}
-          className="btn-pdf px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+          className="btn-pdf px-3.5 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
         >
-          📄 Download PDF
+          <Download className="w-3.5 h-3.5" />
+          <span>Download PDF</span>
         </button>
 
         {/* 3. Export CSV */}
         <button
+          type="button"
           onClick={exportReportToCSV}
-          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-md text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
+          className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs flex items-center gap-1.5"
         >
-          Export CSV
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <span>Export CSV</span>
         </button>
       </div>
     );
@@ -358,7 +366,7 @@ export const LitigationAnalytics: React.FC = () => {
   return (
     <div className="report-container space-y-5">
       {/* Top Banner with Branch Report Filter and Admin Actions */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
             <BarChart3 className="w-4 h-4" />
@@ -417,9 +425,9 @@ export const LitigationAnalytics: React.FC = () => {
       </div>
 
       {/* Role-based Export / Print Action Header */}
-      <div className="bg-slate-50 rounded-lg border border-slate-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="text-xs text-slate-600">
-          <span className="font-semibold text-slate-800">Current Scope:</span> {selectedBranchName} · <span className="font-mono-legal text-slate-700">{totalCasesCount} matters</span>
+          <span className="font-semibold text-slate-800">Current Scope:</span> {selectedBranchName} · <span className="font-mono-legal tabular-nums text-slate-700">{totalCasesCount} matters</span>
         </div>
 
         {renderReportActions(currentUser)}
@@ -431,29 +439,29 @@ export const LitigationAnalytics: React.FC = () => {
       {/* KPI Metric Cards Loaded from Case Report */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Claim Valuation */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold flex items-center justify-between">
             <span>Total Claim Valuation</span>
             <DollarSign className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="font-mono-legal text-2xl font-bold text-slate-900 mt-1">
+          <div className="font-mono-legal tabular-nums text-2xl font-bold text-slate-900 mt-1">
             UGX {(totalValueUGX / 1000000000).toFixed(2)}B
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5 font-mono-legal">
+          <div className="text-[11px] text-slate-500 mt-0.5 font-mono-legal tabular-nums">
             ≈ USD ${(totalValueUSD / 1000000).toFixed(2)}M in dispute / recovery
           </div>
         </div>
 
         {/* Card 2: Active vs Total Files */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold flex items-center justify-between">
             <span>Case Docket Summary</span>
             <Briefcase className="w-3.5 h-3.5 text-blue-600" />
           </div>
-          <div className="font-mono-legal text-2xl font-bold text-slate-900 mt-1">
+          <div className="font-mono-legal tabular-nums text-2xl font-bold text-slate-900 mt-1">
             {totalCasesCount} <span className="text-sm font-normal text-slate-500">total matters</span>
           </div>
-          <div className="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1.5">
+          <div className="text-[11px] text-emerald-700 font-semibold mt-0.5 flex items-center gap-1.5 tabular-nums">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
             <span>{activeCasesCount} active</span>
             <span className="text-slate-300">·</span>
@@ -462,26 +470,26 @@ export const LitigationAnalytics: React.FC = () => {
         </div>
 
         {/* Card 3: Upcoming & Reserved */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold flex items-center justify-between">
             <span>Pending &amp; Reserved Rulings</span>
             <Gavel className="w-3.5 h-3.5 text-indigo-600" />
           </div>
-          <div className="font-mono-legal text-2xl font-bold text-indigo-700 mt-1">
+          <div className="font-mono-legal tabular-nums text-2xl font-bold text-indigo-700 mt-1">
             {pendingCasesCount} <span className="text-sm font-normal text-slate-500">pending</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">
+          <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
             {closedCasesCount} decrees &amp; concluded files
           </div>
         </div>
 
         {/* Card 4: Injunctions & Expedited */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-shadow">
           <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold flex items-center justify-between">
             <span>Injunctions &amp; Expedited</span>
             <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
           </div>
-          <div className="font-mono-legal text-2xl font-bold text-rose-700 mt-1">
+          <div className="font-mono-legal tabular-nums text-2xl font-bold text-rose-700 mt-1">
             {urgentCount} <span className="text-sm font-normal text-slate-500">urgent</span>
           </div>
           <div className="text-[11px] text-slate-500 mt-0.5">
@@ -493,7 +501,7 @@ export const LitigationAnalytics: React.FC = () => {
       {/* Grid: Division Breakdown & Stage Pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Division Breakdown */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-serif-legal text-lg font-bold text-slate-900">
               Judicial Division Distribution
@@ -510,9 +518,9 @@ export const LitigationAnalytics: React.FC = () => {
 
                 return (
                   <div key={division} className="space-y-1 text-xs">
-                    <div className="flex items-center justify-between text-slate-800 font-medium">
+                    <div className="flex items-center justify-between text-slate-800 font-medium tabular-nums">
                       <span>{division} ({data.count} suits)</span>
-                      <span className="font-mono-legal">
+                      <span className="font-mono-legal tabular-nums">
                         {data.value > 0 ? `UGX ${(data.value / 1000000000).toFixed(2)}B ` : ''}({pct}%)
                       </span>
                     </div>
@@ -530,7 +538,7 @@ export const LitigationAnalytics: React.FC = () => {
         </div>
 
         {/* Procedural Stage Funnel */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:shadow-md transition-shadow space-y-4">
           <h3 className="font-serif-legal text-lg font-bold text-slate-900">
             Procedural Stage Funnel ({selectedBranchName})
           </h3>
@@ -549,12 +557,12 @@ export const LitigationAnalytics: React.FC = () => {
               const pct = totalCasesCount > 0 ? Math.round((count / totalCasesCount) * 100) : 0;
 
               return (
-                <div key={stg} className="text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                <div key={stg} className="text-xs bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-slate-800"></div>
                     <span className="font-medium text-slate-800">{stg}</span>
                   </div>
-                  <div className="flex items-center gap-2 font-mono-legal">
+                  <div className="flex items-center gap-2 font-mono-legal tabular-nums">
                     <span className="font-bold text-slate-900">{count} suits</span>
                     <span className="text-slate-400 text-[11px]">({pct}%)</span>
                   </div>
@@ -566,25 +574,27 @@ export const LitigationAnalytics: React.FC = () => {
       </div>
 
       {/* Regional Branch Caseload Matrix */}
-      <div className="bg-white rounded-xl border border-slate-200/90 p-5 shadow-xs">
-        <h3 className="font-serif-legal text-lg font-bold text-slate-900 mb-3">
-          Branch Caseload &amp; Resident Advocate Deployment
-        </h3>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+        <div className="p-5 sm:p-6 pb-4 border-b border-slate-100">
+          <h3 className="font-serif-legal text-lg font-bold text-slate-900">
+            Branch Caseload &amp; Resident Advocate Deployment
+          </h3>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px]">
-                <th className="pb-2 font-semibold">Branch Office</th>
-                <th className="pb-2 font-semibold">City Circuit</th>
-                <th className="pb-2 font-semibold">Team Lead / Partner</th>
-                <th className="pb-2 font-semibold">Office Admin</th>
-                <th className="pb-2 font-semibold">Clerk</th>
-                <th className="pb-2 font-semibold text-center">Lawyers</th>
-                <th className="pb-2 font-semibold text-center">Active</th>
-                <th className="pb-2 font-semibold text-center">Closed</th>
-                <th className="pb-2 font-semibold text-center">Archived</th>
-                <th className="pb-2 font-semibold text-center">Total</th>
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 uppercase tracking-wider text-[10px] divide-x divide-slate-200/60">
+                <th className="py-3.5 px-4 font-semibold">Branch Office</th>
+                <th className="py-3.5 px-3.5 font-semibold">City Circuit</th>
+                <th className="py-3.5 px-3.5 font-semibold">Team Lead / Partner</th>
+                <th className="py-3.5 px-3.5 font-semibold">Office Admin</th>
+                <th className="py-3.5 px-3.5 font-semibold">Clerk</th>
+                <th className="py-3.5 px-3 text-center font-semibold">Lawyers</th>
+                <th className="py-3.5 px-3 text-center font-semibold">Active</th>
+                <th className="py-3.5 px-3 text-center font-semibold">Closed</th>
+                <th className="py-3.5 px-3 text-center font-semibold">Archived</th>
+                <th className="py-3.5 px-4 text-center font-semibold">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -624,23 +634,25 @@ export const LitigationAnalytics: React.FC = () => {
                   <tr
                     key={b.id}
                     onClick={() => setSelectedBranchId(b.id)}
-                    className={`cursor-pointer transition-colors ${isSelected ? 'bg-amber-50/80' : 'hover:bg-slate-50/70'}`}
+                    className={`cursor-pointer transition-colors divide-x divide-slate-100/70 ${isSelected ? 'bg-amber-50/80' : 'hover:bg-slate-50/80'}`}
                   >
-                    <td className="py-2.5 font-medium text-slate-900 flex items-center gap-2">
-                      <Building2 className={`w-3.5 h-3.5 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
-                      <span>{b.name}</span>
+                    <td className="py-3 px-4 font-medium text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <Building2 className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-amber-600' : 'text-slate-400'}`} />
+                        <span>{b.name}</span>
+                      </div>
                     </td>
-                    <td className="py-2.5 text-slate-600">{b.city}</td>
-                    <td className="py-2.5 text-slate-800 font-medium">
+                    <td className="py-3 px-3.5 text-slate-600">{b.city}</td>
+                    <td className="py-3 px-3.5 text-slate-800 font-medium">
                       {b.teamLead}
                     </td>
-                    <td className="py-2.5 text-slate-600">{b.officeAdmin}</td>
-                    <td className="py-2.5 text-slate-600">{b.clerk}</td>
-                    <td className="py-2.5 text-center font-mono text-slate-800">{b.lawyersCount}</td>
-                    <td className="py-2.5 text-center font-mono font-semibold text-emerald-700">{activeCount}</td>
-                    <td className="py-2.5 text-center font-mono font-medium text-slate-700">{closedCount}</td>
-                    <td className="py-2.5 text-center font-mono font-semibold text-zinc-700">{archivedCount}</td>
-                    <td className="py-2.5 text-center font-mono font-bold text-slate-900">{branchCases.length}</td>
+                    <td className="py-3 px-3.5 text-slate-600">{b.officeAdmin}</td>
+                    <td className="py-3 px-3.5 text-slate-600">{b.clerk}</td>
+                    <td className="py-3 px-3 text-center font-mono tabular-nums text-slate-800">{b.lawyersCount}</td>
+                    <td className="py-3 px-3 text-center font-mono tabular-nums font-semibold text-emerald-700">{activeCount}</td>
+                    <td className="py-3 px-3 text-center font-mono tabular-nums font-medium text-slate-700">{closedCount}</td>
+                    <td className="py-3 px-3 text-center font-mono tabular-nums font-semibold text-zinc-700">{archivedCount}</td>
+                    <td className="py-3 px-4 text-center font-mono tabular-nums font-bold text-slate-900">{branchCases.length}</td>
                   </tr>
                 );
               })}
