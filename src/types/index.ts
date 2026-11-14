@@ -1,4 +1,4 @@
-export type UserRole = 'partner' | 'team_lead' | 'lawyer' | 'office_admin' | 'clerk' | string;
+export type UserRole = 'partner' | 'admin' | 'team_lead' | 'lawyer' | 'office_admin' | 'admin_finance_assistant' | 'clerk' | string;
 
 export interface RolePermissions {
   canViewAllBranches: boolean;
@@ -55,7 +55,7 @@ export interface User {
 export interface BranchStaffMember {
   id: string;
   name: string;
-  role: 'partner' | 'team_lead' | 'lawyer' | 'office_admin' | 'clerk';
+  role: 'partner' | 'admin' | 'team_lead' | 'lawyer' | 'office_admin' | 'admin_finance_assistant' | 'clerk';
   roleTitle: string;
   email: string;
   phone?: string;

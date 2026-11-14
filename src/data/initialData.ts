@@ -242,6 +242,32 @@ export const DEFAULT_ROLES: CustomRole[] = [
     },
   },
   {
+    id: 'role-admin-finance-assistant',
+    name: 'Admin & Finance Assistant',
+    description: 'Branch-scoped finance & operations assistant: views cases and mortgages across all branches, with full create, edit, and delete permissions strictly on their assigned branch.',
+    isSuperAdmin: false,
+    isSystem: true,
+    badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
+    permissions: {
+      canViewAllBranches: true, // View-only access across other branches
+      canCreateCases: true,
+      canEditCases: true,
+      canDeleteCases: true,
+      canBulkImport: false, // Locked: Super Admin only
+      canBulkExport: false, // Locked: Super Admin only
+      canPrintCauseList: true,
+      canScheduleHearings: true,
+      canRecordOutcomes: true,
+      canLogFileMovement: true,
+      canManageDocuments: true,
+      canViewFinancials: true,
+      canManageRoles: false,
+      canManageUsers: false,
+      canManageBranches: false,
+      canManageSettings: false,
+    },
+  },
+  {
     id: 'role-clerk',
     name: 'Court & Registry Clerk',
     description: 'Branch staff registry: full management custody (create, read, update, delete) for cases belonging specifically to their assigned branch.',

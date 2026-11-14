@@ -4,6 +4,7 @@ export interface UserProfile {
   email: string;
   role: string;
   roleId?: string;
+  roleTitle?: string;
   branchId?: string;
   branchName?: string;
   isSuperAdmin?: boolean;
@@ -36,22 +37,38 @@ export function isSystemAdmin(user: UserProfile | null): boolean {
 export const isSuperAdmin = isSystemAdmin;
 
 /**
+ * Checks if user is strictly an Admin & Finance Assistant
+ * (View-all branches; Add/Edit/Delete strictly scoped to assigned branch)
+ */
+export function isAdminFinanceAssistant(user: UserProfile | null): boolean {
+  if (!user || isSystemAdmin(user)) return false;
+  const role = String(user.role || '').toLowerCase().trim();
+  const roleId = String(user.roleId || '').toLowerCase().trim();
+  const title = String(user.roleTitle || '').toLowerCase().trim();
+  return Boolean(
+    role === 'admin_finance_assistant' ||
+    role === 'admin-finance-assistant' ||
+    role === 'finance_assistant' ||
+    roleId === 'role-admin-finance-assistant' ||
+    roleId === 'admin_finance_assistant' ||
+    (title.includes('admin') && title.includes('finance') && title.includes('assistant'))
+  );
+}
+
+/**
  * Checks if user is strictly a Branch Administrator (restricted to their branch)
  */
 export function isBranchAdmin(user: UserProfile | null): boolean {
-  if (!user) return false;
+  if (!user || isSystemAdmin(user) || isAdminFinanceAssistant(user)) return false;
   const role = String(user.role || '').toLowerCase().trim();
   const roleId = String(user.roleId || '').toLowerCase().trim();
   return Boolean(
-    (
-      user.isBranchAdmin ||
-      roleId === 'branch_admin' ||
-      roleId === 'role-admin' ||
-      role === 'branch_admin' ||
-      role === 'admin' ||
-      role === 'office_admin'
-    ) &&
-    !isSystemAdmin(user)
+    user.isBranchAdmin ||
+    roleId === 'branch_admin' ||
+    roleId === 'role-admin' ||
+    role === 'branch_admin' ||
+    role === 'admin' ||
+    role === 'office_admin'
   );
 }
 
@@ -59,7 +76,7 @@ export function isBranchAdmin(user: UserProfile | null): boolean {
  * Permission guard for global firm settings / user management
  */
 export function canAccessGlobalSettings(user: UserProfile | null): boolean {
-  return isSystemAdmin(user); // Branch admins cannot access global settings
+  return isSystemAdmin(user); // Branch admins and Admin & Finance Assistants cannot access global settings
 }
 
 /**
