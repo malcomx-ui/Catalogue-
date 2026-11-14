@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Printer,
+  Lock,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '../services/supabaseClient';
 import { MortgageService, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
@@ -20,6 +22,14 @@ import { AddMortgageModal } from './AddMortgageModal';
 import { EditMortgageModal } from './EditMortgageModal';
 import { ImportMortgagesModal } from './ImportMortgagesModal';
 import { MortgageFilterBar, MortgageFilters } from './MortgageFilterBar';
+import {
+  getEffectiveUser,
+  isUserAdmin,
+  isAdminFinanceAssistant,
+  canUserModifyMortgage,
+  resolveBranchId,
+} from '../lib/supabase';
+import { showCleanMessage } from '../utils/notification';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -80,15 +90,57 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<any | null>(null);
   const [selectedRecordForView, setSelectedRecordForView] = useState<any | null>(null);
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const isFinanceAssistant = isAdminFinanceAssistant(effectiveUser);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
 
-  // 1. Filter state hook for search query, month, department, status, and assigned lawyer ID
+  const handleEditRequest = (record: any) => {
+    if (!canUserModifyMortgage(effectiveUser, record)) {
+      const assigned = effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch';
+      showCleanMessage(
+        `View-Only Access: You can only edit mortgages belonging to your assigned branch (${assigned}).`,
+        'warning'
+      );
+      return;
+    }
+    setSelectedRecordForEdit(record);
+  };
+
+  const handleDeleteRecord = async (record: any) => {
+    if (!canUserModifyMortgage(effectiveUser, record)) {
+      const assigned = effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch';
+      showCleanMessage(
+        `View-Only Access: You can only delete mortgages belonging to your assigned branch (${assigned}).`,
+        'warning'
+      );
+      setConfirmDeleteId(null);
+      return;
+    }
+    setDeletingId(String(record.id));
+    try {
+      const ok = await MortgageService.deleteMortgage(record.id, effectiveUser, record);
+      if (ok) {
+        showCleanMessage('Mortgage record deleted from register.', 'success');
+        setConfirmDeleteId(null);
+        setSelectedRecordForView((prev: any) => (prev?.id === record.id ? null : prev));
+        setMortgages((prev) => prev.filter((item) => String(item.id) !== String(record.id)));
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // 1. Filter state hook for search query, month, branch, department, status, and assigned lawyer ID
   const [filters, setFilters] = useState<MortgageFilters>({
     search: '',
     month: '',
+    branch: '',
     department: '',
     status: '',
     lawyerId: ''
@@ -144,6 +196,35 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
     }
   };
 
+  const branchOptions = useMemo(() => {
+    const canonical = [
+      'Kampala Central (Head Office)',
+      'Fort Portal Regional Office',
+      'Mbarara Regional Office',
+      'Masaka Regional Office',
+      'Jinja Regional Office',
+      'Gulu Regional Office',
+      'Masindi Regional Office',
+    ];
+    const set = new Set<string>(canonical);
+    if (effectiveUser?.branchName) set.add(effectiveUser.branchName);
+    mortgages.forEach((m) => {
+      const br = String(m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '').trim();
+      if (br && br !== '-') set.add(br);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [mortgages, effectiveUser?.branchName]);
+
+  const canAddInActiveBranchView = useMemo(() => {
+    if (isGlobalAdmin) return true;
+    if (!filters.branch || filters.branch === 'ALL') return true;
+    return canUserModifyMortgage(effectiveUser, { branch: filters.branch });
+  }, [isGlobalAdmin, filters.branch, effectiveUser]);
+
+  const addDisabledTooltip = !canAddInActiveBranchView
+    ? `View-Only Mode: Creating records is disabled while viewing ${filters.branch}. Switch to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'} or All Branches.`
+    : 'Register a new mortgage file';
+
   // 3. Filtered mortgages logic against fetched records (covering all bank/branch/client aliases)
   const filteredMortgages = useMemo(() => {
     return mortgages.filter((m) => {
@@ -181,6 +262,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         );
       })();
 
+      const matchesBranch = (() => {
+        if (!filters.branch || filters.branch === 'ALL') return true;
+        const target = filters.branch.trim().toLowerCase();
+        const targetBranchId = resolveBranchId(undefined, filters.branch);
+        const rowBranch = String(
+          m.branch || m.client_branch_location || m.bank_branch || m.branch_name || ''
+        )
+          .trim()
+          .toLowerCase();
+        if (!rowBranch) return false;
+        if (rowBranch === target || rowBranch.includes(target) || target.includes(rowBranch)) {
+          return true;
+        }
+        const rowBranchId = resolveBranchId(m.branch_id || m.branchId, rowBranch);
+        return Boolean(targetBranchId && rowBranchId && targetBranchId === rowBranchId);
+      })();
+
       const matchesDept =
         !filters.department ||
         filters.department === 'ALL' ||
@@ -196,7 +294,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         filters.lawyerId === 'ALL' ||
         String(m.assigned_lawyer_id || '') === String(filters.lawyerId);
 
-      return matchesSearch && matchesMonth && matchesDept && matchesStatus && matchesLawyer;
+      return matchesSearch && matchesMonth && matchesBranch && matchesDept && matchesStatus && matchesLawyer;
     });
   }, [mortgages, filters]);
 
@@ -488,7 +586,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Active Securities &amp; 19-Column Mortgage Register · Scoped to {currentUser?.branchName || 'All Branch Stations'}
+              Active Securities &amp; 19-Column Mortgage Register ·{' '}
+              {isGlobalAdmin
+                ? 'Unrestricted Firm-Wide Custody'
+                : `Station: ${effectiveUser?.branchName || currentUser?.branchName || 'All Branch Stations'}`}
             </p>
           </div>
         </div>
@@ -510,25 +611,44 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
             <span>Print Monthly Report</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsImportModalOpen(true)}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Import Excel</span>
-          </button>
+          {isGlobalAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Import Excel</span>
+            </button>
+          )}
 
           <button
             type="button"
+            disabled={!canAddInActiveBranchView}
+            title={addDisabledTooltip}
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
           >
             <span>+</span>
-            <span>Add Mortgage File</span>
+            <span>{canAddInActiveBranchView ? 'Add Mortgage File' : 'Add Mortgage (View-Only)'}</span>
           </button>
         </div>
       </div>
+
+      {!isGlobalAdmin && (
+        <div className="no-print bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+            <span>
+              <strong>
+                {isFinanceAssistant ? 'Admin & Finance Assistant' : 'Branch Custody Mode'}:
+              </strong>{' '}
+              View-only across external branches &middot; Create, edit, and delete enabled strictly for{' '}
+              <strong>{effectiveUser?.branchName || currentUser?.branchName || 'your assigned station'}</strong>.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Supabase RLS Non-Blocking Sync Notice */}
       {cloudRlsNotice && (
@@ -585,6 +705,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           filters={filters}
           onChange={setFilters}
           lawyers={lawyersList}
+          branches={branchOptions}
+          canAdd={canAddInActiveBranchView}
+          addDisabledReason={addDisabledTooltip}
           onOpenAddModal={() => setIsModalOpen(true)}
         />
       </div>
@@ -700,20 +823,24 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               There are currently no mortgage or security files recorded under {bankName} matching your search filter.
             </p>
             <div className="no-print flex items-center justify-center gap-2.5 mt-2">
+              {isGlobalAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Import Excel</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setIsImportModalOpen(true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Import Excel</span>
-              </button>
-              <button
-                type="button"
+                disabled={!canAddInActiveBranchView}
+                title={addDisabledTooltip}
                 onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
               >
-                + Add Mortgage File
+                {canAddInActiveBranchView ? '+ Add Mortgage File' : 'Add Mortgage (View-Only)'}
               </button>
             </div>
           </div>
@@ -721,7 +848,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
           <>
             {viewMode === 'cards' && (
               <div className="no-print p-4 grid grid-cols-1 lg:grid-cols-2 gap-4 bg-slate-50/40">
-            {filteredMortgages.map((m, idx) => (
+            {filteredMortgages.map((m, idx) => {
+              const canModify = canUserModifyMortgage(effectiveUser, m);
+              return (
               <div
                 key={m.id || idx}
                 onClick={() => setSelectedRecordForView(m)}
@@ -738,6 +867,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                       <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
                         {m.branch || m.client_branch_location || m.bank_branch || 'No Branch'}
                       </span>
+                      {!canModify && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>View Only</span>
+                        </span>
+                      )}
                       {m.rim_no && (
                         <span className="font-mono font-semibold text-blue-600">
                           RIM: {m.rim_no}
@@ -749,7 +884,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                     <button
                       type="button"
                       onClick={() => setSelectedRecordForView(m)}
@@ -760,12 +895,55 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedRecordForEdit(m)}
-                      className="px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-[11px] border border-blue-200 inline-flex items-center gap-1 transition"
+                      disabled={!canModify}
+                      onClick={() => handleEditRequest(m)}
+                      title={
+                        canModify
+                          ? 'Edit mortgage record'
+                          : `View-Only: Editing disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                      }
+                      className="px-2 py-1 rounded font-semibold text-[11px] border inline-flex items-center gap-1 transition bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Edit</span>
+                      {canModify ? <Edit3 className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                      <span>{canModify ? 'Edit' : 'Locked'}</span>
                     </button>
+                    {confirmDeleteId === String(m.id) && canModify ? (
+                      <div className="inline-flex items-center gap-1 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                        <button
+                          type="button"
+                          disabled={deletingId === String(m.id)}
+                          onClick={() => handleDeleteRecord(m)}
+                          className="px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-semibold disabled:opacity-50"
+                        >
+                          {deletingId === String(m.id) ? '...' : 'Confirm'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200 text-[10px] font-medium"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!canModify}
+                        onClick={() => {
+                          if (!canModify) return;
+                          setConfirmDeleteId(String(m.id));
+                        }}
+                        title={
+                          canModify
+                            ? 'Delete mortgage record'
+                            : `View-Only: Deleting disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                        }
+                        className="px-2 py-1 rounded font-semibold text-[11px] border inline-flex items-center gap-1 transition bg-rose-50 text-rose-700 hover:bg-rose-100 border-rose-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {canModify ? <Trash2 className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                        <span>Delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -854,7 +1032,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   </p>
                 )}
               </div>
-            ))}
+              );
+            })}
               </div>
             )}
 
@@ -906,6 +1085,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                   const loanText = formatAmount(m.loan_amount);
                   const disbText = formatAmount(m.total_disbursements);
                   const grandText = formatAmount(m.grand_total);
+                  const canModifyRow = canUserModifyMortgage(effectiveUser, m);
 
                   return (
                     <tr
@@ -921,9 +1101,17 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
                       </td>
                       <td
                         className="print-col-text py-3 px-3.5 text-left text-xs font-medium text-gray-700 truncate whitespace-nowrap"
-                        title={branchText}
+                        title={canModifyRow ? branchText : `${branchText} (View-only)`}
                       >
                         {branchText}
+                        {!canModifyRow && (
+                          <span
+                            className="print:hidden ml-1 text-amber-600 inline-flex align-middle"
+                            title="View-only (external branch)"
+                          >
+                            <Lock className="w-3 h-3" />
+                          </span>
+                        )}
                       </td>
                       <td
                         className="print-col-text py-3 px-3.5 text-left text-xs font-semibold text-gray-900 truncate whitespace-nowrap"
@@ -1186,25 +1374,88 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedRecordForView(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-medium transition"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const rec = selectedRecordForView;
-                  setSelectedRecordForView(null);
-                  setSelectedRecordForEdit(rec);
-                }}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
-              >
-                Edit / Transfer File
-              </button>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              {(() => {
+                const canModifySelected = canUserModifyMortgage(effectiveUser, selectedRecordForView);
+                const isConfirming = confirmDeleteId === String(selectedRecordForView.id);
+                return (
+                  <>
+                    <div className="flex items-center gap-2">
+                      {isConfirming && canModifySelected ? (
+                        <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg">
+                          <span className="text-xs font-semibold text-rose-800">Delete permanently?</span>
+                          <button
+                            type="button"
+                            disabled={deletingId === String(selectedRecordForView.id)}
+                            onClick={() => handleDeleteRecord(selectedRecordForView)}
+                            className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition disabled:opacity-50"
+                          >
+                            {deletingId === String(selectedRecordForView.id) ? 'Deleting...' : 'Confirm'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="px-2.5 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-medium transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={!canModifySelected}
+                          title={
+                            canModifySelected
+                              ? 'Delete mortgage record'
+                              : `View-Only: You can only delete mortgages belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`
+                          }
+                          onClick={() => {
+                            if (!canModifySelected) return;
+                            setConfirmDeleteId(String(selectedRecordForView.id));
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border transition border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {canModifySelected ? <Trash2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmDeleteId(null);
+                          setSelectedRecordForView(null);
+                        }}
+                        className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-medium transition"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canModifySelected}
+                        title={
+                          canModifySelected
+                            ? 'Edit or transfer mortgage file'
+                            : `View-Only: Editing disabled outside ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                        }
+                        onClick={() => {
+                          if (!canModifySelected) return;
+                          const rec = selectedRecordForView;
+                          setConfirmDeleteId(null);
+                          setSelectedRecordForView(null);
+                          setSelectedRecordForEdit(rec);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {!canModifySelected && <Lock className="w-3.5 h-3.5" />}
+                        <span>{canModifySelected ? 'Edit / Transfer File' : 'View-Only (External Branch)'}</span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -1255,13 +1506,14 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({ bankName, currentU
         </div>
       )}
 
-      {/* Conditionally rendered ImportMortgagesModal */}
-      {isImportModalOpen && (
+      {/* Conditionally rendered ImportMortgagesModal (Super Admin / Firm Admin only) */}
+      {isGlobalAdmin && isImportModalOpen && (
         <div className="no-print">
           <ImportMortgagesModal
             defaultBank={bankName}
             defaultMonth={filters.month || MONTHS[new Date().getMonth()]}
             defaultYear={new Date().getFullYear()}
+            currentUser={effectiveUser}
             onClose={() => setIsImportModalOpen(false)}
             onSuccess={(meta) => {
               if (meta && meta.cloudSaved === false && meta.cloudError) {

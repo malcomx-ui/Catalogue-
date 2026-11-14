@@ -433,7 +433,7 @@ BEGIN
   IF current_user_id IS NOT NULL THEN
     SELECT email, role INTO current_user_email, current_user_role
     FROM public.profiles
-    WHERE id = current_user_id;
+    WHERE id::text = current_user_id::text;
   END IF;
 
   IF (TG_OP = 'INSERT') THEN
@@ -584,19 +584,154 @@ CREATE INDEX IF NOT EXISTS idx_mortgages_borrower ON public.mortgages(borrower_n
 CREATE INDEX IF NOT EXISTS idx_mortgages_branch ON public.mortgages(branch_id);
 CREATE INDEX IF NOT EXISTS idx_mortgages_lawyer ON public.mortgages(assigned_lawyer_id);
 
+CREATE OR REPLACE FUNCTION public.resolve_branch_id_from_text(p_text TEXT)
+RETURNS TEXT LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+  v_clean TEXT := LOWER(COALESCE(p_text, ''));
+BEGIN
+  IF v_clean IN ('ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg') THEN
+    RETURN v_clean;
+  END IF;
+  IF v_clean LIKE '%fort%' OR v_clean LIKE '%portal%' THEN RETURN 'ftp-reg'; END IF;
+  IF v_clean LIKE '%gulu%' THEN RETURN 'glu-reg'; END IF;
+  IF v_clean LIKE '%jinja%' THEN RETURN 'jnj-reg'; END IF;
+  IF v_clean LIKE '%masaka%' THEN RETURN 'msk-reg'; END IF;
+  IF v_clean LIKE '%masindi%' THEN RETURN 'msn-reg'; END IF;
+  IF v_clean LIKE '%mbarara%' THEN RETURN 'mbr-reg'; END IF;
+  RETURN 'kla-hq';
+END;
+$$;
+
 ALTER TABLE public.mortgages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow authenticated read on mortgages" ON public.mortgages;
-CREATE POLICY "Allow authenticated read on mortgages"
-  ON public.mortgages FOR SELECT TO authenticated USING (true);
-
 DROP POLICY IF EXISTS "Allow authenticated write on mortgages" ON public.mortgages;
-CREATE POLICY "Allow authenticated write on mortgages"
-  ON public.mortgages FOR ALL TO authenticated USING (true);
-
 DROP POLICY IF EXISTS "Allow public write on mortgages" ON public.mortgages;
-CREATE POLICY "Allow public write on mortgages"
-  ON public.mortgages FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow branch scoped insert on mortgages" ON public.mortgages;
+DROP POLICY IF EXISTS "Allow branch scoped update on mortgages" ON public.mortgages;
+DROP POLICY IF EXISTS "Allow branch scoped delete on mortgages" ON public.mortgages;
+
+CREATE POLICY "Allow authenticated read on mortgages"
+  ON public.mortgages FOR SELECT TO authenticated, anon USING (true);
+
+CREATE POLICY "Allow branch scoped insert on mortgages"
+  ON public.mortgages FOR INSERT TO authenticated, anon
+  WITH CHECK (
+    auth.role() = 'service_role'
+    OR public.is_partner_or_superadmin()
+    OR branch_id = public.get_auth_user_branch_id()
+  );
+
+CREATE POLICY "Allow branch scoped update on mortgages"
+  ON public.mortgages FOR UPDATE TO authenticated, anon
+  USING (
+    auth.role() = 'service_role'
+    OR public.is_partner_or_superadmin()
+    OR branch_id = public.get_auth_user_branch_id()
+  )
+  WITH CHECK (
+    auth.role() = 'service_role'
+    OR public.is_partner_or_superadmin()
+    OR branch_id = public.get_auth_user_branch_id()
+  );
+
+CREATE POLICY "Allow branch scoped delete on mortgages"
+  ON public.mortgages FOR DELETE TO authenticated, anon
+  USING (
+    auth.role() = 'service_role'
+    OR public.is_partner_or_superadmin()
+    OR branch_id = public.get_auth_user_branch_id()
+  );
+
+DO $$
+BEGIN
+  IF to_regclass('public.mortgage_cases') IS NOT NULL THEN
+    ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS branch_id TEXT;
+    ALTER TABLE public.mortgage_cases ADD COLUMN IF NOT EXISTS branch_name TEXT;
+    ALTER TABLE public.mortgage_cases ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow authenticated read on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow authenticated write on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow public write on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped insert on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped update on mortgage_cases" ON public.mortgage_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped delete on mortgage_cases" ON public.mortgage_cases;
+
+    CREATE POLICY "Allow authenticated read on mortgage_cases"
+      ON public.mortgage_cases FOR SELECT TO authenticated, anon USING (true);
+    CREATE POLICY "Allow branch scoped insert on mortgage_cases"
+      ON public.mortgage_cases FOR INSERT TO authenticated, anon
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+        OR (branch_id IS NULL AND public.resolve_branch_id_from_text(branch) = public.get_auth_user_branch_id())
+      );
+    CREATE POLICY "Allow branch scoped update on mortgage_cases"
+      ON public.mortgage_cases FOR UPDATE TO authenticated, anon
+      USING (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+        OR (branch_id IS NULL AND public.resolve_branch_id_from_text(branch) = public.get_auth_user_branch_id())
+      )
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+        OR (branch_id IS NULL AND public.resolve_branch_id_from_text(branch) = public.get_auth_user_branch_id())
+      );
+    CREATE POLICY "Allow branch scoped delete on mortgage_cases"
+      ON public.mortgage_cases FOR DELETE TO authenticated, anon
+      USING (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+        OR (branch_id IS NULL AND public.resolve_branch_id_from_text(branch) = public.get_auth_user_branch_id())
+      );
+  END IF;
+
+  IF to_regclass('public.litigation_cases') IS NOT NULL THEN
+    ALTER TABLE public.litigation_cases ADD COLUMN IF NOT EXISTS branch_id TEXT;
+    ALTER TABLE public.litigation_cases ADD COLUMN IF NOT EXISTS branch_name TEXT;
+    ALTER TABLE public.litigation_cases ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS "Allow authenticated read on litigation_cases" ON public.litigation_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped insert on litigation_cases" ON public.litigation_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped update on litigation_cases" ON public.litigation_cases;
+    DROP POLICY IF EXISTS "Allow branch scoped delete on litigation_cases" ON public.litigation_cases;
+
+    CREATE POLICY "Allow authenticated read on litigation_cases"
+      ON public.litigation_cases FOR SELECT TO authenticated, anon USING (true);
+    CREATE POLICY "Allow branch scoped insert on litigation_cases"
+      ON public.litigation_cases FOR INSERT TO authenticated, anon
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+      );
+    CREATE POLICY "Allow branch scoped update on litigation_cases"
+      ON public.litigation_cases FOR UPDATE TO authenticated, anon
+      USING (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+      )
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+      );
+    CREATE POLICY "Allow branch scoped delete on litigation_cases"
+      ON public.litigation_cases FOR DELETE TO authenticated, anon
+      USING (
+        auth.role() = 'service_role'
+        OR public.is_partner_or_superadmin()
+        OR branch_id = public.get_auth_user_branch_id()
+      );
+  END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
 -- 13. CASE REPORT SUMMARY DATABASE FUNCTION (RPC: get_case_summary)

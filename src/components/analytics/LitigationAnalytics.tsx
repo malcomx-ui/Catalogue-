@@ -22,12 +22,12 @@ import { Lock } from 'lucide-react';
 export const LitigationAnalytics: React.FC = () => {
   const { cases, branches, currentUser, setActiveTab } = useApp();
 
-  // Strictly restricted to Super Admins / Managing Partners / Finance Officers (NOT Branch Admins)
+  // Strictly restricted to Super Admins / System Admins / Managing Partners (NOT Branch Admins or Finance Assistants)
   const isAdminOrFinance =
     isUserAdmin(currentUser) ||
     currentUser?.role === 'super_admin' ||
     currentUser?.role === 'superadmin' ||
-    currentUser?.role === 'branch_admin_finance' ||
+    currentUser?.role === 'admin' ||
     currentUser?.role === 'partner' ||
     currentUser?.role === 'managing_partner' ||
     Boolean(currentUser?.isSuperAdmin);

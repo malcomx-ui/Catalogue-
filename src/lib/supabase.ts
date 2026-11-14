@@ -80,19 +80,72 @@ export function getCachedUserProfile(): Partial<User> | null {
 
 export function getEffectiveUser(user?: Partial<User> | null): Partial<User> {
   const cached = getCachedUserProfile();
-  if (user && (user.email || user.id)) {
+  const hasExplicitUser = Boolean(
+    user &&
+    (user.email || user.id || user.role || user.roleId || user.branchId || user.branchName)
+  );
+
+  if (hasExplicitUser && user) {
+    const userEmail = String(user.email || '').trim().toLowerCase();
+    const cachedEmail = String(cached?.email || '').trim().toLowerCase();
+    const isSameIdentity = Boolean(
+      cached &&
+      (
+        (userEmail && cachedEmail && userEmail === cachedEmail) ||
+        (user.id && cached.id && String(user.id) === String(cached.id)) ||
+        (!userEmail && !user.id && !user.role && !user.roleId)
+      )
+    );
+    const source = isSameIdentity ? cached : null;
+    const rawBranchId = String(
+      user.branchId || (user as any).branch_id || source?.branchId || (source as any)?.branch_id || ''
+    ).trim();
+    const rawBranchName = String(
+      user.branchName || (user as any).branch_name || (user as any).branch || source?.branchName || (source as any)?.branch_name || (source as any)?.branch || ''
+    ).trim();
+    const branchMeta = resolveBranchMeta(rawBranchId, rawBranchName);
+
+    const role = user.role || source?.role;
+    const roleId = user.roleId || (user as any).role_id || source?.roleId;
+    const isSuperAdmin =
+      user.isSuperAdmin !== undefined
+        ? Boolean(user.isSuperAdmin)
+        : (user as any).is_super_admin !== undefined
+        ? Boolean((user as any).is_super_admin)
+        : Boolean(source?.isSuperAdmin);
+    const isBranchAdmin =
+      user.isBranchAdmin !== undefined
+        ? Boolean(user.isBranchAdmin)
+        : (user as any).is_branch_admin !== undefined
+        ? Boolean((user as any).is_branch_admin)
+        : Boolean(source?.isBranchAdmin);
+
     return {
-      ...(cached || {}),
+      ...(source || {}),
       ...user,
-      role: user.role || cached?.role,
-      roleId: user.roleId || cached?.roleId,
-      branchId: user.branchId || cached?.branchId || 'kla-hq',
-      branchName: user.branchName || cached?.branchName || 'Kampala Central (Head Office)',
-      isSuperAdmin: Boolean(user.isSuperAdmin || cached?.isSuperAdmin),
-      isBranchAdmin: Boolean(user.isBranchAdmin || cached?.isBranchAdmin),
+      role,
+      roleId,
+      roleTitle: user.roleTitle || source?.roleTitle || (role ? String(role) : undefined),
+      branchId: branchMeta.id || 'kla-hq',
+      branchName: rawBranchName || branchMeta.name || 'Kampala Central (Head Office)',
+      isSuperAdmin,
+      isBranchAdmin,
     };
   }
-  return cached || {
+
+  if (cached) {
+    const cachedMeta = resolveBranchMeta(
+      cached.branchId || (cached as any).branch_id,
+      cached.branchName || (cached as any).branch_name || (cached as any).branch
+    );
+    return {
+      ...cached,
+      branchId: cachedMeta.id || 'kla-hq',
+      branchName: cached.branchName || cachedMeta.name || 'Kampala Central (Head Office)',
+    };
+  }
+
+  return {
     role: 'branch_staff',
     branchId: 'kla-hq',
     branchName: 'Kampala Central (Head Office)',
@@ -1417,9 +1470,9 @@ export async function handleSaveStaff(
 }
 
 /**
- * Strictly identifies Global Super Admins / Managing Partners ONLY.
- * Branch Administrators (`admin`, `role-admin`, `branch_admin`) return FALSE here so they
- * remain scoped strictly to their assigned branch without access to crucial system features.
+ * Identifies Global Firm / System Administrators (`super_admin`, `admin`, `partner`, `managing_partner`).
+ * Explicit Branch Administrators (`branch_admin`, `role-admin`) and `admin_finance_assistant` return FALSE
+ * so they remain restricted appropriately.
  */
 export function isUserAdmin(u: any): boolean {
   const effective = getEffectiveUser(u);
@@ -1427,7 +1480,9 @@ export function isUserAdmin(u: any): boolean {
   const role = String(effective.role || '').toLowerCase().trim();
   const roleId = String(effective.roleId || (effective as any).role_id || '').toLowerCase().trim();
   const email = String(effective.email || '').toLowerCase().trim();
-  return Boolean(
+  const title = String(effective.roleTitle || (effective as any).role_title || '').toLowerCase().trim();
+
+  const explicitSuper = Boolean(
     effective.isSuperAdmin ||
     (effective as any).is_super_admin ||
     role === 'super_admin' ||
@@ -1439,16 +1494,54 @@ export function isUserAdmin(u: any): boolean {
     roleId === 'system_admin' ||
     email === 'infosightug@gmail.com'
   );
+  if (explicitSuper) return true;
+
+  if (
+    role === 'admin_finance_assistant' ||
+    role === 'admin-finance-assistant' ||
+    role === 'finance_assistant' ||
+    roleId === 'role-admin-finance-assistant' ||
+    roleId === 'admin_finance_assistant' ||
+    (title.includes('admin') && title.includes('finance') && title.includes('assistant'))
+  ) {
+    return false;
+  }
+
+  const explicitBranchAdmin = Boolean(
+    effective.isBranchAdmin ||
+    (effective as any).is_branch_admin ||
+    role === 'branch_admin' ||
+    role === 'office_admin' ||
+    roleId === 'role-admin' ||
+    roleId === 'branch_admin'
+  );
+  if (explicitBranchAdmin) return false;
+
+  return role === 'admin';
 }
 
 export const isUserSuperAdmin = isUserAdmin;
 
 export function isAdminFinanceAssistant(u: any): boolean {
   const effective = getEffectiveUser(u);
-  if (!effective || isUserAdmin(effective)) return false;
+  if (!effective) return false;
   const role = String(effective.role || '').toLowerCase().trim();
   const roleId = String(effective.roleId || (effective as any).role_id || '').toLowerCase().trim();
   const title = String(effective.roleTitle || (effective as any).role_title || '').toLowerCase().trim();
+  if (
+    effective.isSuperAdmin ||
+    (effective as any).is_super_admin ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'system_admin' ||
+    role === 'partner' ||
+    role === 'managing_partner' ||
+    roleId === 'role-super-admin' ||
+    roleId === 'system_admin' ||
+    String(effective.email || '').toLowerCase().trim() === 'infosightug@gmail.com'
+  ) {
+    return false;
+  }
   return Boolean(
     role === 'admin_finance_assistant' ||
     role === 'admin-finance-assistant' ||
@@ -1467,7 +1560,6 @@ export function isUserBranchAdmin(u: any): boolean {
   return Boolean(
     effective.isBranchAdmin ||
     (effective as any).is_branch_admin ||
-    role === 'admin' ||
     role === 'branch_admin' ||
     role === 'office_admin' ||
     roleId === 'role-admin' ||
@@ -1502,21 +1594,38 @@ export function isBranchStaff(u: any): boolean {
   return !isUserAdmin(effective) && !isUserLawyer(effective);
 }
 
+export function canUserViewAllBranches(u: any): boolean {
+  const effective = getEffectiveUser(u);
+  if (!effective) return false;
+  return isUserAdmin(effective) || isAdminFinanceAssistant(effective) || isUserLawyer(effective);
+}
+
+function normalizeComparableBranchName(val?: string | null): string {
+  return String(val || '')
+    .toLowerCase()
+    .replace(/\bregional office\b/g, '')
+    .replace(/\bhead office\b/g, '')
+    .replace(/\boffice\b/g, '')
+    .replace(/\bbranch\b/g, '')
+    .replace(/[()]/g, '')
+    .trim();
+}
+
 /**
  * Strict branch-level isolation check:
- * - Only Super Admins and Managing Partners are exempt and have global multi-branch access.
- * - Branch Administrators, Admin & Finance Assistants, and Clerks can ONLY modify cases belonging to their own branch.
+ * - `super_admin` and `admin` (and Partners) are unrestricted across all branches.
+ * - `admin_finance_assistant`, Branch Administrators, and Clerks can ONLY add/edit/delete cases belonging to their own branch.
  */
 export function canUserModifyCase(u: any, caseItem: any): boolean {
   const effective = getEffectiveUser(u);
   if (!effective || !caseItem) return false;
 
-  // 1. Only Super Admins / Managing Partners bypass branch restrictions
+  // 1. Super Admins, Admins & Managing Partners retain unrestricted access across all branches
   if (isUserAdmin(effective)) {
     return true;
   }
 
-  // 2. Compare branch by canonical ID or resolved branch name
+  // 2. Compare branch by ID, canonical ID, or normalized name
   const userBranchId = String(effective.branchId || (effective as any).branch_id || '').toLowerCase().trim();
   const caseBranchId = String(caseItem.branchId || caseItem.branch_id || '').toLowerCase().trim();
 
@@ -1524,8 +1633,15 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
     return true;
   }
 
-  const userBranchName = String(effective.branchName || (effective as any).branch || '').toLowerCase().trim();
-  const caseBranchName = String(caseItem.branchName || caseItem.branch || '').toLowerCase().trim();
+  const userBranchName = String(effective.branchName || (effective as any).branch_name || (effective as any).branch || '').toLowerCase().trim();
+  const caseBranchName = String(caseItem.branchName || caseItem.branch_name || caseItem.branch || '').toLowerCase().trim();
+
+  if (!caseBranchId && !caseBranchName) {
+    return false;
+  }
+
+  const hasExplicitUserBranch = Boolean(userBranchId || userBranchName);
+  if (!hasExplicitUserBranch) return false;
 
   const resolvedUser = resolveBranchId(userBranchId, userBranchName);
   const resolvedCase = resolveBranchId(caseBranchId, caseBranchName);
@@ -1537,14 +1653,20 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
     return true;
   }
 
+  const normUser = normalizeComparableBranchName(userBranchName || userBranchId);
+  const normCase = normalizeComparableBranchName(caseBranchName || caseBranchId);
+  if (normUser && normCase && normUser === normCase) {
+    return true;
+  }
+
   return false;
 }
 
 /**
  * Mortgage branch write check:
- * - Super Admin / Managing Partner can create, edit, and delete across all branches.
- * - Admin & Finance Assistant & other non-super users can view all branches,
- *   but may only insert/edit/delete records belonging to their assigned branch.
+ * - `super_admin` and `admin` can create, edit, and delete across all branches.
+ * - `admin_finance_assistant` & other non-super users can view all branches,
+ *   but may only add/edit/delete records belonging to their assigned branch (`branchId` or `branchName`).
  */
 export function canUserModifyMortgage(u: any, record: any): boolean {
   const effective = getEffectiveUser(u);
@@ -1554,18 +1676,35 @@ export function canUserModifyMortgage(u: any, record: any): boolean {
     return true;
   }
 
-  const userBranchId = String(effective.branchId || (effective as any).branch_id || '').trim();
-  const userBranchName = String(effective.branchName || (effective as any).branch_name || (effective as any).branch || '').trim();
-  const resolvedUserBranch = resolveBranchId(userBranchId, userBranchName);
+  const userBranchId = String(effective.branchId || (effective as any).branch_id || '').toLowerCase().trim();
+  const userBranchName = String(effective.branchName || (effective as any).branch_name || (effective as any).branch || '').toLowerCase().trim();
 
-  const recBranchId = String(record.branch_id || record.branchId || '').trim();
+  const recBranchId = String(record.branch_id || record.branchId || '').toLowerCase().trim();
   const recBranchName = String(
-    record.branch_name || record.branch || record.client_branch_location || record.bank_branch || ''
-  ).trim();
+    record.branch_name || record.branchName || record.branch || record.client_branch_location || record.bank_branch || ''
+  ).toLowerCase().trim();
 
-  // If record has no branch assigned yet, only allow Kampala HQ (default) or Super Admin
+  if (!recBranchId && !recBranchName) {
+    return false;
+  }
+
+  if (userBranchId && recBranchId && userBranchId === recBranchId) {
+    return true;
+  }
+
+  if (userBranchName && recBranchName && userBranchName === recBranchName) {
+    return true;
+  }
+
+  const resolvedUserBranch = resolveBranchId(userBranchId, userBranchName);
   const resolvedRecordBranch = resolveBranchId(recBranchId, recBranchName);
   if (resolvedUserBranch && resolvedRecordBranch && resolvedUserBranch === resolvedRecordBranch) {
+    return true;
+  }
+
+  const normUser = normalizeComparableBranchName(userBranchName || userBranchId);
+  const normRec = normalizeComparableBranchName(recBranchName || recBranchId);
+  if (normUser && normRec && normUser === normRec) {
     return true;
   }
 
@@ -1592,7 +1731,6 @@ export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSupe
     !explicitSuperRole &&
     (
       r === 'role-admin' ||
-      r === 'admin' ||
       r === 'branch_admin' ||
       r === 'office_admin' ||
       r === 'role-admin-finance-assistant' ||
@@ -1615,11 +1753,11 @@ export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSupe
     )
   );
 
-  if (isPrimaryOwner || explicitSuperRole || (isSuper && !explicitNonSuperRole)) {
+  if (isPrimaryOwner || explicitSuperRole || (rRaw === 'admin' && rId !== 'role-admin' && rId !== 'branch_admin' && isSuper !== false) || (isSuper && !explicitNonSuperRole)) {
     return {
       roleId: 'role-super-admin',
-      role: 'partner',
-      roleTitle: 'Managing Partner (Super Admin)',
+      role: rRaw === 'admin' ? 'admin' : 'partner',
+      roleTitle: rRaw === 'admin' ? 'Firm Administrator' : 'Managing Partner (Super Admin)',
       isSuperAdmin: true,
       isBranchAdmin: false,
     };
@@ -1642,10 +1780,10 @@ export function resolveUserRoleMeta(rawRole?: string, rawRoleId?: string, isSupe
     };
   }
 
-  if (r === 'role-admin' || r === 'admin' || r === 'branch_admin' || r === 'office_admin') {
+  if (r === 'role-admin' || r === 'branch_admin' || r === 'office_admin' || (r === 'admin' && isSuper === false)) {
     return {
       roleId: 'role-admin',
-      role: 'admin',
+      role: 'branch_admin',
       roleTitle: 'Branch Administrator',
       isSuperAdmin: false,
       isBranchAdmin: true,

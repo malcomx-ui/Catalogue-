@@ -235,6 +235,31 @@ const DEFAULT_DATABASE = {
       },
     },
     {
+      id: 'role-admin-finance-assistant',
+      name: 'Admin & Finance Assistant',
+      description: 'Firm-wide read visibility across all branches with full create, edit, and delete authority strictly within their assigned branch station.',
+      isSuperAdmin: false,
+      isSystem: true,
+      badgeColor: 'bg-teal-100 text-teal-800 border-teal-200',
+      permissions: {
+        canViewAllBranches: true,
+        canCreateCases: true,
+        canEditCases: true,
+        canDeleteCases: true,
+        canBulkImport: false,
+        canBulkExport: false,
+        canPrintCauseList: true,
+        canScheduleHearings: true,
+        canRecordOutcomes: true,
+        canLogFileMovement: true,
+        canManageDocuments: true,
+        canViewFinancials: true,
+        canManageRoles: false,
+        canManageUsers: false,
+        canManageBranches: false,
+      },
+    },
+    {
       id: 'role-team-lead',
       name: 'Regional Team Lead',
       description: 'Supervises branch advocates, reviews pleadings, conducts high-value trials, and assigns regional litigation briefs.',
@@ -323,6 +348,30 @@ function readDatabase(): typeof DEFAULT_DATABASE {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
+      const parsedRoles = Array.isArray(parsed.roles) && parsed.roles.length > 0 ? parsed.roles : DEFAULT_DATABASE.roles;
+      const mergedRoles = [...parsedRoles];
+      DEFAULT_DATABASE.roles.forEach((sysRole) => {
+        const existingIdx = mergedRoles.findIndex((r: any) => r.id === sysRole.id);
+        if (existingIdx === -1) {
+          mergedRoles.push(sysRole);
+        } else if (sysRole.id === 'role-admin') {
+          // Enforce strict branch isolation for Branch Administrators
+          mergedRoles[existingIdx] = {
+            ...mergedRoles[existingIdx],
+            isSuperAdmin: false,
+            permissions: {
+              ...(mergedRoles[existingIdx].permissions || {}),
+              canViewAllBranches: false,
+              canBulkImport: false,
+              canBulkExport: false,
+              canManageRoles: false,
+              canManageUsers: false,
+              canManageBranches: false,
+            },
+          };
+        }
+      });
+
       return {
         ...DEFAULT_DATABASE,
         ...parsed,
@@ -332,7 +381,7 @@ function readDatabase(): typeof DEFAULT_DATABASE {
         mortgages: Array.isArray(parsed.mortgages) ? parsed.mortgages : [],
         branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : DEFAULT_DATABASE.branches,
         users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : DEFAULT_DATABASE.users,
-        roles: Array.isArray(parsed.roles) && parsed.roles.length > 0 ? parsed.roles : DEFAULT_DATABASE.roles,
+        roles: mergedRoles,
         systemSettings: parsed.systemSettings || null,
       };
     }
@@ -428,7 +477,10 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-user-id, x-user-email, x-user-role, x-user-branch-id'
+  );
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -543,16 +595,93 @@ app.get('/api/mortgages', (req: Request, res: Response) => {
   }
 });
 
+function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
+  let tokenPayload: any = null;
+  const authHeader = String(req.headers.authorization || (req.headers as any)['Authorization'] || '');
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (token && token.split('.').length === 3) {
+    try {
+      tokenPayload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf-8'));
+    } catch {}
+  }
+
+  const hdrId = String(req.headers['x-user-id'] || tokenPayload?.sub || '').trim();
+  const hdrEmail = String(req.headers['x-user-email'] || tokenPayload?.email || '').trim().toLowerCase();
+  const hdrRole = String(req.headers['x-user-role'] || tokenPayload?.user_metadata?.role_id || tokenPayload?.user_metadata?.role || '').trim();
+  const hdrBranch = String(req.headers['x-user-branch-id'] || tokenPayload?.user_metadata?.branch_id || '').trim();
+
+  const matchedDbUser = (db.users || []).find(
+    (u: any) => (hdrId && u.id === hdrId) || (hdrEmail && String(u.email || '').trim().toLowerCase() === hdrEmail)
+  );
+
+  const hasActor = Boolean(hdrId || hdrEmail || hdrRole || hdrBranch || matchedDbUser);
+  const roleMeta = resolveCanonicalRole(
+    matchedDbUser?.roleId || matchedDbUser?.role || hdrRole,
+    matchedDbUser?.roleTitle,
+    matchedDbUser?.isSuperAdmin,
+    hdrEmail || matchedDbUser?.email
+  );
+  const branchMeta = resolveCanonicalBranch(
+    matchedDbUser?.branchId || hdrBranch,
+    matchedDbUser?.branchName
+  );
+
+  return {
+    hasActor,
+    email: hdrEmail || String(matchedDbUser?.email || '').toLowerCase(),
+    roleId: roleMeta.roleId,
+    role: roleMeta.role,
+    isSuperAdmin: roleMeta.isSuperAdmin,
+    branchId: branchMeta.id,
+    branchName: branchMeta.name,
+  };
+}
+
+function getRecordBranchId(record: any): string | null {
+  if (!record) return null;
+  const rawId = String(record.branch_id || record.branchId || '').trim();
+  const rawName = String(record.branch || record.branch_name || record.branchName || record.bank_branch || record.client_branch_location || '').trim();
+  if (!rawId && !rawName) return null;
+  return resolveCanonicalBranch(rawId, rawName).id;
+}
+
+function canActorModifyMortgage(actor: ReturnType<typeof resolveRequestActor>, record: any): boolean {
+  if (!actor.hasActor || actor.isSuperAdmin) return true;
+  const recordBranchId = getRecordBranchId(record);
+  if (!recordBranchId) return false;
+  return recordBranchId === actor.branchId;
+}
+
 app.post('/api/mortgages', (req: Request, res: Response) => {
   try {
     const db = readDatabase();
+    const actor = resolveRequestActor(req, db);
     const currentList: any[] = (db as any).mortgages || [];
-    const payload = req.body;
+    const payload = { ...(req.body || {}) };
+
+    const rawBranchId = String(payload.branch_id || payload.branchId || '').trim();
+    const rawBranchName = String(payload.branch || payload.bank_branch || payload.branch_name || payload.client_branch_location || '').trim();
+
+    let resolvedBranch: { id: string; name: string };
+    if (!rawBranchId && !rawBranchName) {
+      resolvedBranch = actor.hasActor
+        ? { id: actor.branchId, name: actor.branchName }
+        : { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
+    } else {
+      resolvedBranch = resolveCanonicalBranch(rawBranchId, rawBranchName);
+    }
+
+    if (actor.hasActor && !actor.isSuperAdmin && resolvedBranch.id !== actor.branchId) {
+      return res.status(403).json({
+        success: false,
+        error: `Branch restriction: You can only create mortgage files assigned to ${actor.branchName}.`,
+      });
+    }
 
     const id = payload.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
     const clientName = payload.client_name || payload.mortgagor_name || payload.borrower_name || payload.name || '';
-    const branchName = payload.branch || payload.bank_branch || payload.branch_name || '';
+    const branchName = rawBranchName || resolvedBranch.name;
 
     const newRecord = {
       ...payload,
@@ -562,7 +691,9 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
       client_name: clientName,
       mortgagor_name: clientName,
       borrower_name: clientName,
+      branch_id: resolvedBranch.id,
       branch: branchName,
+      branch_name: resolvedBranch.name,
       bank_branch: branchName,
       created_at: payload.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -571,6 +702,12 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     // Check if record already exists by ID
     const existingIndex = currentList.findIndex((m) => m.id === id);
     if (existingIndex >= 0) {
+      if (!canActorModifyMortgage(actor, currentList[existingIndex])) {
+        return res.status(403).json({
+          success: false,
+          error: `View-only access: This mortgage file belongs to another branch. You may only modify files assigned to ${actor.branchName}.`,
+        });
+      }
       currentList[existingIndex] = { ...currentList[existingIndex], ...newRecord };
     } else {
       currentList.unshift(newRecord);
@@ -592,8 +729,9 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
 app.put('/api/mortgages/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...(req.body || {}) };
     const db = readDatabase();
+    const actor = resolveRequestActor(req, db);
     const currentList: any[] = (db as any).mortgages || [];
 
     const index = currentList.findIndex((m) => String(m.id) === String(id));
@@ -601,8 +739,31 @@ app.put('/api/mortgages/:id', (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Mortgage file not found' });
     }
 
+    const existing = currentList[index];
+    if (!canActorModifyMortgage(actor, existing)) {
+      return res.status(403).json({
+        success: false,
+        error: `View-only access: You can only edit mortgage files strictly belonging to ${actor.branchName}.`,
+      });
+    }
+
+    const incomingBranchId = String(updates.branch_id || updates.branchId || '').trim();
+    const incomingBranchName = String(updates.branch || updates.branch_name || updates.bank_branch || updates.client_branch_location || '').trim();
+    if (incomingBranchId || incomingBranchName) {
+      const targetBranch = resolveCanonicalBranch(incomingBranchId, incomingBranchName);
+      if (actor.hasActor && !actor.isSuperAdmin && targetBranch.id !== actor.branchId) {
+        return res.status(403).json({
+          success: false,
+          error: `Cross-branch transfer is restricted. You cannot reassign this file away from ${actor.branchName}.`,
+        });
+      }
+      updates.branch_id = targetBranch.id;
+      updates.branch_name = targetBranch.name;
+      if (!updates.branch) updates.branch = targetBranch.name;
+    }
+
     currentList[index] = {
-      ...currentList[index],
+      ...existing,
       ...updates,
       updated_at: new Date().toISOString(),
     };
@@ -624,7 +785,16 @@ app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const db = readDatabase();
+    const actor = resolveRequestActor(req, db);
     const currentList: any[] = (db as any).mortgages || [];
+
+    const target = currentList.find((m) => String(m.id) === String(id));
+    if (target && !canActorModifyMortgage(actor, target)) {
+      return res.status(403).json({
+        success: false,
+        error: `View-only access: You can only delete mortgage files strictly belonging to ${actor.branchName}.`,
+      });
+    }
 
     const filtered = currentList.filter((m) => String(m.id) !== String(id));
     (db as any).mortgages = filtered;
@@ -642,12 +812,20 @@ app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
 // Bulk batch insert endpoint for centenary_mortgage_cases / mortgages
 app.post('/api/mortgages/batch', (req: Request, res: Response) => {
   try {
+    const db = readDatabase();
+    const actor = resolveRequestActor(req, db);
+    if (actor.hasActor && !actor.isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Bulk Excel mortgage import is restricted strictly to Managing Partners / Super Administrators.',
+      });
+    }
+
     const { records, bank_name } = req.body;
     if (!Array.isArray(records) || records.length === 0) {
       return res.status(400).json({ success: false, error: 'Records array is required' });
     }
 
-    const db = readDatabase();
     const currentMortgages: any[] = (db as any).mortgages || [];
     const centenaryCases: any[] = (db as any).centenary_mortgage_cases || [];
 
@@ -659,6 +837,7 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
       const id = r.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
       const branchName = r.branch || r.client_branch_location || r.bank_branch || 'Head Office';
+      const resolvedBranch = resolveCanonicalBranch(r.branch_id || r.branchId, branchName);
       const targetBank = r.bank_name || r.client_bank_name || bank_name || 'Centenary Bank';
       const loanAmount = Number(r.loan_amount) || 0;
       const grandTotal = Number(r.grand_total) || 0;
@@ -674,6 +853,7 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
       normalizedCentenary.push({
         id,
         bank_name: targetBank,
+        branch_id: resolvedBranch.id,
         branch: branchName,
         client_name: clientName,
         rim_no: rimNo,
@@ -700,7 +880,8 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
         bank_branch: branchName,
         branch: branchName,
         client_branch_location: branchName,
-        branch_name: branchName,
+        branch_id: resolvedBranch.id,
+        branch_name: resolvedBranch.name,
         file_number: rimNo || `MORT-${Date.now().toString().slice(-5)}`,
         rim_no: rimNo,
         borrower_name: clientName,
@@ -828,6 +1009,22 @@ function resolveCanonicalRole(roleId?: string, roleTitle?: string, isSuper?: boo
       role: 'partner',
       roleTitle: cleanTitle || 'Managing Partner (Super Admin)',
       isSuperAdmin: true,
+      isBranchAdmin: false,
+    };
+  }
+  if (
+    lowerId === 'role-admin-finance-assistant' ||
+    lowerId === 'admin_finance_assistant' ||
+    lowerId === 'admin-finance-assistant' ||
+    lowerId === 'finance_assistant' ||
+    clean.includes('admin & finance assistant') ||
+    clean.includes('admin and finance assistant')
+  ) {
+    return {
+      roleId: 'role-admin-finance-assistant',
+      role: 'admin_finance_assistant',
+      roleTitle: cleanTitle || 'Admin & Finance Assistant',
+      isSuperAdmin: false,
       isBranchAdmin: false,
     };
   }
@@ -961,6 +1158,7 @@ function extractPasswordFromRollNo(rawRollNo?: string): { rollNo: string; passwo
 function defaultRolePassword(roleId: string): string {
   if (roleId === 'role-super-admin') return 'Admin@2026';
   if (roleId === 'role-admin') return 'Branch@2026';
+  if (roleId === 'role-admin-finance-assistant') return 'Finance@2026';
   if (roleId === 'role-clerk') return 'Clerk@2026';
   return 'Lawyer@2026';
 }
@@ -1004,6 +1202,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     } = req.body;
 
     const resolvedEmail = (email || '').trim().toLowerCase();
+    const prevEmail = String(req.body.previousEmail || req.body.previous_email || '').trim().toLowerCase();
     const resolvedName = (name || full_name || '').trim();
     const rawBranchId = (branchId || branch_id || '').trim();
     const rawBranchName = (branchName || branch_name || branch || '').trim();
@@ -1026,10 +1225,12 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     const existingDbUser = (db.users || []).find(
       (u: any) =>
         (targetId && u.id === targetId) ||
-        (resolvedEmail && u.email?.toLowerCase() === resolvedEmail)
+        (resolvedEmail && u.email?.toLowerCase() === resolvedEmail) ||
+        (prevEmail && u.email?.toLowerCase() === prevEmail)
     );
 
-    const effectiveEmail = resolvedEmail || (existingDbUser?.email || '').trim().toLowerCase();
+    const effectiveEmail = resolvedEmail || prevEmail || (existingDbUser?.email || '').trim().toLowerCase();
+    const lookupPreviousEmail = prevEmail || (existingDbUser?.email || '').trim().toLowerCase();
 
     // Resolve canonical station and role (preserve existing values when partial update omits branch or role)
     const branchMeta =
@@ -1071,14 +1272,27 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           }
         }
       }
+      if (!existingProfile && lookupPreviousEmail && lookupPreviousEmail !== effectiveEmail) {
+        const { data: pByPrevEmail } = await supabaseAdmin.from('profiles').select('*').eq('email', lookupPreviousEmail).maybeSingle();
+        if (pByPrevEmail) {
+          existingProfile = pByPrevEmail;
+          if (pByPrevEmail.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pByPrevEmail.id)) {
+            authUserId = pByPrevEmail.id;
+          }
+        }
+      }
     } catch (lookupErr) {
       console.warn('[User Update] Profile lookup notice:', lookupErr);
     }
 
-    if (!authUserId && effectiveEmail && hasRealServiceRoleKey()) {
+    if (!authUserId && (effectiveEmail || lookupPreviousEmail) && hasRealServiceRoleKey()) {
       try {
         const { data: userList } = await supabaseAdmin.auth.admin.listUsers();
-        const matched = userList?.users?.find((u) => u.email?.toLowerCase() === effectiveEmail);
+        const matched = userList?.users?.find(
+          (u) =>
+            (effectiveEmail && u.email?.toLowerCase() === effectiveEmail) ||
+            (lookupPreviousEmail && u.email?.toLowerCase() === lookupPreviousEmail)
+        );
         if (matched) authUserId = matched.id;
       } catch (authListErr) {
         console.warn('[User Update] Auth user list notice:', authListErr);
@@ -1178,6 +1392,14 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         }
       }
 
+      if (!profileUpdated && lookupPreviousEmail && lookupPreviousEmail !== finalEmail) {
+        const { data: pPrevData, error: ppErr } = await safeProfileMutation('update-email', profileRow, lookupPreviousEmail);
+        if (!ppErr && pPrevData && pPrevData.length > 0) {
+          profileUpdated = true;
+          completeProfile = pPrevData[0];
+        }
+      }
+
       if (!profileUpdated && (authUserId || targetId || finalEmail)) {
         const upsertRow: any = {
           ...profileRow,
@@ -1242,6 +1464,10 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         const r3 = await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('email', finalEmail).select('id');
         if (!r3.error && r3.data && r3.data.length > 0) fuUpdated = true;
       }
+      if (!fuUpdated && lookupPreviousEmail && lookupPreviousEmail !== finalEmail) {
+        const r4 = await supabaseAdmin.from('firm_users').update(firmUserUpdates).eq('email', lookupPreviousEmail).select('id');
+        if (!r4.error && r4.data && r4.data.length > 0) fuUpdated = true;
+      }
       if (!fuUpdated && finalEmail) {
         await supabaseAdmin.from('firm_users').upsert(
           [
@@ -1266,7 +1492,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       if (
         (targetId && u.id === targetId) ||
         (authUserId && u.id === authUserId) ||
-        (finalEmail && u.email?.toLowerCase() === finalEmail)
+        (finalEmail && u.email?.toLowerCase() === finalEmail) ||
+        (lookupPreviousEmail && u.email?.toLowerCase() === lookupPreviousEmail)
       ) {
         foundInDb = true;
         return {

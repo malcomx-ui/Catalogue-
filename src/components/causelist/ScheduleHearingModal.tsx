@@ -19,7 +19,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
   const [courtRoom, setCourtRoom] = useState('Court Room 3');
   const [presidingJudge, setPresidingJudge] = useState('');
   const [hearingPurpose, setHearingPurpose] = useState('Scheduling Conference');
-  const [leadCounsel, setLeadCounsel] = useState(currentUser.name);
+  const [leadCounsel, setLeadCounsel] = useState(currentUser?.name || '');
   const [notes, setNotes] = useState('');
 
   if (!isOpen) return null;
@@ -40,8 +40,8 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
       courtRoom: courtRoom || 'Court Room 1',
       presidingJudge: presidingJudge || matchedCase.presidingJudge,
       hearingPurpose: hearingPurpose || 'Court Appearance',
-      leadCounsel: leadCounsel || currentUser.name,
-      assignedAdvocates: [leadCounsel || currentUser.name],
+      leadCounsel: leadCounsel || currentUser?.name || '',
+      assignedAdvocates: [leadCounsel || currentUser?.name || ''].filter(Boolean),
       status: 'Scheduled',
       courtNotes: notes,
       branchId: matchedCase.branchId,

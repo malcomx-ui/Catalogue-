@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
-import { isUserAdmin } from '../../lib/supabase';
+import { isUserAdmin, isAdminFinanceAssistant, getEffectiveUser } from '../../lib/supabase';
+import { getUserRoleLabel, getUserRoleBadge } from '../../types';
 import RefreshSessionButton from '../auth/RefreshSessionButton';
 import {
   Briefcase,
@@ -55,24 +56,25 @@ export const Sidebar: React.FC = () => {
 
   const isCounselExpanded = isCounselHovered || isCounselClicked;
 
+  const effectiveUser = getEffectiveUser(currentUser);
   const activeHearingsCount = hearings.filter((h) => h.status === 'Scheduled').length;
-  const isAdmin = isUserAdmin(currentUser);
+  const isAdmin = isUserAdmin(effectiveUser);
 
   const branchScopedCases = React.useMemo(() => {
-    if (userPermissions.canViewAllBranches) return cases;
-    const targetBranch = branches.find((b) => b.id === currentUser.branchId);
+    if (userPermissions?.canViewAllBranches) return cases;
+    const targetBranch = branches.find((b) => b.id === effectiveUser?.branchId);
     const targetCity = targetBranch?.city?.toLowerCase() || '';
-    const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+    const targetName = (targetBranch?.name || effectiveUser?.branchName || '').toLowerCase();
     return cases.filter((c) => {
       const bId = c.branchId;
       const bName = (c.branch || c.branchName || '').toLowerCase();
       return (
-        (currentUser.branchId && bId === currentUser.branchId) ||
+        (effectiveUser?.branchId && bId === effectiveUser?.branchId) ||
         (targetCity && bName.includes(targetCity)) ||
         (targetName && bName.includes(targetName))
       );
     });
-  }, [cases, branches, currentUser.branchId, currentUser.branchName, userPermissions.canViewAllBranches]);
+  }, [cases, branches, effectiveUser?.branchId, effectiveUser?.branchName, userPermissions?.canViewAllBranches]);
 
   // Group 1: Core Operational Modules
   const operationalNavItems: { id: NavigationTab; label: string; icon: any; count?: number; onClick?: () => void }[] = [
@@ -92,7 +94,7 @@ export const Sidebar: React.FC = () => {
       label: 'Clients',
       icon: Users,
       onClick: () => {
-        setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+        setSelectedBranchFilter(userPermissions?.canViewAllBranches ? 'all' : effectiveUser?.branchId || 'all');
         setActiveTab('catalogue');
       },
     },
@@ -124,13 +126,13 @@ export const Sidebar: React.FC = () => {
   }
 
   const isPartnerOrSuperadmin = Boolean(
-    currentUser.isSuperAdmin ||
+    effectiveUser?.isSuperAdmin ||
     isAdmin ||
-    currentUser.role === 'partner' ||
-    currentUser.role === 'super_admin' ||
-    currentUser.role === 'superadmin' ||
-    currentUser.role === 'managing_partner' ||
-    currentUser.role?.toLowerCase().includes('partner')
+    effectiveUser?.role === 'partner' ||
+    effectiveUser?.role === 'super_admin' ||
+    effectiveUser?.role === 'superadmin' ||
+    effectiveUser?.role === 'managing_partner' ||
+    effectiveUser?.role?.toLowerCase().includes('partner')
   );
 
   // Group 2: Intelligence & Risk Management
@@ -162,7 +164,7 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  if (userPermissions.canManageRoles || currentUser.isSuperAdmin) {
+  if (userPermissions?.canManageRoles || effectiveUser?.isSuperAdmin) {
     administrativeNavItems.push({
       id: 'roles',
       label: 'Access Roles & Staff',
@@ -171,7 +173,7 @@ export const Sidebar: React.FC = () => {
     });
   }
 
-  if (userPermissions.canManageSettings || currentUser.isSuperAdmin) {
+  if (userPermissions?.canManageSettings || effectiveUser?.isSuperAdmin) {
     administrativeNavItems.push({
       id: 'settings',
       label: 'System Settings & Intake',
@@ -394,9 +396,9 @@ export const Sidebar: React.FC = () => {
 
               <div className="space-y-0.5 max-h-48 overflow-y-auto pr-1">
                 {branches
-                  .filter((branch) => userPermissions.canViewAllBranches || branch.id === currentUser.branchId)
+                  .filter((branch) => userPermissions?.canViewAllBranches || branch.id === effectiveUser?.branchId)
                   .map((branch) => {
-                    const isSelected = selectedBranchFilter === branch.id || (!userPermissions.canViewAllBranches && branch.id === currentUser.branchId);
+                    const isSelected = selectedBranchFilter === branch.id || (!userPermissions?.canViewAllBranches && branch.id === effectiveUser?.branchId);
                     return (
                       <button
                         key={branch.id}
@@ -585,22 +587,26 @@ export const Sidebar: React.FC = () => {
           <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
             Active Session
           </span>
-          {currentUser.isSuperAdmin ? (
+          {isAdmin ? (
             <span className="text-[9px] font-mono font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
-              Super Admin
+              {effectiveUser?.isSuperAdmin ? 'Super Admin' : 'Admin'}
+            </span>
+          ) : isAdminFinanceAssistant(effectiveUser) ? (
+            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getUserRoleBadge('admin_finance_assistant')}`}>
+              Finance Asst
             </span>
           ) : (
             <span className="text-[9px] font-mono text-slate-700 bg-slate-200/80 px-1.5 py-0.5 rounded">
-              {currentUser.branchName?.split(' ')[0] || 'Station'}
+              {effectiveUser?.branchName?.split(' ')[0] || 'Station'}
             </span>
           )}
         </div>
 
         <div className="font-semibold text-slate-900 truncate text-xs">
-          {currentUser.name}
+          {effectiveUser?.name || currentUser?.name || 'Legal Counsel'}
         </div>
         <p className="text-[11px] text-slate-500 truncate mt-0.5">
-          {currentUser.roleTitle || currentUser.email}
+          {effectiveUser?.roleTitle || getUserRoleLabel(effectiveUser?.roleId || effectiveUser?.role) || effectiveUser?.email}
         </p>
 
         <div className="mt-2.5 space-y-1.5 pt-2 border-t border-slate-200/80">

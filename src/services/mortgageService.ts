@@ -1,5 +1,12 @@
 import { supabase } from './supabaseClient';
 import * as XLSX from 'xlsx';
+import {
+  getEffectiveUser,
+  isUserAdmin,
+  canUserModifyMortgage,
+  resolveBranchMeta,
+} from '../lib/supabase';
+import { showCleanMessage } from '../utils/notification';
 
 export interface BankSummary {
   bank_name: string;
@@ -585,9 +592,17 @@ export const MortgageService = {
   async importExcelMortgages(
     records: any[],
     bankName: string,
-    onProgress?: (msg: string) => void
+    onProgress?: (msg: string) => void,
+    userProfile?: any
   ): Promise<{ success: boolean; count: number; error?: string; cloudSaved?: boolean; cloudError?: string }> {
     try {
+      const effectiveUser = getEffectiveUser(userProfile);
+      if (!isUserAdmin(effectiveUser)) {
+        const msg = 'Permission Denied: Only Firm / Super Administrators may perform bulk Excel mortgage imports.';
+        showCleanMessage(msg, 'warning');
+        return { success: false, count: 0, error: msg };
+      }
+
       if (!records || records.length === 0) {
         return { success: false, count: 0, error: 'No valid mortgage rows found to import.' };
       }
@@ -923,7 +938,8 @@ export const MortgageService = {
    * local workstation `/api/mortgages`, and browser localStorage fallback.
    */
   async insertMortgage(
-    payload: any
+    payload: any,
+    userProfile?: any
   ): Promise<{
     success: boolean;
     data?: any;
@@ -932,6 +948,27 @@ export const MortgageService = {
     localSaved?: boolean;
     cloudError?: string;
   }> {
+    const effectiveUser = getEffectiveUser(userProfile);
+    const isGlobalAdmin = isUserAdmin(effectiveUser);
+    const rawBranch = payload?.branch || payload?.branch_name || payload?.branchName || payload?.client_branch_location || payload?.bank_branch || '';
+    const rawBranchId = payload?.branch_id || payload?.branchId || '';
+
+    let effectivePayload = payload;
+    if (!isGlobalAdmin) {
+      const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'Kampala Central (Head Office)';
+      if (!rawBranch && !rawBranchId) {
+        effectivePayload = {
+          ...payload,
+          branch: userBranchName,
+          client_branch_location: userBranchName,
+        };
+      } else if (!canUserModifyMortgage(effectiveUser, payload)) {
+        const msg = `Permission Denied: You can only add mortgages belonging to your assigned branch (${userBranchName}).`;
+        showCleanMessage(msg, 'warning');
+        return { success: false, error: msg };
+      }
+    }
+
     let savedRecord: any = null;
     let cloudSaved = false;
     let localSaved = false;
@@ -940,7 +977,7 @@ export const MortgageService = {
     // 1. Strictly append a new row into Supabase `mortgage_cases` using clean .insert()
     //    (omitting id so Postgres gen_random_uuid() generates a fresh PK and never overwrites existing records)
     try {
-      const mcRow = buildMortgageCasesRow(payload, { includeId: false });
+      const mcRow = buildMortgageCasesRow(effectivePayload, { includeId: false });
       const { data: mcData, error: mcError } = await supabase
         .from('mortgage_cases')
         .insert([mcRow])
@@ -959,7 +996,7 @@ export const MortgageService = {
 
     // 2. Also append cleanly to Supabase `mortgages` (linking the newly created UUID if returned)
     try {
-      const { id: _ignoredPayloadId, ...cleanPayload } = payload || {};
+      const { id: _ignoredPayloadId, ...cleanPayload } = effectivePayload || {};
       const mRow = buildMortgagesRow({
         ...cleanPayload,
         id: savedRecord?.id && UUID_REGEX.test(String(savedRecord.id)) ? savedRecord.id : undefined,
@@ -984,17 +1021,17 @@ export const MortgageService = {
 
     const stableId =
       savedRecord?.id ||
-      payload.id ||
+      effectivePayload.id ||
       `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     const localBody = normalizeMortgageRecord(
       {
-        ...payload,
+        ...effectivePayload,
         ...(savedRecord || {}),
         id: stableId,
-        created_at: savedRecord?.created_at || payload.created_at || new Date().toISOString(),
+        created_at: savedRecord?.created_at || effectivePayload.created_at || new Date().toISOString(),
       },
-      payload.client_bank_name || payload.bank_name
+      effectivePayload.client_bank_name || effectivePayload.bank_name
     );
 
     // 3. Persist to local workstation backend (/api/mortgages)
@@ -1043,7 +1080,30 @@ export const MortgageService = {
    * Updates an existing mortgage file.
    * Syncs to both mortgage_cases, mortgages, and local server.
    */
-  async updateMortgage(id: string, updates: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  async updateMortgage(
+    id: string,
+    updates: any,
+    userProfile?: any,
+    existingRecord?: any
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    const effectiveUser = getEffectiveUser(userProfile);
+    if (!isUserAdmin(effectiveUser)) {
+      const cachedRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
+      const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'your station';
+      if (cachedRecord && !canUserModifyMortgage(effectiveUser, cachedRecord)) {
+        const msg = `View-Only Access: You can only edit mortgages belonging to your assigned branch (${userBranchName}).`;
+        showCleanMessage(msg, 'warning');
+        return { success: false, error: msg };
+      }
+      const updatesSpecifyBranch = Boolean(
+        updates?.branch || updates?.branch_name || updates?.branchName || updates?.client_branch_location || updates?.bank_branch || updates?.branch_id || updates?.branchId
+      );
+      if (updatesSpecifyBranch && !canUserModifyMortgage(effectiveUser, updates)) {
+        const msg = `Permission Denied: You cannot reassign or edit a mortgage outside your assigned branch (${userBranchName}).`;
+        showCleanMessage(msg, 'warning');
+        return { success: false, error: msg };
+      }
+    }
     let updatedRecord: any = null;
 
     // 1. Try Supabase update on mortgage_cases (only live columns)
@@ -1186,7 +1246,19 @@ export const MortgageService = {
   /**
    * Deletes a mortgage file.
    */
-  async deleteMortgage(id: string): Promise<boolean> {
+  async deleteMortgage(id: string, userProfile?: any, existingRecord?: any): Promise<boolean> {
+    const effectiveUser = getEffectiveUser(userProfile);
+    if (!isUserAdmin(effectiveUser)) {
+      const targetRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
+      const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'your station';
+      if (!targetRecord || !canUserModifyMortgage(effectiveUser, targetRecord)) {
+        showCleanMessage(
+          `View-Only Access: You can only delete mortgages belonging to your assigned branch (${userBranchName}).`,
+          'warning'
+        );
+        return false;
+      }
+    }
     try {
       await supabase.from('mortgage_cases').delete().eq('id', id);
     } catch (e) {}

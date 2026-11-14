@@ -14,6 +14,7 @@ export interface ImportMortgagesModalProps {
   defaultBank?: string;
   defaultMonth?: string;
   defaultYear?: number;
+  currentUser?: any;
   onClose: () => void;
   onSuccess: (meta?: { count?: number; cloudSaved?: boolean; cloudError?: string }) => void;
 }
@@ -22,6 +23,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
   defaultBank = 'Centenary Bank',
   defaultMonth,
   defaultYear,
+  currentUser,
   onClose,
   onSuccess,
 }) => {
@@ -144,7 +146,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     const result = await MortgageService.importExcelMortgages(
       parsedRecords,
       selectedBank,
-      (msg) => setProgressMsg(msg)
+      (msg) => setProgressMsg(msg),
+      currentUser
     );
 
     setImporting(false);

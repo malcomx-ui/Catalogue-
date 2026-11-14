@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { MortgageService, MORTGAGE_RLS_FIX_SQL } from '../../services/mortgageService';
+import { useApp } from '../../context/AppContext';
+import { getEffectiveUser, isUserAdmin, canUserModifyMortgage } from '../../lib/supabase';
+import { showCleanMessage } from '../../utils/notification';
 
 export interface MortgageCaseFormProps {
   onSuccess?: () => void;
@@ -14,11 +17,16 @@ const MONTHS = [
 ];
 
 export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Centenary Bank' }: MortgageCaseFormProps) {
+  const { currentUser } = useApp();
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || 'Kampala Central (Head Office)';
+
   const [formData, setFormData] = useState({
     record_year: new Date().getFullYear(), // Defaults to current year (e.g. 2026)
     month_sheet: MONTHS[new Date().getMonth()], // Defaults to current month
     date_of_receipt: '',
-    branch: '',
+    branch: isGlobalAdmin ? '' : assignedBranchLabel,
     name: '',
     rim_no: '',
     description: '',
@@ -66,8 +74,17 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setFeedback(null);
+
+    const resolvedBranch = isGlobalAdmin ? formData.branch || null : assignedBranchLabel;
+    if (!isGlobalAdmin && !canUserModifyMortgage(effectiveUser, { branch: resolvedBranch })) {
+      const msg = `Permission Denied: You can only add mortgages for your assigned branch (${assignedBranchLabel}).`;
+      setFeedback({ type: 'error', text: msg });
+      showCleanMessage(msg, 'warning');
+      return;
+    }
+
+    setLoading(true);
 
     const payload = {
       record_year: formData.record_year ? parseInt(String(formData.record_year), 10) : new Date().getFullYear(),
@@ -75,7 +92,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       bank_name: defaultBank,
       client_bank_name: defaultBank,
       date_of_receipt: formData.date_of_receipt || null,
-      branch: formData.branch || null,
+      branch: resolvedBranch,
       client_name: formData.name,
       mortgagor_name: formData.name,
       rim_no: formData.rim_no || null,
@@ -99,7 +116,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
     };
 
     try {
-      const res = await MortgageService.insertMortgage(payload);
+      const res = await MortgageService.insertMortgage(payload, effectiveUser);
 
       if (!res.success) {
         setFeedback({ type: 'error', text: 'Error saving record: ' + (res.error || 'Unknown error') });
@@ -115,7 +132,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
         setFormData((prev) => ({
           ...prev,
           date_of_receipt: '',
-          branch: '',
+          branch: isGlobalAdmin ? '' : assignedBranchLabel,
           name: '',
           rim_no: '',
           description: '',
@@ -235,7 +252,19 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Branch</label>
-            <input type="text" name="branch" placeholder="e.g. RUBAGA" value={formData.branch} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <input
+              type="text"
+              name="branch"
+              placeholder="e.g. RUBAGA"
+              value={isGlobalAdmin ? formData.branch : assignedBranchLabel}
+              onChange={(e) => {
+                if (isGlobalAdmin) handleChange(e);
+              }}
+              disabled={!isGlobalAdmin}
+              className={`w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+              }`}
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">Client Name (Name)</label>

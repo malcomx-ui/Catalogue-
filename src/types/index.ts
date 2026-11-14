@@ -1,4 +1,68 @@
-export type UserRole = 'partner' | 'admin' | 'team_lead' | 'lawyer' | 'office_admin' | 'admin_finance_assistant' | 'clerk' | string;
+export type UserRole =
+  | 'super_admin'
+  | 'partner'
+  | 'admin'
+  | 'branch_admin'
+  | 'team_lead'
+  | 'lawyer'
+  | 'office_admin'
+  | 'admin_finance_assistant'
+  | 'clerk'
+  | string;
+
+export const USER_ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Managing Partner (Super Admin)',
+  superadmin: 'Managing Partner (Super Admin)',
+  system_admin: 'System Administrator',
+  partner: 'Managing Partner (Super Admin)',
+  managing_partner: 'Managing Partner (Super Admin)',
+  admin: 'Firm Administrator',
+  branch_admin: 'Branch Administrator',
+  office_admin: 'Branch Administrator',
+  team_lead: 'Regional Team Lead',
+  lawyer: 'Litigation Advocate',
+  advocate: 'Litigation Advocate',
+  admin_finance_assistant: 'Admin & Finance Assistant',
+  clerk: 'Court & Registry Clerk',
+  'role-super-admin': 'Managing Partner (Super Admin)',
+  'role-admin': 'Branch Administrator',
+  'role-team-lead': 'Regional Team Lead',
+  'role-advocate': 'Litigation Advocate',
+  'role-admin-finance-assistant': 'Admin & Finance Assistant',
+  'role-clerk': 'Court & Registry Clerk',
+};
+
+export const USER_ROLE_BADGES: Record<string, string> = {
+  super_admin: 'bg-purple-100 text-purple-800 border-purple-200',
+  superadmin: 'bg-purple-100 text-purple-800 border-purple-200',
+  system_admin: 'bg-purple-100 text-purple-800 border-purple-200',
+  partner: 'bg-purple-100 text-purple-800 border-purple-200',
+  managing_partner: 'bg-purple-100 text-purple-800 border-purple-200',
+  admin: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  branch_admin: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  office_admin: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  team_lead: 'bg-blue-100 text-blue-800 border-blue-200',
+  lawyer: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  advocate: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  admin_finance_assistant: 'bg-teal-100 text-teal-800 border-teal-200',
+  clerk: 'bg-slate-100 text-slate-800 border-slate-200',
+  'role-super-admin': 'bg-purple-100 text-purple-800 border-purple-200',
+  'role-admin': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  'role-team-lead': 'bg-blue-100 text-blue-800 border-blue-200',
+  'role-advocate': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  'role-admin-finance-assistant': 'bg-teal-100 text-teal-800 border-teal-200',
+  'role-clerk': 'bg-slate-100 text-slate-800 border-slate-200',
+};
+
+export function getUserRoleLabel(role?: string | null): string {
+  const key = String(role || '').toLowerCase().trim();
+  return USER_ROLE_LABELS[key] || (role ? String(role) : 'Staff Member');
+}
+
+export function getUserRoleBadge(role?: string | null): string {
+  const key = String(role || '').toLowerCase().trim();
+  return USER_ROLE_BADGES[key] || 'bg-slate-100 text-slate-700 border-slate-200';
+}
 
 export interface RolePermissions {
   canViewAllBranches: boolean;
@@ -55,7 +119,7 @@ export interface User {
 export interface BranchStaffMember {
   id: string;
   name: string;
-  role: 'partner' | 'admin' | 'team_lead' | 'lawyer' | 'office_admin' | 'admin_finance_assistant' | 'clerk';
+  role: 'super_admin' | 'partner' | 'admin' | 'branch_admin' | 'team_lead' | 'lawyer' | 'office_admin' | 'admin_finance_assistant' | 'clerk';
   roleTitle: string;
   email: string;
   phone?: string;
@@ -439,6 +503,9 @@ export {
   isSystemAdmin,
   isSuperAdmin, 
   isBranchAdmin, 
+  isAdminFinanceAssistant,
+  canViewAllBranches,
+  canModifyRecordInBranch,
   canAccessGlobalSettings,
   canManageFirm 
 } from '../utils/permissions';

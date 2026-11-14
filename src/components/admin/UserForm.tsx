@@ -22,7 +22,8 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
   const [loading, setLoading] = useState(false);
 
   // Determine role flags based on the selected roleId
-  const isSystemAdmin = roleId === 'system_admin';
+  const isSystemAdmin = roleId === 'system_admin' || roleId === 'super_admin' || roleId === 'role-super-admin';
+  const isFinanceAssistant = roleId === 'admin_finance_assistant' || roleId === 'role-admin-finance-assistant';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +37,12 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
         full_name: fullName,
         email: email,
         roleId: roleId,
+        role: isSystemAdmin ? 'super_admin' : isFinanceAssistant ? 'admin_finance_assistant' : 'branch_admin',
         // System Admins don't need a specific branch restriction
         branch_id: isSystemAdmin ? null : branchId || null,
         branch_name: isSystemAdmin ? 'All Branches (Global)' : selectedBranch?.name || null,
         is_super_admin: isSystemAdmin,
-        is_branch_admin: !isSystemAdmin,
+        is_branch_admin: !isSystemAdmin && !isFinanceAssistant,
       };
 
       await onSave(payload);
@@ -92,12 +94,15 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none bg-white"
         >
           <option value="branch_admin">Branch Administrator (Restricted to Assigned Branch)</option>
+          <option value="admin_finance_assistant">Admin &amp; Finance Assistant (View All, Edit Own Branch)</option>
           <option value="system_admin">System Administrator (Global Full Access)</option>
         </select>
         <p className="text-xs text-gray-500 mt-1">
-          {isSystemAdmin 
-            ? '⚠️ Grants global control over all branches, firm settings, and user management.' 
-            : '🔒 Restricts user operations strictly to their selected branch.'}
+          {isSystemAdmin
+            ? 'Grants global control over all branches, firm settings, and user management.'
+            : isFinanceAssistant
+            ? 'Allows viewing across all branches while restricting create, edit, and delete operations to the assigned branch.'
+            : 'Restricts user operations strictly to their selected branch.'}
         </p>
       </div>
 

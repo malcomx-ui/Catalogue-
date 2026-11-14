@@ -25,7 +25,7 @@ export const HearingOutcomeModal: React.FC<HearingOutcomeModalProps> = ({
     e.preventDefault();
     updateHearingOutcome(hearing.id, {
       status,
-      courtNotes: `${courtNotes} [Logged by ${currentUser.name} on ${new Date().toLocaleDateString()}]`,
+      courtNotes: `${courtNotes} [Logged by ${currentUser?.name || 'System User'} on ${new Date().toLocaleDateString()}]`,
       nextHearingDate: nextHearingDate || undefined,
       nextDirections: nextDirections || undefined,
     });

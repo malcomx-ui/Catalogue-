@@ -36,7 +36,9 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
   const [email, setEmail] = useState(user.email);
   const [password, setPassword] = useState(user.password || '');
   const [showPassword, setShowPassword] = useState(false);
-  const [roleId, setRoleId] = useState(user.roleId || roles[3]?.id || 'role-advocate');
+  const [roleId, setRoleId] = useState(
+    user.roleId || roles.find((r) => r.id === 'role-advocate')?.id || 'role-advocate'
+  );
   const [branchId, setBranchId] = useState(user.branchId || branches[0]?.id || 'kla-hq');
   const [rollNo, setRollNo] = useState(user.advocateRollNo || '');
   const [mustChangePassword, setMustChangePassword] = useState(user.mustChangePassword ?? false);

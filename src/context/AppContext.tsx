@@ -37,14 +37,17 @@ import {
   handleSaveStaff,
   isUserAdmin,
   isUserBranchAdmin,
+  isAdminFinanceAssistant,
   isUserLawyer,
   isBranchStaff,
+  canUserViewAllBranches,
   canUserModifyCase,
   cacheUserProfile,
   clearCachedUserProfile,
   getCachedUserProfile,
   getEffectiveUser,
 } from '../lib/supabase';
+import { showCleanMessage } from '../utils/notification';
 
 
 export type NavigationTab = 
@@ -204,13 +207,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Boolean(getCachedUserProfile()?.email);
   });
 
-  // Custom Roles state - initialized with Super Admin, Branch Administrator, Team Lead, Advocate, Clerk
+  // Custom Roles state - initialized with Super Admin, Branch Administrator, Admin & Finance Assistant, Team Lead, Advocate, Clerk
   const [roles, setRoles] = useState<CustomRole[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY_ROLES);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((r: CustomRole) => r.id));
+          const mergedDefaults = parsed.map((r: CustomRole) => {
+            const def = DEFAULT_ROLES.find((d) => d.id === r.id);
+            return def ? { ...def, ...r, permissions: { ...def.permissions, ...(r.permissions || {}) } } : r;
+          });
+          DEFAULT_ROLES.forEach((def) => {
+            if (!existingIds.has(def.id)) {
+              mergedDefaults.push(def);
+            }
+          });
+          return mergedDefaults;
+        }
       }
     } catch (e) {}
     return DEFAULT_ROLES;
@@ -348,7 +363,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 3. Litigation Lawyers (Advocates, Regional Team Leads) -> Global read/litigation access across branches, no Admin panels
+    // 3. Admin & Finance Assistant -> View-all across branches; Add/Edit/Delete strictly limited to their assigned branch
+    if (isAdminFinanceAssistant(currentUser)) {
+      return {
+        canViewAllBranches: true,
+        canCreateCases: true,
+        canEditCases: true,
+        canDeleteCases: true,
+        canBulkImport: false,
+        canBulkExport: false,
+        canPrintCauseList: false,
+        canScheduleHearings: true,
+        canRecordOutcomes: true,
+        canLogFileMovement: true,
+        canManageDocuments: true,
+        canViewFinancials: true,
+        canManageRoles: false,
+        canManageUsers: false,
+        canManageBranches: false,
+        canManageSettings: false,
+      };
+    }
+
+    // 4. Litigation Lawyers (Advocates, Regional Team Leads) -> Global read/litigation access across branches, no Admin panels
     if (isUserLawyer(currentUser)) {
       return {
         canViewAllBranches: true,
@@ -370,7 +407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    // 4. Branch Staff (Branch Administrators and Court Registry Clerks)
+    // 5. Branch Staff (Branch Administrators and Court Registry Clerks)
     // -> Strictly isolated to their assigned branch; NO Super Admin or crucial system module access
     return {
       canViewAllBranches: false,
@@ -433,9 +470,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(loggedInUser);
     setIsAuthenticated(true);
 
-    // Redirect immediately to dashboard and apply branch isolation scope
+    // Redirect immediately to dashboard and apply branch viewing scope
     setActiveTab('dashboard');
-    if (roleMeta.isSuperAdmin || (!roleMeta.isBranchAdmin && (roleMeta.role === 'partner' || roleMeta.role === 'lawyer' || roleMeta.role === 'team_lead'))) {
+    if (canUserViewAllBranches(loggedInUser)) {
       setSelectedBranchFilter('all');
     } else {
       setSelectedBranchFilter(branchMeta.id);
@@ -949,7 +986,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthenticated(true);
         cacheUserProfile(freshUser);
 
-        if (!isUserAdmin(freshUser) && (freshUser.isBranchAdmin || !isUserLawyer(freshUser))) {
+        if (!canUserViewAllBranches(freshUser)) {
           setSelectedBranchFilter(branchMeta.id);
         }
       } catch (err) {
@@ -1384,7 +1421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           );
           if (fresh) {
             cacheUserProfile(fresh);
-            if (!isUserAdmin(fresh) && (fresh.isBranchAdmin || !isUserLawyer(fresh))) {
+            if (!canUserViewAllBranches(fresh)) {
               setSelectedBranchFilter(fresh.branchId);
             }
             return fresh;
@@ -1475,7 +1512,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'A staff member with this email address already exists.' };
     }
 
-    const assignedRole = roles.find((r) => r.id === userData.roleId) || roles[3] || roles[0];
+    const assignedRole =
+      roles.find((r) => r.id === userData.roleId) ||
+      roles.find((r) => r.id === 'role-advocate') ||
+      roles[0];
     const selectedBranch = branches.find((b) => b.id === userData.branchId) || branches[0];
     const branchMeta = resolveBranchMeta(selectedBranch?.id || userData.branchId, selectedBranch?.name);
     const roleMeta = resolveUserRoleMeta(assignedRole.id, assignedRole.id, Boolean(assignedRole.isSuperAdmin), cleanEmail);
@@ -1664,7 +1704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (currentUser.id === userId || (currentUser.email && target.email && currentUser.email.toLowerCase() === target.email.toLowerCase())) {
             setCurrentUser(updated);
             cacheUserProfile(updated);
-            if (!isUserAdmin(updated) && (updated.isBranchAdmin || !isUserLawyer(updated))) {
+            if (!canUserViewAllBranches(updated)) {
               setSelectedBranchFilter(updated.branchId);
             }
           }
@@ -1703,7 +1743,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               isBranchAdmin: rMeta.isBranchAdmin,
             };
             cacheUserProfile(updatedSelf);
-            if (!isUserAdmin(updatedSelf) && (updatedSelf.isBranchAdmin || !isUserLawyer(updatedSelf))) {
+            if (!canUserViewAllBranches(updatedSelf)) {
               setSelectedBranchFilter(updatedSelf.branchId);
             }
             return updatedSelf;
@@ -1943,14 +1983,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Add Case - Permanently writes to Supabase
-  const addCase = async (caseData: any): Promise<CaseItem> => {
+  const addCase = async (caseData: any): Promise<CaseItem | null> => {
     const effectiveUser = getEffectiveUser(currentUser);
-    const isAdminOrGlobal = isUserAdmin(effectiveUser) || userPermissions.canViewAllBranches;
+    const isAdminOrLawyer = isUserAdmin(effectiveUser) || isUserLawyer(effectiveUser);
+    const requestedBranchId = caseData.branchId || caseData.branch_id || '';
+    const requestedBranchName = caseData.branch || caseData.branchName || caseData.branch_name || '';
+
+    if (!isAdminOrLawyer && (requestedBranchId || requestedBranchName)) {
+      const allowed = canUserModifyCase(effectiveUser, {
+        branchId: requestedBranchId,
+        branchName: requestedBranchName,
+      });
+      if (!allowed) {
+        showCleanMessage(
+          `Permission Denied: You can only add cases belonging to your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+          'warning'
+        );
+        return null;
+      }
+    }
 
     // Resolve branch: Super Admin & Admin can assign any branch or default to Kampala Central (Head Office)
-    const targetBranchId = !isAdminOrGlobal
-      ? (effectiveUser.branchId || caseData.branchId || 'kla-hq')
-      : (caseData.branchId || caseData.branch_id || effectiveUser.branchId || 'kla-hq');
+    const targetBranchId = !isAdminOrLawyer
+      ? (effectiveUser.branchId || 'kla-hq')
+      : (requestedBranchId || effectiveUser.branchId || 'kla-hq');
 
     const branch =
       branches.find((b) => b.id === targetBranchId) ||
@@ -2138,20 +2194,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Update Case Details - Permanently writes to Supabase
   const updateCase = async (caseId: string, updatedData: Partial<CaseItem>): Promise<CaseItem | null> => {
     const effectiveUser = getEffectiveUser(currentUser);
-    // Enforce strict branch-level isolation: Super Admins, Admins, and Partners exempt; branch staff restricted to own branch
+    // Enforce strict branch-level isolation: Super Admins and Admins exempt; Finance Assistants & branch staff restricted to own branch
     const existing = cases.find((c) => c.id === caseId);
     if (existing && !canUserModifyCase(effectiveUser, existing)) {
-      console.warn('Unauthorized: Branch staff can only update cases strictly belonging to their own branch.');
+      showCleanMessage(
+        `View-Only Access: You can only edit cases belonging to your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+        'warning'
+      );
       return null;
     }
     if (
       !isUserAdmin(effectiveUser) &&
+      (updatedData.branchId || updatedData.branchName || (updatedData as any).branch) &&
       !canUserModifyCase(effectiveUser, {
         branchId: updatedData.branchId,
         branchName: updatedData.branch || updatedData.branchName,
       })
     ) {
-      // Branch staff cannot reassign case branch
+      // Branch staff and Admin & Finance Assistants cannot reassign case to another branch
+      showCleanMessage(
+        `Permission Notice: Only Administrators can transfer or reassign a file outside ${effectiveUser.branchName || 'your assigned branch'}.`,
+        'warning'
+      );
       delete updatedData.branchId;
       delete updatedData.branchName;
       delete (updatedData as any).branch;
@@ -2301,11 +2365,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Permanently delete case from Supabase
   const deleteCase = async (caseId: string): Promise<boolean> => {
+    const effectiveUser = getEffectiveUser(currentUser);
     const existing = cases.find((c) => c.id === caseId);
 
-    // Enforce strict branch-level isolation: Partners and Superadmins exempt; branch staff restricted to own branch
-    if (existing && !canUserModifyCase(currentUser, existing)) {
-      console.warn('Unauthorized: Branch staff can only delete cases strictly belonging to their own branch.');
+    // Enforce strict branch-level isolation: Super Admins and Admins exempt; Finance Assistants & branch staff restricted to own branch
+    if (existing && !canUserModifyCase(effectiveUser, existing)) {
+      showCleanMessage(
+        `View-Only Access: You can only delete cases belonging to your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+        'warning'
+      );
       return false;
     }
 
@@ -2390,6 +2458,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Transfer Case to Branch
   const transferCaseToBranch = (caseId: string, targetBranchId: string, reason: string) => {
+    const effectiveUser = getEffectiveUser(currentUser);
+    if (!isUserAdmin(effectiveUser)) {
+      showCleanMessage(
+        'Permission Denied: Only Firm / Super Administrators can transfer case files between branches.',
+        'warning'
+      );
+      return;
+    }
     const targetBranch = branches.find((b) => b.id === targetBranchId);
     if (!targetBranch) return;
 

@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import {
   getEffectiveUser,
   isUserAdmin,
+  canUserModifyCase,
   resolveBranchId,
   resolveBranchMeta,
 } from '../lib/supabase';
@@ -84,7 +85,17 @@ export function resolveCaseBranchForSave(caseData: any, userProfile?: any): {
  */
 export async function handleSecureInsert(newCaseData: any, userProfile?: any): Promise<boolean> {
   try {
-    const { branchId, branchName } = resolveCaseBranchForSave(newCaseData, userProfile);
+    const effectiveUser = getEffectiveUser(userProfile);
+    const { branchId, branchName, isGlobalBypass } = resolveCaseBranchForSave(newCaseData, effectiveUser);
+    if (!isGlobalBypass && (newCaseData?.branch_id || newCaseData?.branchId || newCaseData?.branch_name || newCaseData?.branchName || newCaseData?.branch)) {
+      if (!canUserModifyCase(effectiveUser, newCaseData)) {
+        showCleanMessage(
+          `Permission Denied: You can only add cases belonging to your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+          'warning'
+        );
+        return false;
+      }
+    }
     const payload: any = {
       ...newCaseData,
       branch_id: branchId,
@@ -138,9 +149,26 @@ export async function handleSecureInsert(newCaseData: any, userProfile?: any): P
 /**
  * Updates an existing case record securely into Supabase with Super Admin/Admin bypass.
  */
-export async function handleSecureUpdate(caseId: string, updates: any, userProfile?: any): Promise<boolean> {
+export async function handleSecureUpdate(caseId: string, updates: any, userProfile?: any, existingCase?: any): Promise<boolean> {
   try {
-    const { branchId, branchName } = resolveCaseBranchForSave(updates, userProfile);
+    const effectiveUser = getEffectiveUser(userProfile);
+    const { branchId, branchName, isGlobalBypass } = resolveCaseBranchForSave(updates, effectiveUser);
+    if (!isGlobalBypass) {
+      if (existingCase && !canUserModifyCase(effectiveUser, existingCase)) {
+        showCleanMessage(
+          `View-Only Access: You can only edit cases belonging to your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+          'warning'
+        );
+        return false;
+      }
+      if ((updates?.branch_id || updates?.branchId || updates?.branch_name || updates?.branchName || updates?.branch) && !canUserModifyCase(effectiveUser, updates)) {
+        showCleanMessage(
+          `Permission Denied: You cannot move or modify cases outside your assigned branch (${effectiveUser.branchName || 'your station'}).`,
+          'warning'
+        );
+        return false;
+      }
+    }
     const payload: any = {
       ...updates,
       updated_at: new Date().toISOString(),

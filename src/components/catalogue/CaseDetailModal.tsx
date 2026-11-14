@@ -48,6 +48,7 @@ import {
   isUserAdmin,
 } from '../../lib/supabase';
 import { resolveCaseBranchForSave, DEFAULT_HQ_BRANCH_NAME } from '../../services/caseService';
+import { showCleanMessage } from '../../utils/notification';
 
 export const CaseDetailModal: React.FC = () => {
   const {
@@ -87,6 +88,7 @@ export const CaseDetailModal: React.FC = () => {
 
   // Delete & Edit submission state (declared unconditionally at top level)
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeletePending, setConfirmDeletePending] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Live Supabase detail record & loading state
@@ -98,7 +100,7 @@ export const CaseDetailModal: React.FC = () => {
   const [fromLoc, setFromLoc] = useState('');
   const [toLoc, setToLoc] = useState('');
   const [movementReason, setMovementReason] = useState('');
-  const [movedBy, setMovedBy] = useState(currentUser.name);
+  const [movedBy, setMovedBy] = useState(currentUser?.name || '');
   const [receivedBy, setReceivedBy] = useState('');
   const [movementStatus, setMovementStatus] = useState<FileMovementRecord['status']>('At Registry');
 
@@ -284,10 +286,11 @@ export const CaseDetailModal: React.FC = () => {
       setTargetBranchId(branches.find((b) => b.id !== (activeCase.branch_id || activeCase.branchId))?.id || branches[0]?.id || '');
       setNewHearingJudge(activeCase.presiding_judge || activeCase.presidingJudge || '');
       setFromLoc(activeCase.file_location || `${activeCase.branch_name || activeCase.branchName || 'Kampala Central'} Registry Cabinet`);
-      setMovedBy(currentUser.name);
+      setMovedBy(currentUser?.name || '');
       setIsRecordingMovement(false);
       setIsAddingNote(false);
       setIsEditing(false);
+      setConfirmDeletePending(false);
     }
   }, [rawSelectedCase?.id, fetchedRecord?.id, branches, currentUser]);
 
@@ -318,32 +321,52 @@ export const CaseDetailModal: React.FC = () => {
   ];
 
   const handleStageChange = (newStage: CaseStage) => {
-    if (activeCase) updateCaseStage(activeCase.id, newStage);
-  };
-
-  const handleDeleteCase = async () => {
     if (!activeCase) return;
     if (!canUserModifyCase(getEffectiveUser(currentUser), activeCase)) {
-      alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
+      showCleanMessage('View-Only Access: Modifications are restricted to cases belonging to your assigned branch.', 'warning');
       return;
     }
-    const caseDisplay = activeCase.case_number || activeCase.suit_number || activeCase.suitNumber || activeCase.file_no || activeCase.title;
-    const confirmed = window.confirm(
-      `Are you sure you want to permanently delete case "${caseDisplay}" from Supabase?\n\nThis will remove it from the database and cannot be undone.`
-    );
-    if (!confirmed) return;
+    updateCaseStage(activeCase.id, newStage);
+  };
+
+  const handleRequestDeleteCase = () => {
+    if (!activeCase) return;
+    const effective = getEffectiveUser(currentUser);
+    if (!canUserModifyCase(effective, activeCase)) {
+      showCleanMessage(
+        `View-Only Access: You can only delete cases belonging to your assigned branch (${effective?.branchName || currentUser?.branchName || 'your station'}).`,
+        'warning'
+      );
+      return;
+    }
+    setConfirmDeletePending(true);
+  };
+
+  const handleConfirmDeleteCase = async () => {
+    if (!activeCase) return;
+    const effective = getEffectiveUser(currentUser);
+    if (!canUserModifyCase(effective, activeCase)) {
+      showCleanMessage(
+        `View-Only Access: You can only delete cases belonging to your assigned branch (${effective?.branchName || currentUser?.branchName || 'your station'}).`,
+        'warning'
+      );
+      setConfirmDeletePending(false);
+      return;
+    }
 
     setIsDeleting(true);
     try {
       const ok = await deleteCase(activeCase.id);
       if (ok) {
+        showCleanMessage('Case record deleted.', 'success');
+        setConfirmDeletePending(false);
         setSelectedCase(null);
         setFetchedRecord(null);
       } else {
-        alert('Could not delete case from Supabase. Please check your connection.');
+        showCleanMessage('Could not delete case from Supabase. Please check your permissions or connection.', 'error');
       }
     } catch (err: any) {
-      alert(`Delete failed: ${err?.message || 'Unknown error'}`);
+      showCleanMessage(`Delete failed: ${err?.message || 'Unknown error'}`, 'error');
     } finally {
       setIsDeleting(false);
     }
@@ -353,7 +376,10 @@ export const CaseDetailModal: React.FC = () => {
     e.preventDefault();
     const effectiveUser = getEffectiveUser(currentUser);
     if (!activeCase || !canUserModifyCase(effectiveUser, activeCase)) {
-      alert('Branch Isolation Restriction: Modifications are strictly restricted to cases belonging to your assigned branch.');
+      showCleanMessage(
+        `View-Only Access: You can only edit cases belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`,
+        'warning'
+      );
       return;
     }
     if (!editForm.title.trim()) return;
@@ -423,6 +449,10 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleTransferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isUserAdmin(getEffectiveUser(currentUser))) {
+      showCleanMessage('Permission Denied: Only Firm / Super Administrators can transfer cases between branches.', 'warning');
+      return;
+    }
     if (!targetBranchId || !transferReason.trim()) return;
     transferCaseToBranch(selectedCase.id, targetBranchId, transferReason);
     setIsTransferring(false);
@@ -431,6 +461,10 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleScheduleHearing = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
+      showCleanMessage('View-Only Access: You can only schedule hearings for cases in your assigned branch.', 'warning');
+      return;
+    }
     if (!newHearingDate || !newHearingPurpose.trim()) return;
 
     addHearing({
@@ -457,6 +491,10 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleDocumentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
+      showCleanMessage('View-Only Access: You can only upload documents for cases in your assigned branch.', 'warning');
+      return;
+    }
     if (!docTitle.trim()) return;
 
     addDocument({
@@ -467,7 +505,7 @@ export const CaseDetailModal: React.FC = () => {
       fileFormat: 'pdf',
       fileSize: '2.4 MB',
       filingDate: new Date().toISOString().split('T')[0],
-      filedBy: currentUser.name,
+      filedBy: currentUser?.name || 'System User',
       courtRegistryStamp: true,
       summary: docSummary || 'Pleading indexed in centralized registry.',
       version: 1,
@@ -480,12 +518,16 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleMovementSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
+      showCleanMessage('View-Only Access: You can only record file movements for cases in your assigned branch.', 'warning');
+      return;
+    }
     if (!toLoc.trim() || !movementReason.trim()) return;
 
     addFileMovement(selectedCase.id, {
       fromLocation: fromLoc.trim() || selectedCase.file_location || 'Registry Intake',
       toLocation: toLoc.trim(),
-      movedBy: movedBy.trim() || currentUser.name,
+      movedBy: movedBy.trim() || currentUser?.name || 'System User',
       receivedBy: receivedBy.trim() || undefined,
       reason: movementReason.trim(),
       status: movementStatus,
@@ -499,11 +541,15 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleProgressiveNoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
+      showCleanMessage('View-Only Access: You can only add notes for cases in your assigned branch.', 'warning');
+      return;
+    }
     if (!noteContent.trim()) return;
 
     addProgressiveNote(selectedCase.id, {
-      author: currentUser.name,
-      authorRole: currentUser.roleTitle || 'Advocate',
+      author: currentUser?.name || 'System User',
+      authorRole: currentUser?.roleTitle || 'Advocate',
       category: noteCategory,
       content: noteContent.trim(),
     });
@@ -514,11 +560,15 @@ export const CaseDetailModal: React.FC = () => {
 
   const handleQuickNoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
+      showCleanMessage('View-Only Access: You can only add notes for cases in your assigned branch.', 'warning');
+      return;
+    }
     if (!quickNoteContent.trim()) return;
 
     addProgressiveNote(selectedCase.id, {
-      author: currentUser.name,
-      authorRole: currentUser.roleTitle || 'Advocate',
+      author: currentUser?.name || 'System User',
+      authorRole: currentUser?.roleTitle || 'Advocate',
       category: quickNoteCategory,
       content: quickNoteContent.trim(),
     });
@@ -545,7 +595,7 @@ export const CaseDetailModal: React.FC = () => {
 
   const effectiveUserForEdit = getEffectiveUser(currentUser);
   const canModifyThisCase = canUserModifyCase(effectiveUserForEdit, selectedCase);
-  const isBranchStaffUser = !isUserAdmin(effectiveUserForEdit) && !userPermissions.canViewAllBranches;
+  const isBranchStaffUser = !isUserAdmin(effectiveUserForEdit);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
@@ -590,31 +640,67 @@ export const CaseDetailModal: React.FC = () => {
             </h2>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {!canModifyThisCase && (
               <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                <span>View Only · Branch Custody Restricted ({selectedCase.branchName || selectedCase.branch || 'Other Branch'})</span>
+                <span>View Only · Assigned Branch: {effectiveUserForEdit?.branchName || currentUser?.branchName || 'Restricted'}</span>
               </span>
             )}
 
-            {canModifyThisCase && userPermissions.canDeleteCases && (
-              <button
-                type="button"
-                onClick={handleDeleteCase}
-                disabled={isDeleting}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-50"
-                title="Permanently delete case from Supabase"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
-              </button>
+            {userPermissions?.canDeleteCases && (
+              confirmDeletePending && canModifyThisCase ? (
+                <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
+                  <span className="text-[11px] font-semibold text-rose-800">Delete permanently?</span>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteCase}
+                    disabled={isDeleting || !canModifyThisCase}
+                    className="px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeletePending(false)}
+                    disabled={isDeleting}
+                    className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRequestDeleteCase}
+                  disabled={isDeleting || !canModifyThisCase}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                  title={
+                    canModifyThisCase
+                      ? 'Permanently delete case from Supabase'
+                      : `View-Only: Delete disabled for cases outside ${effectiveUserForEdit?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                  }
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              )
             )}
 
-            {canModifyThisCase && userPermissions.canEditCases && (
+            {userPermissions?.canEditCases && (
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+                type="button"
+                onClick={() => {
+                  if (!canModifyThisCase) return;
+                  setIsEditing(!isEditing);
+                }}
+                disabled={!canModifyThisCase}
+                title={
+                  canModifyThisCase
+                    ? 'Edit case details'
+                    : `View-Only: Editing disabled for cases outside ${effectiveUserForEdit?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                }
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 ${
                   isEditing
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
@@ -997,15 +1083,37 @@ export const CaseDetailModal: React.FC = () => {
 
             {/* Save Buttons */}
             <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handleDeleteCase}
-                disabled={isDeleting}
-                className="px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                <span>{isDeleting ? 'Deleting...' : 'Delete Case'}</span>
-              </button>
+              {confirmDeletePending ? (
+                <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg">
+                  <span className="text-[11px] font-semibold text-rose-800">Confirm permanent delete?</span>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteCase}
+                    disabled={isDeleting}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-semibold disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeletePending(false)}
+                    disabled={isDeleting}
+                    className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRequestDeleteCase}
+                  disabled={isDeleting}
+                  className="px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>{isDeleting ? 'Deleting...' : 'Delete Case'}</span>
+                </button>
+              )}
 
               <div className="flex items-center gap-2 sm:gap-3">
                 <button
@@ -1037,7 +1145,7 @@ export const CaseDetailModal: React.FC = () => {
                   { id: 'movement', label: `File Movement (${(selectedCase.fileMovementHistory || []).length})` },
                   { id: 'hearings', label: `Hearings (${caseHearings.length})` },
                   { id: 'documents', label: `Documents (${caseDocs.length})` },
-                  { id: 'transfer', label: 'Branch Transfer' },
+                  ...(isUserAdmin(effectiveUserForEdit) ? [{ id: 'transfer', label: 'Branch Transfer' }] : []),
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1056,38 +1164,54 @@ export const CaseDetailModal: React.FC = () => {
               <div className="flex items-center gap-1.5 pb-2">
                 <button
                   type="button"
+                  disabled={!canModifyThisCase}
                   onClick={() => {
+                    if (!canModifyThisCase) return;
                     setActiveTab('notes');
                     setIsAddingNote(true);
                   }}
-                  className="text-xs px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded font-medium transition-colors flex items-center gap-1"
-                  title="Add progressive note to continuous case trail"
+                  className="text-xs px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  title={canModifyThisCase ? 'Add progressive note to continuous case trail' : 'View-Only: Disabled outside your assigned branch'}
                 >
                   <StickyNote className="w-3.5 h-3.5 text-indigo-600" />
                   <span>+ Note</span>
                 </button>
                 <button
                   type="button"
+                  disabled={!canModifyThisCase}
                   onClick={() => {
+                    if (!canModifyThisCase) return;
                     setActiveTab('movement');
                     setIsRecordingMovement(true);
                   }}
-                  className="text-xs px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded font-medium transition-colors flex items-center gap-1"
-                  title="Record physical file transfer / movement"
+                  className="text-xs px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  title={canModifyThisCase ? 'Record physical file transfer / movement' : 'View-Only: Disabled outside your assigned branch'}
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5 text-amber-700" />
                   <span>+ Move File</span>
                 </button>
                 <button
-                  onClick={() => setIsSchedulingHearing(true)}
-                  className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition-colors flex items-center gap-1"
+                  type="button"
+                  disabled={!canModifyThisCase}
+                  onClick={() => {
+                    if (!canModifyThisCase) return;
+                    setIsSchedulingHearing(true);
+                  }}
+                  title={canModifyThisCase ? 'Schedule Hearing' : 'View-Only: Disabled outside your assigned branch'}
+                  className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   <Calendar className="w-3.5 h-3.5 text-slate-600" />
                   <span>Schedule Hearing</span>
                 </button>
                 <button
-                  onClick={() => setIsUploadingDoc(true)}
-                  className="text-xs px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium transition-colors flex items-center gap-1"
+                  type="button"
+                  disabled={!canModifyThisCase}
+                  onClick={() => {
+                    if (!canModifyThisCase) return;
+                    setIsUploadingDoc(true);
+                  }}
+                  title={canModifyThisCase ? 'Upload File' : 'View-Only: Disabled outside your assigned branch'}
+                  className="text-xs px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload File</span>
@@ -1332,17 +1456,19 @@ export const CaseDetailModal: React.FC = () => {
                             : 'Registry catalogued'}
                         </div>
                         <div className="pt-1.5 border-t border-slate-200 flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveTab('movement');
-                              setIsRecordingMovement(true);
-                            }}
-                            className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-1"
-                          >
-                            <ArrowRightLeft className="w-2.5 h-2.5" />
-                            <span>Log Movement</span>
-                          </button>
+                          {canModifyThisCase && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveTab('movement');
+                                setIsRecordingMovement(true);
+                              }}
+                              className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-1"
+                            >
+                              <ArrowRightLeft className="w-2.5 h-2.5" />
+                              <span>Log Movement</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setActiveTab('movement')}
@@ -1408,40 +1534,42 @@ export const CaseDetailModal: React.FC = () => {
                         </div>
 
                         {/* Quick Add Note Form */}
-                        <form onSubmit={handleQuickNoteSubmit} className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] text-slate-600 font-medium">Quick progressive update:</span>
-                            <select
-                              value={quickNoteCategory}
-                              onChange={(e) => setQuickNoteCategory(e.target.value as any)}
-                              className="bg-white border border-slate-300 rounded text-[11px] px-2 py-0.5 font-medium text-slate-700"
-                            >
-                              <option value="Court Milestone">Court Milestone</option>
-                              <option value="Client Communication">Client Communication</option>
-                              <option value="Strategy">Strategy</option>
-                              <option value="Registry & Filing">Registry & Filing</option>
-                              <option value="Settlement / Recovery">Settlement / Recovery</option>
-                              <option value="General">General</option>
-                            </select>
-                          </div>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={quickNoteContent}
-                              onChange={(e) => setQuickNoteContent(e.target.value)}
-                              placeholder="Type brief progressive tracking note (e.g. Ruling delivered, witness summoned, client deposited fee)..."
-                              className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
-                            />
-                            <button
-                              type="submit"
-                              disabled={!quickNoteContent.trim()}
-                              className="px-3 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-medium flex items-center gap-1"
-                            >
-                              <Send className="w-3 h-3" />
-                              <span>Add</span>
-                            </button>
-                          </div>
-                        </form>
+                        {canModifyThisCase && (
+                          <form onSubmit={handleQuickNoteSubmit} className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] text-slate-600 font-medium">Quick progressive update:</span>
+                              <select
+                                value={quickNoteCategory}
+                                onChange={(e) => setQuickNoteCategory(e.target.value as any)}
+                                className="bg-white border border-slate-300 rounded text-[11px] px-2 py-0.5 font-medium text-slate-700"
+                              >
+                                <option value="Court Milestone">Court Milestone</option>
+                                <option value="Client Communication">Client Communication</option>
+                                <option value="Strategy">Strategy</option>
+                                <option value="Registry & Filing">Registry & Filing</option>
+                                <option value="Settlement / Recovery">Settlement / Recovery</option>
+                                <option value="General">General</option>
+                              </select>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={quickNoteContent}
+                                onChange={(e) => setQuickNoteContent(e.target.value)}
+                                placeholder="Type brief progressive tracking note (e.g. Ruling delivered, witness summoned, client deposited fee)..."
+                                className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                              />
+                              <button
+                                type="submit"
+                                disabled={!quickNoteContent.trim()}
+                                className="px-3 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-medium flex items-center gap-1"
+                              >
+                                <Send className="w-3 h-3" />
+                                <span>Add</span>
+                              </button>
+                            </div>
+                          </form>
+                        )}
 
                         {/* Recent Notes Preview */}
                         {(!selectedCase.progressiveNotes || selectedCase.progressiveNotes.length === 0) ? (
@@ -1534,14 +1662,16 @@ export const CaseDetailModal: React.FC = () => {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingNote(!isAddingNote)}
-                      className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-medium text-xs shadow-xs transition-colors flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>{isAddingNote ? 'Close Form' : 'Add Progressive Note'}</span>
-                    </button>
+                    {canModifyThisCase && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingNote(!isAddingNote)}
+                        className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-lg font-medium text-xs shadow-xs transition-colors flex items-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isAddingNote ? 'Close Form' : 'Add Progressive Note'}</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Add Progressive Note Form */}
@@ -1553,7 +1683,7 @@ export const CaseDetailModal: React.FC = () => {
                           Record New Progressive Note
                         </span>
                         <span className="text-[10px] text-slate-500">
-                          Posting as: <strong className="text-slate-800">{currentUser.name}</strong> ({currentUser.roleTitle || 'Advocate'})
+                          Posting as: <strong className="text-slate-800">{currentUser?.name || 'System User'}</strong> ({currentUser?.roleTitle || 'Advocate'})
                         </span>
                       </div>
 
@@ -1579,7 +1709,7 @@ export const CaseDetailModal: React.FC = () => {
                           <input
                             type="text"
                             disabled
-                            value={`${currentUser.name} — ${currentUser.branchName || 'MK Advocates'}`}
+                            value={`${currentUser?.name || 'System User'} — ${currentUser?.branchName || 'MK Advocates'}`}
                             className="w-full bg-slate-100 border border-slate-200 rounded px-2.5 py-1.5 text-xs text-slate-600 cursor-not-allowed"
                           />
                         </div>
@@ -1686,18 +1816,20 @@ export const CaseDetailModal: React.FC = () => {
                           <p className="text-[11px] text-slate-400 max-w-md mx-auto">
                             Progressive tracking lets advocates capture quick updates, client instructions, witness briefings, or court rulings on the go.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedNoteFilter('all');
-                              setNoteSearch('');
-                              setIsAddingNote(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add First Progressive Note</span>
-                          </button>
+                          {canModifyThisCase && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedNoteFilter('all');
+                                setNoteSearch('');
+                                setIsAddingNote(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add First Progressive Note</span>
+                            </button>
+                          )}
                         </div>
                       );
                     }
@@ -1790,14 +1922,16 @@ export const CaseDetailModal: React.FC = () => {
                         </p>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => setIsRecordingMovement(!isRecordingMovement)}
-                        className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-medium text-xs shadow-xs transition-colors flex items-center gap-1.5"
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5" />
-                        <span>{isRecordingMovement ? 'Close Form' : 'Record File Movement'}</span>
-                      </button>
+                      {canModifyThisCase && (
+                        <button
+                          type="button"
+                          onClick={() => setIsRecordingMovement(!isRecordingMovement)}
+                          className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-medium text-xs shadow-xs transition-colors flex items-center gap-1.5"
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                          <span>{isRecordingMovement ? 'Close Form' : 'Record File Movement'}</span>
+                        </button>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60 text-xs">
@@ -1833,7 +1967,7 @@ export const CaseDetailModal: React.FC = () => {
                           Log Physical File Movement
                         </span>
                         <span className="text-[10px] text-slate-500">
-                          Logged by: <strong className="text-slate-800">{currentUser.name}</strong>
+                          Logged by: <strong className="text-slate-800">{currentUser?.name || 'System User'}</strong>
                         </span>
                       </div>
 
@@ -1972,18 +2106,20 @@ export const CaseDetailModal: React.FC = () => {
                           <p className="text-[11px] text-slate-400 max-w-md mx-auto">
                             Log file checkouts, transfers to advocate desks, court hearing dispatches, or inter-branch couriers to maintain a full chain-of-custody.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setToLoc(`${selectedCase.branchName || 'Central'} Registry Cabinet`);
-                              setMovementReason('Initial file indexing and intake into registry');
-                              setIsRecordingMovement(true);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-medium transition-colors"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Record First Movement</span>
-                          </button>
+                          {canModifyThisCase && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setToLoc(`${selectedCase.branchName || 'Central'} Registry Cabinet`);
+                                setMovementReason('Initial file indexing and intake into registry');
+                                setIsRecordingMovement(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-medium transition-colors"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Record First Movement</span>
+                            </button>
+                          )}
                         </div>
                       );
                     }

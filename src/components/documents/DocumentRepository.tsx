@@ -57,7 +57,7 @@ export const DocumentRepository: React.FC = () => {
       fileFormat: 'pdf',
       fileSize: '2.8 MB',
       filingDate: new Date().toISOString().split('T')[0],
-      filedBy: currentUser.name,
+      filedBy: currentUser?.name || 'System User',
       courtRegistryStamp: true,
       summary: docSummary || 'Court document filed in core vault.',
       version: 1,
@@ -283,7 +283,7 @@ export const DocumentRepository: React.FC = () => {
                   <input
                     type="text"
                     disabled
-                    value={currentUser.name}
+                    value={currentUser?.name || ''}
                     className="w-full bg-slate-100 border border-slate-200 rounded p-1.5 text-slate-600"
                   />
                 </div>

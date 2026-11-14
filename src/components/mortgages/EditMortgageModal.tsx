@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { MortgageService } from '../../services/mortgageService';
+import {
+  getEffectiveUser,
+  isUserAdmin,
+  canUserModifyMortgage,
+  resolveBranchMeta,
+} from '../../lib/supabase';
+import { showCleanMessage } from '../../utils/notification';
 
 export interface EditMortgageModalProps {
   record: any;
@@ -19,9 +26,12 @@ const DEPARTMENTS = [
 
 const DEFAULT_BRANCHES = [
   { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
-  { id: 'branch-mbarara', name: 'Mbarara Branch' },
-  { id: 'branch-jinja', name: 'Jinja Branch' },
-  { id: 'branch-gulu', name: 'Gulu Branch' },
+  { id: 'ftp-reg', name: 'Fort Portal Regional Office' },
+  { id: 'mbr-reg', name: 'Mbarara Regional Office' },
+  { id: 'msk-reg', name: 'Masaka Regional Office' },
+  { id: 'jnj-reg', name: 'Jinja Regional Office' },
+  { id: 'glu-reg', name: 'Gulu Regional Office' },
+  { id: 'msn-reg', name: 'Masindi Regional Office' },
 ];
 
 const MONTHS = [
@@ -36,6 +46,12 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   onSuccess,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'details' | 'transfer' | 'fees'>('details');
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const canModifyRecord = useMemo(
+    () => canUserModifyMortgage(effectiveUser, record),
+    [effectiveUser, record]
+  );
 
   const normalizeMonthValue = (raw?: string) => {
     if (!raw) return MONTHS[new Date().getMonth()];
@@ -79,7 +95,12 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   const [dateRegistered, setDateRegistered] = useState<string>(record?.date_registered || '');
 
   // Transfer & Assignment
-  const [branchName, setBranchName] = useState<string>(record?.branch_name || 'Kampala Central (Head Office)');
+  const [branchName, setBranchName] = useState<string>(() =>
+    resolveBranchMeta(
+      record?.branch_id || record?.branchId,
+      record?.branch_name || record?.branch || record?.client_branch_location || record?.bank_branch
+    ).name
+  );
   const [department, setDepartment] = useState<string>(record?.department || 'Banking & Securities');
   const [assignedLawyerId, setAssignedLawyerId] = useState<string>(record?.assigned_lawyer_id || '');
   const [assignedLawyerName, setAssignedLawyerName] = useState<string>(record?.assigned_lawyer_name || '');
@@ -182,8 +203,29 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+
+    if (!canModifyRecord) {
+      const msg = `View-Only Access: You can only edit mortgages belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`;
+      setError(msg);
+      showCleanMessage(msg, 'warning');
+      return;
+    }
+
+    if (
+      !isGlobalAdmin &&
+      !canUserModifyMortgage(effectiveUser, {
+        branch: bankBranch.trim(),
+        branch_name: branchName,
+      })
+    ) {
+      const msg = `Permission Denied: You cannot transfer or save this mortgage outside your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`;
+      setError(msg);
+      showCleanMessage(msg, 'warning');
+      return;
+    }
+
+    setLoading(true);
 
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assignedLawyerId);
 
@@ -236,7 +278,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     };
 
     try {
-      const res = await MortgageService.updateMortgage(record.id, updatePayload);
+      const res = await MortgageService.updateMortgage(record.id, updatePayload, effectiveUser, record);
 
       if (!res.success) {
         throw new Error(res.error || 'Failed to update mortgage record.');
@@ -313,11 +355,17 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+          {!canModifyRecord && (
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs font-medium">
+              View-Only Mode: This mortgage belongs to <strong>{branchName}</strong>. Your account can only edit files assigned to your branch ({effectiveUser?.branchName || currentUser?.branchName || 'your station'}).
+            </div>
+          )}
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
               {error}
             </div>
           )}
+          <fieldset disabled={!canModifyRecord} className="space-y-6">
 
           {/* TAB 1: File Particulars & Status */}
           {activeSubTab === 'details' && (
@@ -376,8 +424,13 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   <input
                     type="text"
                     value={bankBranch}
-                    onChange={(e) => setBankBranch(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    onChange={(e) => {
+                      if (isGlobalAdmin) setBankBranch(e.target.value);
+                    }}
+                    disabled={!canModifyRecord || !isGlobalAdmin}
+                    className={`w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none ${
+                      !canModifyRecord || !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                    }`}
                   />
                 </div>
 
@@ -512,8 +565,13 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   <label className="block font-semibold text-gray-700 mb-1">Assigned Branch Station *</label>
                   <select
                     value={branchName}
-                    onChange={(e) => setBranchName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:outline-none focus:border-blue-500 font-medium"
+                    onChange={(e) => {
+                      if (isGlobalAdmin) setBranchName(e.target.value);
+                    }}
+                    disabled={!canModifyRecord || !isGlobalAdmin}
+                    className={`w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-medium ${
+                      !canModifyRecord || !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                    }`}
                   >
                     {DEFAULT_BRANCHES.map((b) => (
                       <option key={b.id} value={b.name}>
@@ -521,6 +579,11 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                       </option>
                     ))}
                   </select>
+                  {!isGlobalAdmin && (
+                    <p className="text-[10px] text-amber-700 mt-1">
+                      Only Super Admin / Firm Admin may transfer mortgages to another branch.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -752,6 +815,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
             </div>
           )}
 
+          </fieldset>
+
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 shrink-0">
             <button
@@ -764,10 +829,14 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition"
+              disabled={loading || !canModifyRecord}
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              {loading ? 'Saving Changes...' : 'Save & Update Record'}
+              {!canModifyRecord
+                ? 'View-Only (External Branch)'
+                : loading
+                ? 'Saving Changes...'
+                : 'Save & Update Record'}
             </button>
           </div>
         </form>

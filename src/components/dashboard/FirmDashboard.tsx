@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CaseItem } from '../../types';
+import { canUserModifyCase, getEffectiveUser, isUserAdmin } from '../../lib/supabase';
 import {
   Calendar,
   Clock,
@@ -52,17 +53,31 @@ export const FirmDashboard: React.FC = () => {
     });
   }, []);
 
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const selectedBranchObj = useMemo(
+    () => (selectedBranchFilter !== 'all' ? branches.find((b) => b.id === selectedBranchFilter) : undefined),
+    [selectedBranchFilter, branches]
+  );
+  const isViewingForeignBranch = useMemo(() => {
+    if (isGlobalAdmin || selectedBranchFilter === 'all') return false;
+    return !canUserModifyCase(effectiveUser, {
+      branchId: selectedBranchFilter,
+      branchName: selectedBranchObj?.name || '',
+    });
+  }, [isGlobalAdmin, selectedBranchFilter, selectedBranchObj, effectiveUser]);
+
   // Enforce strict assigned-branch scoping when user cannot view all branches
   const effectiveBranchFilter = userPermissions.canViewAllBranches
     ? selectedBranchFilter
-    : (currentUser.branchId || selectedBranchFilter);
+    : (effectiveUser?.branchId || currentUser?.branchId || selectedBranchFilter);
 
   // Filter cases based on effective branch scope
   const branchScopedCases = useMemo(() => {
     if (userPermissions.canViewAllBranches && effectiveBranchFilter === 'all') return cases;
     const targetBranch = branches.find((b) => b.id === effectiveBranchFilter);
     const targetCity = targetBranch?.city?.toLowerCase() || '';
-    const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+    const targetName = (targetBranch?.name || effectiveUser?.branchName || currentUser?.branchName || '').toLowerCase();
 
     return cases.filter((c) => {
       const bId = c.branchId;
@@ -73,7 +88,7 @@ export const FirmDashboard: React.FC = () => {
         (targetName && bName.includes(targetName))
       );
     });
-  }, [cases, effectiveBranchFilter, branches, userPermissions.canViewAllBranches, currentUser.branchName]);
+  }, [cases, effectiveBranchFilter, branches, userPermissions.canViewAllBranches, effectiveUser?.branchName, currentUser?.branchName]);
 
   // Active cases count
   const activeCases = useMemo(() => {
@@ -154,7 +169,7 @@ export const FirmDashboard: React.FC = () => {
         );
         if (!userPermissions.canViewAllBranches) {
           const belongsToBranch =
-            (h.branchId && h.branchId === currentUser.branchId) ||
+            (h.branchId && h.branchId === (effectiveUser?.branchId || currentUser?.branchId)) ||
             (matchedCase && allowedCaseIds.has(matchedCase.id));
           if (!belongsToBranch) return;
         }
@@ -193,7 +208,7 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, currentUser.branchId]);
+  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, effectiveUser?.branchId, currentUser?.branchId]);
 
   const [isWeeklyModalOpen, setIsWeeklyModalOpen] = useState(false);
 
@@ -239,7 +254,7 @@ export const FirmDashboard: React.FC = () => {
         );
         if (!userPermissions.canViewAllBranches) {
           const belongsToBranch =
-            (h.branchId && h.branchId === currentUser.branchId) ||
+            (h.branchId && h.branchId === (effectiveUser?.branchId || currentUser?.branchId)) ||
             (matchedCase && allowedCaseIds.has(matchedCase.id));
           if (!belongsToBranch) return;
         }
@@ -279,7 +294,7 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, currentUser.branchId]);
+  }, [hearings, cases, branchScopedCases, userPermissions.canViewAllBranches, effectiveUser?.branchId, currentUser?.branchId]);
 
   // Standard ordered branches list (scoped to assigned branch for Branch Admins/Clerks)
   const orderedBranches = useMemo(() => {
@@ -293,12 +308,14 @@ export const FirmDashboard: React.FC = () => {
       'mbarara',
     ];
 
+    const userBranchId = effectiveUser?.branchId || currentUser?.branchId;
+    const userBranchNameLower = (effectiveUser?.branchName || currentUser?.branchName || '').toLowerCase();
     const visibleBranches = userPermissions.canViewAllBranches
       ? branches
       : branches.filter(
           (b) =>
-            b.id === currentUser.branchId ||
-            (currentUser.branchName && b.name.toLowerCase() === currentUser.branchName.toLowerCase())
+            b.id === userBranchId ||
+            (userBranchNameLower && b.name.toLowerCase() === userBranchNameLower)
         );
 
     const sorted = [...visibleBranches].sort((a, b) => {
@@ -311,7 +328,7 @@ export const FirmDashboard: React.FC = () => {
     });
 
     return sorted;
-  }, [branches, userPermissions.canViewAllBranches, currentUser.branchId, currentUser.branchName]);
+  }, [branches, userPermissions.canViewAllBranches, effectiveUser?.branchId, effectiveUser?.branchName, currentUser?.branchId, currentUser?.branchName]);
 
   // Branch statistics calculation helper
   const getBranchStats = (branch: any) => {
@@ -427,7 +444,7 @@ export const FirmDashboard: React.FC = () => {
     );
   };
 
-  const userBranchName = currentUser.branchName || 'Fort Portal Office';
+  const userBranchName = effectiveUser?.branchName || currentUser?.branchName || 'Fort Portal Office';
 
   return (
     <div className="space-y-6 text-slate-900 pb-16 max-w-7xl mx-auto">
@@ -494,11 +511,17 @@ export const FirmDashboard: React.FC = () => {
           {userPermissions.canCreateCases && (
             <button
               type="button"
+              disabled={isViewingForeignBranch}
+              title={
+                isViewingForeignBranch
+                  ? `View-Only Mode: Adding cases is disabled while filtering ${selectedBranchObj?.name || 'another branch'}.`
+                  : 'Create new case'
+              }
               onClick={() => setIsNewCaseModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-950 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-950 rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4 text-slate-900" />
-              <span>New Case</span>
+              <span>{isViewingForeignBranch ? 'New Case (View-Only)' : 'New Case'}</span>
             </button>
           )}
 
@@ -562,7 +585,7 @@ export const FirmDashboard: React.FC = () => {
         {/* TOTAL CASES */}
         <div
           onClick={() => {
-            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -588,7 +611,7 @@ export const FirmDashboard: React.FC = () => {
         {/* ACTIVE */}
         <div
           onClick={() => {
-            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -637,7 +660,7 @@ export const FirmDashboard: React.FC = () => {
         {/* CLOSED */}
         <div
           onClick={() => {
-            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -663,7 +686,7 @@ export const FirmDashboard: React.FC = () => {
         {/* ARCHIVED */}
         <div
           onClick={() => {
-            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+            setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
             setActiveTab('catalogue');
           }}
           className="bg-white border border-slate-200/80 rounded-xl p-4 sm:p-5 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
@@ -703,7 +726,7 @@ export const FirmDashboard: React.FC = () => {
           <button
             type="button"
             onClick={() => {
-              setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : currentUser.branchId);
+              setSelectedBranchFilter(userPermissions.canViewAllBranches ? 'all' : (effectiveUser?.branchId || currentUser?.branchId || 'all'));
               setActiveTab('catalogue');
             }}
             className="text-xs text-blue-600 hover:text-blue-800 font-semibold transition-colors flex items-center gap-1 cursor-pointer"

@@ -5,6 +5,7 @@ import { MONTHS } from '../../services/mortgageService';
 export interface MortgageFilters {
   search: string;
   month: string;
+  branch?: string;
   department: string;
   status: string;
   lawyerId: string;
@@ -22,7 +23,10 @@ export interface MortgageFilterBarProps {
   filters: MortgageFilters;
   onChange: React.Dispatch<React.SetStateAction<MortgageFilters>> | ((updated: MortgageFilters | ((prev: MortgageFilters) => MortgageFilters)) => void);
   lawyers?: LawyerOption[];
+  branches?: string[];
   onOpenAddModal?: () => void;
+  canAdd?: boolean;
+  addDisabledReason?: string;
   className?: string;
 }
 
@@ -50,7 +54,10 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   filters,
   onChange,
   lawyers = [],
+  branches = [],
   onOpenAddModal,
+  canAdd = true,
+  addDisabledReason = 'View-Only: Adding files is disabled while viewing another branch.',
   className = '',
 }) => {
   const updateFilter = (key: keyof MortgageFilters, value: string) => {
@@ -64,6 +71,7 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
     onChange({
       search: '',
       month: '',
+      branch: '',
       department: '',
       status: '',
       lawyerId: '',
@@ -71,7 +79,7 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
   };
 
   const hasActiveFilters = Boolean(
-    filters.search || filters.month || filters.department || filters.status || filters.lawyerId
+    filters.search || filters.month || filters.branch || filters.department || filters.status || filters.lawyerId
   );
 
   return (
@@ -120,6 +128,25 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Branch Filter */}
+          {branches.length > 0 && (
+            <div className="flex items-center min-w-[150px] flex-1 sm:flex-initial">
+              <select
+                value={filters.branch || ''}
+                onChange={(e) => updateFilter('branch', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                aria-label="Filter by Branch"
+              >
+                <option value="">All Branches</option>
+                {branches.map((br) => (
+                  <option key={br} value={br}>
+                    {br}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Department Filter */}
           <div className="flex items-center min-w-[140px] flex-1 sm:flex-initial">
@@ -194,10 +221,12 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
             <button
               type="button"
               onClick={onOpenAddModal}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition shrink-0"
+              disabled={!canAdd}
+              title={!canAdd ? addDisabledReason : 'Register a new mortgage file'}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition shrink-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
             >
               <span>+</span>
-              <span>New File</span>
+              <span>{canAdd ? 'New File' : 'New File (View-Only)'}</span>
             </button>
           )}
         </div>
@@ -226,6 +255,18 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
                 type="button"
                 onClick={() => updateFilter('month', '')}
                 className="hover:text-teal-900"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {filters.branch && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+              Branch: {filters.branch}
+              <button
+                type="button"
+                onClick={() => updateFilter('branch', '')}
+                className="hover:text-purple-900"
               >
                 ×
               </button>

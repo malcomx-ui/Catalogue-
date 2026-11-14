@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, AlertTriangle, Copy, Check, X } from 'lucide-react';
 import { MortgageService, BankSummary, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
+import { useApp } from '../context/AppContext';
+import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
 
 export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }> = ({ onSelectBank }) => {
+  const { currentUser, userPermissions } = useApp();
+  const canBulkImportMortgages = isUserAdmin(getEffectiveUser(currentUser)) || Boolean(userPermissions.canBulkImport);
   const [banksSummary, setBanksSummary] = useState<BankSummary[]>([
     { bank_name: 'Centenary Bank', file_count: 0, total_loan: 0 },
     { bank_name: 'Finance Trust', file_count: 0, total_loan: 0 },
@@ -46,14 +50,16 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setIsImportModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Import Excel</span>
-          </button>
+          {canBulkImportMortgages && (
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Import Excel</span>
+            </button>
+          )}
 
           <div className="flex items-center space-x-2 bg-white p-1.5 rounded-lg border border-gray-200 shadow-xs">
             <label className="text-xs font-medium text-gray-700">Month:</label>
@@ -165,11 +171,12 @@ export const BankHubPage: React.FC<{ onSelectBank: (bankName: string) => void }>
         </div>
       )}
 
-      {isImportModalOpen && (
+      {canBulkImportMortgages && isImportModalOpen && (
         <ImportMortgagesModal
           defaultBank="Centenary Bank"
           defaultMonth={selectedMonth}
           defaultYear={selectedYear}
+          currentUser={currentUser}
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={(meta) => {
             if (meta && meta.cloudSaved === false && meta.cloudError) {

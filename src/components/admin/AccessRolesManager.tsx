@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isUserAdmin } from '../../lib/supabase';
+import { isUserAdmin, isAdminFinanceAssistant } from '../../lib/supabase';
 import {
   Shield,
   ShieldCheck,
@@ -29,7 +29,7 @@ import {
   Copy,
   Ban,
 } from 'lucide-react';
-import { CustomRole, RolePermissions, User, Branch, AuditLog } from '../../types';
+import { CustomRole, RolePermissions, User, Branch, AuditLog, getUserRoleLabel, getUserRoleBadge } from '../../types';
 import { StaffWelcomeModal } from './StaffWelcomeModal';
 import { EditStaffModal } from './EditStaffModal';
 
@@ -95,7 +95,9 @@ export const AccessRolesManager: React.FC = () => {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('MK@Law2026');
-  const [userRoleId, setUserRoleId] = useState(roles[3]?.id || 'role-advocate');
+  const [userRoleId, setUserRoleId] = useState(
+    roles.find((r) => r.id === 'role-advocate')?.id || 'role-advocate'
+  );
   const [userBranchId, setUserBranchId] = useState(branches[0]?.id || 'kla-hq');
   const [userRollNo, setUserRollNo] = useState('');
   const [userError, setUserError] = useState<string | null>(null);
@@ -529,6 +531,8 @@ $$;`;
                     const resolvedRoleValue =
                       roles.some((r) => r.id === user.roleId)
                         ? user.roleId!
+                        : isAdminFinanceAssistant(user)
+                        ? 'role-admin-finance-assistant'
                         : user.isSuperAdmin
                         ? 'role-super-admin'
                         : user.isBranchAdmin
@@ -549,16 +553,23 @@ $$;`;
                           <div className="text-[11px] text-slate-500">{user.email}</div>
                         </td>
                         <td className="py-3 px-4">
-                          <select
-                            disabled={isPrimaryOwner || isSelf || isRowUpdating}
-                            value={resolvedRoleValue}
-                            onChange={(e) => handleInlineRoleChange(user, e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900"
-                          >
-                            {roles.map((r) => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                          </select>
+                          <div className="space-y-1">
+                            <select
+                              disabled={isPrimaryOwner || isSelf || isRowUpdating}
+                              value={resolvedRoleValue}
+                              onChange={(e) => handleInlineRoleChange(user, e.target.value)}
+                              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900"
+                            >
+                              {roles.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                              ))}
+                            </select>
+                            <div>
+                              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${getUserRoleBadge(resolvedRoleValue)}`}>
+                                {getUserRoleLabel(resolvedRoleValue)}
+                              </span>
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <select

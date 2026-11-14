@@ -27,7 +27,7 @@ import { DebtRecoveryPlaceholder } from './components/modules/DebtRecoveryPlaceh
 import { MortgagesModule } from './components/modules/MortgagesModule';
 import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
 import { NotificationToast } from './components/common/NotificationToast';
-import { isUserAdmin, supabase } from './lib/supabase';
+import { isUserAdmin, getEffectiveUser, supabase } from './lib/supabase';
 import './utils/testRls';
 import './services/caseService';
 import './services/reportService';
@@ -93,15 +93,16 @@ const MainLayout: React.FC = () => {
     };
   }, []);
 
-  const isAdmin = isUserAdmin(currentUser);
+  const effectiveUser = getEffectiveUser(currentUser);
+  const isAdmin = isUserAdmin(effectiveUser);
   const isPartnerOrSuperadmin = Boolean(
-    currentUser?.isSuperAdmin ||
     isAdmin ||
-    currentUser?.role === 'partner' ||
-    currentUser?.role === 'super_admin' ||
-    currentUser?.role === 'superadmin' ||
-    currentUser?.role === 'managing_partner' ||
-    currentUser?.role?.toLowerCase().includes('partner')
+    effectiveUser?.isSuperAdmin ||
+    effectiveUser?.role === 'partner' ||
+    effectiveUser?.role === 'super_admin' ||
+    effectiveUser?.role === 'superadmin' ||
+    effectiveUser?.role === 'managing_partner' ||
+    effectiveUser?.role?.toLowerCase().includes('partner')
   );
 
   // If password recovery link was opened, display the UpdatePasswordPage component

@@ -19,6 +19,7 @@ import {
   mapRowToCase,
   getEffectiveUser,
   isUserAdmin,
+  canUserModifyCase,
   resolveBranchId,
 } from '../../lib/supabase';
 import {
@@ -64,12 +65,7 @@ export const NewCaseModal: React.FC = () => {
   } = useApp();
 
   const effectiveUser = getEffectiveUser(currentUser);
-  const effectiveRoleLower = String(effectiveUser?.role || '').toLowerCase().trim();
-  const isAdminOrSuper =
-    isUserAdmin(effectiveUser) ||
-    ['partner', 'super_admin', 'superadmin', 'managing_partner'].includes(effectiveRoleLower) ||
-    Boolean(effectiveUser?.isSuperAdmin || (effectiveUser as any)?.is_super_admin) ||
-    userPermissions.canViewAllBranches;
+  const isAdminOrSuper = isUserAdmin(effectiveUser);
 
   const hqBranch =
     branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
@@ -94,9 +90,11 @@ export const NewCaseModal: React.FC = () => {
 
   const [form, setForm] = useState({
     ...empty,
-    branch: effectiveUser.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
-    person_in_conduct: effectiveUser.name || currentUser.name || '',
-    persons_in_conduct: (effectiveUser.name || currentUser.name) ? [effectiveUser.name || currentUser.name || ''] : [''],
+    branch: effectiveUser?.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
+    person_in_conduct: effectiveUser?.name || currentUser?.name || '',
+    persons_in_conduct: (effectiveUser?.name || currentUser?.name)
+      ? [effectiveUser?.name || currentUser?.name || '']
+      : [''],
     case_number: '',
     suit_no: '',
   });
@@ -108,12 +106,15 @@ export const NewCaseModal: React.FC = () => {
   // Sync default branch and district when opened
   useEffect(() => {
     if (isNewCaseModalOpen) {
-      const userBranch = isAdminOrSuper
-        ? (branches.find((b) => b.id === effectiveUser.branchId || b.name === effectiveUser.branchName) || hqBranch)
-        : (branches.find((b) => b.id === effectiveUser.branchId || b.name === effectiveUser.branchName) || hqBranch);
-      const initialBranchName = userBranch ? userBranch.name : (hqBranch?.name || DEFAULT_HQ_BRANCH_NAME);
+      const userBranch =
+        branches.find(
+          (b) => b.id === effectiveUser?.branchId || b.name === effectiveUser?.branchName
+        ) || hqBranch;
+      const initialBranchName = userBranch
+        ? userBranch.name
+        : (effectiveUser?.branchName || DEFAULT_HQ_BRANCH_NAME);
       const initialDistrict = userBranch ? userBranch.city : 'Kampala';
-      const userDisplayName = effectiveUser.name || currentUser.name || '';
+      const userDisplayName = effectiveUser?.name || currentUser?.name || '';
 
       setForm((prev) => {
         const initialPersons =
@@ -125,7 +126,7 @@ export const NewCaseModal: React.FC = () => {
 
         return {
           ...prev,
-          branch: prev.branch || initialBranchName,
+          branch: !isAdminOrSuper ? initialBranchName : (prev.branch || initialBranchName),
           district: prev.district || initialDistrict,
           file_location: prev.file_location || `${initialDistrict.toUpperCase()} OFFICE`,
           person_in_conduct: prev.person_in_conduct || userDisplayName,
@@ -133,11 +134,18 @@ export const NewCaseModal: React.FC = () => {
         };
       });
     }
-  }, [isNewCaseModalOpen, currentUser, branches]);
+  }, [isNewCaseModalOpen, currentUser, effectiveUser?.branchId, effectiveUser?.branchName, effectiveUser?.name, branches, isAdminOrSuper]);
 
   if (!isNewCaseModalOpen) return null;
 
   const currentBranchObj = branches.find((b) => b.name === form.branch) || branches[0];
+  const canCreateForSelectedBranch =
+    isAdminOrSuper ||
+    canUserModifyCase(effectiveUser, {
+      branchId: currentBranchObj?.id || resolveBranchId(undefined, form.branch),
+      branchName: form.branch,
+    });
+
 
   const handlePersonsChange = (newPersons: string[]) => {
     setForm((f) => ({
@@ -211,7 +219,8 @@ export const NewCaseModal: React.FC = () => {
     setSaving(true);
     try {
       const validPersons = form.persons_in_conduct.map((p) => p.trim()).filter(Boolean);
-      const primaryLead = validPersons[0] || form.person_in_conduct.trim() || currentUser.name;
+      const primaryLead =
+        validPersons[0] || form.person_in_conduct.trim() || effectiveUser?.name || currentUser?.name || '';
       const assistingAdvocates = validPersons.slice(1);
       const combinedPersons = validPersons.length > 0 ? validPersons.join(', ') : primaryLead;
 
@@ -224,6 +233,17 @@ export const NewCaseModal: React.FC = () => {
         },
         effectiveUser
       );
+
+      if (
+        !isAdminOrSuper &&
+        !canUserModifyCase(effectiveUser, { branchId: resolvedBranchId, branchName: resolvedBranchName })
+      ) {
+        const msg = `Permission Denied: You can only add new cases belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`;
+        showCleanMessage(msg, 'warning');
+        setError(msg);
+        setSaving(false);
+        return;
+      }
 
       const payload = {
         case_number: finalCaseNumber,
@@ -305,8 +325,10 @@ export const NewCaseModal: React.FC = () => {
       setIsNewCaseModalOpen(false);
       setForm({
         ...empty,
-        branch: effectiveUser.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
-        persons_in_conduct: (effectiveUser.name || currentUser.name) ? [effectiveUser.name || currentUser.name || ''] : [''],
+        branch: effectiveUser?.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
+        persons_in_conduct: (effectiveUser?.name || currentUser?.name)
+          ? [effectiveUser?.name || currentUser?.name || '']
+          : [''],
         suit_no: '',
       });
     } catch (err: any) {
@@ -698,11 +720,22 @@ export const NewCaseModal: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={saving}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50"
+                disabled={saving || !canCreateForSelectedBranch}
+                title={
+                  !canCreateForSelectedBranch
+                    ? `View-Only Mode: Creating cases is restricted to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
+                    : 'Register new case'
+                }
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4 text-amber-400" />
-                <span>{saving ? 'Saving to Supabase...' : 'Create case'}</span>
+                <span>
+                  {!canCreateForSelectedBranch
+                    ? 'Restricted to Assigned Branch'
+                    : saving
+                    ? 'Saving to Supabase...'
+                    : 'Create case'}
+                </span>
               </button>
             </div>
           </div>

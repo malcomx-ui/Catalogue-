@@ -2,6 +2,12 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { MortgageService } from '../../services/mortgageService';
 import {
+  getEffectiveUser,
+  isUserAdmin,
+  canUserModifyMortgage,
+} from '../../lib/supabase';
+import { showCleanMessage } from '../../utils/notification';
+import {
   Building2,
   X,
   AlertCircle,
@@ -37,6 +43,10 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || 'Kampala Central (Head Office)';
+
   // Reporting Period (defaults to selected month if provided, else current year and current month)
   const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
   const [monthSheet, setMonthSheet] = useState<string>(() =>
@@ -49,7 +59,9 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
     () => new Date().toISOString().slice(0, 10)
   );
   // 2) branch (Text)
-  const [branch, setBranch] = useState<string>('');
+  const [branch, setBranch] = useState<string>(() =>
+    isGlobalAdmin ? '' : assignedBranchLabel
+  );
   // 3) client_name / name (Text, Required)
   const [clientName, setClientName] = useState<string>('');
   // 4) rim_no (Text)
@@ -153,6 +165,14 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       return;
     }
 
+    const resolvedBranch = isGlobalAdmin ? branch.trim() : assignedBranchLabel;
+    if (!isGlobalAdmin && !canUserModifyMortgage(effectiveUser, { branch: resolvedBranch })) {
+      const msg = `Permission Denied: You can only add mortgages for your assigned branch (${assignedBranchLabel}).`;
+      setErrorMessage(msg);
+      showCleanMessage(msg, 'warning');
+      return;
+    }
+
     setLoading(true);
 
     // Exact live database column mapping (without non-existent PGRST204 columns):
@@ -160,7 +180,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       bank_name: bankName,
       client_bank_name: bankName,
       date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10),
-      branch: branch.trim(),
+      branch: resolvedBranch,
       client_name: clientName.trim(),
       mortgagor_name: clientName.trim(),
       rim_no: rimNo.trim(),
@@ -185,13 +205,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
       month_sheet: monthSheet || MONTHS[new Date().getMonth()],
       department: 'Banking & Securities',
-      assigned_lawyer_name: currentUser?.name || '',
+      assigned_lawyer_name: currentUser?.name || effectiveUser?.name || '',
       assigned_lawyer_id:
         currentUser?.id && !String(currentUser.id).startsWith('user-') ? currentUser.id : null,
     };
 
     try {
-      const res = await MortgageService.insertMortgage(payload);
+      const res = await MortgageService.insertMortgage(payload, effectiveUser);
 
       if (!res.success) {
         setErrorMessage(res.error || 'Failed to save mortgage record to database.');
@@ -331,10 +351,22 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 <input
                   type="text"
                   placeholder="e.g. Mbarara Branch"
-                  value={branch}
-                  onChange={(e) => setBranch(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={isGlobalAdmin ? branch : assignedBranchLabel}
+                  onChange={(e) => {
+                    if (isGlobalAdmin) setBranch(e.target.value);
+                  }}
+                  disabled={!isGlobalAdmin}
+                  className={`w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                    !isGlobalAdmin
+                      ? 'bg-slate-100 text-slate-600 font-medium cursor-not-allowed'
+                      : 'bg-white text-slate-800'
+                  }`}
                 />
+                {!isGlobalAdmin && (
+                  <p className="text-[10px] text-amber-700 mt-1">
+                    Locked to your assigned branch: {assignedBranchLabel}
+                  </p>
+                )}
               </div>
 
               {/* 3. client_name / name (Required) */}

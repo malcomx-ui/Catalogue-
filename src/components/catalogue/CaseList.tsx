@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CaseItem } from '../../types';
-import { canUserModifyCase } from '../../lib/supabase';
+import { canUserModifyCase, getEffectiveUser, isUserAdmin } from '../../lib/supabase';
 import CasesPage from './CasesPage';
 import {
   Search,
@@ -47,13 +47,31 @@ export const CaseList: React.FC = () => {
   const [divisionFilter, setDivisionFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards' | 'directory'>('table');
 
+  const effectiveUser = React.useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const activeFilterBranchObj = React.useMemo(
+    () => (selectedBranchFilter !== 'all' ? branches.find((b) => b.id === selectedBranchFilter) : undefined),
+    [selectedBranchFilter, branches]
+  );
+  const isViewingForeignBranch = React.useMemo(() => {
+    if (isGlobalAdmin || selectedBranchFilter === 'all') return false;
+    return !canUserModifyCase(effectiveUser, {
+      branchId: selectedBranchFilter,
+      branchName: activeFilterBranchObj?.name || '',
+    });
+  }, [isGlobalAdmin, selectedBranchFilter, activeFilterBranchObj, effectiveUser]);
+  const canAddInCurrentView = Boolean(userPermissions?.canCreateCases && !isViewingForeignBranch);
+  const addCaseDisabledReason = isViewingForeignBranch
+    ? `View-Only Mode: Adding cases is disabled while viewing ${activeFilterBranchObj?.name || 'another branch'}. Switch to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'} or All Branches.`
+    : 'Manually Type / Register New Case';
+
   // Extract all distinct lawyers from cases and firm legal staff within user's branch scope
   const lawyerOptions = React.useMemo(() => {
     const lawyerMap = new Map<string, number>();
 
     const visibleBranches = userPermissions.canViewAllBranches
       ? branches
-      : branches.filter((b) => b.id === currentUser.branchId);
+      : branches.filter((b) => b.id === (effectiveUser?.branchId || currentUser?.branchId));
 
     // Seed from active legal staff across visible branches
     visibleBranches.forEach((b) => {
@@ -75,12 +93,14 @@ export const CaseList: React.FC = () => {
     const visibleCases = userPermissions.canViewAllBranches
       ? cases
       : cases.filter((c) => {
-          const targetBranch = branches.find((b) => b.id === currentUser.branchId);
+          const userBranchId = effectiveUser?.branchId || currentUser?.branchId;
+          const userBranchName = effectiveUser?.branchName || currentUser?.branchName || '';
+          const targetBranch = branches.find((b) => b.id === userBranchId);
           const targetCity = targetBranch?.city?.toLowerCase() || '';
-          const targetName = (targetBranch?.name || currentUser.branchName || '').toLowerCase();
+          const targetName = (targetBranch?.name || userBranchName).toLowerCase();
           const bName = (c.branch || c.branchName || '').toLowerCase();
           return (
-            (currentUser.branchId && c.branchId === currentUser.branchId) ||
+            (userBranchId && c.branchId === userBranchId) ||
             (targetCity && bName.includes(targetCity)) ||
             (targetName && bName.includes(targetName))
           );
@@ -114,7 +134,7 @@ export const CaseList: React.FC = () => {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name);
       });
-  }, [cases, branches, userPermissions.canViewAllBranches, currentUser.branchId, currentUser.branchName]);
+  }, [cases, branches, userPermissions.canViewAllBranches, effectiveUser?.branchId, effectiveUser?.branchName, currentUser?.branchId, currentUser?.branchName]);
 
   const displayCases = filteredCases.filter((c) => {
     if (statusFilter !== 'all') {
@@ -214,7 +234,7 @@ export const CaseList: React.FC = () => {
             Litigation Cases
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Managing {displayCases.length} matters {userPermissions.canViewAllBranches ? 'across all branches' : `in ${currentUser.branchName || 'Assigned Branch'}`}
+            Managing {displayCases.length} matters {userPermissions.canViewAllBranches ? 'across all branches' : `in ${effectiveUser?.branchName || currentUser?.branchName || 'Assigned Branch'}`}
           </p>
         </div>
 
@@ -259,15 +279,16 @@ export const CaseList: React.FC = () => {
             </button>
           )}
 
-          {/* Add Case - Manual Entry Available to Permitted Advocates/Clerks */}
+          {/* Add Case - Disabled when viewing an external branch for branch-restricted roles */}
           {userPermissions.canCreateCases && (
             <button
               onClick={() => setIsNewCaseModalOpen(true)}
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-2xs min-h-[34px]"
-              title="Manually Type / Register New Case"
+              disabled={!canAddInCurrentView}
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-2xs min-h-[34px] disabled:opacity-45 disabled:cursor-not-allowed"
+              title={addCaseDisabledReason}
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Case</span>
+              <span>{isViewingForeignBranch ? 'Add Case (View-Only)' : 'Add Case'}</span>
             </button>
           )}
         </div>
@@ -319,7 +340,7 @@ export const CaseList: React.FC = () => {
           ) : (
             <div className="bg-blue-50/80 border border-blue-200/80 rounded-md px-3 py-2 text-xs font-semibold text-blue-900 flex items-center gap-1.5 min-h-[38px]">
               <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>Branch: {currentUser.branchName || 'Assigned Branch'}</span>
+              <span>Branch: {effectiveUser?.branchName || currentUser?.branchName || 'Assigned Branch'}</span>
               <span className="text-[10px] text-blue-600 font-mono bg-blue-100 px-1 rounded ml-1">Custody</span>
             </div>
           )}
@@ -438,9 +459,9 @@ export const CaseList: React.FC = () => {
           userSession={{
             user: currentUser,
             profile: {
-              role: currentUser.role,
-              branch: currentUser.branchName,
-              full_name: currentUser.name,
+              role: effectiveUser?.role || currentUser?.role,
+              branch: effectiveUser?.branchName || currentUser?.branchName,
+              full_name: effectiveUser?.name || currentUser?.name,
             },
           }}
         />
@@ -522,10 +543,12 @@ export const CaseList: React.FC = () => {
                             {userPermissions.canCreateCases && (
                               <button
                                 onClick={() => setIsNewCaseModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+                                disabled={!canAddInCurrentView}
+                                title={addCaseDisabledReason}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                               >
                                 <Plus className="w-3.5 h-3.5" />
-                                <span>Add Case Manually</span>
+                                <span>{isViewingForeignBranch ? 'Add Case (View-Only)' : 'Add Case Manually'}</span>
                               </button>
                             )}
                           </div>
@@ -560,7 +583,9 @@ export const CaseList: React.FC = () => {
                             {userPermissions.canCreateCases && (
                               <button
                                 onClick={() => setIsNewCaseModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+                                disabled={!canAddInCurrentView}
+                                title={addCaseDisabledReason}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Add Case Manually</span>
@@ -628,8 +653,8 @@ export const CaseList: React.FC = () => {
 
                       <td className="py-3 px-4 whitespace-nowrap text-slate-600 font-medium">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{caseItem.branchName.replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}</span>
-                          {!canUserModifyCase(currentUser, caseItem) && (
+                          <span>{(caseItem.branchName || caseItem.branch || 'Unassigned').replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}</span>
+                          {!canUserModifyCase(effectiveUser, caseItem) && (
                             <span
                               className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
                               title="Branch custody isolation: View only outside your assigned branch"
@@ -690,12 +715,12 @@ export const CaseList: React.FC = () => {
                             setSelectedCase(caseItem);
                           }}
                           className={`px-2.5 py-1 rounded font-medium transition-colors text-xs ${
-                            canUserModifyCase(currentUser, caseItem)
+                            canUserModifyCase(effectiveUser, caseItem)
                               ? 'text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200'
                               : 'text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200'
                           }`}
                         >
-                          {canUserModifyCase(currentUser, caseItem) ? 'View / Edit' : 'View Only'}
+                          {canUserModifyCase(effectiveUser, caseItem) ? 'View / Edit' : 'View Only'}
                         </button>
                       </td>
                     </tr>
@@ -737,10 +762,12 @@ export const CaseList: React.FC = () => {
                 {userPermissions.canCreateCases && (
                   <button
                     onClick={() => setIsNewCaseModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+                    disabled={!canAddInCurrentView}
+                    title={addCaseDisabledReason}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Add Single Case</span>
+                    <span>{isViewingForeignBranch ? 'Add Case (View-Only)' : 'Add Single Case'}</span>
                   </button>
                 )}
               </div>
@@ -775,7 +802,7 @@ export const CaseList: React.FC = () => {
                     </span>
                   )}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {!canUserModifyCase(currentUser, caseItem) && (
+                    {!canUserModifyCase(effectiveUser, caseItem) && (
                       <span
                         className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-0.5"
                         title="Branch custody isolation: View only outside your assigned branch"
