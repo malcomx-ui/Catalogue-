@@ -5,6 +5,7 @@ import {
   isUserAdmin,
   canUserModifyMortgage,
   resolveBranchMeta,
+  extractMissingColumnFromError,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 
@@ -203,6 +204,7 @@ const extractRecordsFromWorkbook = (
     let headerRowIndex = jsonSheet.length > 2 ? 1 : 0;
     const nameKeys = [
       'name',
+      'client',
       'client name',
       'client_name',
       'clients name',
@@ -213,6 +215,7 @@ const extractRecordsFromWorkbook = (
       'borrowers',
       'mortgagor',
       'mortgagor name',
+      'customer',
       'customer name',
       'applicant',
       'applicant name',
@@ -470,6 +473,83 @@ export const buildMortgagesRow = (r: any) => {
   return row;
 };
 
+/**
+ * Runs insert/upsert/update on mortgage_cases or mortgages with iterative
+ * column-stripping fallback whenever PostgREST returns PGRST204 / 42703.
+ */
+async function safeMortgageTableMutation(
+  table: 'mortgage_cases' | 'mortgages',
+  operation: 'insert' | 'upsert' | 'update',
+  payloadOrRows: Record<string, any> | Record<string, any>[],
+  matchId?: string
+): Promise<{ data: any[] | null; error: any; strippedColumns: string[] }> {
+  const strippedColumns: string[] = [];
+  const isBatch = Array.isArray(payloadOrRows);
+
+  const sanitizeObj = (obj: Record<string, any>) => {
+    const copy: Record<string, any> = { ...obj };
+    Object.keys(copy).forEach((k) => {
+      if (copy[k] === undefined) delete copy[k];
+    });
+    return copy;
+  };
+
+  let currentData: Record<string, any> | Record<string, any>[] = isBatch
+    ? (payloadOrRows as Record<string, any>[]).map(sanitizeObj)
+    : sanitizeObj(payloadOrRows as Record<string, any>);
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (!isBatch && Object.keys(currentData as Record<string, any>).length === 0) break;
+    if (isBatch && (currentData as Record<string, any>[]).length === 0) break;
+
+    let res: { data: any[] | null; error: any };
+    if (operation === 'insert') {
+      const rows = isBatch ? (currentData as Record<string, any>[]) : [currentData as Record<string, any>];
+      res = await supabase.from(table).insert(rows).select('*');
+    } else if (operation === 'upsert') {
+      const rows = isBatch ? (currentData as Record<string, any>[]) : [currentData as Record<string, any>];
+      res = await supabase.from(table).upsert(rows, { onConflict: 'id', ignoreDuplicates: false }).select('*');
+    } else {
+      res = await supabase
+        .from(table)
+        .update(currentData as Record<string, any>)
+        .eq('id', matchId as string)
+        .select('*');
+    }
+
+    if (!res.error) {
+      return { data: res.data, error: null, strippedColumns };
+    }
+
+    const missingCol = extractMissingColumnFromError(res.error);
+    if (missingCol) {
+      const hasCol = isBatch
+        ? (currentData as Record<string, any>[]).some((r) => missingCol in r)
+        : missingCol in (currentData as Record<string, any>);
+
+      if (hasCol) {
+        strippedColumns.push(missingCol);
+        if (isBatch) {
+          currentData = (currentData as Record<string, any>[]).map((r) => {
+            const copy = { ...r };
+            delete copy[missingCol];
+            return copy;
+          });
+        } else {
+          const copy = { ...(currentData as Record<string, any>) };
+          delete copy[missingCol];
+          currentData = copy;
+        }
+        continue;
+      }
+    }
+
+    return { data: null, error: res.error, strippedColumns };
+  }
+
+  return { data: null, error: null, strippedColumns };
+}
+
 const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
   const resolvedBranch =
     row.branch || row.client_branch_location || row.bank_branch || row.branch_name || '';
@@ -640,41 +720,65 @@ export const MortgageService = {
 
         if (chunkWithUuid.length > 0) {
           const upsertPayload = chunkWithUuid.map((r) => buildMortgageCasesRow(r, { includeId: true }));
-          const { data: upsertedData, error: upsertErr } = await supabase
-            .from('mortgage_cases')
-            .upsert(upsertPayload, { onConflict: 'id', ignoreDuplicates: false })
-            .select('*');
+          const { data: upsertedData, error: upsertErr } = await safeMortgageTableMutation(
+            'mortgage_cases',
+            'upsert',
+            upsertPayload
+          );
 
           if (!upsertErr) {
             cloudSaved = true;
             if (Array.isArray(upsertedData)) {
               cloudReturnedForChunk.push(
-                ...upsertedData.map((row) => normalizeMortgageRecord(row, bankName))
+                ...upsertedData.map((row, idx) =>
+                  normalizeMortgageRecord({ ...(chunkWithUuid[idx] || {}), ...row }, bankName)
+                )
               );
             }
           } else {
             cloudError = upsertErr.message;
             console.warn('mortgage_cases batch upsert warning:', upsertErr.message);
+            // Row-by-row fallback so valid rows still persist
+            for (const singleItem of chunkWithUuid) {
+              const singleRow = buildMortgageCasesRow(singleItem, { includeId: true });
+              const singleRes = await safeMortgageTableMutation('mortgage_cases', 'upsert', singleRow);
+              if (!singleRes.error && singleRes.data?.length) {
+                cloudSaved = true;
+                cloudReturnedForChunk.push(normalizeMortgageRecord({ ...singleItem, ...singleRes.data[0] }, bankName));
+              }
+            }
           }
         }
 
         if (chunkToInsert.length > 0) {
           const insertPayload = chunkToInsert.map((r) => buildMortgageCasesRow(r, { includeId: false }));
-          const { data: insertedData, error: insertErr } = await supabase
-            .from('mortgage_cases')
-            .insert(insertPayload)
-            .select('*');
+          const { data: insertedData, error: insertErr } = await safeMortgageTableMutation(
+            'mortgage_cases',
+            'insert',
+            insertPayload
+          );
 
           if (!insertErr) {
             cloudSaved = true;
             if (Array.isArray(insertedData)) {
               cloudReturnedForChunk.push(
-                ...insertedData.map((row) => normalizeMortgageRecord(row, bankName))
+                ...insertedData.map((row, idx) =>
+                  normalizeMortgageRecord({ ...(chunkToInsert[idx] || {}), ...row }, bankName)
+                )
               );
             }
           } else {
             cloudError = insertErr.message;
             console.warn('mortgage_cases batch insert warning:', insertErr.message);
+            // Row-by-row fallback so valid rows still persist
+            for (const singleItem of chunkToInsert) {
+              const singleRow = buildMortgageCasesRow(singleItem, { includeId: false });
+              const singleRes = await safeMortgageTableMutation('mortgage_cases', 'insert', singleRow);
+              if (!singleRes.error && singleRes.data?.length) {
+                cloudSaved = true;
+                cloudReturnedForChunk.push(normalizeMortgageRecord({ ...singleItem, ...singleRes.data[0] }, bankName));
+              }
+            }
           }
         }
 
@@ -688,11 +792,19 @@ export const MortgageService = {
       }
 
       // Persist additively to central workstation server (merge by id without wiping existing rows)
-      await fetch('/api/mortgages/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ records: persistedRecords, bank_name: bankName }),
-      }).catch(() => {});
+      try {
+        const apiBatchRes = await fetch('/api/mortgages/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ records: persistedRecords, bank_name: bankName }),
+        });
+        if (!apiBatchRes.ok) {
+          const apiErrJson = await apiBatchRes.json().catch(() => null);
+          console.warn('[MortgageService] /api/mortgages/batch warning:', apiErrJson?.error || apiBatchRes.status);
+        }
+      } catch (apiBatchErr) {
+        console.warn('[MortgageService] /api/mortgages/batch network warning:', apiBatchErr);
+      }
 
       // Mirror additively to browser localStorage so records survive server restarts / static mode
       upsertLocalMortgagesBatch(persistedRecords);
@@ -847,8 +959,32 @@ export const MortgageService = {
    */
   async fetchMortgages(bankName: string): Promise<any[]> {
     const combined: any[] = [];
-    const seenIds = new Set<string>();
+    const indexById = new Map<string, number>();
     const safeBank = bankName.replace(/[,()]/g, '').trim();
+
+    const mergeRecord = (normalized: any, preferNewerLocal = false) => {
+      const id = String(normalized.id);
+      const existingIdx = indexById.get(id);
+      if (existingIdx === undefined) {
+        indexById.set(id, combined.length);
+        combined.push(normalized);
+        return;
+      }
+      const existing = combined[existingIdx];
+      if (!preferNewerLocal) {
+        // Fill any missing fields from secondary cloud table without overwriting primary
+        combined[existingIdx] = normalizeMortgageRecord({ ...normalized, ...existing }, bankName);
+        return;
+      }
+      const existingTime = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
+      const incomingTime = normalized.updated_at ? new Date(normalized.updated_at).getTime() : 0;
+      if (incomingTime > 0 && incomingTime >= existingTime) {
+        combined[existingIdx] = normalizeMortgageRecord({ ...existing, ...normalized }, bankName);
+      } else {
+        // Still preserve extended optional fields (e.g. search_fee, assigned_lawyer_name) if missing from cloud
+        combined[existingIdx] = normalizeMortgageRecord({ ...normalized, ...existing }, bankName);
+      }
+    };
 
     // 1. Try Supabase cloud query on mortgage_cases (match BOTH bank_name and client_bank_name!)
     try {
@@ -865,11 +1001,7 @@ export const MortgageService = {
 
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((row) => {
-          const normalized = normalizeMortgageRecord(row, bankName);
-          if (!seenIds.has(normalized.id)) {
-            seenIds.add(normalized.id);
-            combined.push(normalized);
-          }
+          mergeRecord(normalizeMortgageRecord(row, bankName), false);
         });
       }
     } catch (err) {}
@@ -885,11 +1017,7 @@ export const MortgageService = {
 
       if (!error && Array.isArray(data)) {
         data.forEach((row) => {
-          const normalized = normalizeMortgageRecord(row, bankName);
-          if (!seenIds.has(normalized.id)) {
-            seenIds.add(normalized.id);
-            combined.push(normalized);
-          }
+          mergeRecord(normalizeMortgageRecord(row, bankName), false);
         });
       }
     } catch (err) {}
@@ -901,11 +1029,7 @@ export const MortgageService = {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           json.data.forEach((row: any) => {
-            const normalized = normalizeMortgageRecord(row, bankName);
-            if (!seenIds.has(normalized.id)) {
-              seenIds.add(normalized.id);
-              combined.push(normalized);
-            }
+            mergeRecord(normalizeMortgageRecord(row, bankName), true);
           });
         }
       }
@@ -922,11 +1046,7 @@ export const MortgageService = {
         cb.includes(targetBankLower) ||
         bn.includes(targetBankLower)
       ) {
-        const normalized = normalizeMortgageRecord(row, bankName);
-        if (!seenIds.has(normalized.id)) {
-          seenIds.add(normalized.id);
-          combined.push(normalized);
-        }
+        mergeRecord(normalizeMortgageRecord(row, bankName), true);
       }
     });
 
@@ -974,17 +1094,18 @@ export const MortgageService = {
     let localSaved = false;
     let lastError: string | undefined;
 
-    // 1. Strictly append a new row into Supabase `mortgage_cases` using clean .insert()
+    // 1. Strictly append a new row into Supabase `mortgage_cases` using schema-safe .insert()
     //    (omitting id so Postgres gen_random_uuid() generates a fresh PK and never overwrites existing records)
     try {
       const mcRow = buildMortgageCasesRow(effectivePayload, { includeId: false });
-      const { data: mcData, error: mcError } = await supabase
-        .from('mortgage_cases')
-        .insert([mcRow])
-        .select('*');
+      const { data: mcData, error: mcError } = await safeMortgageTableMutation(
+        'mortgage_cases',
+        'insert',
+        mcRow
+      );
 
       if (!mcError && mcData && mcData.length > 0) {
-        savedRecord = normalizeMortgageRecord(mcData[0], String(mcRow.bank_name || ''));
+        savedRecord = normalizeMortgageRecord({ ...effectivePayload, ...mcData[0] }, String(mcRow.bank_name || ''));
         cloudSaved = true;
       } else if (mcError) {
         lastError = mcError.message;
@@ -1001,14 +1122,15 @@ export const MortgageService = {
         ...cleanPayload,
         id: savedRecord?.id && UUID_REGEX.test(String(savedRecord.id)) ? savedRecord.id : undefined,
       });
-      const { data: mData, error: mError } = await supabase
-        .from('mortgages')
-        .insert([mRow])
-        .select('*');
+      const { data: mData, error: mError } = await safeMortgageTableMutation(
+        'mortgages',
+        'insert',
+        mRow
+      );
 
       if (!mError && mData && mData.length > 0) {
         if (!savedRecord) {
-          savedRecord = normalizeMortgageRecord(mData[0], mRow.client_bank_name);
+          savedRecord = normalizeMortgageRecord({ ...effectivePayload, ...mData[0] }, mRow.client_bank_name);
         }
         cloudSaved = true;
       } else if (mError) {
@@ -1078,14 +1200,14 @@ export const MortgageService = {
 
   /**
    * Updates an existing mortgage file.
-   * Syncs to both mortgage_cases, mortgages, and local server.
+   * Syncs to both mortgage_cases, mortgages, local workstation server, and localStorage with schema-safe retry.
    */
   async updateMortgage(
     id: string,
     updates: any,
     userProfile?: any,
     existingRecord?: any
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+  ): Promise<{ success: boolean; data?: any; error?: string; cloudSaved?: boolean; cloudError?: string }> {
     const effectiveUser = getEffectiveUser(userProfile);
     if (!isUserAdmin(effectiveUser)) {
       const cachedRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
@@ -1104,120 +1226,151 @@ export const MortgageService = {
         return { success: false, error: msg };
       }
     }
+
     let updatedRecord: any = null;
+    let cloudSaved = false;
+    let cloudError: string | undefined;
+    const isRealUuid = UUID_REGEX.test(String(id));
 
-    // 1. Try Supabase update on mortgage_cases (only live columns)
-    try {
-      const mcPayload: any = {};
-      if (updates.record_year !== undefined) mcPayload.record_year = parseInt(String(updates.record_year), 10);
-      if (updates.month_sheet !== undefined) mcPayload.month_sheet = updates.month_sheet;
-      if (updates.bank_name || updates.client_bank_name) {
-        mcPayload.bank_name = updates.bank_name || updates.client_bank_name;
-        mcPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
-      }
-      if (updates.branch !== undefined || updates.bank_branch !== undefined || updates.client_branch_location !== undefined) {
-        const br = updates.branch ?? updates.bank_branch ?? updates.client_branch_location;
-        mcPayload.branch = br;
-        mcPayload.client_branch_location = br;
-      }
-      if (updates.client_name || updates.mortgagor_name || updates.borrower_name) {
-        const cname = updates.client_name || updates.mortgagor_name || updates.borrower_name;
-        mcPayload.client_name = cname;
-        mcPayload.mortgagor_name = cname;
-      }
-      if (updates.rim_no !== undefined) mcPayload.rim_no = updates.rim_no;
-      if (updates.property_description !== undefined) mcPayload.property_description = updates.property_description;
-      if (updates.loan_amount !== undefined) mcPayload.loan_amount = Number(updates.loan_amount);
-      if (updates.stamp_duty !== undefined) mcPayload.stamp_duty = Number(updates.stamp_duty);
-      if (updates.extra_copies !== undefined) mcPayload.extra_copies = Number(updates.extra_copies);
-      if (updates.registration_fee !== undefined || updates.registration !== undefined) {
-        mcPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
-      }
-      if (updates.bank_charges !== undefined) mcPayload.bank_charges = Number(updates.bank_charges);
-      if (updates.transport !== undefined) mcPayload.transport = Number(updates.transport);
-      if (updates.linkage_fees !== undefined) mcPayload.linkage_fees = Number(updates.linkage_fees);
-      if (updates.other_disbursements !== undefined || updates.other_fees !== undefined || updates.other !== undefined) {
-        const otherVal = Number(updates.other_disbursements ?? updates.other_fees ?? updates.other ?? 0);
-        mcPayload.other_disbursements = otherVal;
-        mcPayload.other_fees = otherVal;
-      }
-      if (updates.total_disbursements !== undefined) mcPayload.total_disbursements = Number(updates.total_disbursements);
-      if (updates.legal_fees !== undefined) mcPayload.legal_fees = Number(updates.legal_fees);
-      if (updates.vat_18 !== undefined || updates.vat !== undefined) {
-        mcPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
-      }
-      if (updates.grand_total !== undefined) mcPayload.grand_total = Number(updates.grand_total);
-      if (updates.date_of_receipt !== undefined) mcPayload.date_of_receipt = updates.date_of_receipt || null;
-      if (updates.date_of_payment !== undefined) mcPayload.date_of_payment = updates.date_of_payment || null;
-      if (updates.date_of_return !== undefined) mcPayload.date_of_return = updates.date_of_return || null;
-      if (updates.comments !== undefined) mcPayload.comments = updates.comments;
-      if (updates.status !== undefined) mcPayload.status = updates.status;
+    // 1. Update Supabase `mortgage_cases` (schema-safe: strips unknown columns cleanly instead of silently failing)
+    if (isRealUuid) {
+      try {
+        const mcPayload: Record<string, any> = {};
+        if (updates.record_year !== undefined) mcPayload.record_year = parseInt(String(updates.record_year), 10);
+        if (updates.month_sheet !== undefined) mcPayload.month_sheet = updates.month_sheet;
+        if (updates.bank_name || updates.client_bank_name) {
+          mcPayload.bank_name = updates.bank_name || updates.client_bank_name;
+          mcPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
+        }
+        if (updates.branch !== undefined || updates.bank_branch !== undefined || updates.client_branch_location !== undefined || updates.branch_name !== undefined) {
+          const br = updates.branch ?? updates.bank_branch ?? updates.client_branch_location ?? updates.branch_name;
+          mcPayload.branch = br;
+          mcPayload.client_branch_location = updates.client_branch_location ?? br;
+          if (updates.branch_name !== undefined) mcPayload.branch_name = updates.branch_name;
+        }
+        if (updates.client_name || updates.mortgagor_name || updates.borrower_name) {
+          const cname = updates.client_name || updates.mortgagor_name || updates.borrower_name;
+          mcPayload.client_name = cname;
+          mcPayload.mortgagor_name = cname;
+        }
+        if (updates.rim_no !== undefined) mcPayload.rim_no = updates.rim_no;
+        if (updates.property_description !== undefined) mcPayload.property_description = updates.property_description;
+        if (updates.loan_amount !== undefined) mcPayload.loan_amount = Number(updates.loan_amount);
+        if (updates.search_fee !== undefined) mcPayload.search_fee = Number(updates.search_fee);
+        if (updates.stamp_duty !== undefined) mcPayload.stamp_duty = Number(updates.stamp_duty);
+        if (updates.extra_copies !== undefined) mcPayload.extra_copies = Number(updates.extra_copies);
+        if (updates.registration_fee !== undefined || updates.registration !== undefined) {
+          mcPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
+        }
+        if (updates.bank_charges !== undefined) mcPayload.bank_charges = Number(updates.bank_charges);
+        if (updates.transport !== undefined) mcPayload.transport = Number(updates.transport);
+        if (updates.linkage_fees !== undefined) mcPayload.linkage_fees = Number(updates.linkage_fees);
+        if (updates.filing_fee !== undefined) mcPayload.filing_fee = Number(updates.filing_fee);
+        if (updates.valuation_fee !== undefined) mcPayload.valuation_fee = Number(updates.valuation_fee);
+        if (updates.courier_fee !== undefined) mcPayload.courier_fee = Number(updates.courier_fee);
+        if (updates.other_disbursements !== undefined || updates.other_fees !== undefined || updates.other !== undefined) {
+          const otherVal = Number(updates.other_disbursements ?? updates.other_fees ?? updates.other ?? 0);
+          mcPayload.other_disbursements = otherVal;
+          mcPayload.other_fees = otherVal;
+        }
+        if (updates.total_disbursements !== undefined) mcPayload.total_disbursements = Number(updates.total_disbursements);
+        if (updates.legal_fees !== undefined) mcPayload.legal_fees = Number(updates.legal_fees);
+        if (updates.vat_18 !== undefined || updates.vat !== undefined) {
+          mcPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
+        }
+        if (updates.grand_total !== undefined) mcPayload.grand_total = Number(updates.grand_total);
+        if (updates.date_of_receipt !== undefined) mcPayload.date_of_receipt = updates.date_of_receipt || null;
+        if (updates.date_of_payment !== undefined) mcPayload.date_of_payment = updates.date_of_payment || null;
+        if (updates.date_of_return !== undefined) mcPayload.date_of_return = updates.date_of_return || null;
+        if (updates.date_instructed !== undefined) mcPayload.date_instructed = updates.date_instructed || null;
+        if (updates.date_sent_registration !== undefined) mcPayload.date_sent_registration = updates.date_sent_registration || null;
+        if (updates.date_registered !== undefined) mcPayload.date_registered = updates.date_registered || null;
+        if (updates.department !== undefined) mcPayload.department = updates.department;
+        if (updates.assigned_lawyer_id !== undefined) mcPayload.assigned_lawyer_id = updates.assigned_lawyer_id || null;
+        if (updates.assigned_lawyer_name !== undefined) mcPayload.assigned_lawyer_name = updates.assigned_lawyer_name;
+        if (updates.transfer_reason !== undefined) mcPayload.transfer_reason = updates.transfer_reason;
+        if (updates.comments !== undefined) mcPayload.comments = updates.comments;
+        if (updates.status !== undefined) mcPayload.status = updates.status;
 
-      const { data: mcData, error: mcErr } = await supabase
-        .from('mortgage_cases')
-        .update(mcPayload)
-        .eq('id', id)
-        .select('*');
+        const { data: mcData, error: mcErr } = await safeMortgageTableMutation(
+          'mortgage_cases',
+          'update',
+          mcPayload,
+          id
+        );
 
-      if (!mcErr && mcData && mcData.length > 0) {
-        updatedRecord = mcData[0];
+        if (!mcErr && mcData && mcData.length > 0) {
+          updatedRecord = mcData[0];
+          cloudSaved = true;
+        } else if (mcErr) {
+          cloudError = mcErr.message;
+          console.warn('[MortgageService] mortgage_cases update notice:', mcErr.message);
+        }
+      } catch (e: any) {
+        cloudError = e?.message;
+        console.warn('[MortgageService] mortgage_cases update exception:', e);
       }
-    } catch (e) {}
 
-    // 2. Try Supabase update on mortgages (only live columns)
-    try {
-      const mPayload: any = {};
-      if (updates.record_year !== undefined) mPayload.record_year = parseInt(String(updates.record_year), 10);
-      if (updates.month_sheet !== undefined) mPayload.month_sheet = updates.month_sheet;
-      if (updates.client_bank_name || updates.bank_name) {
-        mPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
-      }
-      if (updates.mortgagor_name || updates.client_name || updates.borrower_name) {
-        mPayload.mortgagor_name = updates.mortgagor_name || updates.client_name || updates.borrower_name;
-      }
-      if (updates.rim_no !== undefined) mPayload.rim_no = updates.rim_no;
-      if (updates.property_description !== undefined) mPayload.property_description = updates.property_description;
-      if (updates.loan_amount !== undefined) mPayload.loan_amount = Number(updates.loan_amount);
-      if (updates.stamp_duty !== undefined) mPayload.stamp_duty = Number(updates.stamp_duty);
-      if (updates.extra_copies !== undefined) mPayload.extra_copies = Number(updates.extra_copies);
-      if (updates.registration_fee !== undefined || updates.registration !== undefined) {
-        mPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
-      }
-      if (updates.bank_charges !== undefined) mPayload.bank_charges = Number(updates.bank_charges);
-      if (updates.transport !== undefined) mPayload.transport = Number(updates.transport);
-      if (updates.other_disbursements !== undefined || updates.other !== undefined) {
-        mPayload.other_disbursements = Number(updates.other_disbursements ?? updates.other ?? 0);
-      }
-      if (updates.total_disbursements !== undefined) mPayload.total_disbursements = Number(updates.total_disbursements);
-      if (updates.legal_fees !== undefined) mPayload.legal_fees = Number(updates.legal_fees);
-      if (updates.vat_18 !== undefined || updates.vat !== undefined) {
-        mPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
-      }
-      if (updates.grand_total !== undefined) mPayload.grand_total = Number(updates.grand_total);
-      if (updates.date_of_receipt !== undefined) mPayload.date_of_receipt = updates.date_of_receipt || null;
-      if (updates.date_of_payment !== undefined) mPayload.date_of_payment = updates.date_of_payment || null;
-      if (updates.date_of_return !== undefined) mPayload.date_of_return = updates.date_of_return || null;
-      if (updates.comments !== undefined) mPayload.comments = updates.comments;
-      if (updates.status !== undefined) mPayload.status = updates.status;
-      if (updates.department !== undefined) mPayload.department = updates.department;
-      if (updates.assigned_lawyer_id !== undefined) mPayload.assigned_lawyer_id = updates.assigned_lawyer_id || null;
+      // 2. Update Supabase `mortgages` (schema-safe)
+      try {
+        const mPayload: Record<string, any> = {};
+        if (updates.record_year !== undefined) mPayload.record_year = parseInt(String(updates.record_year), 10);
+        if (updates.month_sheet !== undefined) mPayload.month_sheet = updates.month_sheet;
+        if (updates.client_bank_name || updates.bank_name) {
+          mPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
+        }
+        if (updates.mortgagor_name || updates.client_name || updates.borrower_name) {
+          mPayload.mortgagor_name = updates.mortgagor_name || updates.client_name || updates.borrower_name;
+        }
+        if (updates.rim_no !== undefined) mPayload.rim_no = updates.rim_no;
+        if (updates.property_description !== undefined) mPayload.property_description = updates.property_description;
+        if (updates.loan_amount !== undefined) mPayload.loan_amount = Number(updates.loan_amount);
+        if (updates.stamp_duty !== undefined) mPayload.stamp_duty = Number(updates.stamp_duty);
+        if (updates.extra_copies !== undefined) mPayload.extra_copies = Number(updates.extra_copies);
+        if (updates.registration_fee !== undefined || updates.registration !== undefined) {
+          mPayload.registration_fee = Number(updates.registration_fee ?? updates.registration ?? 0);
+        }
+        if (updates.bank_charges !== undefined) mPayload.bank_charges = Number(updates.bank_charges);
+        if (updates.transport !== undefined) mPayload.transport = Number(updates.transport);
+        if (updates.other_disbursements !== undefined || updates.other !== undefined || updates.other_fees !== undefined) {
+          mPayload.other_disbursements = Number(updates.other_disbursements ?? updates.other_fees ?? updates.other ?? 0);
+        }
+        if (updates.total_disbursements !== undefined) mPayload.total_disbursements = Number(updates.total_disbursements);
+        if (updates.legal_fees !== undefined) mPayload.legal_fees = Number(updates.legal_fees);
+        if (updates.vat_18 !== undefined || updates.vat !== undefined) {
+          mPayload.vat_18 = Number(updates.vat_18 ?? updates.vat ?? 0);
+        }
+        if (updates.grand_total !== undefined) mPayload.grand_total = Number(updates.grand_total);
+        if (updates.date_of_receipt !== undefined) mPayload.date_of_receipt = updates.date_of_receipt || null;
+        if (updates.date_of_payment !== undefined) mPayload.date_of_payment = updates.date_of_payment || null;
+        if (updates.date_of_return !== undefined) mPayload.date_of_return = updates.date_of_return || null;
+        if (updates.comments !== undefined) mPayload.comments = updates.comments;
+        if (updates.status !== undefined) mPayload.status = updates.status;
+        if (updates.department !== undefined) mPayload.department = updates.department;
+        if (updates.assigned_lawyer_id !== undefined) mPayload.assigned_lawyer_id = updates.assigned_lawyer_id || null;
 
-      const { data, error } = await supabase
-        .from('mortgages')
-        .update(mPayload)
-        .eq('id', id)
-        .select('*');
+        const { data, error } = await safeMortgageTableMutation(
+          'mortgages',
+          'update',
+          mPayload,
+          id
+        );
 
-      if (!error && data && data.length > 0) {
-        updatedRecord = updatedRecord || data[0];
+        if (!error && data && data.length > 0) {
+          updatedRecord = updatedRecord || data[0];
+          cloudSaved = true;
+        } else if (error && !cloudError) {
+          cloudError = error.message;
+        }
+      } catch (err: any) {
+        if (!cloudError) cloudError = err?.message;
       }
-    } catch (err) {
-      // Continue to local sync
     }
 
-    // 3. Update local workstation backend
+    // 3. Update local workstation backend (and upsert via POST if PUT returns 404 for cloud-originating row)
+    let localServerSaved = false;
     try {
-      const res = await fetch(`/api/mortgages/${id}`, {
+      const res = await fetch(`/api/mortgages/${encodeURIComponent(id)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -1226,21 +1379,55 @@ export const MortgageService = {
       if (res.ok) {
         const json = await res.json();
         updatedRecord = updatedRecord || json.data;
+        localServerSaved = true;
+      } else if (res.status === 404) {
+        const upsertRes = await fetch('/api/mortgages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...(existingRecord || {}), ...updates, id }),
+        });
+        if (upsertRes.ok) {
+          const json = await upsertRes.json();
+          updatedRecord = updatedRecord || json.data;
+          localServerSaved = true;
+        }
+      } else {
+        const errJson = await res.json().catch(() => null);
+        if (errJson?.error && !cloudSaved) {
+          return { success: false, error: errJson.error };
+        }
       }
     } catch (localErr) {
       console.warn('[MortgageService] Local update notice:', localErr);
     }
 
-    // 4. Mirror update into browser localStorage
+    // 4. Mirror update into browser localStorage (preserving edited fields even if cloud table stripped optional columns)
     const existingLocal = readLocalMortgages().find((item) => String(item.id) === String(id));
-    const mergedLocal = upsertLocalMortgage({
-      ...(existingLocal || {}),
-      ...(updatedRecord || {}),
-      ...updates,
-      id,
-    });
+    const authoritativeMerged = normalizeMortgageRecord(
+      {
+        ...(existingRecord || {}),
+        ...(existingLocal || {}),
+        ...(updatedRecord || {}),
+        ...updates,
+        id,
+      },
+      updates.client_bank_name || updates.bank_name || existingRecord?.bank_name
+    );
+    upsertLocalMortgage(authoritativeMerged);
 
-    return { success: true, data: updatedRecord || mergedLocal };
+    if (!cloudSaved && isRealUuid && !localServerSaved) {
+      return {
+        success: false,
+        error: cloudError || 'Could not persist mortgage updates to database.',
+      };
+    }
+
+    return {
+      success: true,
+      data: authoritativeMerged,
+      cloudSaved,
+      cloudError: cloudSaved ? undefined : cloudError,
+    };
   },
 
   /**

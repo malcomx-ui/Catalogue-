@@ -146,6 +146,7 @@ export const ImportExcelModal: React.FC = () => {
 
           return {
             case_number: cleanCaseNum,
+            suit_no: getValue('suit_no', 'suitno', 'courtsuitno', 'court_suit_no', 'court_suit_number'),
             title: getValue(
               'title',
               'casetitle',

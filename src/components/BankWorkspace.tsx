@@ -138,7 +138,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         setConfirmDeleteId(null);
         setSelectedRecordForView((prev: any) => (prev?.id === record.id ? null : prev));
         setMortgages((prev) => prev.filter((item) => String(item.id) !== String(record.id)));
+      } else {
+        showCleanMessage('Could not delete mortgage record. Please verify permissions or connection.', 'error');
       }
+    } catch (err: any) {
+      console.error('Mortgage delete error:', err);
+      showCleanMessage(err?.message || 'Failed to delete mortgage record.', 'error');
     } finally {
       setDeletingId(null);
     }
@@ -1531,7 +1536,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             record={selectedRecordForEdit} 
             currentUser={currentUser} 
             onClose={() => setSelectedRecordForEdit(null)} 
-            onSuccess={() => loadBankData()} 
+            onSuccess={(updatedRecord, meta) => {
+              if (updatedRecord) {
+                setMortgages((prev) =>
+                  prev.map((item) =>
+                    String(item.id) === String(updatedRecord.id)
+                      ? { ...item, ...updatedRecord }
+                      : item
+                  )
+                );
+              }
+              if (meta && meta.cloudSaved === false && meta.cloudError) {
+                setCloudRlsNotice(meta.cloudError);
+              } else if (meta?.cloudSaved) {
+                setCloudRlsNotice(null);
+              }
+              loadBankData();
+            }} 
           />
         </div>
       )}

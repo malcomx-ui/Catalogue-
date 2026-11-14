@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { showCleanMessage } from '../../utils/notification';
 
 export interface UserEditFormProps {
   initialData: {
@@ -31,6 +32,7 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
     can_manage_settings: initialData.can_manage_settings ?? false,
   });
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleCheckboxChange = (field: string) => {
     setFormData((prev: any) => ({ ...prev, [field]: !prev[field] }));
@@ -39,14 +41,19 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     try {
       await onSave({
         id: initialData.id,
         ...formData,
       });
-    } catch (error) {
+      showCleanMessage('Staff permissions updated.', 'success');
+    } catch (error: any) {
       console.error('Failed to update individual permissions:', error);
+      const msg = error?.message || 'Failed to update individual permissions.';
+      setErrorMsg(msg);
+      showCleanMessage(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -58,6 +65,12 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
         <h2 className="text-xl font-bold text-gray-900">Edit Individual Access & Permissions</h2>
         <p className="text-sm text-gray-500">User: {initialData.email} ({initialData.full_name})</p>
       </div>
+
+      {errorMsg && (
+        <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+          {errorMsg}
+        </div>
+      )}
 
       {/* Branch Assignment */}
       <div>

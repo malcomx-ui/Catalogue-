@@ -143,32 +143,37 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     setImporting(true);
     setProgressMsg(`Importing ${parsedRecords.length} records into ${selectedBank} (${selectedMonth} ${recordYear})...`);
 
-    const result = await MortgageService.importExcelMortgages(
-      parsedRecords,
-      selectedBank,
-      (msg) => setProgressMsg(msg),
-      currentUser
-    );
-
-    setImporting(false);
-    setProgressMsg(null);
-
-    if (result.success) {
-      setSuccessMsg(
-        result.cloudSaved
-          ? `Successfully imported ${result.count} mortgage records to ${selectedBank} for ${selectedMonth} ${recordYear}.`
-          : `Imported ${result.count} mortgage records to workstation register for ${selectedBank} (${selectedMonth} ${recordYear}).`
+    try {
+      const result = await MortgageService.importExcelMortgages(
+        parsedRecords,
+        selectedBank,
+        (msg) => setProgressMsg(msg),
+        currentUser
       );
-      setTimeout(() => {
-        onSuccess({
-          count: result.count,
-          cloudSaved: result.cloudSaved,
-          cloudError: result.cloudError,
-        });
-        onClose();
-      }, 850);
-    } else {
-      setErrorMsg(result.error || 'Import failed. Please check the Excel format and try again.');
+
+      if (result.success) {
+        setSuccessMsg(
+          result.cloudSaved
+            ? `Successfully imported ${result.count} mortgage records to ${selectedBank} for ${selectedMonth} ${recordYear}.`
+            : `Imported ${result.count} mortgage records to workstation register for ${selectedBank} (${selectedMonth} ${recordYear}).`
+        );
+        setTimeout(() => {
+          onSuccess({
+            count: result.count,
+            cloudSaved: result.cloudSaved,
+            cloudError: result.cloudError,
+          });
+          onClose();
+        }, 850);
+      } else {
+        setErrorMsg(result.error || 'Import failed. Please check the Excel format and try again.');
+      }
+    } catch (err: any) {
+      console.error('Mortgage import error:', err);
+      setErrorMsg(err?.message || 'Unexpected error occurred during bulk import.');
+    } finally {
+      setImporting(false);
+      setProgressMsg(null);
     }
   };
 

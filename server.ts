@@ -45,10 +45,10 @@ if (!fs.existsSync(DB_DIR)) {
 const DEFAULT_DATABASE = {
   version: '2.0',
   lastUpdated: new Date().toISOString(),
-  cases: [],
-  hearings: [],
-  documents: [],
-  mortgages: [],
+  cases: [] as any[],
+  hearings: [] as any[],
+  documents: [] as any[],
+  mortgages: [] as any[],
   branches: [
     {
       id: 'kla-hq',
@@ -576,6 +576,9 @@ app.post('/api/database', (req: Request, res: Response) => {
 // Proxy endpoint for live cases fetching to bridge browser restrictions/CORS if any
 app.get('/api/cases', async (req: Request, res: Response) => {
   try {
+    const db = readDatabase();
+    const localCases: any[] = Array.isArray(db.cases) ? db.cases : [];
+
     // 1. Try querying remote Supabase directly via server-side client
     const { data, error } = await supabaseAdmin
       .from('cases')
@@ -583,21 +586,96 @@ app.get('/api/cases', async (req: Request, res: Response) => {
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data)) {
-      // Also cache in local database
-      const db = readDatabase();
-      if (data.length > 0) {
-        (db as any).cases = data;
+      const localById = new Map<string, any>();
+      localCases.forEach((lc: any) => {
+        if (lc?.id) localById.set(String(lc.id), lc);
+      });
+
+      // Preserve newer local progressiveNotes / fileMovementHistory / transferHistory if DB lacks those columns
+      const merged = data.map((row: any) => {
+        const local = row?.id ? localById.get(String(row.id)) : null;
+        if (!local) return row;
+        return {
+          ...row,
+          progressiveNotes: Array.isArray(row.progressive_notes) && row.progressive_notes.length > 0
+            ? row.progressive_notes
+            : (local.progressiveNotes || []),
+          fileMovementHistory: Array.isArray(row.file_movement_history) && row.file_movement_history.length > 0
+            ? row.file_movement_history
+            : (local.fileMovementHistory || []),
+          transferHistory: Array.isArray(row.transfer_history) && row.transfer_history.length > 0
+            ? row.transfer_history
+            : (local.transferHistory || []),
+        };
+      });
+
+      if (merged.length > 0) {
+        (db as any).cases = merged;
         writeDatabase(db);
       }
-      return res.json({ success: true, data, source: 'supabase' });
+      return res.json({ success: true, data: merged, source: 'supabase' });
     }
 
     // 2. Fallback to local workstation database
-    const db = readDatabase();
-    res.json({ success: true, data: db.cases || [], source: 'local_database' });
+    res.json({ success: true, data: localCases, source: 'local_database' });
   } catch (err: any) {
     const db = readDatabase();
     res.json({ success: true, data: db.cases || [], source: 'local_database', warning: err.message });
+  }
+});
+
+app.post('/api/cases', (req: Request, res: Response) => {
+  try {
+    const db = readDatabase();
+    const payload = { ...(req.body || {}) };
+    const id = payload.id || `case-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const nowIso = new Date().toISOString();
+    const record = { ...payload, id, lastUpdated: payload.lastUpdated || nowIso };
+
+    const list: any[] = Array.isArray(db.cases) ? db.cases : [];
+    const idx = list.findIndex((c: any) => String(c.id) === String(id));
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...record };
+    } else {
+      list.unshift(record);
+    }
+    (db as any).cases = list;
+    writeDatabase(db);
+    return res.json({ success: true, data: record });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to save case in workstation DB.' });
+  }
+});
+
+app.put('/api/cases/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updates = { ...(req.body || {}), lastUpdated: new Date().toISOString() };
+    const db = readDatabase();
+    const list: any[] = Array.isArray(db.cases) ? db.cases : [];
+    const idx = list.findIndex((c: any) => String(c.id) === String(id));
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...updates, id };
+    } else {
+      list.unshift({ ...updates, id });
+    }
+    (db as any).cases = list;
+    writeDatabase(db);
+    return res.json({ success: true, data: list[idx >= 0 ? idx : 0] });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to update case in workstation DB.' });
+  }
+});
+
+app.delete('/api/cases/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const db = readDatabase();
+    db.cases = (db.cases || []).filter((c: any) => String(c.id) !== String(id));
+    writeDatabase(db);
+    return res.json({ success: true, deletedId: id });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to delete case from workstation DB.' });
   }
 });
 

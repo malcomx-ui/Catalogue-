@@ -171,6 +171,9 @@ export const AccessRolesManager: React.FC = () => {
       } else {
         showToast('error', res.error || 'Could not update role.');
       }
+    } catch (err: any) {
+      console.error('Inline role change failed:', err);
+      showToast('error', err?.message || 'Could not update role.');
     } finally {
       setUpdatingUserId(null);
     }
@@ -190,6 +193,9 @@ export const AccessRolesManager: React.FC = () => {
       } else {
         showToast('error', res.error || 'Could not update branch station.');
       }
+    } catch (err: any) {
+      console.error('Inline branch change failed:', err);
+      showToast('error', err?.message || 'Could not update branch station.');
     } finally {
       setUpdatingUserId(null);
     }
@@ -283,20 +289,30 @@ export const AccessRolesManager: React.FC = () => {
 
   const handleConfirmSuspend = async () => {
     if (!suspendTargetUser) return;
-    await toggleSuspendUser(suspendTargetUser.id, suspendReason);
-    showToast('success', `${suspendTargetUser.name} access hold updated.`);
-    setSuspendTargetUser(null);
+    try {
+      await toggleSuspendUser(suspendTargetUser.id, suspendReason);
+      showToast('success', `${suspendTargetUser.name} access hold updated.`);
+      setSuspendTargetUser(null);
+    } catch (err: any) {
+      console.error('Suspend user error:', err);
+      showToast('error', err?.message || 'Could not update user suspension status.');
+    }
   };
 
   const handleConfirmDeleteUser = async () => {
     if (!deleteTargetUser) return;
     const target = deleteTargetUser;
     setDeleteTargetUser(null);
-    const ok = await deleteUser(target.id);
-    if (ok) {
-      showToast('success', `${target.name} removed from active directory.`);
-    } else {
-      showToast('error', `Could not delete ${target.name}.`);
+    try {
+      const ok = await deleteUser(target.id);
+      if (ok) {
+        showToast('success', `${target.name} removed from active directory.`);
+      } else {
+        showToast('error', `Could not delete ${target.name}.`);
+      }
+    } catch (err: any) {
+      console.error('Delete user error:', err);
+      showToast('error', err?.message || `Could not delete ${target.name}.`);
     }
   };
 
@@ -1258,16 +1274,23 @@ $$;`;
           roles={roles}
           branches={branches}
           onSave={async (updates) => {
-            const res = await updateUser(editTargetUser.id, updates);
-            if (res.success) {
-              if (res.warning) {
-                showToast('warning', `${updates.name || editTargetUser.name} updated. ${res.warning}`);
-              } else {
-                showToast('success', `${updates.name || editTargetUser.name} updated and synced.`);
+            try {
+              const res = await updateUser(editTargetUser.id, updates);
+              if (res.success) {
+                if (res.warning) {
+                  showToast('warning', `${updates.name || editTargetUser.name} updated. ${res.warning}`);
+                } else {
+                  showToast('success', `${updates.name || editTargetUser.name} updated and synced.`);
+                }
+                setEditTargetUser(null);
               }
-              setEditTargetUser(null);
+              return res;
+            } catch (err: any) {
+              console.error('Edit staff save error:', err);
+              const msg = err?.message || 'Could not persist staff updates.';
+              showToast('error', msg);
+              return { success: false, error: msg };
             }
-            return res;
           }}
           onClose={() => setEditTargetUser(null)}
           onOpenWelcomePackage={(updatedUser) => {

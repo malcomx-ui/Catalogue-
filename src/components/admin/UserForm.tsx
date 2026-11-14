@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { showCleanMessage } from '../../utils/notification';
 
 export interface UserFormProps {
   initialData?: {
@@ -20,6 +21,7 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
   const [roleId, setRoleId] = useState(initialData?.roleId || 'branch_admin');
   const [branchId, setBranchId] = useState(initialData?.branch_id || '');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Determine role flags based on the selected roleId
   const isSystemAdmin = roleId === 'system_admin' || roleId === 'super_admin' || roleId === 'role-super-admin';
@@ -28,6 +30,7 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
 
     try {
       const selectedBranch = branches.find((b) => b.id === branchId);
@@ -46,8 +49,12 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
       };
 
       await onSave(payload);
-    } catch (error) {
+      showCleanMessage('User profile saved.', 'success');
+    } catch (error: any) {
       console.error('Failed to save user:', error);
+      const msg = error?.message || 'Failed to save user profile.';
+      setErrorMsg(msg);
+      showCleanMessage(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -58,6 +65,12 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
       <h2 className="text-xl font-bold text-gray-900">
         {initialData?.id ? 'Edit User Profile' : 'Create New User'}
       </h2>
+
+      {errorMsg && (
+        <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+          {errorMsg}
+        </div>
+      )}
 
       {/* Full Name */}
       <div>

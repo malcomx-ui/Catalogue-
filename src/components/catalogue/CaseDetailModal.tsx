@@ -90,6 +90,9 @@ export const CaseDetailModal: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDeletePending, setConfirmDeletePending] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSubmittingTrail, setIsSubmittingTrail] = useState(false);
 
   // Live Supabase detail record & loading state
   const [fetchedRecord, setFetchedRecord] = useState<any>(null);
@@ -169,7 +172,11 @@ export const CaseDetailModal: React.FC = () => {
       setIsLoadingRecord(true);
       try {
         let data: any[] | null = null;
-        if (caseId) {
+        const isUuidId =
+          caseId &&
+          !String(caseId).startsWith('case-') &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(caseId));
+        if (isUuidId) {
           const res = await supabase.from('cases').select('*').eq('id', caseId).limit(1);
           if (!res.error && res.data && res.data.length > 0) {
             data = res.data;
@@ -200,30 +207,46 @@ export const CaseDetailModal: React.FC = () => {
     return () => { isMounted = false; };
   }, [rawSelectedCase?.id, rawSelectedCase?.case_number, rawSelectedCase?.suitNumber]);
 
-  // Combined active case record guaranteeing all Supabase and frontend fields are present
+  // Combined active case record: rawSelectedCase (live context state) takes precedence over stale fetchedRecord
   const activeCase: any = rawSelectedCase
     ? {
-        ...rawSelectedCase,
         ...(fetchedRecord || {}),
-        suitNumber: fetchedRecord?.suit_number || fetchedRecord?.case_number || rawSelectedCase.suitNumber || rawSelectedCase.case_number || '',
-        case_number: fetchedRecord?.case_number || fetchedRecord?.suit_number || rawSelectedCase.case_number || rawSelectedCase.suitNumber || '',
-        suit_no: fetchedRecord?.suit_no || rawSelectedCase.suit_no || (rawSelectedCase as any).suitNo || '',
-        clientName: fetchedRecord?.client_name || rawSelectedCase.clientName || (rawSelectedCase as any).client || '',
-        client: fetchedRecord?.client_name || (rawSelectedCase as any).client || rawSelectedCase.clientName || '',
-        branchName: fetchedRecord?.branch_name || rawSelectedCase.branchName || (rawSelectedCase as any).branch || '',
-        branch: fetchedRecord?.branch_name || (rawSelectedCase as any).branch || rawSelectedCase.branchName || '',
-        leadAdvocate: fetchedRecord?.lead_advocate || rawSelectedCase.leadAdvocate || (rawSelectedCase as any).person_in_conduct || '',
-        courtStation: fetchedRecord?.court_station || rawSelectedCase.courtStation || (rawSelectedCase as any).district || '',
-        district: fetchedRecord?.court_station || (rawSelectedCase as any).district || rawSelectedCase.courtStation || '',
-        briefSummary: fetchedRecord?.brief_summary || rawSelectedCase.briefSummary || (rawSelectedCase as any).subject_matter || '',
-        subject_matter: fetchedRecord?.brief_summary || (rawSelectedCase as any).subject_matter || rawSelectedCase.briefSummary || '',
-        filingDate: fetchedRecord?.filing_date || rawSelectedCase.filingDate || (rawSelectedCase as any).date_of_instructions || '',
-        date_of_instructions: fetchedRecord?.filing_date || (rawSelectedCase as any).date_of_instructions || rawSelectedCase.filingDate || '',
-        hearing_date: fetchedRecord?.hearing_date || fetchedRecord?.next_hearing_date || (rawSelectedCase as any).hearing_date || rawSelectedCase.nextHearingDate || '',
-        nextHearingDate: fetchedRecord?.next_hearing_date || fetchedRecord?.hearing_date || rawSelectedCase.nextHearingDate || (rawSelectedCase as any).hearing_date || '',
-        file_location: fetchedRecord?.file_location || (rawSelectedCase as any).file_location || (rawSelectedCase as any).fileLocation || '',
-        progressiveNotes: rawSelectedCase.progressiveNotes || fetchedRecord?.progressiveNotes || [],
-        fileMovementHistory: rawSelectedCase.fileMovementHistory || fetchedRecord?.fileMovementHistory || [],
+        ...rawSelectedCase,
+        suitNumber: rawSelectedCase.suitNumber || rawSelectedCase.case_number || fetchedRecord?.suit_number || fetchedRecord?.case_number || '',
+        case_number: rawSelectedCase.case_number || rawSelectedCase.suitNumber || fetchedRecord?.case_number || fetchedRecord?.suit_number || '',
+        suit_no: rawSelectedCase.suit_no || (rawSelectedCase as any).suitNo || fetchedRecord?.suit_no || '',
+        clientName: rawSelectedCase.clientName || (rawSelectedCase as any).client || fetchedRecord?.client_name || '',
+        client: (rawSelectedCase as any).client || rawSelectedCase.clientName || fetchedRecord?.client_name || '',
+        branchName: rawSelectedCase.branchName || (rawSelectedCase as any).branch || fetchedRecord?.branch_name || '',
+        branch: (rawSelectedCase as any).branch || rawSelectedCase.branchName || fetchedRecord?.branch_name || '',
+        leadAdvocate: rawSelectedCase.leadAdvocate || (rawSelectedCase as any).person_in_conduct || fetchedRecord?.lead_advocate || '',
+        courtStation: rawSelectedCase.courtStation || (rawSelectedCase as any).district || fetchedRecord?.court_station || '',
+        district: (rawSelectedCase as any).district || rawSelectedCase.courtStation || fetchedRecord?.court_station || '',
+        briefSummary: rawSelectedCase.briefSummary || (rawSelectedCase as any).subject_matter || fetchedRecord?.brief_summary || '',
+        subject_matter: (rawSelectedCase as any).subject_matter || rawSelectedCase.briefSummary || fetchedRecord?.brief_summary || '',
+        filingDate: rawSelectedCase.filingDate || (rawSelectedCase as any).date_of_instructions || fetchedRecord?.filing_date || '',
+        date_of_instructions: (rawSelectedCase as any).date_of_instructions || rawSelectedCase.filingDate || fetchedRecord?.filing_date || '',
+        hearing_date: (rawSelectedCase as any).hearing_date || rawSelectedCase.nextHearingDate || fetchedRecord?.hearing_date || fetchedRecord?.next_hearing_date || '',
+        nextHearingDate: rawSelectedCase.nextHearingDate || (rawSelectedCase as any).hearing_date || fetchedRecord?.next_hearing_date || fetchedRecord?.hearing_date || '',
+        file_location: (rawSelectedCase as any).file_location || (rawSelectedCase as any).fileLocation || fetchedRecord?.file_location || '',
+        target: (rawSelectedCase as any).target ?? fetchedRecord?.target ?? '',
+        verdict: (rawSelectedCase as any).verdict ?? fetchedRecord?.verdict ?? '',
+        notes: (rawSelectedCase as any).notes ?? fetchedRecord?.notes ?? '',
+        billing_status: (rawSelectedCase as any).billing_status ?? fetchedRecord?.billing_status ?? '',
+        payment_status: (rawSelectedCase as any).payment_status ?? fetchedRecord?.payment_status ?? '',
+        year_of_closure: (rawSelectedCase as any).year_of_closure ?? fetchedRecord?.year_of_closure ?? null,
+        progressiveNotes:
+          rawSelectedCase.progressiveNotes && rawSelectedCase.progressiveNotes.length > 0
+            ? rawSelectedCase.progressiveNotes
+            : fetchedRecord?.progressiveNotes || rawSelectedCase.progressiveNotes || [],
+        fileMovementHistory:
+          rawSelectedCase.fileMovementHistory && rawSelectedCase.fileMovementHistory.length > 0
+            ? rawSelectedCase.fileMovementHistory
+            : fetchedRecord?.fileMovementHistory || rawSelectedCase.fileMovementHistory || [],
+        transferHistory:
+          rawSelectedCase.transferHistory && rawSelectedCase.transferHistory.length > 0
+            ? rawSelectedCase.transferHistory
+            : fetchedRecord?.transferHistory || rawSelectedCase.transferHistory || [],
         parties: rawSelectedCase.parties || fetchedRecord?.parties || [],
       }
     : null;
@@ -231,9 +254,9 @@ export const CaseDetailModal: React.FC = () => {
   // Single authoritative reference for both Supabase fields and camelCase frontend props
   const selectedCase: any = activeCase;
 
-  // Initialize edit form when activeCase changes
+  // Initialize / resync edit form when activeCase changes (without clobbering active typing)
   useEffect(() => {
-    if (activeCase) {
+    if (activeCase && !isEditing) {
       let initialPersons: string[] = [];
       if (activeCase.persons_in_conduct && activeCase.persons_in_conduct.length > 0) {
         initialPersons = [...activeCase.persons_in_conduct];
@@ -248,7 +271,7 @@ export const CaseDetailModal: React.FC = () => {
 
       const rawStatus = (activeCase.status || 'Active').trim();
       const statusLower = rawStatus.toLowerCase();
-      const mappedStatus = 
+      const mappedStatus =
         statusLower === 'archived' ? 'Archived' :
         statusLower === 'closed' ? 'Closed' :
         statusLower.includes('execution') ? 'At Execution' :
@@ -287,12 +310,10 @@ export const CaseDetailModal: React.FC = () => {
       setNewHearingJudge(activeCase.presiding_judge || activeCase.presidingJudge || '');
       setFromLoc(activeCase.file_location || `${activeCase.branch_name || activeCase.branchName || 'Kampala Central'} Registry Cabinet`);
       setMovedBy(currentUser?.name || '');
-      setIsRecordingMovement(false);
-      setIsAddingNote(false);
-      setIsEditing(false);
+      setEditError(null);
       setConfirmDeletePending(false);
     }
-  }, [rawSelectedCase?.id, fetchedRecord?.id, branches, currentUser]);
+  }, [rawSelectedCase?.id, rawSelectedCase?.lastUpdated, fetchedRecord?.id, branches, currentUser]);
 
   const currentBranchObj = activeCase
     ? branches.find((b) => b.name === editForm.branch || b.id === (activeCase.branch_id || activeCase.branchId)) || branches[0]
@@ -320,13 +341,48 @@ export const CaseDetailModal: React.FC = () => {
     'Disposed & Closed',
   ];
 
-  const handleStageChange = (newStage: CaseStage) => {
+  const handleStageChange = async (newStage: CaseStage) => {
     if (!activeCase) return;
     if (!canUserModifyCase(getEffectiveUser(currentUser), activeCase)) {
       showCleanMessage('View-Only Access: Modifications are restricted to cases belonging to your assigned branch.', 'warning');
       return;
     }
-    updateCaseStage(activeCase.id, newStage);
+    try {
+      const ok = await updateCaseStage(activeCase.id, newStage);
+      if (ok) {
+        setFetchedRecord((prev: any) => (prev ? { ...prev, stage: newStage } : prev));
+      }
+    } catch (err: any) {
+      console.error('Stage change error:', err);
+      showCleanMessage(err?.message || 'Could not update case stage.', 'error');
+    }
+  };
+
+  const handleQuickStatusChange = async (newStatus: string) => {
+    if (!activeCase || !canUserModifyCase(getEffectiveUser(currentUser), activeCase)) {
+      showCleanMessage('View-Only Access: Status changes are restricted to cases belonging to your assigned branch.', 'warning');
+      return;
+    }
+    setIsUpdatingStatus(true);
+    try {
+      const statusUpdate: Partial<CaseItem> = {
+        status: newStatus as any,
+        year_of_closure:
+          newStatus === 'Closed' || newStatus === 'Archived'
+            ? activeCase.year_of_closure || new Date().getFullYear()
+            : activeCase.year_of_closure ?? null,
+      };
+      const saved = await updateCase(activeCase.id, statusUpdate);
+      if (saved) {
+        setFetchedRecord(saved);
+        showCleanMessage(`Case status updated to "${newStatus}".`, 'success');
+      }
+    } catch (err: any) {
+      console.error('Quick status change error:', err);
+      showCleanMessage(err?.message || 'Failed to update case status.', 'error');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const handleRequestDeleteCase = () => {
@@ -402,8 +458,9 @@ export const CaseDetailModal: React.FC = () => {
     );
 
     setIsSavingEdit(true);
+    setEditError(null);
     try {
-      await updateCase(selectedCase.id, {
+      const saved = await updateCase(selectedCase.id, {
         title: editForm.title.trim(),
         case_number: editForm.case_number.trim(),
         suitNumber: editForm.case_number.trim(),
@@ -414,6 +471,7 @@ export const CaseDetailModal: React.FC = () => {
         branchName: selectedBranchMeta.branchName,
         branchId: selectedBranchMeta.branchId,
         case_type: editForm.case_type,
+        division: editForm.case_type as any,
         status: resolvedStatus as any,
         date_of_instructions: editForm.date_of_instructions,
         filingDate: editForm.date_of_instructions || selectedCase.filingDate,
@@ -421,6 +479,7 @@ export const CaseDetailModal: React.FC = () => {
         nextHearingDate: editForm.hearing_date,
         court: editForm.court.trim(),
         district: editForm.district.trim(),
+        courtStation: editForm.district.trim() || selectedCase.courtStation,
         person_in_conduct: combinedPersons,
         persons_in_conduct: validPersons.length > 0 ? validPersons : [primaryLead],
         leadAdvocate: primaryLead,
@@ -439,27 +498,46 @@ export const CaseDetailModal: React.FC = () => {
         payment_status: editForm.payment_status.trim(),
         verdict: editForm.verdict.trim(),
       });
+      if (!saved) {
+        const msg = 'Could not save case updates. Please verify your permissions and connection.';
+        setEditError(msg);
+        showCleanMessage(msg, 'error');
+        return;
+      }
+      setFetchedRecord(saved);
+      showCleanMessage('Case record updated and saved.', 'success');
       setIsEditing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Update case error:', err);
+      const errMsg = err?.message || 'Failed to save case updates.';
+      setEditError(errMsg);
+      showCleanMessage(errMsg, 'error');
     } finally {
       setIsSavingEdit(false);
     }
   };
 
-  const handleTransferSubmit = (e: React.FormEvent) => {
+  const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isUserAdmin(getEffectiveUser(currentUser))) {
       showCleanMessage('Permission Denied: Only Firm / Super Administrators can transfer cases between branches.', 'warning');
       return;
     }
     if (!targetBranchId || !transferReason.trim()) return;
-    transferCaseToBranch(selectedCase.id, targetBranchId, transferReason);
-    setIsTransferring(false);
-    setTransferReason('');
+    setIsSubmittingTrail(true);
+    try {
+      await transferCaseToBranch(selectedCase.id, targetBranchId, transferReason);
+      setIsTransferring(false);
+      setTransferReason('');
+    } catch (err: any) {
+      console.error('Transfer submit error:', err);
+      showCleanMessage(err?.message || 'Could not transfer case branch.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
-  const handleScheduleHearing = (e: React.FormEvent) => {
+  const handleScheduleHearing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
       showCleanMessage('View-Only Access: You can only schedule hearings for cases in your assigned branch.', 'warning');
@@ -467,29 +545,37 @@ export const CaseDetailModal: React.FC = () => {
     }
     if (!newHearingDate || !newHearingPurpose.trim()) return;
 
-    addHearing({
-      caseId: selectedCase.id,
-      suitNumber: selectedCase.suitNumber,
-      caseTitle: selectedCase.title,
-      hearingDate: newHearingDate,
-      hearingTime: newHearingTime,
-      courtName: selectedCase.court,
-      division: selectedCase.division,
-      courtRoom: 'Courtroom / Chamber',
-      presidingJudge: newHearingJudge || selectedCase.presidingJudge,
-      hearingPurpose: newHearingPurpose,
-      leadCounsel: selectedCase.leadAdvocate,
-      assignedAdvocates: [selectedCase.leadAdvocate],
-      status: 'Scheduled',
-      branchId: selectedCase.branchId,
-    });
+    setIsSubmittingTrail(true);
+    try {
+      await addHearing({
+        caseId: selectedCase.id,
+        suitNumber: selectedCase.suitNumber,
+        caseTitle: selectedCase.title,
+        hearingDate: newHearingDate,
+        hearingTime: newHearingTime,
+        courtName: selectedCase.court,
+        division: selectedCase.division,
+        courtRoom: 'Courtroom / Chamber',
+        presidingJudge: newHearingJudge || selectedCase.presidingJudge,
+        hearingPurpose: newHearingPurpose,
+        leadCounsel: selectedCase.leadAdvocate,
+        assignedAdvocates: [selectedCase.leadAdvocate],
+        status: 'Scheduled',
+        branchId: selectedCase.branchId,
+      });
 
-    setIsSchedulingHearing(false);
-    setNewHearingPurpose('');
-    setNewHearingDate('');
+      setIsSchedulingHearing(false);
+      setNewHearingPurpose('');
+      setNewHearingDate('');
+    } catch (err: any) {
+      console.error('Schedule hearing error:', err);
+      showCleanMessage(err?.message || 'Could not schedule hearing.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
-  const handleDocumentSubmit = (e: React.FormEvent) => {
+  const handleDocumentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
       showCleanMessage('View-Only Access: You can only upload documents for cases in your assigned branch.', 'warning');
@@ -497,26 +583,34 @@ export const CaseDetailModal: React.FC = () => {
     }
     if (!docTitle.trim()) return;
 
-    addDocument({
-      caseId: selectedCase.id,
-      suitNumber: selectedCase.suitNumber,
-      title: docTitle,
-      documentType: docType,
-      fileFormat: 'pdf',
-      fileSize: '2.4 MB',
-      filingDate: new Date().toISOString().split('T')[0],
-      filedBy: currentUser?.name || 'System User',
-      courtRegistryStamp: true,
-      summary: docSummary || 'Pleading indexed in centralized registry.',
-      version: 1,
-    });
+    setIsSubmittingTrail(true);
+    try {
+      await addDocument({
+        caseId: selectedCase.id,
+        suitNumber: selectedCase.suitNumber,
+        title: docTitle,
+        documentType: docType,
+        fileFormat: 'pdf',
+        fileSize: '2.4 MB',
+        filingDate: new Date().toISOString().split('T')[0],
+        filedBy: currentUser?.name || 'System User',
+        courtRegistryStamp: true,
+        summary: docSummary || 'Pleading indexed in centralized registry.',
+        version: 1,
+      });
 
-    setIsUploadingDoc(false);
-    setDocTitle('');
-    setDocSummary('');
+      setIsUploadingDoc(false);
+      setDocTitle('');
+      setDocSummary('');
+    } catch (err: any) {
+      console.error('Document index error:', err);
+      showCleanMessage(err?.message || 'Could not index document.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
-  const handleMovementSubmit = (e: React.FormEvent) => {
+  const handleMovementSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
       showCleanMessage('View-Only Access: You can only record file movements for cases in your assigned branch.', 'warning');
@@ -524,22 +618,33 @@ export const CaseDetailModal: React.FC = () => {
     }
     if (!toLoc.trim() || !movementReason.trim()) return;
 
-    addFileMovement(selectedCase.id, {
-      fromLocation: fromLoc.trim() || selectedCase.file_location || 'Registry Intake',
-      toLocation: toLoc.trim(),
-      movedBy: movedBy.trim() || currentUser?.name || 'System User',
-      receivedBy: receivedBy.trim() || undefined,
-      reason: movementReason.trim(),
-      status: movementStatus,
-    });
+    setIsSubmittingTrail(true);
+    try {
+      const ok = await addFileMovement(selectedCase.id, {
+        fromLocation: fromLoc.trim() || selectedCase.file_location || 'Registry Intake',
+        toLocation: toLoc.trim(),
+        movedBy: movedBy.trim() || currentUser?.name || 'System User',
+        receivedBy: receivedBy.trim() || undefined,
+        reason: movementReason.trim(),
+        status: movementStatus,
+      });
 
-    setIsRecordingMovement(false);
-    setToLoc('');
-    setMovementReason('');
-    setReceivedBy('');
+      if (ok !== false) {
+        setFetchedRecord((prev: any) => (prev ? { ...prev, file_location: toLoc.trim() } : prev));
+        setIsRecordingMovement(false);
+        setToLoc('');
+        setMovementReason('');
+        setReceivedBy('');
+      }
+    } catch (err: any) {
+      console.error('Movement submit error:', err);
+      showCleanMessage(err?.message || 'Could not save file movement.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
-  const handleProgressiveNoteSubmit = (e: React.FormEvent) => {
+  const handleProgressiveNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
       showCleanMessage('View-Only Access: You can only add notes for cases in your assigned branch.', 'warning');
@@ -547,18 +652,28 @@ export const CaseDetailModal: React.FC = () => {
     }
     if (!noteContent.trim()) return;
 
-    addProgressiveNote(selectedCase.id, {
-      author: currentUser?.name || 'System User',
-      authorRole: currentUser?.roleTitle || 'Advocate',
-      category: noteCategory,
-      content: noteContent.trim(),
-    });
+    setIsSubmittingTrail(true);
+    try {
+      const ok = await addProgressiveNote(selectedCase.id, {
+        author: currentUser?.name || 'System User',
+        authorRole: currentUser?.roleTitle || 'Advocate',
+        category: noteCategory,
+        content: noteContent.trim(),
+      });
 
-    setNoteContent('');
-    setIsAddingNote(false);
+      if (ok !== false) {
+        setNoteContent('');
+        setIsAddingNote(false);
+      }
+    } catch (err: any) {
+      console.error('Progressive note submit error:', err);
+      showCleanMessage(err?.message || 'Could not save progressive note.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
-  const handleQuickNoteSubmit = (e: React.FormEvent) => {
+  const handleQuickNoteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canUserModifyCase(getEffectiveUser(currentUser), selectedCase)) {
       showCleanMessage('View-Only Access: You can only add notes for cases in your assigned branch.', 'warning');
@@ -566,14 +681,24 @@ export const CaseDetailModal: React.FC = () => {
     }
     if (!quickNoteContent.trim()) return;
 
-    addProgressiveNote(selectedCase.id, {
-      author: currentUser?.name || 'System User',
-      authorRole: currentUser?.roleTitle || 'Advocate',
-      category: quickNoteCategory,
-      content: quickNoteContent.trim(),
-    });
+    setIsSubmittingTrail(true);
+    try {
+      const ok = await addProgressiveNote(selectedCase.id, {
+        author: currentUser?.name || 'System User',
+        authorRole: currentUser?.roleTitle || 'Advocate',
+        category: quickNoteCategory,
+        content: quickNoteContent.trim(),
+      });
 
-    setQuickNoteContent('');
+      if (ok !== false) {
+        setQuickNoteContent('');
+      }
+    } catch (err: any) {
+      console.error('Quick note submit error:', err);
+      showCleanMessage(err?.message || 'Could not save quick note.', 'error');
+    } finally {
+      setIsSubmittingTrail(false);
+    }
   };
 
   const handleCopyNote = (id: string, text: string) => {
@@ -727,6 +852,12 @@ export const CaseDetailModal: React.FC = () => {
               <span className="font-bold text-slate-900 text-sm">Edit Case Record</span>
               <span className="text-slate-400 text-[11px]">Update fields as per firm structure</span>
             </div>
+
+            {editError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                {editError}
+              </div>
+            )}
 
             {/* Card 1: Case details */}
             <div className="border border-slate-200 rounded-lg p-4 bg-white shadow-2xs space-y-4">
@@ -1330,41 +1461,57 @@ export const CaseDetailModal: React.FC = () => {
                       {/* 6. Status */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('status', 'Status').label}</span>
-                        <span className={`inline-block px-2.5 py-0.5 rounded font-medium text-[10px] border ${
-                          (() => {
-                            const s = (selectedCase.status || '').toLowerCase();
-                            if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
-                              return 'bg-slate-100 text-slate-700 border-slate-300';
-                            }
-                            if (s.includes('archived')) {
-                              return 'bg-zinc-100 text-zinc-700 border-zinc-300';
-                            }
-                            if (s.includes('execution') || s.includes('decree')) {
-                              return 'bg-amber-100 text-amber-900 border-amber-300';
-                            }
-                            if (s.includes('active') || s.includes('ongoing')) {
-                              return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-                            }
-                            if (s.includes('mention')) {
-                              return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-                            }
-                            if (s.includes('ruling') || s.includes('judgment')) {
-                              return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-                            }
-                            if (s.includes('pending') || s.includes('instruction')) {
-                              return 'bg-amber-50 text-amber-700 border-amber-200';
-                            }
-                            if (s.includes('adjourn')) {
-                              return 'bg-purple-50 text-purple-700 border-purple-200';
-                            }
-                            if (s.includes('dormant') || s.includes('inactive')) {
-                              return 'bg-rose-50 text-rose-700 border-rose-200';
-                            }
-                            return 'bg-blue-50 text-blue-700 border-blue-200';
-                          })()
-                        }`}>
-                          {selectedCase.status || 'Active'}
-                        </span>
+                        {canModifyThisCase ? (
+                          <select
+                            value={selectedCase.status || 'Active'}
+                            disabled={isUpdatingStatus}
+                            onChange={(e) => handleQuickStatusChange(e.target.value)}
+                            aria-label="Update case status"
+                            className="mt-0.5 bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-600 disabled:opacity-50"
+                          >
+                            {CASE_STATUSES.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={`inline-block px-2.5 py-0.5 rounded font-medium text-[10px] border ${
+                            (() => {
+                              const s = (selectedCase.status || '').toLowerCase();
+                              if (s.includes('closed') || s.includes('concluded') || s.includes('disposed')) {
+                                return 'bg-slate-100 text-slate-700 border-slate-300';
+                              }
+                              if (s.includes('archived')) {
+                                return 'bg-zinc-100 text-zinc-700 border-zinc-300';
+                              }
+                              if (s.includes('execution') || s.includes('decree')) {
+                                return 'bg-amber-100 text-amber-900 border-amber-300';
+                              }
+                              if (s.includes('active') || s.includes('ongoing')) {
+                                return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                              }
+                              if (s.includes('mention')) {
+                                return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+                              }
+                              if (s.includes('ruling') || s.includes('judgment')) {
+                                return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                              }
+                              if (s.includes('pending') || s.includes('instruction')) {
+                                return 'bg-amber-50 text-amber-700 border-amber-200';
+                              }
+                              if (s.includes('adjourn')) {
+                                return 'bg-purple-50 text-purple-700 border-purple-200';
+                              }
+                              if (s.includes('dormant') || s.includes('inactive')) {
+                                return 'bg-rose-50 text-rose-700 border-rose-200';
+                              }
+                              return 'bg-blue-50 text-blue-700 border-blue-200';
+                            })()
+                          }`}>
+                            {selectedCase.status || 'Active'}
+                          </span>
+                        )}
                       </div>
 
                       {/* 7. Date of instructions */}
@@ -1561,11 +1708,11 @@ export const CaseDetailModal: React.FC = () => {
                               />
                               <button
                                 type="submit"
-                                disabled={!quickNoteContent.trim()}
+                                disabled={!quickNoteContent.trim() || isSubmittingTrail}
                                 className="px-3 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-medium flex items-center gap-1"
                               >
                                 <Send className="w-3 h-3" />
-                                <span>Add</span>
+                                <span>{isSubmittingTrail ? 'Saving...' : 'Add'}</span>
                               </button>
                             </div>
                           </form>
@@ -2085,11 +2232,11 @@ export const CaseDetailModal: React.FC = () => {
                         </button>
                         <button
                           type="submit"
-                          disabled={!toLoc.trim() || !movementReason.trim()}
+                          disabled={!toLoc.trim() || !movementReason.trim() || isSubmittingTrail}
                           className="px-4 py-1.5 bg-amber-700 hover:bg-amber-800 disabled:opacity-50 text-white rounded text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>Confirm & Log Movement</span>
+                          <span>{isSubmittingTrail ? 'Saving...' : 'Confirm & Log Movement'}</span>
                         </button>
                       </div>
                     </form>

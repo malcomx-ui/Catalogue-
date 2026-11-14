@@ -14,9 +14,6 @@ import {
 import { PersonsInConductField } from './PersonsInConductField';
 import { UgxCurrencyIcon } from '../common/UgxCurrencyIcon';
 import {
-  supabase,
-  mapCaseToRow,
-  mapRowToCase,
   getEffectiveUser,
   isUserAdmin,
   canUserModifyCase,
@@ -281,58 +278,28 @@ export const NewCaseModal: React.FC = () => {
         assistingAdvocates: assistingAdvocates,
       };
 
-      const newCaseObject = mapCaseToRow(payload as any, true);
-      newCaseObject.branch_id = resolvedBranchId;
-      newCaseObject.branch_name = resolvedBranchName;
-
-      let { data, error } = await supabase
-        .from('cases')
-        .insert([newCaseObject])
-        .select('*');
-
-      if (error && error.message.includes('suit_no')) {
-        delete newCaseObject.suit_no;
-        const retry = await supabase
-          .from('cases')
-          .insert([newCaseObject])
-          .select('*');
-        data = retry.data;
-        error = retry.error;
+      const savedCase = await addCase(payload);
+      if (!savedCase) {
+        const msg = 'Could not save case. Please verify branch permissions and database connection.';
+        setError(msg);
+        return;
       }
 
-      if (error) {
-        console.error("Supabase Error Object:", error);
-
-        // Check if it's an RLS permission denied error (PostgreSQL code 42501)
-        if (
-          error.code === '42501' ||
-          error.message?.toLowerCase().includes('row-level security') ||
-          error.message?.toLowerCase().includes('rls') ||
-          error.message?.toLowerCase().includes('permission denied')
-        ) {
-          showCleanMessage("Permission Denied: You do not have authorization to modify cases for this branch.", 'error');
-          throw new Error("Permission Denied: You do not have authorization to modify cases for this branch.");
-        } else {
-          showCleanMessage(`An error occurred: ${error.message}`, 'error');
-          throw new Error(`An error occurred: ${error.message}`);
-        }
-      }
-
-      showCleanMessage("Success! Record saved securely.", 'success');
-
-      const insertedRecord = (data && data.length > 0) ? mapRowToCase(data[0]) : mapRowToCase(newCaseObject);
-      await addCase(insertedRecord);
+      showCleanMessage('Success! Case record saved securely.', 'success');
       setIsNewCaseModalOpen(false);
+      const resetUserDisplayName = effectiveUser?.name || currentUser?.name || '';
       setForm({
         ...empty,
         branch: effectiveUser?.branchName || hqBranch?.name || DEFAULT_HQ_BRANCH_NAME,
-        persons_in_conduct: (effectiveUser?.name || currentUser?.name)
-          ? [effectiveUser?.name || currentUser?.name || '']
-          : [''],
+        person_in_conduct: resetUserDisplayName,
+        persons_in_conduct: resetUserDisplayName ? [resetUserDisplayName] : [''],
         suit_no: '',
       });
     } catch (err: any) {
-      setError(err?.message || 'Could not save the case.');
+      console.error('NewCaseModal submit error:', err);
+      const errMsg = err?.message || 'Could not save the case.';
+      setError(errMsg);
+      showCleanMessage(errMsg, 'error');
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
-import { MortgageService } from '../../services/mortgageService';
+import { MortgageService, DEFAULT_BANKS } from '../../services/mortgageService';
 import {
   getEffectiveUser,
   isUserAdmin,
@@ -13,7 +13,10 @@ export interface EditMortgageModalProps {
   record: any;
   currentUser?: any;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (
+    updatedRecord?: any,
+    meta?: { cloudSaved?: boolean; cloudError?: string }
+  ) => void;
 }
 
 const DEPARTMENTS = [
@@ -67,6 +70,9 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   const [monthSheet, setMonthSheet] = useState<string>(() => normalizeMonthValue(record?.month_sheet));
 
   // Basic particulars
+  const [bankNameField, setBankNameField] = useState(
+    record?.bank_name || record?.client_bank_name || 'Centenary Bank'
+  );
   const [mortgagorName, setMortgagorName] = useState(
     record?.client_name || record?.mortgagor_name || record?.borrower_name || ''
   );
@@ -230,6 +236,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assignedLawyerId);
 
     const updatePayload: Record<string, any> = {
+      bank_name: bankNameField,
+      client_bank_name: bankNameField,
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
       month_sheet: monthSheet || MONTHS[new Date().getMonth()],
       client_name: mortgagorName.trim(),
@@ -284,11 +292,23 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
         throw new Error(res.error || 'Failed to update mortgage record.');
       }
 
-      onSuccess();
+      const savedRecord = res.data || { ...record, ...updatePayload, id: record.id };
+      showCleanMessage(
+        res.cloudSaved
+          ? 'Mortgage record updated and synced to Supabase.'
+          : 'Mortgage record updated in workstation register.',
+        'success'
+      );
+      onSuccess(savedRecord, {
+        cloudSaved: res.cloudSaved,
+        cloudError: res.cloudError,
+      });
       onClose();
     } catch (err: any) {
       console.error('Failed to update mortgage:', err);
-      setError(err?.message || 'Failed to update mortgage record.');
+      const errMsg = err?.message || 'Failed to update mortgage record.';
+      setError(errMsg);
+      showCleanMessage(errMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -398,6 +418,19 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block font-medium text-gray-700 mb-1">Lending Bank / Lender *</label>
+                  <select
+                    value={bankNameField}
+                    onChange={(e) => setBankNameField(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none font-semibold"
+                  >
+                    {Array.from(new Set([...DEFAULT_BANKS, bankNameField].filter(Boolean))).map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="block font-medium text-gray-700 mb-1">Mortgagor / Borrower Name *</label>
                   <input

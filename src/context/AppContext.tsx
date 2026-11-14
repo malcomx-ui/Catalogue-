@@ -260,8 +260,8 @@ interface AppContextType {
   addCase: (caseData: any) => Promise<CaseItem | null>;
   updateCase: (caseId: string, updatedData: Partial<CaseItem>) => Promise<CaseItem | null>;
   deleteCase: (caseId: string) => Promise<boolean>;
-  updateCaseStage: (caseId: string, newStage: any) => void;
-  transferCaseToBranch: (caseId: string, targetBranchId: string, reason: string) => void;
+  updateCaseStage: (caseId: string, newStage: any) => Promise<boolean>;
+  transferCaseToBranch: (caseId: string, targetBranchId: string, reason: string) => Promise<boolean>;
   addHearing: (hearingData: Omit<CourtHearing, 'id'>) => void;
   updateHearingOutcome: (hearingId: string, outcome: { status: 'Completed' | 'Adjourned' | 'Part-Heard'; courtNotes: string; nextHearingDate?: string; nextDirections?: string }) => void;
   addDocument: (docData: Omit<PleadingDocument, 'id'>) => void;
@@ -271,8 +271,8 @@ interface AppContextType {
     imported: any[], 
     onProgress?: (processed: number, total: number) => void
   ) => Promise<{ success: boolean; count: number; error?: string }>;
-  addFileMovement: (caseId: string, movement: Omit<FileMovementRecord, 'id' | 'timestamp'>) => void;
-  addProgressiveNote: (caseId: string, note: Omit<ProgressiveNote, 'id' | 'timestamp'>) => void;
+  addFileMovement: (caseId: string, movement: Omit<FileMovementRecord, 'id' | 'timestamp'>) => Promise<boolean>;
+  addProgressiveNote: (caseId: string, note: Omit<ProgressiveNote, 'id' | 'timestamp'>) => Promise<boolean>;
   
   // Print Views
   printableCauseDate: string | null;
@@ -1998,6 +1998,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Perform real update across Supabase profiles, firm_users, and backend /api/users/:id
     try {
       const res = await SupabaseService.updateStaff(userId, mergedUpdates);
+      let authoritativeUser: User & { updatedAt?: string } = { ...optimisticUpdatedUser };
+
       if (res.data) {
         const p = res.data;
         const bMeta = resolveBranchMeta(p.branch_id || branchMeta.id, p.branch_name || p.branch || branchMeta.name);
@@ -2005,53 +2007,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? { roleId: p.role_id, role: p.role_id, roleTitle: p.role_title || mergedUpdates.roleTitle || 'Custom Role', isSuperAdmin: false, isBranchAdmin: false }
           : resolveUserRoleMeta(p.role, p.role_id || mergedUpdates.roleId, Boolean(p.is_super_admin), p.email || cleanUpdatedEmail);
 
+        authoritativeUser = {
+          ...optimisticUpdatedUser,
+          id: p.id || optimisticUpdatedUser.id,
+          name: p.full_name || p.name || optimisticUpdatedUser.name,
+          email: p.email || optimisticUpdatedUser.email,
+          role: (res.profileUpdated ? rMeta.role : optimisticUpdatedUser.role) as any,
+          roleId: res.profileUpdated ? rMeta.roleId : optimisticUpdatedUser.roleId,
+          roleTitle: p.role_title || (res.profileUpdated ? rMeta.roleTitle : optimisticUpdatedUser.roleTitle),
+          branchId: res.profileUpdated ? bMeta.id : optimisticUpdatedUser.branchId,
+          branchName: res.profileUpdated ? bMeta.name : optimisticUpdatedUser.branchName,
+          isSuperAdmin: res.profileUpdated ? rMeta.isSuperAdmin : optimisticUpdatedUser.isSuperAdmin,
+          isBranchAdmin: res.profileUpdated ? rMeta.isBranchAdmin : optimisticUpdatedUser.isBranchAdmin,
+          updatedAt: nowIso,
+        };
+
         setCurrentUser((current) => {
-          if (current.id === userId || (current.email && (p.email || cleanUpdatedEmail) && current.email.toLowerCase() === (p.email || cleanUpdatedEmail).toLowerCase())) {
-            const updatedSelf: User = {
-              ...current,
-              name: p.full_name || p.name || current.name,
-              email: p.email || current.email,
-              role: rMeta.role as any,
-              roleId: rMeta.roleId,
-              roleTitle: p.role_title || rMeta.roleTitle,
-              branchId: bMeta.id,
-              branchName: bMeta.name,
-              isSuperAdmin: rMeta.isSuperAdmin,
-              isBranchAdmin: rMeta.isBranchAdmin,
-            };
-            cacheUserProfile(updatedSelf);
-            if (!canUserViewAllBranches(updatedSelf)) {
-              setSelectedBranchFilter(updatedSelf.branchId);
+          if (current.id === userId || (current.email && authoritativeUser.email && current.email.toLowerCase() === authoritativeUser.email.toLowerCase())) {
+            cacheUserProfile(authoritativeUser);
+            if (!canUserViewAllBranches(authoritativeUser)) {
+              setSelectedBranchFilter(authoritativeUser.branchId);
             }
-            return updatedSelf;
+            return authoritativeUser;
           }
           return current;
         });
       }
 
-      if (res.profileUpdated !== false) {
-        await refreshStaffFromSupabase();
-      } else {
-        // Supabase profiles RLS blocked cloud write; keep authoritative local/server update intact instead of letting stale cloud rows revert UI
-        await refreshStaffFromSupabase();
-        if (res.success) {
-          setAvailableUsers((prev) => {
-            const pinned = prev.map((u) =>
-              u.id === userId || (u.email && cleanUpdatedEmail && u.email.toLowerCase() === cleanUpdatedEmail)
-                ? { ...u, ...optimisticUpdatedUser }
-                : u
-            );
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(pinned));
-            } catch (e) {}
-            return pinned;
-          });
-        }
-      }
-
       if (!res.success && res.error) {
+        // Revert optimistic local state if update strictly failed
+        setAvailableUsers((prev) => {
+          const reverted = prev.map((u) => (u.id === userId ? target : u));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(reverted));
+          } catch (e) {}
+          return reverted;
+        });
         return { success: false, error: res.error };
       }
+
+      await refreshStaffFromSupabase();
+
+      // Guarantee authoritative updated user state cannot be reverted by any stale cloud/cache row
+      setAvailableUsers((prev) => {
+        const pinned = prev.map((u) => {
+          const isMatch =
+            u.id === userId ||
+            u.id === authoritativeUser.id ||
+            (u.email && cleanUpdatedEmail && u.email.toLowerCase() === cleanUpdatedEmail);
+          if (!isMatch) return u;
+          return {
+            ...u,
+            ...authoritativeUser,
+          };
+        });
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(pinned));
+        } catch (e) {}
+        return pinned;
+      });
+
+      setCurrentUser((current) => {
+        const isMatch =
+          current.id === userId ||
+          current.id === authoritativeUser.id ||
+          (current.email && cleanUpdatedEmail && current.email.toLowerCase() === cleanUpdatedEmail);
+        if (!isMatch) return current;
+        cacheUserProfile(authoritativeUser);
+        if (!canUserViewAllBranches(authoritativeUser)) {
+          setSelectedBranchFilter(authoritativeUser.branchId);
+        }
+        return authoritativeUser;
+      });
+
       return { success: true, warning: res.warning };
     } catch (err: any) {
       console.error('Supabase staff update failed:', err);
@@ -2401,17 +2429,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 1. Permanently write to Supabase table 'cases' using insert (if not already persisted)
     let savedCase: CaseItem = newCase;
-    if (caseData.id && !caseData.id.startsWith('case-')) {
+    let cloudInsertError: any = null;
+    if (caseData.id && !String(caseData.id).startsWith('case-')) {
       savedCase = { ...newCase, id: caseData.id };
     } else if (isSupabaseConfigured) {
       try {
         const persisted = await SupabaseService.insertCase(newCase);
         if (persisted) {
-          savedCase = persisted;
+          savedCase = {
+            ...newCase,
+            ...persisted,
+            progressiveNotes: persisted.progressiveNotes?.length ? persisted.progressiveNotes : newCase.progressiveNotes,
+            fileMovementHistory: persisted.fileMovementHistory?.length ? persisted.fileMovementHistory : newCase.fileMovementHistory,
+            transferHistory: persisted.transferHistory?.length ? persisted.transferHistory : newCase.transferHistory,
+          };
         }
-      } catch (err) {
+      } catch (err: any) {
+        cloudInsertError = err;
         console.error('Supabase insertCase permanent write failed:', err);
+        const msg = String(err?.message || '').toLowerCase();
+        if (
+          err?.code === '42501' ||
+          msg.includes('row-level security') ||
+          msg.includes('rls') ||
+          msg.includes('permission denied')
+        ) {
+          showCleanMessage('Permission Denied: You do not have authorization to save cases for this branch.', 'error');
+          throw new Error('Permission Denied: You do not have authorization to save cases for this branch.');
+        }
       }
+    }
+
+    // Also mirror to workstation server API (/api/cases)
+    let serverSaved = false;
+    try {
+      const apiRes = await fetch('/api/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savedCase),
+      });
+      if (apiRes.ok) serverSaved = true;
+    } catch {}
+
+    if (cloudInsertError && !serverSaved) {
+      const errMsg = cloudInsertError?.message || 'Failed to save case to database.';
+      showCleanMessage(`Case save error: ${errMsg}`, 'error');
+      throw new Error(errMsg);
     }
 
     setCases((prev) => {
@@ -2516,52 +2579,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       delete (updatedData as any).branch;
     }
 
-    let updatedCaseObj: CaseItem | null = null;
+    const branchObj = updatedData.branchId
+      ? branches.find((b) => b.id === updatedData.branchId)
+      : updatedData.branch
+      ? branches.find((b) => b.name === updatedData.branch)
+      : undefined;
+
+    const baseCase = existing || selectedCase;
+    const nowIso = new Date().toISOString();
+
+    const buildMergedCase = (base: CaseItem): CaseItem => {
+      const updatedSuitNo =
+        updatedData.case_number !== undefined
+          ? cleanCaseNumber(updatedData.case_number)
+          : updatedData.suitNumber !== undefined
+          ? cleanCaseNumber(updatedData.suitNumber)
+          : cleanCaseNumber(base.suitNumber);
+
+      const updatedFirmRef =
+        updatedData.firmRefNumber !== undefined
+          ? cleanCaseNumber(updatedData.firmRefNumber)
+          : cleanCaseNumber(base.firmRefNumber);
+
+      const updatedRegistrySuitNo =
+        (updatedData as any).suit_no !== undefined
+          ? (updatedData as any).suit_no
+          : base.suit_no;
+
+      const resolvedHearingDate =
+        updatedData.hearing_date !== undefined
+          ? updatedData.hearing_date
+          : updatedData.nextHearingDate !== undefined
+          ? updatedData.nextHearingDate
+          : base.hearing_date;
+
+      const resolvedClient =
+        updatedData.client !== undefined
+          ? updatedData.client
+          : updatedData.clientName !== undefined
+          ? updatedData.clientName
+          : base.clientName;
+
+      const resolvedSummary =
+        (updatedData as any).subject_matter !== undefined
+          ? (updatedData as any).subject_matter
+          : updatedData.briefSummary !== undefined
+          ? updatedData.briefSummary
+          : base.briefSummary;
+
+      return {
+        ...base,
+        ...updatedData,
+        branchId: branchObj ? branchObj.id : (updatedData.branchId || base.branchId),
+        branchName: branchObj ? branchObj.name : (updatedData.branchName || updatedData.branch || base.branchName),
+        branch: branchObj ? branchObj.name : (updatedData.branch || updatedData.branchName || base.branchName),
+        suitNumber: updatedSuitNo,
+        case_number: updatedSuitNo,
+        suit_no: updatedRegistrySuitNo,
+        firmRefNumber: updatedFirmRef,
+        clientName: resolvedClient,
+        client: resolvedClient,
+        briefSummary: resolvedSummary,
+        subject_matter: resolvedSummary,
+        nextHearingDate: resolvedHearingDate,
+        hearing_date: resolvedHearingDate,
+        lastUpdated: nowIso,
+      };
+    };
+
+    let updatedCaseObj: CaseItem | null = baseCase && baseCase.id === caseId ? buildMergedCase(baseCase) : null;
 
     setCases((prev) => {
       const updatedList = prev.map((c) => {
         if (c.id === caseId) {
-          const branchObj = updatedData.branchId
-            ? branches.find((b) => b.id === updatedData.branchId)
-            : updatedData.branch
-            ? branches.find((b) => b.name === updatedData.branch)
-            : undefined;
-
-          const updatedSuitNo =
-            updatedData.case_number !== undefined
-              ? cleanCaseNumber(updatedData.case_number)
-              : updatedData.suitNumber !== undefined
-              ? cleanCaseNumber(updatedData.suitNumber)
-              : cleanCaseNumber(c.suitNumber);
-
-          const updatedFirmRef =
-            updatedData.firmRefNumber !== undefined
-              ? cleanCaseNumber(updatedData.firmRefNumber)
-              : cleanCaseNumber(c.firmRefNumber);
-
-          const updatedRegistrySuitNo =
-            (updatedData as any).suit_no !== undefined
-              ? (updatedData as any).suit_no
-              : c.suit_no;
-
-          const updated: CaseItem = {
-            ...c,
-            ...updatedData,
-            branchId: branchObj ? branchObj.id : c.branchId,
-            branchName: branchObj ? branchObj.name : (updatedData.branch || c.branchName),
-            branch: branchObj ? branchObj.name : (updatedData.branch || c.branchName),
-            suitNumber: updatedSuitNo,
-            case_number: updatedSuitNo,
-            suit_no: updatedRegistrySuitNo,
-            firmRefNumber: updatedFirmRef,
-            clientName: updatedData.client || updatedData.clientName || c.clientName,
-            client: updatedData.client || updatedData.clientName || c.client,
-            nextHearingDate: updatedData.hearing_date || updatedData.nextHearingDate || c.nextHearingDate,
-            hearing_date: updatedData.hearing_date || updatedData.nextHearingDate || c.hearing_date,
-            lastUpdated: new Date().toISOString(),
-          };
-          updatedCaseObj = updated;
-          return updated;
+          const merged = buildMergedCase(c);
+          updatedCaseObj = merged;
+          return merged;
         }
         return c;
       });
@@ -2572,69 +2665,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (selectedCase && selectedCase.id === caseId) {
-      setSelectedCase((prev) => {
-        if (!prev) return null;
-        const branchObj = updatedData.branchId
-          ? branches.find((b) => b.id === updatedData.branchId)
-          : updatedData.branch
-          ? branches.find((b) => b.name === updatedData.branch)
-          : undefined;
-
-        const updatedSuitNo =
-          updatedData.case_number !== undefined
-            ? cleanCaseNumber(updatedData.case_number)
-            : updatedData.suitNumber !== undefined
-            ? cleanCaseNumber(updatedData.suitNumber)
-            : cleanCaseNumber(prev.suitNumber);
-
-        const updatedFirmRef =
-          updatedData.firmRefNumber !== undefined
-            ? cleanCaseNumber(updatedData.firmRefNumber)
-            : cleanCaseNumber(prev.firmRefNumber);
-
-        const updatedRegistrySuitNo =
-          (updatedData as any).suit_no !== undefined
-            ? (updatedData as any).suit_no
-            : prev.suit_no;
-
-        return {
-          ...prev,
-          ...updatedData,
-          branchId: branchObj ? branchObj.id : prev.branchId,
-          branchName: branchObj ? branchObj.name : (updatedData.branch || prev.branchName),
-          branch: branchObj ? branchObj.name : (updatedData.branch || prev.branchName),
-          suitNumber: updatedSuitNo,
-          case_number: updatedSuitNo,
-          suit_no: updatedRegistrySuitNo,
-          firmRefNumber: updatedFirmRef,
-          clientName: updatedData.client || updatedData.clientName || prev.clientName,
-          client: updatedData.client || updatedData.clientName || prev.client,
-          nextHearingDate: updatedData.hearing_date || updatedData.nextHearingDate || prev.nextHearingDate,
-          hearing_date: updatedData.hearing_date || updatedData.nextHearingDate || prev.hearing_date,
-          lastUpdated: new Date().toISOString(),
-        };
-      });
+      setSelectedCase((prev) => (prev ? buildMergedCase(prev) : null));
     }
 
-    // Permanently write update to Supabase cases table
+    // Permanently write update to Supabase cases table & workstation server API
+    let cloudError: any = null;
     if (isSupabaseConfigured) {
       try {
         const persisted = await SupabaseService.updateCase(caseId, updatedData);
         if (persisted) {
-          updatedCaseObj = persisted;
+          // Merge persisted DB row while retaining any optimistic/extended fields omitted by remote table columns
+          const mergedPersisted: CaseItem = {
+            ...(updatedCaseObj || ({} as CaseItem)),
+            ...persisted,
+            ...(updatedData as any),
+            id: persisted.id || caseId,
+            suitNumber: persisted.suitNumber || updatedCaseObj?.suitNumber || '',
+            case_number: persisted.case_number || updatedCaseObj?.case_number || '',
+            suit_no: (updatedData as any).suit_no !== undefined ? (updatedData as any).suit_no : (persisted.suit_no || ''),
+            district: (updatedData as any).district !== undefined ? (updatedData as any).district : (persisted.district || persisted.courtStation || ''),
+            courtStation: (updatedData as any).district || updatedData.courtStation || persisted.courtStation || '',
+            target: (updatedData as any).target !== undefined ? (updatedData as any).target : (persisted.target || updatedCaseObj?.target || ''),
+            verdict: (updatedData as any).verdict !== undefined ? (updatedData as any).verdict : (persisted.verdict || updatedCaseObj?.verdict || ''),
+            subject_matter: (updatedData as any).subject_matter !== undefined ? (updatedData as any).subject_matter : (persisted.subject_matter || persisted.briefSummary || ''),
+            briefSummary: (updatedData as any).subject_matter !== undefined ? (updatedData as any).subject_matter : (persisted.briefSummary || persisted.subject_matter || ''),
+            progressiveNotes:
+              persisted.progressiveNotes?.length
+                ? persisted.progressiveNotes
+                : (updatedData as any).progressiveNotes || updatedCaseObj?.progressiveNotes || [],
+            fileMovementHistory:
+              persisted.fileMovementHistory?.length
+                ? persisted.fileMovementHistory
+                : (updatedData as any).fileMovementHistory || updatedCaseObj?.fileMovementHistory || [],
+            transferHistory:
+              persisted.transferHistory?.length
+                ? persisted.transferHistory
+                : (updatedData as any).transferHistory || updatedCaseObj?.transferHistory || [],
+            lastUpdated: nowIso,
+          };
+          updatedCaseObj = mergedPersisted;
           setCases((prev) => {
-            const nextList = prev.map((c) => (c.id === caseId ? persisted : c));
+            const nextList = prev.map((c) => (c.id === caseId ? mergedPersisted : c));
             try {
               localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
             } catch (e) {}
             return nextList;
           });
           if (selectedCase && selectedCase.id === caseId) {
-            setSelectedCase(persisted);
+            setSelectedCase(mergedPersisted);
           }
         }
-      } catch (err) {
+      } catch (err: any) {
+        cloudError = err;
         console.error('Supabase updateCase permanent write failed:', err);
+        const msg = String(err?.message || '').toLowerCase();
+        if (
+          err?.code === '42501' ||
+          msg.includes('row-level security') ||
+          msg.includes('rls') ||
+          msg.includes('permission denied')
+        ) {
+          // Revert optimistic state back to previous DB record on RLS violation
+          if (existing) {
+            setCases((prev) => {
+              const reverted = prev.map((c) => (c.id === caseId ? existing : c));
+              try {
+                localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(reverted));
+              } catch (e) {}
+              return reverted;
+            });
+            if (selectedCase && selectedCase.id === caseId) {
+              setSelectedCase(existing);
+            }
+          }
+          showCleanMessage('Permission Denied: You do not have authorization to modify this case.', 'error');
+          throw new Error('Permission Denied: You do not have authorization to modify this case.');
+        }
       }
 
       // Record UPDATE in dedicated 'audit_logs' table in Supabase
@@ -2653,6 +2759,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           },
         }).then(() => refreshAuditLogs()).catch(() => {});
       }
+    }
+
+    // Mirror update to workstation backend API (/api/cases/:id)
+    let serverSaved = false;
+    if (updatedCaseObj) {
+      try {
+        const apiRes = await fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedCaseObj),
+        });
+        if (apiRes.ok) serverSaved = true;
+      } catch {}
+    }
+
+    if (cloudError && !serverSaved) {
+      const errMsg = cloudError?.message || 'Failed to update case record in database.';
+      showCleanMessage(`Case update failed: ${errMsg}`, 'error');
+      throw new Error(errMsg);
     }
 
     return updatedCaseObj;
@@ -2684,10 +2809,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedCase(null);
     }
 
-    // 2. Permanently delete from Supabase table 'cases'
+    // 2. Permanently delete from Supabase table 'cases' and workstation DB
     if (isSupabaseConfigured) {
       try {
         await SupabaseService.deleteCase(caseId);
+        fetch(`/api/cases/${encodeURIComponent(caseId)}`, { method: 'DELETE' }).catch(() => {});
 
         // Record DELETE in dedicated 'audit_logs' table in Supabase
         SupabaseService.logAudit({
@@ -2706,6 +2832,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }).then(() => refreshAuditLogs()).catch(() => {});
       } catch (err) {
         console.error('Supabase permanent deleteCase failed:', err);
+        if (existing) {
+          setCases((prev) => {
+            const restored = [existing, ...prev];
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(restored));
+            } catch (e) {}
+            return restored;
+          });
+        }
         return false;
       }
     }
@@ -2713,8 +2848,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Update Case Stage - Permanently persists stage to Supabase
-  const updateCaseStage = (caseId: string, newStage: any) => {
-    updateCase(caseId, { stage: newStage });
+  const updateCaseStage = async (caseId: string, newStage: any): Promise<boolean> => {
+    try {
+      const res = await updateCase(caseId, { stage: newStage });
+      if (res) {
+        showCleanMessage(`Case stage updated to "${newStage}".`, 'success');
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('updateCaseStage failed:', err);
+      showCleanMessage(err?.message || 'Failed to update case stage.', 'error');
+      return false;
+    }
   };
 
   const fetchFreshDataFromSupabase = async () => {
@@ -2737,10 +2883,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (liveCases) {
-        setCases(liveCases);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
-        } catch (e) {}
+        setCases((prev) => {
+          const prevById = new Map(prev.map((p) => [p.id, p]));
+          const merged = liveCases!.map((lc) => {
+            const old = prevById.get(lc.id);
+            if (!old) return lc;
+            return {
+              ...lc,
+              progressiveNotes: lc.progressiveNotes?.length ? lc.progressiveNotes : (old.progressiveNotes || []),
+              fileMovementHistory: lc.fileMovementHistory?.length ? lc.fileMovementHistory : (old.fileMovementHistory || []),
+              transferHistory: lc.transferHistory?.length ? lc.transferHistory : (old.transferHistory || []),
+              suit_no: lc.suit_no || old.suit_no || '',
+              target: lc.target || old.target || '',
+              verdict: lc.verdict || old.verdict || '',
+            };
+          });
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
         setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         console.log(`[Supabase Sync] Successfully loaded ${liveCases.length} fresh case records.`);
       }
@@ -2751,44 +2913,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshCasesFromSupabase = fetchFreshDataFromSupabase;
 
-  // Transfer Case to Branch
-  const transferCaseToBranch = (caseId: string, targetBranchId: string, reason: string) => {
+  // Transfer Case to Branch - Permanently writes branch transfer & history to Supabase + localStorage
+  const transferCaseToBranch = async (caseId: string, targetBranchId: string, reason: string): Promise<boolean> => {
     const effectiveUser = getEffectiveUser(currentUser);
     if (!isUserAdmin(effectiveUser)) {
       showCleanMessage(
         'Permission Denied: Only Firm / Super Administrators can transfer case files between branches.',
         'warning'
       );
-      return;
+      return false;
     }
     const targetBranch = branches.find((b) => b.id === targetBranchId);
-    if (!targetBranch) return;
+    if (!targetBranch) return false;
 
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === caseId) {
-          const oldBranch = c.branchName;
-          const transferEntry = {
-            fromBranch: oldBranch,
-            toBranch: targetBranch.name,
-            transferDate: new Date().toISOString().split('T')[0],
-            reason,
-            approvedBy: currentUser.name,
-          };
-          return {
-            ...c,
-            branchId: targetBranch.id,
-            branchName: targetBranch.name,
-            courtStation: `${targetBranch.city} High Court Circuit`,
-            lastUpdated: new Date().toISOString(),
-            transferHistory: [...(c.transferHistory || []), transferEntry],
-          };
-        }
-        return c;
-      })
-    );
+    const existing = cases.find((c) => c.id === caseId) || (selectedCase?.id === caseId ? selectedCase : undefined);
+    const oldBranch = existing?.branchName || 'Previous Station';
+    const transferEntry = {
+      fromBranch: oldBranch,
+      toBranch: targetBranch.name,
+      transferDate: new Date().toISOString().split('T')[0],
+      reason,
+      approvedBy: currentUser.name,
+    };
+    const nextHistory = [...(existing?.transferHistory || []), transferEntry];
+    const nextCourtStation = `${targetBranch.city} High Court Circuit`;
+    const nowIso = new Date().toISOString();
 
-    // Update selected case if open
+    setCases((prev) => {
+      const updatedList = prev.map((c) =>
+        c.id === caseId
+          ? {
+              ...c,
+              branchId: targetBranch.id,
+              branchName: targetBranch.name,
+              branch: targetBranch.name,
+              courtStation: nextCourtStation,
+              lastUpdated: nowIso,
+              transferHistory: nextHistory,
+            }
+          : c
+      );
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
+
     if (selectedCase && selectedCase.id === caseId) {
       setSelectedCase((prev) =>
         prev
@@ -2796,16 +2966,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ...prev,
               branchId: targetBranch.id,
               branchName: targetBranch.name,
-              courtStation: `${targetBranch.city} High Court Circuit`,
+              branch: targetBranch.name,
+              courtStation: nextCourtStation,
+              lastUpdated: nowIso,
+              transferHistory: nextHistory,
             }
           : null
       );
     }
 
+    try {
+      await updateCase(caseId, {
+        branchId: targetBranch.id,
+        branchName: targetBranch.name,
+        branch: targetBranch.name,
+        courtStation: nextCourtStation,
+        transferHistory: nextHistory,
+      } as any);
+      showCleanMessage(`Matter transferred to ${targetBranch.name}.`, 'success');
+    } catch (err: any) {
+      console.error('transferCaseToBranch persistence error:', err);
+      showCleanMessage(err?.message || 'Failed to persist branch transfer to database.', 'error');
+      return false;
+    }
+
     // Log the transfer in sync logs
     const log: SyncLog = {
       id: `sync-xfer-${Date.now()}`,
-      timestamp: new Date().toISOString(),
+      timestamp: nowIso,
       branchId: targetBranch.id,
       branchName: targetBranch.name,
       action: `Cross-Branch Case Transfer Approved`,
@@ -2815,6 +3003,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       details: `Matter transferred to ${targetBranch.name} branch. Reason: ${reason} (Approved by ${currentUser.name})`,
     };
     setSyncLogs((prev) => [log, ...prev]);
+    return true;
   };
 
   // Add Court Hearing
@@ -2826,8 +3015,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHearings((prev) => [newHearing, ...prev]);
 
     // Update the hearing_date and nextHearingDate on the corresponding case
-    setCases((prev) =>
-      prev.map((c) => {
+    setCases((prev) => {
+      const updated = prev.map((c) => {
         if (c.id === hearingData.caseId) {
           return {
             ...c,
@@ -2839,14 +3028,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         }
         return c;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+
+    if (selectedCase && selectedCase.id === hearingData.caseId) {
+      setSelectedCase((prev) =>
+        prev
+          ? {
+              ...prev,
+              hearing_date: hearingData.hearingDate,
+              nextHearingDate: hearingData.hearingDate,
+              nextHearingPurpose: hearingData.hearingPurpose,
+              nextHearingJudge: hearingData.presidingJudge,
+              lastUpdated: new Date().toISOString(),
+            }
+          : null
+      );
+    }
 
     // Persist to Supabase if available
     if (isSupabaseConfigured) {
-      SupabaseService.upsertHearing(newHearing).catch((err) =>
-        console.warn('Supabase upsertHearing non-fatal error:', err)
-      );
+      SupabaseService.upsertHearing(newHearing).catch((err) => {
+        console.warn('Supabase upsertHearing non-fatal error:', err);
+      });
       if (hearingData.caseId) {
         SupabaseService.updateCase(hearingData.caseId, {
           hearing_date: hearingData.hearingDate,
@@ -2856,6 +3064,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }).catch((err) => console.warn('Supabase case sync hearing_date non-fatal error:', err));
       }
     }
+    showCleanMessage('Court hearing scheduled and synchronized.', 'success');
   };
 
   // Update Hearing Outcome
@@ -2892,8 +3101,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // If an adjournment next hearing date was given, also update the case
     const currentHearing = hearings.find((h) => h.id === hearingId);
     if (currentHearing && outcome.nextHearingDate) {
-      setCases((prev) =>
-        prev.map((c) => {
+      setCases((prev) => {
+        const updated = prev.map((c) => {
           if (c.id === currentHearing.caseId) {
             return {
               ...c,
@@ -2904,8 +3113,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
           }
           return c;
-        })
-      );
+        });
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
 
       if (isSupabaseConfigured && currentHearing.caseId) {
         SupabaseService.updateCase(currentHearing.caseId, {
@@ -2915,6 +3128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }).catch((err) => console.warn('Supabase case sync outcome error:', err));
       }
     }
+    showCleanMessage('Hearing outcome updated.', 'success');
   };
 
   // Add Document
@@ -2926,8 +3140,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDocuments((prev) => [newDoc, ...prev]);
 
     // Increment document count on the case
-    setCases((prev) =>
-      prev.map((c) => {
+    setCases((prev) => {
+      const updated = prev.map((c) => {
         if (c.id === docData.caseId) {
           return {
             ...c,
@@ -2936,8 +3150,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         }
         return c;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    showCleanMessage(`Document "${docData.title}" indexed to case file.`, 'success');
   };
 
   // Enterprise Conflict Check Engine
@@ -3246,66 +3465,114 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, count: insertedCount };
   };
 
-  // Add physical file movement record
-  const addFileMovement = (caseId: string, movement: Omit<FileMovementRecord, 'id' | 'timestamp'>) => {
+  // Add physical file movement record (persists to localStorage, Supabase, and workstation backend)
+  const addFileMovement = async (
+    caseId: string,
+    movement: Omit<FileMovementRecord, 'id' | 'timestamp'>
+  ): Promise<boolean> => {
     const newRecord: FileMovementRecord = {
       ...movement,
       id: `fmov-${Date.now()}`,
       timestamp: new Date().toISOString(),
     };
 
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === caseId) {
-          const updated = {
-            ...c,
-            file_location: movement.toLocation || c.file_location,
-            fileMovementHistory: [newRecord, ...(c.fileMovementHistory || [])],
-          };
-          return updated;
-        }
-        return c;
-      })
-    );
+    const target = cases.find((c) => c.id === caseId) || (selectedCase?.id === caseId ? selectedCase : undefined);
+    const nextLocation = movement.toLocation || target?.file_location || 'Central Registry Safe';
+    const nextHistory = [newRecord, ...(target?.fileMovementHistory || [])];
+    const nowIso = new Date().toISOString();
+
+    setCases((prev) => {
+      const updatedList = prev.map((c) =>
+        c.id === caseId
+          ? {
+              ...c,
+              file_location: nextLocation,
+              fileMovementHistory: nextHistory,
+              lastUpdated: nowIso,
+            }
+          : c
+      );
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     setSelectedCase((prev) => {
       if (!prev || prev.id !== caseId) return prev;
       return {
         ...prev,
-        file_location: movement.toLocation || prev.file_location,
-        fileMovementHistory: [newRecord, ...(prev.fileMovementHistory || [])],
+        file_location: nextLocation,
+        fileMovementHistory: nextHistory,
+        lastUpdated: nowIso,
       };
     });
+
+    try {
+      await updateCase(caseId, {
+        file_location: nextLocation,
+        fileMovementHistory: nextHistory,
+      } as any);
+      showCleanMessage(`File movement logged (${nextLocation}).`, 'success');
+      return true;
+    } catch (err: any) {
+      console.error('addFileMovement persistence error:', err);
+      showCleanMessage(err?.message || 'Could not save file movement to database.', 'error');
+      return false;
+    }
   };
 
-  // Add continuous progressive note
-  const addProgressiveNote = (caseId: string, note: Omit<ProgressiveNote, 'id' | 'timestamp'>) => {
+  // Add continuous progressive note (persists to localStorage, Supabase, and workstation backend)
+  const addProgressiveNote = async (
+    caseId: string,
+    note: Omit<ProgressiveNote, 'id' | 'timestamp'>
+  ): Promise<boolean> => {
     const newNote: ProgressiveNote = {
       ...note,
       id: `pnote-${Date.now()}`,
       timestamp: new Date().toISOString(),
     };
 
-    setCases((prev) =>
-      prev.map((c) => {
-        if (c.id === caseId) {
-          const updated = {
-            ...c,
-            progressiveNotes: [newNote, ...(c.progressiveNotes || [])],
-          };
-          return updated;
-        }
-        return c;
-      })
-    );
+    const target = cases.find((c) => c.id === caseId) || (selectedCase?.id === caseId ? selectedCase : undefined);
+    const nextNotes = [newNote, ...(target?.progressiveNotes || [])];
+    const nowIso = new Date().toISOString();
+
+    setCases((prev) => {
+      const updatedList = prev.map((c) =>
+        c.id === caseId
+          ? {
+              ...c,
+              progressiveNotes: nextNotes,
+              lastUpdated: nowIso,
+            }
+          : c
+      );
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     setSelectedCase((prev) => {
       if (!prev || prev.id !== caseId) return prev;
       return {
         ...prev,
-        progressiveNotes: [newNote, ...(prev.progressiveNotes || [])],
+        progressiveNotes: nextNotes,
+        lastUpdated: nowIso,
       };
     });
+
+    try {
+      await updateCase(caseId, {
+        progressiveNotes: nextNotes,
+      } as any);
+      showCleanMessage('Progressive trail note saved.', 'success');
+      return true;
+    } catch (err: any) {
+      console.error('addProgressiveNote persistence error:', err);
+      showCleanMessage(err?.message || 'Could not save progressive note to database.', 'error');
+      return false;
+    }
   };
 
   const handleSetPrintableCauseDate = (date: string | null) => {

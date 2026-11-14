@@ -232,7 +232,7 @@ export async function safeProfilesUpdate(
     if (cleanPayload[k] === undefined) delete cleanPayload[k];
   });
 
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
     const baseQuery = supabase.from('profiles').update(cleanPayload);
     const { data, error } = await (matchCol === 'email'
@@ -266,7 +266,7 @@ export async function safeProfilesUpsert(
     if (cleanPayload[k] === undefined) delete cleanPayload[k];
   });
 
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < 12; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
     const { data, error } = await supabase
       .from('profiles')
@@ -291,52 +291,111 @@ export async function safeProfilesUpsert(
   return { data: null, error: null };
 }
 
+function normalizePersonsArray(val: any, leadFallback?: any, assistingFallback?: any): string[] {
+  if (Array.isArray(val) && val.length > 0) {
+    return val.map((p) => String(p || '').trim()).filter(Boolean);
+  }
+  if (typeof val === 'string' && val.trim()) {
+    return val.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+  }
+  const combined: string[] = [];
+  if (leadFallback && String(leadFallback).trim()) {
+    combined.push(...String(leadFallback).split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean));
+  }
+  if (Array.isArray(assistingFallback)) {
+    assistingFallback.forEach((a) => {
+      const clean = String(a || '').trim();
+      if (clean && !combined.includes(clean)) combined.push(clean);
+    });
+  }
+  return combined;
+}
+
 /**
  * Maps database row to frontend CaseItem
  */
 export function mapRowToCase(row: any): CaseItem {
   if (!row) return {} as CaseItem;
+  const resolvedBranchName = row.branch_name || row.branch || 'Kampala Central (Head Office)';
+  const resolvedBranchId = resolveBranchId(row.branch_id || row.branchId, resolvedBranchName);
+  const personsArr = normalizePersonsArray(
+    row.persons_in_conduct || row.person_in_conduct,
+    row.lead_advocate || row.leadAdvocate,
+    row.assisting_advocates || row.assistingAdvocates
+  );
+  const lead = row.lead_advocate || row.leadAdvocate || personsArr[0] || '';
+  const assisting = Array.isArray(row.assisting_advocates) && row.assisting_advocates.length > 0
+    ? row.assisting_advocates
+    : personsArr.slice(1);
+  const personConductStr = row.person_in_conduct || personsArr.join(', ') || lead;
+  const resolvedClient = row.client_name || row.client || row.clientName || '';
+  const resolvedSummary = row.subject_matter || row.brief_summary || row.briefSummary || '';
+  const resolvedDistrict = row.district || row.court_station || row.courtStation || '';
+  const resolvedInstructionsDate = row.date_of_instructions || row.filing_date || row.filingDate || '';
+  const resolvedHearingDate = row.hearing_date || row.next_hearing_date || row.nextHearingDate || '';
+
   return {
     ...row,
     id: row.id,
-    suitNumber: row.suit_number || row.case_number || '',
-    case_number: row.case_number || row.suit_number || '',
+    suitNumber: row.suit_number || row.case_number || row.suitNumber || '',
+    case_number: row.case_number || row.suit_number || row.suitNumber || '',
     suit_no: row.suit_no || '',
-    firmRefNumber: row.firm_ref_number || '',
+    firmRefNumber: row.firm_ref_number || row.firmRefNumber || '',
     title: row.title || '',
     court: row.court || '',
-    division: row.division || 'High Court (Civil Division)',
-    presidingJudge: row.presiding_judge || '',
-    courtStation: row.court_station || '',
+    division: row.division || (row.case_type ? `${row.case_type} Division` : 'High Court (Civil Division)'),
+    presidingJudge: row.presiding_judge || row.presidingJudge || '',
+    courtStation: row.court_station || resolvedDistrict,
+    district: resolvedDistrict,
     stage: row.stage || 'Trial (Plaintiff Stage)',
     priority: row.priority || 'Standard',
-    branchId: row.branch_id || 'kla-hq',
-    branchName: row.branch_name || 'Kampala Central (Head Office)',
-    leadAdvocate: row.lead_advocate || '',
-    person_in_conduct: row.lead_advocate || '',
-    assistingAdvocates: Array.isArray(row.assisting_advocates) ? row.assisting_advocates : [],
+    branchId: resolvedBranchId,
+    branchName: resolvedBranchName,
+    branch: row.branch || resolvedBranchName,
+    leadAdvocate: lead,
+    person_in_conduct: personConductStr,
+    persons_in_conduct: personsArr,
+    assistingAdvocates: assisting,
     parties: Array.isArray(row.parties) ? row.parties : [],
-    clientName: row.client_name || '',
-    client: row.client_name || '',
-    opposingFirm: row.opposing_firm || '',
-    opposingCounsel: row.opposing_counsel || '',
-    claimValueUGX: Number(row.claim_value_ugx) || 0,
-    filingDate: row.filing_date || '',
-    hearing_date: row.hearing_date || '',
-    nextHearingDate: row.next_hearing_date || row.hearing_date || '',
-    nextHearingPurpose: row.next_hearing_purpose || '',
+    clientName: resolvedClient,
+    client: resolvedClient,
+    opposingFirm: row.opposing_firm || row.opposingFirm || '',
+    opposingCounsel: row.opposing_counsel || row.opposingCounsel || '',
+    claimValueUGX: Number(row.claim_value_ugx ?? row.claimValueUGX) || 0,
+    filingDate: row.filing_date || resolvedInstructionsDate,
+    date_of_instructions: resolvedInstructionsDate,
+    hearing_date: resolvedHearingDate,
+    nextHearingDate: row.next_hearing_date || resolvedHearingDate,
+    nextHearingPurpose: row.next_hearing_purpose || row.nextHearingPurpose || '',
     syncedAcrossBranches: true,
-    documentsCount: 0,
-    lastUpdated: row.updated_at || new Date().toISOString(),
+    documentsCount: Number(row.documents_count ?? row.documentsCount) || 0,
+    lastUpdated: row.updated_at || row.lastUpdated || new Date().toISOString(),
     status: row.status || 'Active',
-    year_of_closure: row.year_of_closure || null,
-    case_type: row.case_type || row.division || 'General',
+    year_of_closure: row.year_of_closure ?? null,
+    case_type: row.case_type || row.division || 'Civil',
     billing_status: row.billing_status || '',
     payment_status: row.payment_status || '',
-    briefSummary: row.brief_summary || '',
+    briefSummary: row.brief_summary || resolvedSummary,
+    subject_matter: resolvedSummary,
     notes: row.notes || '',
+    target: row.target || '',
+    verdict: row.verdict || '',
     file_location: row.file_location || 'Central Registry Safe',
-    branch: row.branch_name || 'Fort Portal Office',
+    progressiveNotes: Array.isArray(row.progressive_notes)
+      ? row.progressive_notes
+      : Array.isArray(row.progressiveNotes)
+      ? row.progressiveNotes
+      : [],
+    fileMovementHistory: Array.isArray(row.file_movement_history)
+      ? row.file_movement_history
+      : Array.isArray(row.fileMovementHistory)
+      ? row.fileMovementHistory
+      : [],
+    transferHistory: Array.isArray(row.transfer_history)
+      ? row.transfer_history
+      : Array.isArray(row.transferHistory)
+      ? row.transferHistory
+      : [],
   };
 }
 
@@ -344,44 +403,75 @@ export function mapRowToCase(row: any): CaseItem {
  * Maps frontend CaseItem to database row
  */
 export function mapCaseToRow(c: Partial<CaseItem>, isInsert = false): any {
+  const resolvedBranchName = c.branchName || (c as any).branch || 'Kampala Central (Head Office)';
+  const resolvedBranchId = resolveBranchId(c.branchId || (c as any).branch_id, resolvedBranchName);
+  const personsArr = normalizePersonsArray(
+    (c as any).persons_in_conduct || (c as any).person_in_conduct,
+    c.leadAdvocate,
+    c.assistingAdvocates
+  );
+  const leadAdv = c.leadAdvocate || personsArr[0] || '';
+  const assistingAdv = Array.isArray(c.assistingAdvocates) && c.assistingAdvocates.length > 0
+    ? c.assistingAdvocates
+    : personsArr.slice(1);
+  const personConductStr = (c as any).person_in_conduct || personsArr.join(', ') || leadAdv;
+  const resolvedClient = c.clientName || (c as any).client || (c as any).client_name || '';
+  const resolvedDistrict = (c as any).district || c.courtStation || '';
+  const resolvedSummary = (c as any).subject_matter || c.briefSummary || '';
+  const resolvedInstructionsDate = parseDateForPostgres((c as any).date_of_instructions || c.filingDate) || new Date().toISOString().split('T')[0];
+  const resolvedHearingDate = parseDateForPostgres(c.hearing_date || c.nextHearingDate);
+  const rawCaseNo = c.suitNumber || (c as any).case_number || '';
+
   const row: any = {
-    case_number: c.suitNumber || (c as any).case_number || '',
-    suit_number: c.suitNumber || (c as any).case_number || '',
+    case_number: rawCaseNo,
+    suit_number: rawCaseNo,
     suit_no: (c as any).suit_no || '',
     firm_ref_number: c.firmRefNumber || '',
     title: c.title || '',
-    client_name: c.clientName || (c as any).client || '',
+    client_name: resolvedClient,
+    client: resolvedClient,
     court: c.court || 'High Court of Uganda',
-    division: c.division || 'High Court (Civil Division)',
+    division: c.division || ((c as any).case_type ? `${(c as any).case_type} Division` : 'High Court (Civil Division)'),
     presiding_judge: c.presidingJudge || '',
-    court_station: c.courtStation || '',
+    court_station: c.courtStation || resolvedDistrict,
+    district: resolvedDistrict,
     stage: c.stage || 'Trial (Plaintiff Stage)',
     priority: c.priority || 'Standard',
-    branch_id: resolveBranchId(c.branchId || (c as any).branch_id, c.branchName || (c as any).branch),
-    branch_name: c.branchName || (c as any).branch || 'Kampala Central (Head Office)',
-    lead_advocate: c.leadAdvocate || (c as any).person_in_conduct || '',
-    assisting_advocates: c.assistingAdvocates || [],
+    branch_id: resolvedBranchId,
+    branch_name: resolvedBranchName,
+    branch: resolvedBranchName,
+    lead_advocate: leadAdv,
+    person_in_conduct: personConductStr,
+    persons_in_conduct: personsArr,
+    assisting_advocates: assistingAdv,
     parties: Array.isArray(c.parties) ? c.parties : [],
     opposing_firm: c.opposingFirm || '',
     opposing_counsel: c.opposingCounsel || '',
     claim_value_ugx: Number(c.claimValueUGX) || 0,
-    filing_date: parseDateForPostgres(c.filingDate || (c as any).date_of_instructions) || new Date().toISOString().split('T')[0],
-    hearing_date: parseDateForPostgres(c.hearing_date || c.nextHearingDate),
-    next_hearing_date: parseDateForPostgres(c.nextHearingDate || c.hearing_date),
+    filing_date: resolvedInstructionsDate,
+    date_of_instructions: resolvedInstructionsDate,
+    hearing_date: resolvedHearingDate,
+    next_hearing_date: resolvedHearingDate,
     next_hearing_purpose: c.nextHearingPurpose || '',
     status: c.status || 'Active',
     year_of_closure: (c as any).year_of_closure || null,
-    case_type: (c as any).case_type || c.division || '',
+    case_type: (c as any).case_type || c.division || 'Civil',
     billing_status: (c as any).billing_status || '',
     payment_status: (c as any).payment_status || '',
-    brief_summary: c.briefSummary || (c as any).subject_matter || '',
+    brief_summary: resolvedSummary,
+    subject_matter: resolvedSummary,
     notes: c.notes || '',
+    target: (c as any).target || '',
+    verdict: (c as any).verdict || '',
     file_location: c.file_location || 'Central Registry Safe',
+    progressive_notes: Array.isArray((c as any).progressiveNotes) ? (c as any).progressiveNotes : Array.isArray((c as any).progressive_notes) ? (c as any).progressive_notes : [],
+    file_movement_history: Array.isArray((c as any).fileMovementHistory) ? (c as any).fileMovementHistory : Array.isArray((c as any).file_movement_history) ? (c as any).file_movement_history : [],
+    transfer_history: Array.isArray((c as any).transferHistory) ? (c as any).transferHistory : Array.isArray((c as any).transfer_history) ? (c as any).transfer_history : [],
     updated_at: new Date().toISOString(),
   };
 
-  // Only pass id if not inserting fresh or if it's already an existing non-temporary id
-  if (!isInsert && c.id && !c.id.startsWith('case-')) {
+  // Only pass id if not inserting fresh or if it's already an existing UUID
+  if (!isInsert && c.id && !String(c.id).startsWith('case-')) {
     row.id = c.id;
   }
 
@@ -396,9 +486,9 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
   const row: any = {};
 
   if (c.suitNumber !== undefined || (c as any).case_number !== undefined) {
-    const val = c.suitNumber || (c as any).case_number || '';
-    row.case_number = val;
-    row.suit_number = val;
+    const val = c.suitNumber !== undefined ? c.suitNumber : (c as any).case_number;
+    row.case_number = val || '';
+    row.suit_number = val || '';
   }
   if ((c as any).suit_no !== undefined) {
     row.suit_no = (c as any).suit_no || '';
@@ -407,10 +497,12 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
     row.firm_ref_number = c.firmRefNumber || '';
   }
   if (c.title !== undefined || (c as any).case_title !== undefined) {
-    row.title = c.title || (c as any).case_title || '';
+    row.title = c.title !== undefined ? c.title : ((c as any).case_title || '');
   }
   if (c.clientName !== undefined || (c as any).client !== undefined || (c as any).client_name !== undefined) {
-    row.client_name = c.clientName || (c as any).client || (c as any).client_name || '';
+    const clientVal = c.clientName ?? (c as any).client ?? (c as any).client_name ?? '';
+    row.client_name = clientVal;
+    row.client = clientVal;
   }
   if (c.court !== undefined) {
     row.court = c.court;
@@ -418,11 +510,16 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
   if (c.division !== undefined || (c as any).case_type !== undefined) {
     row.division = c.division || (c as any).case_type || '';
   }
+  if ((c as any).case_type !== undefined) {
+    row.case_type = (c as any).case_type || '';
+  }
   if (c.presidingJudge !== undefined) {
     row.presiding_judge = c.presidingJudge;
   }
   if (c.courtStation !== undefined || (c as any).district !== undefined) {
-    row.court_station = c.courtStation || (c as any).district || '';
+    const stationVal = c.courtStation ?? (c as any).district ?? '';
+    row.court_station = stationVal;
+    row.district = (c as any).district ?? c.courtStation ?? '';
   }
   if (c.stage !== undefined) {
     row.stage = c.stage;
@@ -431,13 +528,27 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
     row.priority = c.priority;
   }
   if (c.branchId !== undefined || c.branchName !== undefined || (c as any).branch !== undefined) {
-    row.branch_id = resolveBranchId(c.branchId, c.branchName || (c as any).branch);
-    row.branch_name = c.branchName || (c as any).branch || '';
+    const bName = c.branchName || (c as any).branch || '';
+    row.branch_id = resolveBranchId(c.branchId, bName);
+    row.branch_name = bName;
+    row.branch = bName;
   }
-  if (c.leadAdvocate !== undefined || (c as any).person_in_conduct !== undefined) {
-    row.lead_advocate = c.leadAdvocate || (c as any).person_in_conduct || '';
-  }
-  if (c.assistingAdvocates !== undefined) {
+  if (c.leadAdvocate !== undefined || (c as any).person_in_conduct !== undefined || (c as any).persons_in_conduct !== undefined) {
+    const personsArr = normalizePersonsArray(
+      (c as any).persons_in_conduct ?? (c as any).person_in_conduct,
+      c.leadAdvocate,
+      c.assistingAdvocates
+    );
+    const leadVal = c.leadAdvocate ?? personsArr[0] ?? '';
+    row.lead_advocate = leadVal;
+    row.person_in_conduct = (c as any).person_in_conduct ?? (personsArr.length ? personsArr.join(', ') : leadVal);
+    if ((c as any).persons_in_conduct !== undefined) {
+      row.persons_in_conduct = personsArr;
+    }
+    if (c.assistingAdvocates !== undefined) {
+      row.assisting_advocates = c.assistingAdvocates;
+    }
+  } else if (c.assistingAdvocates !== undefined) {
     row.assisting_advocates = c.assistingAdvocates;
   }
   if (c.parties !== undefined && Array.isArray(c.parties)) {
@@ -453,7 +564,9 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
     row.claim_value_ugx = Number(c.claimValueUGX) || 0;
   }
   if (c.filingDate !== undefined || (c as any).date_of_instructions !== undefined) {
-    row.filing_date = parseDateForPostgres(c.filingDate || (c as any).date_of_instructions);
+    const fd = parseDateForPostgres(c.filingDate || (c as any).date_of_instructions);
+    row.filing_date = fd;
+    row.date_of_instructions = fd;
   }
   if (c.hearing_date !== undefined || c.nextHearingDate !== undefined) {
     const hd = parseDateForPostgres(c.hearing_date || c.nextHearingDate);
@@ -469,9 +582,6 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
   if ((c as any).year_of_closure !== undefined) {
     row.year_of_closure = (c as any).year_of_closure || null;
   }
-  if ((c as any).case_type !== undefined) {
-    row.case_type = (c as any).case_type || '';
-  }
   if ((c as any).billing_status !== undefined) {
     row.billing_status = (c as any).billing_status || '';
   }
@@ -479,17 +589,80 @@ export function mapPartialCaseToRow(c: Partial<CaseItem>): any {
     row.payment_status = (c as any).payment_status || '';
   }
   if (c.briefSummary !== undefined || (c as any).subject_matter !== undefined) {
-    row.brief_summary = c.briefSummary || (c as any).subject_matter || '';
+    const sumVal = (c as any).subject_matter ?? c.briefSummary ?? '';
+    row.brief_summary = sumVal;
+    row.subject_matter = sumVal;
   }
   if (c.notes !== undefined) {
     row.notes = c.notes;
   }
+  if ((c as any).target !== undefined) {
+    row.target = (c as any).target;
+  }
+  if ((c as any).verdict !== undefined) {
+    row.verdict = (c as any).verdict;
+  }
   if (c.file_location !== undefined) {
     row.file_location = c.file_location;
+  }
+  if ((c as any).progressiveNotes !== undefined || (c as any).progressive_notes !== undefined) {
+    row.progressive_notes = (c as any).progressiveNotes ?? (c as any).progressive_notes ?? [];
+  }
+  if ((c as any).fileMovementHistory !== undefined || (c as any).file_movement_history !== undefined) {
+    row.file_movement_history = (c as any).fileMovementHistory ?? (c as any).file_movement_history ?? [];
+  }
+  if ((c as any).transferHistory !== undefined || (c as any).transfer_history !== undefined) {
+    row.transfer_history = (c as any).transferHistory ?? (c as any).transfer_history ?? [];
   }
 
   row.updated_at = new Date().toISOString();
   return row;
+}
+
+/**
+ * Runs insert/update/upsert on public.cases with iterative column-stripping fallback
+ * whenever PostgREST returns PGRST204 / 42703 for optional fields absent from live schema.
+ */
+async function safeCasesMutation(
+  operation: 'insert' | 'update' | 'upsert',
+  payload: Record<string, any>,
+  matchId?: string
+): Promise<{ data: any[] | null; error: any; strippedColumns: string[] }> {
+  if (!supabase) return { data: null, error: new Error('Supabase client not initialized'), strippedColumns: [] };
+
+  const cleanPayload: Record<string, any> = { ...payload };
+  Object.keys(cleanPayload).forEach((k) => {
+    if (cleanPayload[k] === undefined) delete cleanPayload[k];
+  });
+  const strippedColumns: string[] = [];
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    if (Object.keys(cleanPayload).length === 0) break;
+
+    let res: { data: any[] | null; error: any };
+    if (operation === 'insert') {
+      res = await supabase.from('cases').insert([cleanPayload]).select('*');
+    } else if (operation === 'upsert') {
+      res = await supabase.from('cases').upsert([cleanPayload]).select('*');
+    } else {
+      res = await supabase.from('cases').update(cleanPayload).eq('id', matchId as string).select('*');
+    }
+
+    if (!res.error) {
+      return { data: res.data, error: null, strippedColumns };
+    }
+
+    const missingCol = extractMissingColumnFromError(res.error);
+    if (missingCol && missingCol in cleanPayload) {
+      delete cleanPayload[missingCol];
+      strippedColumns.push(missingCol);
+      continue;
+    }
+
+    return { data: null, error: res.error, strippedColumns };
+  }
+
+  return { data: null, error: null, strippedColumns };
 }
 
 /**
@@ -582,38 +755,34 @@ export const SupabaseService = {
   },
 
   /**
-   * Permanently inserts a new case using supabase.from('cases').insert(...)
+   * Permanently inserts a new case using supabase.from('cases').insert(...) with schema-safe retry
    */
   async insertCase(caseItem: Partial<CaseItem>): Promise<CaseItem | null> {
     const row = mapCaseToRow(caseItem, true);
-    let { data, error } = await supabase
-      .from('cases')
-      .insert([row])
-      .select('*');
-
-    if (error && error.message.includes('suit_no')) {
-      delete row.suit_no;
-      const retry = await supabase
-        .from('cases')
-        .insert([row])
-        .select('*');
-      data = retry.data;
-      error = retry.error;
-    }
+    const { data, error } = await safeCasesMutation('insert', row);
 
     if (error) {
       console.error('Supabase insertCase error:', error);
       throw error;
     }
-    if (data && data.length > 0) {
-      return mapRowToCase(data[0]);
+
+    const mapped = data && data.length > 0 ? mapRowToCase(data[0]) : null;
+    if (mapped) {
+      // Preserve frontend-only/optional schema fields that may have been stripped on insert
+      return {
+        ...caseItem,
+        ...mapped,
+        progressiveNotes: mapped.progressiveNotes?.length ? mapped.progressiveNotes : ((caseItem as any).progressiveNotes || []),
+        fileMovementHistory: mapped.fileMovementHistory?.length ? mapped.fileMovementHistory : ((caseItem as any).fileMovementHistory || []),
+        transferHistory: mapped.transferHistory?.length ? mapped.transferHistory : ((caseItem as any).transferHistory || []),
+      } as CaseItem;
     }
     return null;
   },
 
   /**
    * Bulk inserts parsed cases into Supabase 'cases' table in batches.
-   * Handles large spreadsheets reliably with progress tracking and batch chunking.
+   * Handles optional schema column differences reliably with iterative PGRST204 stripping.
    */
   async bulkInsertCases(
     casesToInsert: Partial<CaseItem>[],
@@ -628,29 +797,54 @@ export const SupabaseService = {
       return { success: true, insertedCount: 0, data: [], errors: [] };
     }
 
-    const rows = casesToInsert.map((c) => mapCaseToRow(c, true));
+    let rows = casesToInsert.map((c) => mapCaseToRow(c, true));
     const total = rows.length;
     const insertedRows: any[] = [];
     const errors: any[] = [];
+    const knownMissingCols = new Set<string>();
 
     // Loop through batches of rows
     for (let i = 0; i < total; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
+      let batch = rows.slice(i, i + batchSize).map((r) => {
+        if (knownMissingCols.size === 0) return r;
+        const copy = { ...r };
+        knownMissingCols.forEach((col) => delete copy[col]);
+        return copy;
+      });
 
       try {
-        const { data, error } = await supabase
-          .from('cases')
-          .insert(batch)
-          .select('*');
+        let batchInserted = false;
+        let lastBatchErr: any = null;
 
-        if (error) {
-          console.error(`Supabase bulkInsertCases batch ${Math.floor(i / batchSize) + 1} error:`, error);
-          errors.push(error);
+        for (let attempt = 0; attempt < 15; attempt++) {
+          const { data, error } = await supabase.from('cases').insert(batch).select('*');
+          if (!error) {
+            if (data) insertedRows.push(...data);
+            batchInserted = true;
+            break;
+          }
+          lastBatchErr = error;
+          const missingCol = extractMissingColumnFromError(error);
+          if (missingCol && batch.some((r) => missingCol in r)) {
+            knownMissingCols.add(missingCol);
+            batch = batch.map((r) => {
+              const copy = { ...r };
+              delete copy[missingCol];
+              return copy;
+            });
+            continue;
+          }
+          break;
+        }
 
-          // Fallback: Attempt individual row inserts within this failed batch so valid rows still persist
+        if (!batchInserted && lastBatchErr) {
+          console.error(`Supabase bulkInsertCases batch ${Math.floor(i / batchSize) + 1} error:`, lastBatchErr);
+          errors.push(lastBatchErr);
+
+          // Fallback: Attempt individual row inserts with schema-safe retry so valid rows still persist
           for (const singleRow of batch) {
             try {
-              const singleRes = await supabase.from('cases').insert([singleRow]).select('*');
+              const singleRes = await safeCasesMutation('insert', singleRow);
               if (singleRes.data && singleRes.data.length > 0) {
                 insertedRows.push(singleRes.data[0]);
               } else if (singleRes.error) {
@@ -660,8 +854,6 @@ export const SupabaseService = {
               console.warn('Single row insert exception:', singleErr);
             }
           }
-        } else if (data) {
-          insertedRows.push(...data);
         }
       } catch (batchErr) {
         console.error('Batch insert exception:', batchErr);
@@ -683,28 +875,16 @@ export const SupabaseService = {
   },
 
   /**
-   * Permanently updates an existing case using supabase.from('cases').update(...)
+   * Permanently updates an existing case using supabase.from('cases').update(...) with schema-safe retry
    */
   async updateCase(id: string, updates: Partial<CaseItem>): Promise<CaseItem | null> {
+    if (!id || String(id).startsWith('case-')) {
+      return null;
+    }
     const row = mapPartialCaseToRow(updates);
     delete row.id;
 
-    let { data, error } = await supabase
-      .from('cases')
-      .update(row)
-      .eq('id', id)
-      .select('*');
-
-    if (error && error.message.includes('suit_no')) {
-      delete row.suit_no;
-      const retry = await supabase
-        .from('cases')
-        .update(row)
-        .eq('id', id)
-        .select('*');
-      data = retry.data;
-      error = retry.error;
-    }
+    const { data, error } = await safeCasesMutation('update', row, id);
 
     if (error) {
       console.error('Supabase updateCase error:', error);
@@ -720,6 +900,9 @@ export const SupabaseService = {
    * Permanently deletes a case using supabase.from('cases').delete(...)
    */
   async deleteCase(id: string): Promise<boolean> {
+    if (!id || String(id).startsWith('case-')) {
+      return true;
+    }
     const { error } = await supabase
       .from('cases')
       .delete()
@@ -733,22 +916,21 @@ export const SupabaseService = {
   },
 
   /**
-   * Upsert a case
+   * Upsert a case with schema-safe retry
    */
   async upsertCase(caseItem: CaseItem): Promise<CaseItem | null> {
     if (!supabase) return null;
     const row = mapCaseToRow(caseItem, false);
-    const { data, error } = await supabase
-      .from('cases')
-      .upsert([row])
-      .select('*')
-      .single();
+    const { data, error } = await safeCasesMutation('upsert', row);
 
     if (error) {
       console.error('Supabase upsertCase error:', error);
       throw error;
     }
-    return mapRowToCase(data);
+    if (data && data.length > 0) {
+      return mapRowToCase(data[0]);
+    }
+    return null;
   },
 
   async fetchHearings(): Promise<CourtHearing[] | null> {
