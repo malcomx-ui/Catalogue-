@@ -225,7 +225,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -233,9 +233,9 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold">Cloud &amp; Database Deployment Hub</h2>
-                <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-bold">
                   Supabase + Vercel Ready
                 </span>
               </div>
@@ -254,29 +254,29 @@ CREATE TABLE IF NOT EXISTS \`users\` (
         </div>
 
         {/* Sub-tab Navigation */}
-        <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center gap-2 shrink-0 overflow-x-auto text-xs">
+        <div className="bg-slate-100 dark:bg-slate-800/80 px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0 overflow-x-auto text-xs">
           <button
             onClick={() => setActiveTab('supabase_vercel')}
             className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shadow-xs ${
               activeTab === 'supabase_vercel'
                 ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-emerald-500/20'
-                : 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
             }`}
           >
             <Cloud className="w-3.5 h-3.5" />
             <span>Supabase + Vercel Deployment</span>
-            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded font-mono font-bold ml-0.5">Recommended</span>
+            <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded-full font-mono font-bold ml-0.5">Recommended</span>
           </button>
 
           <button
             onClick={() => setActiveTab('database')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'database'
-                ? 'bg-white text-blue-900 shadow-2xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-blue-900 dark:text-blue-300 shadow-2xs border border-slate-200 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            <HardDrive className="w-3.5 h-3.5 text-blue-600" />
+            <HardDrive className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <span>cPanel MySQL (.sql)</span>
           </button>
 
@@ -284,11 +284,11 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             onClick={() => setActiveTab('goahead')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'goahead'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs border border-slate-200 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Go-Ahead Confirmation</span>
           </button>
 
@@ -296,11 +296,11 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             onClick={() => setActiveTab('guide')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'guide'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs border border-slate-200 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-indigo-600" />
+            <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>cPanel 3-Min Guide</span>
           </button>
 
@@ -308,11 +308,11 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             onClick={() => setActiveTab('backup')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === 'backup'
-                ? 'bg-white text-slate-900 shadow-2xs border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs border border-slate-200 dark:border-slate-700'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
             }`}
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>Firm Snapshot (.json)</span>
           </button>
         </div>
@@ -321,15 +321,15 @@ CREATE TABLE IF NOT EXISTS \`users\` (
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
           {/* Download Notification Banner */}
           {downloadNotice && (
-            <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-200">
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 p-3 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-200">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span className="font-semibold">{downloadNotice}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setDownloadNotice(null)}
-                className="text-emerald-700 hover:text-emerald-900 p-1"
+                className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 p-1"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -383,54 +383,54 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               {/* Two Column Deployment Steps */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* STEP 1: Supabase Database Setup */}
-                <div className="bg-white border-2 border-emerald-100 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs hover:border-emerald-300 transition-all">
-                  <div className="flex items-center justify-between pb-2 border-b border-emerald-50">
+                <div className="bg-white dark:bg-slate-900 border-2 border-emerald-100 dark:border-emerald-900/50 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
+                  <div className="flex items-center justify-between pb-2 border-b border-emerald-50 dark:border-slate-800">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-sm tabular-nums">
                         1
                       </div>
                       <div>
-                        <h4 className="font-bold text-slate-900 text-sm">Supabase Database Setup</h4>
-                        <span className="text-[11px] text-slate-500">PostgreSQL + RLS + Seed Data</span>
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Supabase Database Setup</h4>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">PostgreSQL + RLS + Seed Data</span>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2.5 py-0.5 rounded-full tabular-nums">
                       ~2 Minutes
                     </span>
                   </div>
 
-                  <ol className="space-y-2.5 text-slate-700 leading-relaxed text-xs">
+                  <ol className="space-y-2.5 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">a</span>
-                      <span>Go to <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-emerald-700 font-semibold hover:underline inline-flex items-center gap-0.5">supabase.com <ExternalLink className="w-2.5 h-2.5" /></a> and create a new project.</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">a</span>
+                      <span>Go to <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline inline-flex items-center gap-0.5">supabase.com <ExternalLink className="w-2.5 h-2.5" /></a> and create a new project.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">b</span>
-                      <span>In the left sidebar, click the <strong>SQL Editor</strong> tab (looks like <code className="font-mono bg-slate-100 text-slate-800 px-1 py-0.2 rounded">&gt;_</code>) and click <strong>New query</strong>.</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">b</span>
+                      <span>In the left sidebar, click the <strong>SQL Editor</strong> tab (looks like <code className="font-mono bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1 py-0.2 rounded">&gt;_</code>) and click <strong>New query</strong>.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">c</span>
-                      <span>Paste the contents of <code className="font-mono bg-emerald-50 text-emerald-800 px-1 py-0.2 rounded font-bold">supabase_schema.sql</code> and click <strong>Run</strong> (Ctrl+Enter).</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">c</span>
+                      <span>Paste the contents of <code className="font-mono bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 px-1 py-0.2 rounded font-bold">supabase_schema.sql</code> and click <strong>Run</strong> (Ctrl+Enter).</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">d</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">d</span>
                       <span>Go to <strong>Project Settings &rarr; API</strong> and copy your <strong>Project URL</strong> and <strong>anon public key</strong>.</span>
                     </li>
                   </ol>
 
                   {/* Schema Summary pills */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5 text-[11px]">
-                    <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1.5 text-[11px]">
+                    <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                       <span>Tables Created &amp; Pre-Seeded:</span>
-                      <span className="font-mono text-emerald-700 font-bold">6 Tables</span>
+                      <span className="font-mono text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">6 Tables</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5 font-mono text-[10px]">
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">branches (7)</span>
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">cases (30 Fort Portal)</span>
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">court_hearings</span>
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">pleading_documents</span>
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">firm_users</span>
-                      <span className="bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">system_settings</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">branches (7)</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">cases (30 Fort Portal)</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">court_hearings</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">pleading_documents</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">firm_users</span>
+                      <span className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">system_settings</span>
                     </div>
                   </div>
 
@@ -438,7 +438,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                     <button
                       type="button"
                       onClick={() => setShowSupabaseViewer(!showSupabaseViewer)}
-                      className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold flex items-center gap-1.5"
+                      className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 font-semibold flex items-center gap-1.5"
                     >
                       {showSupabaseViewer ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       <span>{showSupabaseViewer ? 'Hide SQL Code Viewer' : 'Preview supabase_schema.sql (223 lines)'}</span>
@@ -447,43 +447,43 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                 </div>
 
                 {/* STEP 2: Vercel Front-End Setup */}
-                <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs hover:border-slate-300 transition-all">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className="bg-white dark:bg-slate-900 border-2 border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
+                      <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-center font-bold text-sm tabular-nums">
                         2
                       </div>
                       <div>
-                        <h4 className="font-bold text-slate-900 text-sm">Vercel Front-End Hosting</h4>
-                        <span className="text-[11px] text-slate-500">Global Edge CDN + Automatic HTTPS</span>
+                        <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Vercel Front-End Hosting</h4>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Global Edge CDN + Automatic HTTPS</span>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded">
+                    <span className="text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-full tabular-nums">
                       ~1 Minute
                     </span>
                   </div>
 
-                  <ol className="space-y-2.5 text-slate-700 leading-relaxed text-xs">
+                  <ol className="space-y-2.5 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">a</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">a</span>
                       <span>Push this codebase to your GitHub, GitLab, or Bitbucket repository.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">b</span>
-                      <span>Log into <a href="https://vercel.com" target="_blank" rel="noreferrer" className="text-slate-900 font-semibold hover:underline inline-flex items-center gap-0.5">vercel.com <ExternalLink className="w-2.5 h-2.5" /></a> &rarr; Click <strong>Add New... &rarr; Project</strong>.</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">b</span>
+                      <span>Log into <a href="https://vercel.com" target="_blank" rel="noreferrer" className="text-slate-900 dark:text-slate-100 font-semibold hover:underline inline-flex items-center gap-0.5">vercel.com <ExternalLink className="w-2.5 h-2.5" /></a> &rarr; Click <strong>Add New... &rarr; Project</strong>.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">c</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">c</span>
                       <span>Import the repository. Preset is automatically detected as <strong>Vite</strong>.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">d</span>
+                      <span className="w-4 h-4 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">d</span>
                       <span>Expand <strong>Environment Variables</strong> and enter:</span>
                     </li>
                   </ol>
 
                   {/* Vercel Environment Variables Box */}
-                  <div className="bg-slate-900 text-slate-100 p-3 rounded-xl space-y-2 font-mono text-[11px] relative">
+                  <div className="bg-slate-900 dark:bg-slate-950 text-slate-100 p-3 rounded-xl space-y-2 font-mono text-[11px] relative border border-slate-800">
                     <div className="flex items-center justify-between text-slate-400 text-[10px] border-b border-slate-800 pb-1.5">
                       <span>VERCEL ENVIRONMENT VARIABLES</span>
                       <button
@@ -505,8 +505,8 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-500">
-                    <code className="font-mono bg-slate-100 px-1 py-0.5 rounded text-slate-800">vercel.json</code> is included in the project root with automatic client-side SPA routing rewrites.
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-slate-800 dark:text-slate-200">vercel.json</code> is included in the project root with automatic client-side SPA routing rewrites.
                   </p>
                 </div>
               </div>
@@ -539,16 +539,16 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               )}
 
               {/* Status & Live Health Check Banner */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    supabaseTestStatus.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+                    supabaseTestStatus.connected ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                   }`}>
-                    {supabaseTestStatus.connected ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Cloud className="w-5 h-5" />}
+                    {supabaseTestStatus.connected ? <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> : <Cloud className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h5 className="font-bold text-slate-900 text-xs">Supabase Environment Connection Status</h5>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{supabaseTestStatus.message}</p>
+                    <h5 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Supabase Environment Connection Status</h5>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{supabaseTestStatus.message}</p>
                   </div>
                 </div>
 
@@ -557,9 +557,9 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                     type="button"
                     onClick={handleTestSupabaseConnection}
                     disabled={testingSupabase}
-                    className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${testingSupabase ? 'animate-spin text-emerald-600' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${testingSupabase ? 'animate-spin text-emerald-600 dark:text-emerald-400' : ''}`} />
                     <span>{testingSupabase ? 'Checking...' : 'Test Supabase Connection'}</span>
                   </button>
                 </div>
@@ -571,15 +571,15 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             <div className="space-y-4">
               {/* Download Notification Banner */}
               {downloadNotice && (
-                <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-200">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 p-3 rounded-xl flex items-center justify-between text-xs animate-in fade-in duration-200">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span className="font-semibold">{downloadNotice}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setDownloadNotice(null)}
-                    className="text-emerald-700 hover:text-emerald-900 p-1"
+                    className="text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100 p-1"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -587,42 +587,42 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               )}
 
               {/* Direct Answer Alert */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl space-y-2">
-                <div className="flex items-center gap-2 text-blue-950 font-bold text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/25 dark:to-indigo-900/25 border border-blue-200 dark:border-blue-800/80 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-blue-950 dark:text-blue-100 font-bold text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
                   <span>YES! YOUR FULLY FUNCTIONAL DATABASE IS READY FOR SIMULTANEOUS MIGRATION</span>
                 </div>
-                <p className="text-blue-900 leading-relaxed text-xs">
-                  We have developed a comprehensive <strong>MySQL relational database</strong> script (<code className="font-mono bg-blue-100 text-blue-800 px-1 py-0.5 rounded">mk_advocates_database.sql</code>) containing all schemas, indexes, foreign keys, and seed data. You can migrate both the frontend application and the database in one single session!
+                <p className="text-blue-900 dark:text-blue-200 leading-relaxed text-xs">
+                  We have developed a comprehensive <strong>MySQL relational database</strong> script (<code className="font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 px-1 py-0.5 rounded">mk_advocates_database.sql</code>) containing all schemas, indexes, foreign keys, and seed data. You can migrate both the frontend application and the database in one single session!
                 </p>
               </div>
 
               {/* Download Action Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {/* Card 1: SQL Dump */}
-                <div className="bg-white border-2 border-blue-100 rounded-xl p-4 shadow-2xs space-y-3 hover:border-blue-300 transition-colors flex flex-col justify-between">
+                <div className="bg-white dark:bg-slate-900 border-2 border-blue-100 dark:border-blue-900/50 rounded-2xl p-4 shadow-2xs space-y-3 hover:border-blue-300 dark:hover:border-blue-700 transition-colors flex flex-col justify-between">
                   <div className="space-y-2.5">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 flex items-center justify-center">
                           <Database className="w-5 h-5" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-xs">MySQL Database Dump</h4>
-                          <span className="text-[10px] text-slate-500 font-mono">mk_advocates_database.sql</span>
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">MySQL Database Dump</h4>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">mk_advocates_database.sql</span>
                         </div>
                       </div>
-                      <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
+                      <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2.5 py-0.5 rounded-full font-bold">
                         1-Click phpMyAdmin
                       </span>
                     </div>
 
-                    <p className="text-slate-600 text-[11px] leading-relaxed">
-                      Complete SQL schema for <strong>cases, hearings, documents, branches, users, roles, audit logs</strong>, and firm settings. Compatible with MySQL 5.7+, 8.0+, and MariaDB.
+                    <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
+                      Complete SQL schema for <strong className="text-slate-800 dark:text-slate-200">cases, hearings, documents, branches, users, roles, audit logs</strong>, and firm settings. Compatible with MySQL 5.7+, 8.0+, and MariaDB.
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={handleDownloadSql}
@@ -640,16 +640,16 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                           setCopiedSql(true);
                           setTimeout(() => setCopiedSql(false), 2000);
                         }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors border border-slate-200"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-medium transition-colors border border-slate-200 dark:border-slate-700"
                       >
-                        {copiedSql ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-500" />}
+                        {copiedSql ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-500 dark:text-slate-400" />}
                         <span>{copiedSql ? 'Copied Full SQL!' : 'Copy Full SQL'}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setShowSqlViewer(!showSqlViewer)}
-                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors border border-slate-200"
+                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-medium transition-colors border border-slate-200 dark:border-slate-700"
                       >
                         {showSqlViewer ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         <span>{showSqlViewer ? 'Hide' : 'View'}</span>
@@ -659,33 +659,33 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                 </div>
 
                 {/* Card 2: DB Config */}
-                <div className="bg-white border-2 border-slate-100 rounded-xl p-4 shadow-2xs space-y-3 hover:border-slate-300 transition-colors flex flex-col justify-between">
+                <div className="bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
                   <div className="space-y-2.5">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center">
                           <KeyRound className="w-5 h-5" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-xs">cPanel DB Connection Config</h4>
-                          <span className="text-[10px] text-slate-500 font-mono">api/db_config.php</span>
+                          <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">cPanel DB Connection Config</h4>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">api/db_config.php</span>
                         </div>
                       </div>
-                      <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-full font-medium">
                         Credentials
                       </span>
                     </div>
 
-                    <p className="text-slate-600 text-[11px] leading-relaxed">
+                    <p className="text-slate-600 dark:text-slate-400 text-[11px] leading-relaxed">
                       Simple configuration file where you plug in your cPanel database name, database user, and password. Has built-in automatic zero-config fallback safety.
                     </p>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
                       onClick={handleDownloadConfig}
-                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Download db_config.php</span>
@@ -699,16 +699,16 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                           setCopiedConfig(true);
                           setTimeout(() => setCopiedConfig(false), 2000);
                         }}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors border border-slate-200"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-medium transition-colors border border-slate-200 dark:border-slate-700"
                       >
-                        {copiedConfig ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-500" />}
+                        {copiedConfig ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-500 dark:text-slate-400" />}
                         <span>{copiedConfig ? 'Copied Config!' : 'Copy Config Code'}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setShowConfigViewer(!showConfigViewer)}
-                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-medium transition-colors border border-slate-200"
+                        className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-medium transition-colors border border-slate-200 dark:border-slate-700"
                       >
                         {showConfigViewer ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                         <span>{showConfigViewer ? 'Hide' : 'View Code'}</span>
@@ -720,7 +720,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
 
               {/* Expandable db_config.php Viewer */}
               {showConfigViewer && (
-                <div className="border border-indigo-200 rounded-xl overflow-hidden bg-slate-950 text-slate-200 animate-in fade-in duration-200">
+                <div className="border border-indigo-200 dark:border-indigo-800 rounded-xl overflow-hidden bg-slate-950 text-slate-200 animate-in fade-in duration-200">
                   <div className="bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
                     <div className="flex items-center gap-2">
                       <FileCode className="w-4 h-4 text-indigo-400" />
@@ -757,7 +757,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
 
               {/* Expandable SQL Viewer */}
               {showSqlViewer && (
-                <div className="border border-blue-200 rounded-xl overflow-hidden bg-slate-950 text-slate-200 animate-in fade-in duration-200">
+                <div className="border border-blue-200 dark:border-blue-800 rounded-xl overflow-hidden bg-slate-950 text-slate-200 animate-in fade-in duration-200">
                   <div className="bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
                     <div className="flex items-center gap-2">
                       <Database className="w-4 h-4 text-blue-400" />
@@ -793,29 +793,29 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               )}
 
               {/* Database Dual-Engine Architecture Explained */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5">
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-600" />
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-2.5">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Dual-Engine Redundancy (Zero Failure Guarantee)</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-600">
-                  <div className="bg-white p-3 rounded-lg border border-slate-200">
-                    <strong className="text-slate-800 block mb-1">Engine A: MySQL Relational Database</strong>
-                    <p className="text-slate-500">
-                      Standard industry setup. When you enter database credentials into <code className="font-mono text-blue-700">db_config.php</code>, data is queried and stored via high-performance MySQL PDO.
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-600 dark:text-slate-300">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                    <strong className="text-slate-800 dark:text-slate-100 block mb-1">Engine A: MySQL Relational Database</strong>
+                    <p className="text-slate-500 dark:text-slate-400">
+                      Standard industry setup. When you enter database credentials into <code className="font-mono text-blue-700 dark:text-blue-400">db_config.php</code>, data is queried and stored via high-performance MySQL PDO.
                     </p>
                   </div>
-                  <div className="bg-white p-3 rounded-lg border border-slate-200">
-                    <strong className="text-slate-800 block mb-1">Engine B: Protected Server Storage Engine (Zero-Config)</strong>
-                    <p className="text-slate-500">
-                      If you haven&apos;t created a MySQL database yet or are testing your upload, the system automatically runs on the secured server storage engine (<code className="font-mono text-emerald-700">api/data/firm_database.json</code>) with 100% data persistence.
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                    <strong className="text-slate-800 dark:text-slate-100 block mb-1">Engine B: Protected Server Storage Engine (Zero-Config)</strong>
+                    <p className="text-slate-500 dark:text-slate-400">
+                      If you haven&apos;t created a MySQL database yet or are testing your upload, the system automatically runs on the secured server storage engine (<code className="font-mono text-emerald-700 dark:text-emerald-400">api/data/firm_database.json</code>) with 100% data persistence.
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* SQL Schema Preview */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 text-slate-200">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-950 text-slate-200">
                 <div className="bg-slate-900 px-4 py-2 flex items-center justify-between border-b border-slate-800">
                   <span className="text-[11px] font-mono text-slate-400">Database Schema Preview (Core Tables)</span>
                   <button
@@ -841,50 +841,50 @@ CREATE TABLE IF NOT EXISTS \`users\` (
           {activeTab === 'goahead' && (
             <div className="space-y-4">
               {/* The Official Go-Ahead Affirmation */}
-              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-2">
-                <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 p-4 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-100 font-bold text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <span>OFFICIAL CONFIRMATION: GO-AHEAD TO START MIGRATION</span>
                 </div>
-                <p className="text-emerald-800 leading-relaxed text-xs">
+                <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed text-xs">
                   All requirements are fully satisfied. You can migrate both the frontend files and the MySQL database simultaneously into your cPanel host.
                 </p>
               </div>
 
               {/* How Multi-Computer Persistence Works */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-blue-600" />
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   <span>How Multi-Computer Data Persistence Works After cPanel Migration</span>
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
-                    <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                      <Laptop className="w-4 h-4 text-slate-600" />
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-semibold">
+                      <Laptop className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                       <span>Workstation 1 (Kampala)</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Lawyer creates or edits a litigation case. The data is instantly transmitted via <code className="text-blue-700 font-mono">POST /api/database</code> to the central cPanel MySQL database.
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                      Lawyer creates or edits a litigation case. The data is instantly transmitted via <code className="text-blue-700 dark:text-blue-400 font-mono">POST /api/database</code> to the central cPanel MySQL database.
                     </p>
                   </div>
 
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
-                    <div className="flex items-center gap-2 text-blue-800 font-semibold">
-                      <Server className="w-4 h-4 text-blue-600" />
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-semibold">
+                      <Server className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       <span>cPanel Central Database</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
                       Stores all records centrally in your MySQL server database. Data lives on your cPanel server, not in local browser cache.
                     </p>
                   </div>
 
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
-                    <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                      <Smartphone className="w-4 h-4 text-slate-600" />
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-semibold">
+                      <Smartphone className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                       <span>Workstation 2 / Mobile</span>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
                       Advocate in Mbarara or on mobile logs in. The portal queries the central cPanel database in real-time, displaying identical up-to-date files.
                     </p>
                   </div>
@@ -892,10 +892,10 @@ CREATE TABLE IF NOT EXISTS \`users\` (
               </div>
 
               {/* Live Connection Test Button */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
                 <div>
-                  <div className="font-semibold text-slate-800">Test Central Core API & Database Connection</div>
-                  <div className="text-[11px] text-slate-500">
+                  <div className="font-semibold text-slate-800 dark:text-slate-100">Test Central Core API & Database Connection</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     Verify that your active deployment connects to the central multi-computer sync endpoint.
                   </div>
                 </div>
@@ -905,15 +905,15 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                     type="button"
                     onClick={handleTestConnection}
                     disabled={testingConnection}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${testingConnection ? 'animate-spin' : ''}`} />
                     <span>{testingConnection ? 'Testing...' : 'Test Connection'}</span>
                   </button>
 
                   {serverStatus.tested && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1 rounded-full font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>{serverStatus.databaseType || 'Online'}</span>
                     </span>
                   )}
@@ -924,49 +924,49 @@ CREATE TABLE IF NOT EXISTS \`users\` (
 
           {activeTab === 'guide' && (
             <div className="space-y-4">
-              <div className="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl text-indigo-950 space-y-1">
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-3.5 rounded-2xl text-indigo-950 dark:text-indigo-100 space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-xs">
-                  <FileCode className="w-4 h-4 text-indigo-600" />
+                  <FileCode className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   <span>Standard 3-Step cPanel + MySQL Migration Procedure</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-indigo-900">
+                <p className="text-[11px] leading-relaxed text-indigo-900 dark:text-indigo-300">
                   Follow these 3 easy steps to migrate both the web files and the relational MySQL database into your cPanel host:
                 </p>
               </div>
 
               {/* Step 1: Database Import */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2">
+              <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-slate-900 space-y-2 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-                  <h4 className="font-bold text-slate-900 text-xs">Create & Import Database in cPanel</h4>
+                  <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center tabular-nums">1</span>
+                  <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Create & Import Database in cPanel</h4>
                 </div>
-                <ol className="list-disc pl-6 space-y-1.5 text-slate-600 text-[11px]">
-                  <li>Log into your cPanel dashboard and click <strong>MySQL Databases</strong> (or <strong>MySQL Database Wizard</strong>).</li>
-                  <li>Create a new database (e.g. <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">mklegal_db</code>) and a database user with a secure password.</li>
-                  <li>Assign the user to the database and tick <strong>&quot;ALL PRIVILEGES&quot;</strong>.</li>
-                  <li>Open <strong>phpMyAdmin</strong> from cPanel, select your new database, click the <strong>&quot;Import&quot;</strong> tab at the top, select <code className="font-mono text-blue-700">mk_advocates_database.sql</code>, and click <strong>Go</strong>.</li>
+                <ol className="list-disc pl-6 space-y-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <li>Log into your cPanel dashboard and click <strong className="text-slate-800 dark:text-slate-200">MySQL Databases</strong> (or <strong className="text-slate-800 dark:text-slate-200">MySQL Database Wizard</strong>).</li>
+                  <li>Create a new database (e.g. <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono">mklegal_db</code>) and a database user with a secure password.</li>
+                  <li>Assign the user to the database and tick <strong className="text-slate-800 dark:text-slate-200">&quot;ALL PRIVILEGES&quot;</strong>.</li>
+                  <li>Open <strong className="text-slate-800 dark:text-slate-200">phpMyAdmin</strong> from cPanel, select your new database, click the <strong className="text-slate-800 dark:text-slate-200">&quot;Import&quot;</strong> tab at the top, select <code className="font-mono text-blue-700 dark:text-blue-400">mk_advocates_database.sql</code>, and click <strong className="text-slate-800 dark:text-slate-200">Go</strong>.</li>
                 </ol>
               </div>
 
               {/* Step 2: Upload Files */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2">
+              <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-slate-900 space-y-2 shadow-xs">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-                  <h4 className="font-bold text-slate-900 text-xs">Upload App Files to File Manager</h4>
+                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center tabular-nums">2</span>
+                  <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Upload App Files to File Manager</h4>
                 </div>
-                <ol className="list-disc pl-6 space-y-1.5 text-slate-600 text-[11px]">
-                  <li>Run <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">npm run build</code> to produce the production files in <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">dist/</code>.</li>
-                  <li>In cPanel <strong>File Manager</strong>, navigate to <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">public_html/</code> (or your domain/subdomain directory).</li>
+                <ol className="list-disc pl-6 space-y-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <li>Run <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono">npm run build</code> to produce the production files in <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono">dist/</code>.</li>
+                  <li>In cPanel <strong className="text-slate-800 dark:text-slate-200">File Manager</strong>, navigate to <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1 py-0.5 rounded font-mono">public_html/</code> (or your domain/subdomain directory).</li>
                   <li>Upload and extract the contents of the build. Ensure the <code className="font-mono">api/</code> folder is inside <code className="font-mono">public_html/api/</code>.</li>
                 </ol>
               </div>
 
               {/* Step 3: Link Credentials */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-white space-y-2">
+              <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-white dark:bg-slate-900 space-y-2 shadow-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">3</span>
-                    <h4 className="font-bold text-slate-900 text-xs">Configure api/db_config.php</h4>
+                    <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center tabular-nums">3</span>
+                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Configure api/db_config.php</h4>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -976,25 +976,25 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                         setCopiedConfig(true);
                         setTimeout(() => setCopiedConfig(false), 2000);
                       }}
-                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded border border-blue-200"
+                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded border border-blue-200 dark:border-blue-800"
                     >
-                      {copiedConfig ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedConfig ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedConfig ? 'Copied Full File!' : 'Copy db_config.php'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleDownloadConfig}
-                      className="inline-flex items-center gap-1 text-[11px] text-slate-800 hover:text-slate-950 bg-slate-100 px-2 py-1 rounded border border-slate-300 font-medium"
+                      className="inline-flex items-center gap-1 text-[11px] text-slate-800 dark:text-slate-200 hover:text-slate-950 dark:hover:text-white bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded border border-slate-300 dark:border-slate-700 font-medium"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Download File</span>
                     </button>
                   </div>
                 </div>
-                <p className="text-slate-600 text-[11px]">
-                  Open <code className="font-mono text-slate-800 bg-slate-100 px-1 rounded">public_html/api/db_config.php</code> in cPanel File Editor, insert your database name, user, and password, then save.
+                <p className="text-slate-600 dark:text-slate-400 text-[11px]">
+                  Open <code className="font-mono text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-1 rounded">public_html/api/db_config.php</code> in cPanel File Editor, insert your database name, user, and password, then save.
                 </p>
-                <div className="bg-slate-900 text-slate-200 p-2.5 rounded-lg font-mono text-[11px]">
+                <div className="bg-slate-900 dark:bg-slate-950 text-slate-200 p-2.5 rounded-lg font-mono text-[11px] border border-slate-800">
                   define(&apos;DB_HOST&apos;, &apos;localhost&apos;);<br />
                   define(&apos;DB_NAME&apos;, &apos;yourcpanel_dbname&apos;);<br />
                   define(&apos;DB_USER&apos;, &apos;yourcpanel_dbuser&apos;);<br />
@@ -1006,11 +1006,11 @@ CREATE TABLE IF NOT EXISTS \`users\` (
 
           {activeTab === 'backup' && (
             <div className="space-y-4">
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h4 className="font-bold text-slate-900 text-xs">Firm Central Snapshot Backup</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs">Firm Central Snapshot Backup</h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                       Download a single JSON file containing all active firm records for offline archival.
                     </p>
                   </div>
@@ -1024,13 +1024,13 @@ CREATE TABLE IF NOT EXISTS \`users\` (
                   </button>
                 </div>
 
-                <div className="pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex flex-wrap gap-4">
-                  <span>Cases: <strong className="text-slate-800">{cases.length}</strong></span>
-                  <span>Hearings: <strong className="text-slate-800">{hearings.length}</strong></span>
-                  <span>Documents: <strong className="text-slate-800">{documents.length}</strong></span>
-                  <span>Branches: <strong className="text-slate-800">{branches.length}</strong></span>
-                  <span>Users: <strong className="text-slate-800">{availableUsers.length}</strong></span>
-                  <span>Roles: <strong className="text-slate-800">{roles.length}</strong></span>
+                <div className="pt-3 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-4 tabular-nums">
+                  <span>Cases: <strong className="text-slate-800 dark:text-slate-200">{cases.length}</strong></span>
+                  <span>Hearings: <strong className="text-slate-800 dark:text-slate-200">{hearings.length}</strong></span>
+                  <span>Documents: <strong className="text-slate-800 dark:text-slate-200">{documents.length}</strong></span>
+                  <span>Branches: <strong className="text-slate-800 dark:text-slate-200">{branches.length}</strong></span>
+                  <span>Users: <strong className="text-slate-800 dark:text-slate-200">{availableUsers.length}</strong></span>
+                  <span>Roles: <strong className="text-slate-800 dark:text-slate-200">{roles.length}</strong></span>
                 </div>
               </div>
             </div>
@@ -1038,8 +1038,8 @@ CREATE TABLE IF NOT EXISTS \`users\` (
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-2 text-[11px] text-slate-600">
+        <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
             <span>Supabase PostgreSQL + Vercel &amp; MySQL Packages Ready</span>
           </div>
@@ -1057,7 +1057,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             <button
               type="button"
               onClick={handleDownloadConfig}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download db_config.php</span>
@@ -1075,7 +1075,7 @@ CREATE TABLE IF NOT EXISTS \`users\` (
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors"
+              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-semibold transition-colors"
             >
               Close
             </button>

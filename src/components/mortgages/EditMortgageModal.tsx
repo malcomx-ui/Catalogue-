@@ -317,7 +317,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white flex items-center justify-between shrink-0">
           <div>
@@ -325,7 +325,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
                 {record?.client_bank_name || 'Lending Partner'}
               </span>
-              <span className="text-xs text-gray-400 tabular-nums">File Ref: {rimNo || record?.file_number || 'N/A'}</span>
+              <span className="text-xs text-gray-400 font-mono tabular-nums">File Ref: {rimNo || record?.file_number || 'N/A'}</span>
             </div>
             <h2 className="text-lg font-bold text-white mt-1">Edit Mortgage File &amp; Department Transfer</h2>
           </div>
@@ -340,14 +340,14 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-slate-50 border-b border-slate-200 px-6 flex space-x-6 text-xs font-semibold shrink-0 overflow-x-auto">
+        <div className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 px-6 flex space-x-6 text-xs font-semibold shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveSubTab('details')}
             className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'details'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -358,8 +358,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
             onClick={() => setActiveSubTab('transfer')}
             className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'transfer'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -370,8 +370,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
             onClick={() => setActiveSubTab('fees')}
             className={`py-3 border-b-2 transition inline-flex items-center gap-1.5 whitespace-nowrap ${
               activeSubTab === 'fees'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
           >
             <Calculator className="w-3.5 h-3.5" />
@@ -382,12 +382,12 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
           {!canModifyRecord && (
-            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs font-medium">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 rounded-xl text-xs font-medium">
               View-Only Mode: This mortgage belongs to <strong>{branchName}</strong>. Your account can only edit files assigned to your branch ({effectiveUser?.branchName || currentUser?.branchName || 'your station'}).
             </div>
           )}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 rounded-xl text-xs">
               {error}
             </div>
           )}
@@ -397,23 +397,23 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {activeSubTab === 'details' && (
             <div className="space-y-4">
               {/* Reporting Period: Year & Month Sheet */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-5 rounded-2xl border border-blue-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 dark:bg-blue-950/30 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/60">
                 <div>
-                  <label className="block text-xs font-bold text-blue-900 mb-1">Record Year *</label>
+                  <label className="block text-xs font-bold text-blue-900 dark:text-blue-200 mb-1">Record Year *</label>
                   <input 
                     type="number" 
                     value={recordYear} 
                     onChange={(e) => setRecordYear(Number(e.target.value))} 
-                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950 tabular-nums" 
+                    className="w-full border border-blue-200 dark:border-blue-800 p-2 rounded-lg text-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950 dark:text-blue-100 tabular-nums" 
                     required 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-blue-900 mb-1">Month Sheet *</label>
+                  <label className="block text-xs font-bold text-blue-900 dark:text-blue-200 mb-1">Month Sheet *</label>
                   <select 
                     value={monthSheet} 
                     onChange={(e) => setMonthSheet(e.target.value)} 
-                    className="w-full border border-blue-200 p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950" 
+                    className="w-full border border-blue-200 dark:border-blue-800 p-2 rounded-lg text-sm bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none font-semibold text-blue-950 dark:text-blue-100" 
                     required
                   >
                     {MONTHS.map((m) => (
@@ -425,11 +425,11 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Lending Bank / Lender *</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Lending Bank / Lender *</label>
                   <select
                     value={bankNameField}
                     onChange={(e) => setBankNameField(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none font-semibold"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-1 focus:ring-blue-500 focus:outline-none font-semibold"
                   >
                     {Array.from(new Set([...DEFAULT_BANKS, bankNameField].filter(Boolean))).map((b) => (
                       <option key={b} value={b}>{b}</option>
@@ -438,28 +438,28 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block font-medium text-gray-700 mb-1">Mortgagor / Borrower Name *</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Mortgagor / Borrower Name *</label>
                   <input
                     type="text"
                     required
                     value={mortgagorName}
                     onChange={(e) => setMortgagorName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">RIM No. / Customer ID</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">RIM No. / Customer ID</label>
                   <input
                     type="text"
                     value={rimNo}
                     onChange={(e) => setRimNo(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono tabular-nums"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Bank Branch</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Bank Branch</label>
                   <input
                     type="text"
                     value={bankBranch}
@@ -467,14 +467,14 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                       if (isGlobalAdmin) setBankBranch(e.target.value);
                     }}
                     disabled={!canModifyRecord || !isGlobalAdmin}
-                    className={`w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none ${
-                      !canModifyRecord || !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+                    className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none ${
+                      !canModifyRecord || !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
                     }`}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Loan Amount (UGX) *</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Loan Amount (UGX) *</label>
                   <input
                     type="number"
                     required
@@ -482,16 +482,16 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     step="any"
                     value={loanAmount}
                     onChange={(e) => setLoanAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono tabular-nums font-semibold"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-mono tabular-nums font-semibold"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Registration Status</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Registration Status</label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 bg-white focus:outline-none focus:border-blue-500 font-medium"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-medium"
                   >
                     <option value="Active / Processing">Active / Processing</option>
                     <option value="Completed / Cleared">Completed / Cleared</option>
@@ -506,83 +506,83 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="block font-medium text-gray-700 mb-1">Property Description / Title Particulars *</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Property Description / Title Particulars *</label>
                   <input
                     type="text"
                     required
                     value={propertyDescription}
                     onChange={(e) => setPropertyDescription(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date of Receipt</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Receipt</label>
                   <input
                     type="date"
                     value={dateOfReceipt}
                     onChange={(e) => setDateOfReceipt(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date of Payment</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Payment</label>
                   <input
                     type="date"
                     value={dateOfPayment}
                     onChange={(e) => setDateOfPayment(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date of Return</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Return</label>
                   <input
                     type="date"
                     value={dateOfReturn}
                     onChange={(e) => setDateOfReturn(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date Instructed</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date Instructed</label>
                   <input
                     type="date"
                     value={dateInstructed}
                     onChange={(e) => setDateInstructed(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date Sent for Registration</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date Sent for Registration</label>
                   <input
                     type="date"
                     value={dateSentRegistration}
                     onChange={(e) => setDateSentRegistration(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Date Registered</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Date Registered</label>
                   <input
                     type="date"
                     value={dateRegistered}
                     onChange={(e) => setDateRegistered(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 tabular-nums rounded-lg p-2 focus:outline-none"
                   />
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="block font-medium text-gray-700 mb-1">Comments &amp; File Notes</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Comments &amp; File Notes</label>
                   <textarea
                     rows={2}
                     value={comments}
                     onChange={(e) => setComments(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -592,24 +592,24 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {/* TAB 2: Branch, Department & Lawyer Assignment */}
           {activeSubTab === 'transfer' && (
             <div className="space-y-5">
-              <div className="bg-indigo-50/70 p-5 rounded-2xl border border-indigo-100">
-                <h4 className="text-xs font-bold text-indigo-900 mb-1">Station &amp; Department Transfer Controls</h4>
-                <p className="text-[11px] text-indigo-700">
+              <div className="bg-indigo-50/70 dark:bg-indigo-950/30 p-5 rounded-2xl border border-indigo-100 dark:border-indigo-900/60">
+                <h4 className="text-xs font-bold text-indigo-900 dark:text-indigo-200 mb-1">Station &amp; Department Transfer Controls</h4>
+                <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
                   Reassign the mortgage file across regional branch registries or transfer jurisdiction to specialized firm practice groups.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Assigned Branch Station *</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Assigned Branch Station *</label>
                   <select
                     value={branchName}
                     onChange={(e) => {
                       if (isGlobalAdmin) setBranchName(e.target.value);
                     }}
                     disabled={!canModifyRecord || !isGlobalAdmin}
-                    className={`w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-medium ${
-                      !canModifyRecord || !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                    className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-medium ${
+                      !canModifyRecord || !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
                     }`}
                   >
                     {DEFAULT_BRANCHES.map((b) => (
@@ -619,18 +619,18 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     ))}
                   </select>
                   {!isGlobalAdmin && (
-                    <p className="text-[10px] text-amber-700 mt-1">
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
                       Only Super Admin / Firm Admin may transfer mortgages to another branch.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Firm Department *</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Firm Department *</label>
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:outline-none focus:border-blue-500 font-medium"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-medium"
                   >
                     {DEPARTMENTS.map((dept) => (
                       <option key={dept} value={dept}>
@@ -641,11 +641,11 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block font-semibold text-gray-700 mb-1">Assigned Lawyer / Responsible Advocate</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Assigned Lawyer / Responsible Advocate</label>
                   <select
                     value={assignedLawyerId}
                     onChange={(e) => handleLawyerSelect(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white focus:outline-none focus:border-blue-500"
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
                   >
                     <option value="">-- Unassigned Advocate --</option>
                     {lawyersList.map((lawyer) => (
@@ -655,18 +655,18 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                     ))}
                   </select>
                   {assignedLawyerName && (
-                    <p className="text-[11px] text-gray-500 mt-1">Currently assigned: {assignedLawyerName}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Currently assigned: {assignedLawyerName}</p>
                   )}
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block font-semibold text-gray-700 mb-1">Transfer Reason / Audit Justification</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Transfer Reason / Audit Justification</label>
                   <textarea
                     rows={2}
                     placeholder="e.g. Transferred to Mbarara branch as land title registry is situated in Mbarara MZO..."
                     value={transferReason}
                     onChange={(e) => setTransferReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2.5 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -676,8 +676,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           {/* TAB 3: Fees & Disbursement Ledger */}
           {activeSubTab === 'fees' && (
             <div className="space-y-5">
-              <div className="bg-blue-50/70 p-5 rounded-2xl border border-blue-200">
-                <label className="block font-semibold text-blue-900 mb-1 text-xs">
+              <div className="bg-blue-50/70 dark:bg-blue-950/30 p-5 rounded-2xl border border-blue-200 dark:border-blue-800/60">
+                <label className="block font-semibold text-blue-900 dark:text-blue-200 mb-1 text-xs">
                   Professional Legal Fees (Base for 18% VAT) *
                 </label>
                 <input
@@ -686,129 +686,129 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   step="any"
                   value={legalFees}
                   onChange={(e) => setLegalFees(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-full border border-blue-300 rounded-lg p-2 font-mono tabular-nums bg-white text-blue-950 font-bold focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
+                  className="w-full border border-blue-300 dark:border-blue-700 rounded-lg p-2 font-mono tabular-nums bg-white dark:bg-slate-900 text-blue-950 dark:text-blue-100 font-bold focus:ring-1 focus:ring-blue-500 focus:outline-none text-sm"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Stamp Duty</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Stamp Duty</label>
                   <input
                     type="number"
                     min="0"
                     value={stampDuty}
                     onChange={(e) => setStampDuty(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Extra Copies</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Extra Copies</label>
                   <input
                     type="number"
                     min="0"
                     value={extraCopies}
                     onChange={(e) => setExtraCopies(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Registration Fee</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Registration Fee</label>
                   <input
                     type="number"
                     min="0"
                     value={registrationFee}
                     onChange={(e) => setRegistrationFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Other Fees</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Other Fees</label>
                   <input
                     type="number"
                     min="0"
                     value={otherDisbursements}
                     onChange={(e) => setOtherDisbursements(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Bank Charges</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Bank Charges</label>
                   <input
                     type="number"
                     min="0"
                     value={bankCharges}
                     onChange={(e) => setBankCharges(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Transport</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Transport</label>
                   <input
                     type="number"
                     min="0"
                     value={transport}
                     onChange={(e) => setTransport(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Linkage Fees</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Linkage Fees</label>
                   <input
                     type="number"
                     min="0"
                     value={linkageFees}
                     onChange={(e) => setLinkageFees(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Search Fee</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Search Fee</label>
                   <input
                     type="number"
                     min="0"
                     value={searchFee}
                     onChange={(e) => setSearchFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Filing Fee</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Filing Fee</label>
                   <input
                     type="number"
                     min="0"
                     value={filingFee}
                     onChange={(e) => setFilingFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-gray-700 mb-1">Valuation / Inspection</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Valuation / Inspection</label>
                   <input
                     type="number"
                     min="0"
                     value={valuationFee}
                     onChange={(e) => setValuationFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block font-medium text-gray-700 mb-1">Courier / Logistics</label>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Courier / Logistics</label>
                   <input
                     type="number"
                     min="0"
                     value={courierFee}
                     onChange={(e) => setCourierFee(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono focus:outline-none"
+                    className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 rounded-lg p-2 font-mono tabular-nums focus:outline-none"
                   />
                 </div>
               </div>
@@ -857,12 +857,12 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
           </fieldset>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 shrink-0">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200/80 dark:border-slate-800 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg font-medium transition"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition"
             >
               Cancel
             </button>

@@ -115,17 +115,17 @@ export default function RefreshSessionButton({
           type="button"
           onClick={handleRefresh}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800/60 transition-colors disabled:opacity-50"
           title="Force re-validate token and pull latest server metadata"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600' : 'text-indigo-500'}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-600 dark:text-indigo-400' : 'text-indigo-500 dark:text-indigo-400'}`} />
           <span>{loading ? 'Refreshing...' : 'Refresh Session'}</span>
         </button>
         {message && (
           <div className={`text-[10px] px-2 py-1 rounded flex items-center gap-1 leading-tight ${
-            isSuccess ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+            isSuccess ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
           }`}>
-            {isSuccess ? <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" /> : <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
+            {isSuccess ? <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" /> : <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
             <span className="truncate">{message}</span>
           </div>
         )}
@@ -134,18 +134,18 @@ export default function RefreshSessionButton({
   }
 
   return (
-    <div className={`p-4 bg-white rounded shadow max-w-sm border border-slate-200 ${className}`}>
+    <div className={`p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-xs max-w-sm border border-slate-200/80 dark:border-slate-800 ${className}`}>
       <button
         onClick={handleRefresh}
         disabled={loading}
-        className="w-full bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-xs"
+        className="w-full bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-xs"
       >
         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         <span>{loading ? 'Refreshing Session...' : 'Refresh User Session'}</span>
       </button>
       {message && (
         <p className={`text-xs mt-2.5 flex items-center gap-1.5 ${
-          isSuccess ? 'text-emerald-700 font-medium' : 'text-rose-600'
+          isSuccess ? 'text-emerald-700 dark:text-emerald-300 font-medium' : 'text-rose-600 dark:text-rose-400'
         }`}>
           {isSuccess ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 shrink-0" />}
           <span>{message}</span>

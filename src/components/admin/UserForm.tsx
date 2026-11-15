@@ -61,56 +61,56 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-lg shadow-md max-w-lg mx-auto">
-      <h2 className="text-xl font-bold text-gray-900">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs max-w-lg mx-auto">
+      <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
         {initialData?.id ? 'Edit User Profile' : 'Create New User'}
       </h2>
 
       {errorMsg && (
-        <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-sm">
           {errorMsg}
         </div>
       )}
 
       {/* Full Name */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Full Name</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
         <input
           type="text"
           required
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
+          className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none"
           placeholder="e.g. John Doe"
         />
       </div>
 
       {/* Email Address */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Email Address</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Email Address</label>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none"
+          className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none"
           placeholder="john@firm.com"
         />
       </div>
 
       {/* Role Selector */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">Administrative Role</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Administrative Role</label>
         <select
           value={roleId}
           onChange={(e) => setRoleId(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none bg-white"
+          className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
         >
           <option value="branch_admin">Branch Administrator (Restricted to Assigned Branch)</option>
           <option value="admin_finance_assistant">Admin &amp; Finance Assistant (View All, Edit Own Branch)</option>
           <option value="system_admin">System Administrator (Global Full Access)</option>
         </select>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           {isSystemAdmin
             ? 'Grants global control over all branches, firm settings, and user management.'
             : isFinanceAssistant
@@ -122,12 +122,12 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
       {/* Branch Selector (Only shown for Branch Admins / Standard Staff) */}
       {!isSystemAdmin && (
         <div>
-          <label className="block text-sm font-medium text-gray-700">Assigned Branch</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Branch</label>
           <select
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
             required={!isSystemAdmin}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none bg-white"
+            className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
           >
             <option value="">-- Select Branch --</option>
             {branches.map((branch) => (
@@ -140,18 +140,18 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
       )}
 
       {/* Actions */}
-      <div className="flex justify-end space-x-3 pt-4">
+      <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-800">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+          className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
           {loading ? 'Saving...' : 'Save User'}
         </button>

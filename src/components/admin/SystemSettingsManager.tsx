@@ -56,17 +56,17 @@ export const SystemSettingsManager: React.FC = () => {
 
   if (!isSuperAdmin) {
     return (
-      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
-        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+      <div className="max-w-md mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
           <Lock className="w-6 h-6" />
         </div>
-        <h2 className="text-base font-bold text-slate-900 mb-1">Access Restricted</h2>
-        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Access Restricted</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
           System Settings &amp; Dynamic Entry Engine is strictly reserved for Super Administrators and Managing Partners.
         </p>
         <button
           onClick={() => setMainTab('dashboard')}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
         >
           Return to Dashboard
         </button>
@@ -216,20 +216,20 @@ export const SystemSettingsManager: React.FC = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Top Header Card */}
-      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center border border-purple-200 shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 flex items-center justify-center border border-purple-200 dark:border-purple-800 shrink-0">
             <Sliders className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">System Settings &amp; Dynamic Entry Engine</h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">System Settings &amp; Dynamic Entry Engine</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                 Super Admin Exclusive
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              Update firm intake requirements, feature toggles, court lists, and branding <strong>without needing to rebuild or re-migrate</strong>.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Update firm intake requirements, feature toggles, court lists, and branding <strong className="text-slate-700 dark:text-slate-200">without needing to rebuild or re-migrate</strong>.
             </p>
           </div>
         </div>
@@ -248,79 +248,79 @@ export const SystemSettingsManager: React.FC = () => {
 
       {/* Success Banner */}
       {savedSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between animate-in fade-in duration-200">
+        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 flex items-center justify-between animate-in fade-in duration-200">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div className="text-xs">
               <strong className="font-bold">System Configuration Updated Successfully!</strong>
-              <p className="text-emerald-700 mt-0.5">
+              <p className="text-emerald-700 dark:text-emerald-300 mt-0.5">
                 All changes have been saved to the central database and immediately broadcasted to all firm workstations, laptops, and mobile phones.
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-mono text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">Live Synced</span>
+          <span className="text-[10px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1 rounded-full">Live Synced</span>
         </div>
       )}
 
       {/* Sub-tab Navigation */}
-      <div className="bg-white rounded-2xl p-1.5 border border-slate-200 shadow-xs flex items-center gap-1 overflow-x-auto text-xs">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center gap-1 overflow-x-auto text-xs">
         <button
           onClick={() => setActiveTab('intake')}
-          className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'intake'
-              ? 'bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
-          <FileText className="w-3.5 h-3.5 text-purple-600" />
+          <FileText className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
           <span>Case Intake &amp; Entry Requirements</span>
         </button>
 
         <button
           onClick={() => setActiveTab('features')}
-          className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'features'
-              ? 'bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
-          <Layers className="w-3.5 h-3.5 text-indigo-600" />
+          <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           <span>Operational Feature Toggles</span>
         </button>
 
         <button
           onClick={() => setActiveTab('courts')}
-          className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap tabular-nums ${
             activeTab === 'courts'
-              ? 'bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
-          <Scale className="w-3.5 h-3.5 text-blue-600" />
+          <Scale className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           <span>Courts &amp; Tribunals List ({formData.courtList.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('practice')}
-          className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap tabular-nums ${
             activeTab === 'practice'
-              ? 'bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
-          <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+          <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Practice Areas ({formData.practiceAreas.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab('firm')}
-          className={`px-3.5 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
             activeTab === 'firm'
-              ? 'bg-purple-50 text-purple-900 border border-purple-200 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
           }`}
         >
-          <Globe className="w-3.5 h-3.5 text-slate-600" />
+          <Globe className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
           <span>Firm Profile &amp; Metadata</span>
         </button>
       </div>
@@ -329,34 +329,34 @@ export const SystemSettingsManager: React.FC = () => {
       {activeTab === 'intake' && (
         <div className="space-y-4">
           {/* Quick Presets & Explanation */}
-          <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="bg-purple-50/70 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
             <div>
-              <strong className="text-purple-950 block text-sm font-bold">Dynamic Case Intake Requirements</strong>
-              <p className="text-purple-900 text-xs mt-0.5">
+              <strong className="text-purple-950 dark:text-purple-100 block text-sm font-bold">Dynamic Case Intake Requirements</strong>
+              <p className="text-purple-900 dark:text-purple-300 text-xs mt-0.5">
                 Set fields to <strong>Mandatory</strong> (strictly required for case saving), <strong>Optional</strong>, or <strong>Hidden</strong> (omitted from intake form).
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[11px] text-purple-800 font-semibold">Quick Presets:</span>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <span className="text-[11px] text-purple-800 dark:text-purple-300 font-semibold">Quick Presets:</span>
               <button
                 type="button"
                 onClick={() => applyPreset('minimal')}
-                className="px-2.5 py-1 bg-white border border-purple-200 hover:bg-purple-100 text-purple-900 rounded-lg text-xs font-medium"
+                className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-900 dark:text-purple-200 rounded-lg text-xs font-medium transition-colors"
               >
                 Minimal
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('standard')}
-                className="px-2.5 py-1 bg-white border border-purple-200 hover:bg-purple-100 text-purple-900 rounded-lg text-xs font-medium"
+                className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-900 dark:text-purple-200 rounded-lg text-xs font-medium transition-colors"
               >
                 Standard
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('strict')}
-                className="px-2.5 py-1 bg-white border border-purple-200 hover:bg-purple-100 text-purple-900 rounded-lg text-xs font-medium"
+                className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-900 dark:text-purple-200 rounded-lg text-xs font-medium transition-colors"
               >
                 Strict / Comprehensive
               </button>
@@ -364,14 +364,14 @@ export const SystemSettingsManager: React.FC = () => {
           </div>
 
           {/* Case Auto-Numbering Rule */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-purple-600" />
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Case Auto-Numbering Engine</span>
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   When enabled, automatically generates an official firm reference if no court suit number is provided during initial intake.
                 </p>
               </div>
@@ -381,12 +381,12 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableCaseAutoNumbering')}
                 className={`p-1.5 rounded-lg border flex items-center gap-1.5 text-xs font-semibold transition-colors ${
                   formData.features.enableCaseAutoNumbering
-                    ? 'bg-purple-100 text-purple-900 border-purple-300'
-                    : 'bg-slate-100 text-slate-600 border-slate-200'
+                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
                 {formData.features.enableCaseAutoNumbering ? (
-                  <ToggleRight className="w-5 h-5 text-purple-600" />
+                  <ToggleRight className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 ) : (
                   <ToggleLeft className="w-5 h-5 text-slate-400" />
                 )}
@@ -395,8 +395,8 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {formData.features.enableCaseAutoNumbering && (
-              <div className="pt-2 border-t border-slate-100 flex items-center gap-3">
-                <label className="text-xs text-slate-700 font-medium">MK Case No. Prefix:</label>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-medium">MK Case No. Prefix:</label>
                 <input
                   type="text"
                   value={formData.features.caseNumberPrefix}
@@ -406,30 +406,30 @@ export const SystemSettingsManager: React.FC = () => {
                       features: { ...prev.features, caseNumberPrefix: e.target.value },
                     }))
                   }
-                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono w-48 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-xs font-mono w-48 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   placeholder="e.g. MKA/ or MKA/LIT/"
                 />
-                <span className="text-[11px] text-slate-500">
-                  Example generated: <code className="font-mono text-purple-700">{formData.features.caseNumberPrefix}{new Date().getFullYear()}/4891</code>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                  Example generated: <code className="font-mono text-purple-700 dark:text-purple-300">{formData.features.caseNumberPrefix}{new Date().getFullYear()}/4891</code>
                 </span>
               </div>
             )}
           </div>
 
           {/* Intake Field Configuration Table */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow">
-            <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow">
+            <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
-                <span className="font-bold text-slate-800 text-xs">Standard Case Entry Fields &amp; Labels</span>
-                <p className="text-[11px] text-purple-700 font-medium flex items-center gap-1 mt-0.5">
+                <span className="font-bold text-slate-800 dark:text-slate-100 text-xs">Standard Case Entry Fields &amp; Labels</span>
+                <p className="text-[11px] text-purple-700 dark:text-purple-400 font-medium flex items-center gap-1 mt-0.5">
                   <Edit2 className="w-3 h-3 shrink-0" />
                   <span>Click any label to change its name. Your custom name will immediately appear on the case intake form.</span>
                 </p>
               </div>
-              <span className="text-[11px] text-slate-500 tabular-nums shrink-0">{Object.keys(formData.intakeFields).length} Intake Fields Configured</span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums shrink-0">{Object.keys(formData.intakeFields).length} Intake Fields Configured</span>
             </div>
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {(() => {
                 const PREFERRED_FIELD_ORDER = [
                   'branch',
@@ -463,10 +463,10 @@ export const SystemSettingsManager: React.FC = () => {
                 });
 
                 return sortedEntries.map(([key, field], index) => (
-                  <div key={key} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+                  <div key={key} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-400 font-bold w-5">
+                        <span className="text-[10px] font-mono tabular-nums text-slate-400 dark:text-slate-500 font-bold w-5">
                           #{index + 1}
                         </span>
                         <div className="relative flex items-center">
@@ -474,31 +474,31 @@ export const SystemSettingsManager: React.FC = () => {
                             type="text"
                             value={field.label}
                             onChange={(e) => handleLabelChange(key, e.target.value)}
-                            className="text-xs font-bold text-slate-900 bg-white hover:bg-purple-50/40 px-2.5 py-1 rounded-lg border border-slate-300 hover:border-purple-400 focus:bg-white focus:border-purple-600 focus:ring-1 focus:ring-purple-500 focus:outline-none transition-colors pr-7 w-56 sm:w-64"
+                            className="text-xs font-bold text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-800 hover:bg-purple-50/40 dark:hover:bg-slate-800/90 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-500 focus:bg-white dark:focus:bg-slate-800 focus:border-purple-600 focus:ring-1 focus:ring-purple-500 focus:outline-none transition-colors pr-7 w-56 sm:w-64"
                             title="Click to rename this field label"
                           />
                           <Edit2 className="w-3 h-3 text-slate-400 absolute right-2 pointer-events-none" />
                         </div>
                         {field.isSystem && (
-                          <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full font-mono">
                             Core Field
                           </span>
                         )}
                       </div>
                       {field.helpText && (
-                        <p className="text-[11px] text-slate-500 pl-7">{field.helpText}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-7">{field.helpText}</p>
                       )}
                     </div>
 
                     {/* Tri-state Requirement Pill Selector */}
-                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg shrink-0 text-xs">
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg shrink-0 text-xs">
                       <button
                         type="button"
                         onClick={() => handleRequirementChange(key, 'mandatory')}
                         className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${
                           field.requirement === 'mandatory'
                             ? 'bg-rose-600 text-white shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                         }`}
                       >
                         * Mandatory
@@ -509,8 +509,8 @@ export const SystemSettingsManager: React.FC = () => {
                         onClick={() => handleRequirementChange(key, 'optional')}
                         className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                           field.requirement === 'optional'
-                            ? 'bg-white text-slate-800 shadow-2xs border border-slate-200'
-                            : 'text-slate-600 hover:text-slate-900'
+                            ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 shadow-2xs border border-slate-200 dark:border-slate-600'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                         }`}
                       >
                         Optional
@@ -521,8 +521,8 @@ export const SystemSettingsManager: React.FC = () => {
                         onClick={() => handleRequirementChange(key, 'hidden')}
                         className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
                           field.requirement === 'hidden'
-                            ? 'bg-slate-800 text-slate-200 shadow-2xs'
-                            : 'text-slate-600 hover:text-slate-900'
+                            ? 'bg-slate-800 dark:bg-slate-950 text-slate-200 shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
                         }`}
                       >
                         <EyeOff className="w-3 h-3" />
@@ -536,14 +536,14 @@ export const SystemSettingsManager: React.FC = () => {
           </div>
 
           {/* Custom User-Defined Fields */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                   <span>Custom Firm Intake Fields</span>
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Need additional custom fields for your firm? Add arbitrary fields here without modifying code.
                 </p>
               </div>
@@ -551,7 +551,7 @@ export const SystemSettingsManager: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAddingCustomField(true)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-900 rounded-lg text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 text-purple-900 dark:text-purple-200 rounded-lg text-xs font-semibold transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Custom Field</span>
@@ -559,26 +559,26 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             {isAddingCustomField && (
-              <form onSubmit={handleAddCustomField} className="bg-purple-50/50 border border-purple-200 rounded-xl p-3.5 space-y-3">
+              <form onSubmit={handleAddCustomField} className="bg-purple-50/50 dark:bg-purple-900/15 border border-purple-200 dark:border-purple-800/80 rounded-xl p-3.5 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Field Name / Label:</label>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Field Name / Label:</label>
                     <input
                       type="text"
                       required
                       value={customFieldForm.name}
                       onChange={(e) => setCustomFieldForm({ ...customFieldForm, name: e.target.value })}
                       placeholder="e.g. Arbitration Clause Present"
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Field Type:</label>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Field Type:</label>
                     <select
                       value={customFieldForm.type}
                       onChange={(e) => setCustomFieldForm({ ...customFieldForm, type: e.target.value as any })}
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     >
                       <option value="text">Text (Single Line)</option>
                       <option value="number">Numeric Quantum</option>
@@ -588,11 +588,11 @@ export const SystemSettingsManager: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-700 block mb-1">Requirement Level:</label>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Requirement Level:</label>
                     <select
                       value={customFieldForm.requirement}
                       onChange={(e) => setCustomFieldForm({ ...customFieldForm, requirement: e.target.value as any })}
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     >
                       <option value="optional">Optional</option>
                       <option value="mandatory">Mandatory (*)</option>
@@ -604,7 +604,7 @@ export const SystemSettingsManager: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsAddingCustomField(false)}
-                    className="px-3 py-1 text-xs text-slate-600 hover:text-slate-800"
+                    className="px-3 py-1 text-xs text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white"
                   >
                     Cancel
                   </button>
@@ -619,15 +619,15 @@ export const SystemSettingsManager: React.FC = () => {
             )}
 
             {formData.customFields && formData.customFields.length > 0 ? (
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                 {formData.customFields.map((f) => (
-                  <div key={f.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50">
+                  <div key={f.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40">
                     <div>
-                      <strong className="text-slate-800 font-bold">{f.name}</strong>
-                      <span className="ml-2 text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded font-mono uppercase">
+                      <strong className="text-slate-800 dark:text-slate-100 font-bold">{f.name}</strong>
+                      <span className="ml-2 text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 px-2 py-0.5 rounded-full font-mono uppercase">
                         {f.type}
                       </span>
-                      <span className="ml-2 text-[10px] text-slate-500">
+                      <span className="ml-2 text-[10px] text-slate-500 dark:text-slate-400">
                         ({f.requirement})
                       </span>
                     </div>
@@ -635,7 +635,7 @@ export const SystemSettingsManager: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomField(f.id)}
-                      className="p-1 text-rose-600 hover:text-rose-800 rounded hover:bg-rose-50"
+                      className="p-1 text-rose-600 dark:text-rose-400 hover:text-rose-800 rounded hover:bg-rose-50 dark:hover:bg-rose-900/30"
                       title="Delete custom field"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -644,7 +644,7 @@ export const SystemSettingsManager: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-4 text-xs text-slate-400">
+              <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
                 No custom fields defined yet. Standard intake fields are active.
               </div>
             )}
@@ -655,19 +655,19 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 2: OPERATIONAL FEATURE TOGGLES */}
       {activeTab === 'features' && (
         <div className="space-y-4">
-          <div className="bg-indigo-50/70 border border-indigo-200 rounded-2xl p-5 text-xs">
-            <strong className="text-indigo-950 block text-sm font-bold">Operational Modules &amp; Feature Flags</strong>
-            <p className="text-indigo-900 text-xs mt-0.5">
+          <div className="bg-indigo-50/70 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl p-5 text-xs">
+            <strong className="text-indigo-950 dark:text-indigo-100 block text-sm font-bold">Operational Modules &amp; Feature Flags</strong>
+            <p className="text-indigo-900 dark:text-indigo-300 text-xs mt-0.5">
               Turn modules on or off across the law firm. Changes apply instantly to all navigation menus and client interfaces.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Feature 1 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Cause List Diary &amp; Court Fixtures</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Cause List Diary &amp; Court Fixtures</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Track court appearances, mentions, hearings, presiding bench officers, and print printable daily cause lists.
                 </p>
               </div>
@@ -676,19 +676,19 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableCauseList')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enableCauseList
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enableCauseList ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enableCauseList ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Pleadings &amp; Document Repository</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Pleadings &amp; Document Repository</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Manage digital filings, affidavits, chamber summons, and court registry stamped pleadings.
                 </p>
               </div>
@@ -697,19 +697,19 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableDocuments')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enableDocuments
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enableDocuments ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enableDocuments ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Conflict of Interest Clearance Engine</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Conflict of Interest Clearance Engine</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Real-time screening against existing litigants, adverse parties, and opposing firms across all regional offices.
                 </p>
               </div>
@@ -718,19 +718,19 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableConflicts')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enableConflicts
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enableConflicts ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enableConflicts ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Feature 4 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Regional Branch Circuits &amp; Sync Hub</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Regional Branch Circuits &amp; Sync Hub</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Multi-branch synchronization monitoring between Kampala HQ, Jinja, Mbarara, and Gulu circuits.
                 </p>
               </div>
@@ -739,19 +739,19 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableBranchSync')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enableBranchSync
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enableBranchSync ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enableBranchSync ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Feature 5 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Litigation Analytics &amp; Win/Loss Ratios</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Litigation Analytics &amp; Win/Loss Ratios</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Division breakdowns, litigation outcome statistics, and branch case load performance metrics.
                 </p>
               </div>
@@ -760,19 +760,19 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enableAnalytics')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enableAnalytics
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enableAnalytics ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enableAnalytics ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Feature 6 */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
-                <strong className="text-slate-900 text-xs block font-bold">Physical Registry Cabinet Tracking</strong>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Physical Registry Cabinet Tracking</strong>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Track physical paper file box locations, registry transfers, and file custody sign-outs.
                 </p>
               </div>
@@ -781,22 +781,22 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('enablePhysicalFileTracking')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.enablePhysicalFileTracking
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.enablePhysicalFileTracking ? <ToggleRight className="w-6 h-6 text-emerald-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.enablePhysicalFileTracking ? <ToggleRight className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Security Policy 1: Password Change on First Login */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <div className="flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-blue-600" />
-                  <strong className="text-slate-900 text-xs block font-bold">Mandatory Password Change on First Login</strong>
+                  <Key className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Mandatory Password Change on First Login</strong>
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   Requires newly invited advocates with temporary passwords to choose a permanent secure password before accessing files.
                 </p>
               </div>
@@ -805,22 +805,22 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('requirePasswordChangeOnFirstLogin')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.requirePasswordChangeOnFirstLogin
-                    ? 'bg-blue-50 text-blue-800 border-blue-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.requirePasswordChangeOnFirstLogin ? <ToggleRight className="w-6 h-6 text-blue-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.requirePasswordChangeOnFirstLogin ? <ToggleRight className="w-6 h-6 text-blue-600 dark:text-blue-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
 
             {/* Security Policy 2: Public Registration (Strict Lock) */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-2 flex items-start justify-between shadow-xs hover:shadow-md transition-shadow">
               <div className="space-y-1 pr-3">
                 <div className="flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-                  <strong className="text-slate-900 text-xs block font-bold">Allow Public Self-Registration</strong>
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <strong className="text-slate-900 dark:text-slate-100 text-xs block font-bold">Allow Public Self-Registration</strong>
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   When OFF (recommended), only Super Admin can add authorized legal staff. No public registration page is accessible.
                 </p>
               </div>
@@ -829,11 +829,11 @@ export const SystemSettingsManager: React.FC = () => {
                 onClick={() => handleToggleFeature('allowPublicRegistration')}
                 className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
                   formData.features.allowPublicRegistration
-                    ? 'bg-amber-50 text-amber-800 border-amber-300'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                    ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                 }`}
               >
-                {formData.features.allowPublicRegistration ? <ToggleRight className="w-6 h-6 text-amber-600" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                {formData.features.allowPublicRegistration ? <ToggleRight className="w-6 h-6 text-amber-600 dark:text-amber-400" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
               </button>
             </div>
           </div>
@@ -843,10 +843,10 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 3: COURTS & TRIBUNALS LIST */}
       {activeTab === 'courts' && (
         <div className="space-y-4">
-          <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="bg-blue-50/70 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
-              <strong className="text-blue-950 block text-sm font-bold">Judicial Forums, Courts &amp; Tribunals</strong>
-              <p className="text-blue-900 text-xs mt-0.5">
+              <strong className="text-blue-950 dark:text-blue-100 block text-sm font-bold">Judicial Forums, Courts &amp; Tribunals</strong>
+              <p className="text-blue-900 dark:text-blue-300 text-xs mt-0.5">
                 Add regional circuits, international bodies, or specialized arbitration panels to your firm dropdowns.
               </p>
             </div>
@@ -857,7 +857,7 @@ export const SystemSettingsManager: React.FC = () => {
                 value={newCourt}
                 onChange={(e) => setNewCourt(e.target.value)}
                 placeholder="e.g. Jinja High Court Circuit"
-                className="px-3 py-1.5 text-xs border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none w-52 sm:w-64"
+                className="px-3 py-1.5 text-xs border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none w-52 sm:w-64"
               />
               <button
                 type="submit"
@@ -869,20 +869,20 @@ export const SystemSettingsManager: React.FC = () => {
             </form>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100 dark:divide-slate-800">
             {formData.courtList.map((courtName, idx) => (
-              <div key={courtName} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+              <div key={courtName} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-500 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
                     {idx + 1}
                   </span>
-                  <span className="font-semibold text-slate-800">{courtName}</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">{courtName}</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => handleRemoveCourt(courtName)}
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                  className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition-colors"
                   title="Remove court option"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -896,10 +896,10 @@ export const SystemSettingsManager: React.FC = () => {
       {/* TAB 4: PRACTICE AREAS */}
       {activeTab === 'practice' && (
         <div className="space-y-4">
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="bg-emerald-50/70 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div>
-              <strong className="text-emerald-950 block text-sm font-bold">Practice Areas &amp; Substantive Matter Classifications</strong>
-              <p className="text-emerald-900 text-xs mt-0.5">
+              <strong className="text-emerald-950 dark:text-emerald-100 block text-sm font-bold">Practice Areas &amp; Substantive Matter Classifications</strong>
+              <p className="text-emerald-900 dark:text-emerald-300 text-xs mt-0.5">
                 Customize the law firm&apos;s legal disciplines and case taxonomy.
               </p>
             </div>
@@ -910,7 +910,7 @@ export const SystemSettingsManager: React.FC = () => {
                 value={newPracticeArea}
                 onChange={(e) => setNewPracticeArea(e.target.value)}
                 placeholder="e.g. Aviation &amp; Maritime Law"
-                className="px-3 py-1.5 text-xs border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none w-52 sm:w-64"
+                className="px-3 py-1.5 text-xs border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none w-52 sm:w-64"
               />
               <button
                 type="submit"
@@ -922,20 +922,20 @@ export const SystemSettingsManager: React.FC = () => {
             </form>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-shadow divide-y divide-slate-100 dark:divide-slate-800">
             {formData.practiceAreas.map((area, idx) => (
-              <div key={area} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+              <div key={area} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-700 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
+                  <span className="w-6 h-6 rounded-md bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-mono tabular-nums text-[11px] flex items-center justify-center font-bold">
                     {idx + 1}
                   </span>
-                  <span className="font-semibold text-slate-800">{area}</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">{area}</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => handleRemovePracticeArea(area)}
-                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                  className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded transition-colors"
                   title="Remove practice area"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -948,17 +948,17 @@ export const SystemSettingsManager: React.FC = () => {
 
       {/* TAB 5: FIRM PROFILE & METADATA */}
       {activeTab === 'firm' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow space-y-4 text-xs">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow space-y-4 text-xs">
           <div>
-            <h4 className="font-bold text-slate-900 text-sm">Firm Metadata &amp; Regional Header Configuration</h4>
-            <p className="text-slate-500 text-xs mt-0.5">
+            <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">Firm Metadata &amp; Regional Header Configuration</h4>
+            <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
               Updates branding, print sheets, and notification footers across the application.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Official Firm Name:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Official Firm Name:</label>
               <input
                 type="text"
                 value={formData.firm.firmName}
@@ -968,12 +968,12 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, firmName: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Firm Tagline / Subtitle:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Firm Tagline / Subtitle:</label>
               <input
                 type="text"
                 value={formData.firm.firmTagline}
@@ -983,12 +983,12 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, firmTagline: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Official Registry / Notice Email:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Official Registry / Notice Email:</label>
               <input
                 type="email"
                 value={formData.firm.officialEmail}
@@ -998,12 +998,12 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, officialEmail: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Official Registry Phone / Hotline:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Official Registry Phone / Hotline:</label>
               <input
                 type="text"
                 value={formData.firm.officialPhone}
@@ -1013,12 +1013,12 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, officialPhone: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none tabular-nums"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Headquarters Physical Address:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Headquarters Physical Address:</label>
               <input
                 type="text"
                 value={formData.firm.headquartersAddress}
@@ -1028,12 +1028,12 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, headquartersAddress: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Default Valuation Currency:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Default Valuation Currency:</label>
               <select
                 value={formData.firm.currencySymbol}
                 onChange={(e) =>
@@ -1042,7 +1042,7 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, currencySymbol: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="UGX">UGX (Ugandan Shilling)</option>
                 <option value="USD">USD (US Dollar)</option>
@@ -1052,7 +1052,7 @@ export const SystemSettingsManager: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Primary Judicial Jurisdiction:</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Primary Judicial Jurisdiction:</label>
               <input
                 type="text"
                 value={formData.firm.jurisdiction}
@@ -1062,7 +1062,7 @@ export const SystemSettingsManager: React.FC = () => {
                     firm: { ...prev.firm, jurisdiction: e.target.value },
                   }))
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
               />
             </div>
           </div>

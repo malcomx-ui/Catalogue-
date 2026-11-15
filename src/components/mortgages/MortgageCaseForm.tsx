@@ -164,34 +164,34 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg border border-gray-100 mt-2 font-sans relative">
+    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-slate-900 rounded-2xl shadow-lg border border-slate-200/80 dark:border-slate-800 mt-2 font-sans relative">
       {onClose && (
         <button
           onClick={onClose}
           type="button"
-          className="absolute top-5 right-5 text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition"
+          className="absolute top-5 right-5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           aria-label="Close"
         >
           ✕
         </button>
       )}
 
-      <div className="border-b pb-4 mb-6">
-        <h2 className="text-xl font-bold text-gray-800">MK Firm - Mortgage Case Entry Form</h2>
-        <p className="text-sm text-gray-500">VAT (18%) automatically feeds from Legal Fees.</p>
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
+        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">MK Firm - Mortgage Case Entry Form</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">VAT (18%) automatically feeds from Legal Fees.</p>
       </div>
 
       {feedback && (
         <div
-          className={`p-4 mb-6 rounded-lg text-sm font-medium space-y-2 ${
+          className={`p-4 mb-6 rounded-xl text-sm font-medium space-y-2 ${
             feedback.type === 'error'
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
+              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
           }`}
         >
           <div>{feedback.text}</div>
           {feedback.cloudError && (
-            <div className="pt-2 border-t border-green-200 text-xs text-amber-900 bg-amber-50 p-3 rounded border border-amber-200 space-y-2">
+            <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800/60 text-xs text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span>Supabase notice: {feedback.cloudError}</span>
                 <button
@@ -205,7 +205,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
                       // ignore
                     }
                   }}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded font-semibold shrink-0"
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold shrink-0"
                 >
                   {copiedSql ? 'Copied SQL!' : 'Copy RLS Fix SQL'}
                 </button>
@@ -217,25 +217,25 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Reporting Period: Year & Month Sheet */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-blue-50/50 dark:bg-blue-950/30 p-4 rounded-xl border border-blue-100 dark:border-blue-900/50">
           <div>
-            <label className="block text-xs font-bold text-blue-900 mb-1">Record Year</label>
+            <label className="block text-xs font-bold text-blue-900 dark:text-blue-200 mb-1">Record Year</label>
             <input 
               type="number" 
               name="record_year" 
               value={formData.record_year} 
               onChange={handleChange} 
-              className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+              className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" 
               required 
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-blue-900 mb-1">Month Sheet</label>
+            <label className="block text-xs font-bold text-blue-900 dark:text-blue-200 mb-1">Month Sheet</label>
             <select 
               name="month_sheet" 
               value={formData.month_sheet} 
               onChange={handleChange} 
-              className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+              className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none" 
               required
             >
               {MONTHS.map((m) => (
@@ -247,11 +247,11 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Receipt</label>
-            <input type="date" name="date_of_receipt" value={formData.date_of_receipt} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Date of Receipt</label>
+            <input type="date" name="date_of_receipt" value={formData.date_of_receipt} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Branch</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Branch</label>
             <input
               type="text"
               name="branch"
@@ -261,95 +261,95 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
                 if (isGlobalAdmin) handleChange(e);
               }}
               disabled={!isGlobalAdmin}
-              className={`w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                !isGlobalAdmin ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''
+              className={`w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'
               }`}
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Client Name (Name)</label>
-            <input type="text" name="name" placeholder="Full legal name" value={formData.name} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Client Name (Name)</label>
+            <input type="text" name="name" placeholder="Full legal name" value={formData.name} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">RIM NO.</label>
-            <input type="text" name="rim_no" placeholder="RIM Number" value={formData.rim_no} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">RIM NO.</label>
+            <input type="text" name="rim_no" placeholder="RIM Number" value={formData.rim_no} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">Property Description (Description)</label>
-          <textarea name="description" rows={2} placeholder="Plot, Block, Location details..." value={formData.description} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Property Description (Description)</label>
+          <textarea name="description" rows={2} placeholder="Plot, Block, Location details..." value={formData.description} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
         </div>
 
-        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">Fees & Financial Breakdown</h3>
+        <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Fees & Financial Breakdown</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Loan Amount</label>
-              <input type="number" step="any" name="loan_amount" value={formData.loan_amount} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Loan Amount</label>
+              <input type="number" step="any" name="loan_amount" value={formData.loan_amount} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Total Disbursements</label>
-              <input type="number" step="any" name="total_disbursements" value={formData.total_disbursements} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Total Disbursements</label>
+              <input type="number" step="any" name="total_disbursements" value={formData.total_disbursements} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Grand Total</label>
-              <input type="number" step="any" name="grand_total" value={formData.grand_total} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm bg-white font-bold text-blue-600 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Grand Total</label>
+              <input type="number" step="any" name="grand_total" value={formData.grand_total} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 font-bold text-blue-600 dark:text-blue-400 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Stamp Duty</label>
-              <input type="number" step="any" name="stamp_duty" value={formData.stamp_duty} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Stamp Duty</label>
+              <input type="number" step="any" name="stamp_duty" value={formData.stamp_duty} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Extra Copies</label>
-              <input type="number" step="any" name="extra_copies" value={formData.extra_copies} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Extra Copies</label>
+              <input type="number" step="any" name="extra_copies" value={formData.extra_copies} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Registration</label>
-              <input type="number" step="any" name="registration" value={formData.registration} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Registration</label>
+              <input type="number" step="any" name="registration" value={formData.registration} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Other</label>
-              <input type="number" step="any" name="other" value={formData.other} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Other</label>
+              <input type="number" step="any" name="other" value={formData.other} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Bank Charges</label>
-              <input type="number" step="any" name="bank_charges" value={formData.bank_charges} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Bank Charges</label>
+              <input type="number" step="any" name="bank_charges" value={formData.bank_charges} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-gray-600 mb-1">Transport</label>
-              <input type="number" step="any" name="transport" value={formData.transport} onChange={handleChange} className="w-full border p-1.5 rounded text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-1">Transport</label>
+              <input type="number" step="any" name="transport" value={formData.transport} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-1.5 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200 dark:border-slate-700">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Legal Fees</label>
-              <input type="number" step="any" name="legal_fees" value={formData.legal_fees} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Legal Fees</label>
+              <input type="number" step="any" name="legal_fees" value={formData.legal_fees} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">VAT 18% (Auto-calculated)</label>
-              <input type="number" step="any" name="vat_18" value={formData.vat_18} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm bg-gray-100 font-semibold text-gray-700" readOnly />
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">VAT 18% (Auto-calculated)</label>
+              <input type="number" step="any" name="vat_18" value={formData.vat_18} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-slate-100 dark:bg-slate-800/80 font-semibold text-slate-700 dark:text-slate-300 tabular-nums" readOnly />
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Payment</label>
-            <input type="date" name="date_of_payment" value={formData.date_of_payment} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Date of Payment</label>
+            <input type="date" name="date_of_payment" value={formData.date_of_payment} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Return</label>
-            <input type="date" name="date_of_return" value={formData.date_of_return} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Date of Return</label>
+            <input type="date" name="date_of_return" value={formData.date_of_return} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">Comments</label>
-            <input type="text" name="comments" placeholder="Notes..." value={formData.comments} onChange={handleChange} className="w-full border p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Comments</label>
+            <input type="text" name="comments" placeholder="Notes..." value={formData.comments} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
         </div>
 
@@ -359,7 +359,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="w-1/3 bg-gray-100 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-200 transition-colors"
+              className="w-1/3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold py-3 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
@@ -367,7 +367,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           <button
             type="submit"
             disabled={loading}
-            className={`w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50`}
+            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
           >
             {loading ? 'Saving Record...' : 'Save Mortgage Case'}
           </button>

@@ -212,11 +212,11 @@ export const CaseList: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-700 text-xs">
             <button
               onClick={() => setViewMode('table')}
               className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] ${
-                viewMode === 'table' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600'
+                viewMode === 'table' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-semibold' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               Table View
@@ -224,7 +224,7 @@ export const CaseList: React.FC = () => {
             <button
               onClick={() => setViewMode('cards')}
               className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] ${
-                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600'
+                viewMode === 'cards' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs font-semibold' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               Cards
@@ -232,7 +232,7 @@ export const CaseList: React.FC = () => {
             <button
               onClick={() => setViewMode('directory')}
               className={`px-2.5 py-1.5 rounded-md font-medium transition-colors min-h-[34px] flex items-center gap-1.5 ${
-                viewMode === 'directory' ? 'bg-white text-indigo-700 shadow-2xs font-semibold' : 'text-slate-600'
+                viewMode === 'directory' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-2xs font-semibold' : 'text-slate-600 dark:text-slate-400'
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -301,7 +301,7 @@ export const CaseList: React.FC = () => {
             <select
               value={selectedBranchFilter}
               onChange={(e) => setSelectedBranchFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
+              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
             >
               <option value="all">All Branches</option>
               {branches.map((b) => (
@@ -311,10 +311,10 @@ export const CaseList: React.FC = () => {
               ))}
             </select>
           ) : (
-            <div className="bg-blue-50/80 border border-blue-200/80 rounded-md px-3 py-2 text-xs font-semibold text-blue-900 flex items-center gap-1.5 min-h-[38px]">
-              <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <div className="bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 rounded-lg px-3 py-2 text-xs font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-1.5 min-h-[38px]">
+              <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
               <span>Branch: {effectiveUser?.branchName || currentUser?.branchName || 'Assigned Branch'}</span>
-              <span className="text-[10px] text-blue-600 font-mono bg-blue-100 px-1 rounded ml-1">Custody</span>
+              <span className="text-[10px] text-blue-600 dark:text-blue-300 font-mono bg-blue-100 dark:bg-blue-900/60 px-1.5 py-0.5 rounded-full ml-1">Custody</span>
             </div>
           )}
 
@@ -322,7 +322,7 @@ export const CaseList: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial font-medium"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial font-medium"
           >
             <option value="all">All Statuses ({filteredCases.length})</option>
             <option value="Active">Active ({filteredCases.filter(c => {
@@ -353,7 +353,7 @@ export const CaseList: React.FC = () => {
           <select
             value={divisionFilter}
             onChange={(e) => setDivisionFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:border-blue-600 min-h-[38px] flex-1 sm:flex-initial"
           >
             <option value="all">All Court Divisions</option>
             <option value="Commercial">Commercial Division</option>
@@ -368,10 +368,10 @@ export const CaseList: React.FC = () => {
             <select
               value={selectedLawyerFilter}
               onChange={(e) => setSelectedLawyerFilter(e.target.value)}
-              className={`w-full bg-slate-50 border rounded-md pl-7 pr-3 py-2 text-xs focus:outline-none transition-colors min-h-[38px] ${
+              className={`w-full border rounded-lg pl-7 pr-3 py-2 text-xs focus:outline-none transition-colors min-h-[38px] ${
                 selectedLawyerFilter !== 'all'
-                  ? 'border-indigo-400 bg-indigo-50/50 text-indigo-900 font-semibold shadow-2xs'
-                  : 'border-slate-200 text-slate-700 focus:border-blue-600'
+                  ? 'border-indigo-400 dark:border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 font-semibold shadow-2xs'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:border-blue-600'
               }`}
             >
               <option value="all">
@@ -385,19 +385,19 @@ export const CaseList: React.FC = () => {
             </select>
             <UserCheck
               className={`w-3.5 h-3.5 absolute left-2 pointer-events-none ${
-                selectedLawyerFilter !== 'all' ? 'text-indigo-600' : 'text-slate-400'
+                selectedLawyerFilter !== 'all' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
               }`}
             />
           </div>
 
           {/* Active Lawyer Badge */}
           {selectedLawyerFilter !== 'all' && (
-            <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-800 text-[11px] font-medium px-2 py-1 rounded-md border border-indigo-200 shadow-2xs">
-              <UserCheck className="w-3 h-3 text-indigo-600" />
+            <span className="inline-flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-800 dark:text-indigo-200 text-[11px] font-medium px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800/60 shadow-2xs">
+              <UserCheck className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
               <span>Counsel: <strong className="font-semibold">{selectedLawyerFilter}</strong></span>
               <button
                 onClick={() => setSelectedLawyerFilter('all')}
-                className="hover:bg-indigo-200/80 rounded p-0.5 text-indigo-600 transition-colors"
+                className="hover:bg-indigo-200/80 dark:hover:bg-indigo-800/60 rounded-full p-0.5 text-indigo-600 dark:text-indigo-300 transition-colors"
                 title="Clear lawyer filter"
               >
                 <X className="w-3 h-3" />
@@ -414,14 +414,14 @@ export const CaseList: React.FC = () => {
                 setDivisionFilter('all');
                 setSearchQuery('');
               }}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1"
+              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium px-2 py-1"
             >
               Reset Filters
             </button>
           )}
         </div>
 
-        <div className="text-xs text-slate-500 font-mono tabular-nums">
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
           Showing {displayCases.length} of {filteredCases.length}
         </div>
       </div>
@@ -457,16 +457,16 @@ export const CaseList: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {displayCases.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                    <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                       {selectedLawyerFilter !== 'all' ? (
                         <div className="max-w-md mx-auto py-6 space-y-3">
-                          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto border border-indigo-200">
+                          <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto border border-indigo-200 dark:border-indigo-800/60">
                             <UserCheck className="w-6 h-6" />
                           </div>
-                          <div className="text-sm font-bold text-slate-800">
+                          <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                             Counsel: {selectedLawyerFilter}
                           </div>
-                          <p className="text-xs text-slate-500 leading-relaxed">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                             No cases currently assigned to Counsel {selectedLawyerFilter} match the active branch and status filters.
                           </p>
                           <div className="pt-2 flex items-center justify-center gap-2">
@@ -484,7 +484,7 @@ export const CaseList: React.FC = () => {
                                 setDivisionFilter('all');
                                 setSearchQuery('');
                               }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors"
                             >
                               <span>Reset All Filters</span>
                             </button>
@@ -492,16 +492,16 @@ export const CaseList: React.FC = () => {
                         </div>
                       ) : selectedBranchFilter !== 'all' ? (
                         <div className="max-w-md mx-auto py-6 space-y-3">
-                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto border border-blue-200">
+                          <div className="w-12 h-12 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-200 dark:border-blue-800/60">
                             <Building2 className="w-6 h-6" />
                           </div>
-                          <div className="text-sm font-bold text-slate-800">
+                          <div className="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {branches.find((b) => b.id === selectedBranchFilter)?.name || 'Branch Circuit'}
                           </div>
-                          <p className="text-xs text-slate-500 leading-relaxed">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                             No cases registered for this branch yet.
                             <br />
-                            <span className="text-slate-600 font-medium">All demo records have been permanently cleared for client confidentiality.</span>
+                            <span className="text-slate-600 dark:text-slate-300 font-medium">All demo records have been permanently cleared for client confidentiality.</span>
                           </p>
                           <div className="pt-2 flex items-center justify-center gap-2">
                             {userPermissions.canBulkImport && (
@@ -518,7 +518,7 @@ export const CaseList: React.FC = () => {
                                 onClick={() => setIsNewCaseModalOpen(true)}
                                 disabled={!canAddInCurrentView}
                                 title={addCaseDisabledReason}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>{isViewingForeignBranch ? 'Add Case (View-Only)' : 'Add Case Manually'}</span>
@@ -528,19 +528,19 @@ export const CaseList: React.FC = () => {
                         </div>
                       ) : cases.length === 0 ? (
                         <div className="max-w-lg mx-auto py-8 space-y-3.5">
-                          <div className="w-13 h-13 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200 shadow-2xs">
-                            <ShieldCheck className="w-7 h-7 text-emerald-600" />
+                          <div className="w-13 h-13 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800/60 shadow-2xs">
+                            <ShieldCheck className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
                           </div>
                           <div className="space-y-1">
-                            <div className="text-base font-bold text-slate-900">
+                            <div className="text-base font-bold text-slate-900 dark:text-slate-100">
                               Client Files Secured & Storage Cleared
                             </div>
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-semibold">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                               <span>0 Cases · 0 Hearings · 0 Documents · 100% Confidential</span>
                             </div>
                           </div>
-                          <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
                             All demo data, sample litigation records, and mock lawyers have been purged. The catalogue is completely clean and ready for your actual firm matters.
                           </p>
                           <div className="pt-2 flex items-center justify-center gap-2">
@@ -558,7 +558,7 @@ export const CaseList: React.FC = () => {
                                 onClick={() => setIsNewCaseModalOpen(true)}
                                 disabled={!canAddInCurrentView}
                                 title={addCaseDisabledReason}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-lg text-xs font-medium shadow-xs transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Add Case Manually</span>
@@ -623,11 +623,11 @@ export const CaseList: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-medium text-slate-800">{caseItem.division.replace('High Court ', '')}</div>
-                        <div className="text-[10px] text-slate-400">{caseItem.presidingJudge}</div>
+                        <div className="font-medium text-slate-800 dark:text-slate-200">{caseItem.division.replace('High Court ', '')}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500">{caseItem.presidingJudge}</div>
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-600 font-medium">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-600 dark:text-slate-300 font-medium">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span>{(caseItem.branchName || caseItem.branch || 'Unassigned').replace(' Regional Office', '').replace(' (Head Office)', ' HQ')}</span>
                           {!canModifyRow && (
@@ -649,17 +649,17 @@ export const CaseList: React.FC = () => {
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {caseItem.nextHearingDate ? (
                           <div>
-                            <div className="font-mono tabular-nums font-medium text-slate-900">{caseItem.nextHearingDate}</div>
-                            <div className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                            <div className="font-mono tabular-nums font-medium text-slate-900 dark:text-slate-100">{caseItem.nextHearingDate}</div>
+                            <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[120px]">
                               {caseItem.nextHearingPurpose || 'Hearing'}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 dark:text-slate-500">—</span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-700">
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-700 dark:text-slate-300">
                         {caseItem.leadAdvocate ? (
                           <button
                             type="button"
@@ -670,16 +670,16 @@ export const CaseList: React.FC = () => {
                             }}
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors group ${
                               selectedLawyerFilter.toLowerCase() === caseItem.leadAdvocate.split(',')[0].trim().toLowerCase()
-                                ? 'bg-indigo-100 text-indigo-900 font-bold border border-indigo-300 shadow-2xs'
-                                : 'hover:bg-indigo-50 hover:text-indigo-700 text-slate-700'
+                                ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-300 font-bold border border-indigo-300 dark:border-indigo-700 shadow-2xs'
+                                : 'hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-300 text-slate-700 dark:text-slate-300'
                             }`}
                             title={`Filter catalogue by ${caseItem.leadAdvocate.split(',')[0].trim()}`}
                           >
-                            <UserCheck className="w-3 h-3 text-slate-400 group-hover:text-indigo-600" />
+                            <UserCheck className="w-3 h-3 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
                             <span>{caseItem.leadAdvocate.split(',')[0]}</span>
                           </button>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 dark:text-slate-500">—</span>
                         )}
                       </td>
 
@@ -785,16 +785,16 @@ export const CaseList: React.FC = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {caseItem.case_number || caseItem.suitNumber ? (
-                      <span className="font-mono tabular-nums text-xs font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-full">
+                      <span className="font-mono tabular-nums text-xs font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
                         {caseItem.case_number || caseItem.suitNumber}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-medium text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/80 inline-flex items-center gap-1 shadow-2xs">
+                      <span className="text-[11px] font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-0.5 rounded-full border border-amber-200/80 dark:border-amber-800/60 inline-flex items-center gap-1 shadow-2xs">
                         <Plus className="w-2.5 h-2.5" /> Enter MK File No.
                       </span>
                     )}
                     {caseItem.suit_no && (
-                      <span className="font-mono tabular-nums text-[10px] text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-medium" title="Court Registry Identifier">
+                      <span className="font-mono tabular-nums text-[10px] text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-full font-medium" title="Court Registry Identifier">
                         Suit: {caseItem.suit_no}
                       </span>
                     )}
@@ -813,21 +813,21 @@ export const CaseList: React.FC = () => {
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-sm text-slate-900 mt-2.5 leading-snug">
+                <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mt-2.5 leading-snug">
                   {caseItem.title}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
                   {caseItem.briefSummary}
                 </p>
 
-                <div className="mt-3.5 pt-3 border-t border-slate-100 text-xs text-slate-500 space-y-1.5">
+                <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span>Court:</span>
-                    <strong className="text-slate-700 font-medium">{caseItem.division}</strong>
+                    <strong className="text-slate-700 dark:text-slate-300 font-medium">{caseItem.division}</strong>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Branch:</span>
-                    <span className="text-slate-700">{caseItem.branchName}</span>
+                    <span className="text-slate-700 dark:text-slate-300">{caseItem.branchName}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Lead Counsel:</span>
@@ -840,8 +840,8 @@ export const CaseList: React.FC = () => {
                         }}
                         className={`text-xs font-medium flex items-center gap-1 transition-colors ${
                           selectedLawyerFilter.toLowerCase() === caseItem.leadAdvocate.split(',')[0].trim().toLowerCase()
-                            ? 'text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 shadow-2xs'
-                            : 'text-slate-700 hover:text-indigo-700 hover:underline'
+                            ? 'text-indigo-700 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-700 shadow-2xs'
+                            : 'text-slate-700 dark:text-slate-300 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline'
                         }`}
                         title={`Filter catalogue by ${caseItem.leadAdvocate.split(',')[0].trim()}`}
                       >
@@ -849,16 +849,16 @@ export const CaseList: React.FC = () => {
                         <span>{caseItem.leadAdvocate}</span>
                       </button>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-slate-400 dark:text-slate-500">—</span>
                     )}
                   </div>
                 </div>
               </div>
 
               {caseItem.nextHearingDate && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs bg-slate-50 px-3 py-2 rounded-xl">
-                  <span className="text-slate-500">Next Hearing:</span>
-                  <span className="font-mono tabular-nums font-semibold text-slate-900">{caseItem.nextHearingDate}</span>
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-800/60 px-3 py-2 rounded-xl">
+                  <span className="text-slate-500 dark:text-slate-400">Next Hearing:</span>
+                  <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{caseItem.nextHearingDate}</span>
                 </div>
               )}
             </div>

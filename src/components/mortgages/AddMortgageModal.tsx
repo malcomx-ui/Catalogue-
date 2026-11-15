@@ -244,7 +244,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-4 text-white flex items-center justify-between shrink-0">
@@ -254,7 +254,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
                   {selectedBank}
                 </span>
                 <span className="text-[11px] text-slate-300">19-Column Tracker Register</span>
@@ -275,14 +275,14 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
         {/* Feedback Alerts */}
         {errorMessage && (
-          <div className="mx-6 mt-4 p-3 rounded-lg bg-rose-50 border border-rose-200 flex items-center gap-2.5 text-xs text-rose-800">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-center gap-2.5 text-xs text-rose-800 dark:text-rose-300">
+            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
         {successMessage && (
-          <div className="mx-6 mt-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-800">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="mx-6 mt-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-2.5 text-xs text-emerald-800 dark:text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -291,10 +291,10 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           
           {/* Reporting Period: Lending Partner, Record Year & Month Sheet */}
-          <div className={`grid grid-cols-1 ${allowBankSelection ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 bg-blue-50/60 p-5 rounded-2xl border border-blue-100`}>
+          <div className={`grid grid-cols-1 ${allowBankSelection ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 bg-blue-50/60 dark:bg-blue-950/30 p-5 rounded-2xl border border-blue-100 dark:border-blue-900/60`}>
             {allowBankSelection && (
               <div>
-                <label className="block font-bold text-blue-900 mb-1">
+                <label className="block font-bold text-blue-900 dark:text-blue-200 mb-1">
                   Lending Bank / SACCO <span className="text-rose-500">*</span>
                 </label>
                 <select
@@ -302,7 +302,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   required
                   value={selectedBank}
                   onChange={(e) => setSelectedBank(e.target.value)}
-                  className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm text-blue-950 dark:text-blue-100 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   {DEFAULT_BANKS.map((b) => (
                     <option key={b} value={b}>
@@ -313,7 +313,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
             )}
             <div>
-              <label className="block font-bold text-blue-900 mb-1">
+              <label className="block font-bold text-blue-900 dark:text-blue-200 mb-1">
                 Record Year <span className="text-rose-500">*</span>
               </label>
               <input
@@ -322,11 +322,11 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 required
                 value={recordYear}
                 onChange={(e) => setRecordYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
-                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm text-blue-950 dark:text-blue-100 font-semibold tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block font-bold text-blue-900 mb-1">
+              <label className="block font-bold text-blue-900 dark:text-blue-200 mb-1">
                 Month Sheet <span className="text-rose-500">*</span>
               </label>
               <select
@@ -334,7 +334,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 required
                 value={monthSheet}
                 onChange={(e) => setMonthSheet(e.target.value)}
-                className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm text-blue-950 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm text-blue-950 dark:text-blue-100 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 {MONTHS.map((m) => (
                   <option key={m} value={m}>
@@ -346,16 +346,16 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 1: Identification & Core Particulars */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
-            <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-              <FileText className="w-3.5 h-3.5 text-blue-600" />
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
+            <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold uppercase tracking-wider text-[11px]">
+              <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
               <span>1. Basic File Particulars &amp; Receipt</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
               {/* 1. date_of_receipt */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Date of Receipt <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -363,13 +363,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   required
                   value={dateOfReceipt}
                   onChange={(e) => setDateOfReceipt(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 font-medium tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 font-medium tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 2. branch */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Branch Station
                 </label>
                 <input
@@ -380,14 +380,14 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                     if (isGlobalAdmin) setBranch(e.target.value);
                   }}
                   disabled={!isGlobalAdmin}
-                  className={`w-full border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                  className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                     !isGlobalAdmin
-                      ? 'bg-slate-100 text-slate-600 font-medium cursor-not-allowed'
-                      : 'bg-white text-slate-800'
+                      ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium cursor-not-allowed'
+                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
                   }`}
                 />
                 {!isGlobalAdmin && (
-                  <p className="text-[10px] text-amber-700 mt-1">
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
                     Locked to your assigned branch: {assignedBranchLabel}
                   </p>
                 )}
@@ -395,7 +395,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
               {/* 3. client_name / name (Required) */}
               <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Client Name / Name <span className="text-rose-500">* (Required)</span>
                 </label>
                 <input
@@ -404,13 +404,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="Borrower / Mortgagor full legal name"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 4. rim_no */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   RIM NO.
                 </label>
                 <input
@@ -418,13 +418,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="e.g. 1029482"
                   value={rimNo}
                   onChange={(e) => setRimNo(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 6. loan_amount */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Loan Amount (UGX)
                 </label>
                 <div className="relative">
@@ -436,14 +436,14 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                     placeholder="0"
                     value={loanAmount}
                     onChange={(e) => setLoanAmount(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-3 py-2 font-mono tabular-nums text-slate-900 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg pl-10 pr-3 py-2 font-mono tabular-nums text-slate-900 dark:text-slate-100 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* 5. property_description / description */}
               <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Property Description / Description
                 </label>
                 <input
@@ -451,20 +451,20 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="e.g. Kyadondo Block 214 Plot 892 situated at Kyanja..."
                   value={propertyDescription}
                   onChange={(e) => setPropertyDescription(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 2: Itemized Disbursements (Columns 7 - 13) */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-                <Receipt className="w-3.5 h-3.5 text-amber-600" />
+              <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold uppercase tracking-wider text-[11px]">
+                <Receipt className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                 <span>2. Statutory Fees &amp; Registry Disbursements</span>
               </div>
-              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600 select-none">
+              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600 dark:text-slate-300 select-none">
                 <input
                   type="checkbox"
                   checked={autoCalcDisbursements}
@@ -478,7 +478,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               {/* 7. stamp_duty */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Stamp Duty</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Stamp Duty</label>
                 <input
                   type="number"
                   min="0"
@@ -486,13 +486,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={stampDuty}
                   onChange={(e) => setStampDuty(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 8. extra_copies */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Extra Copies</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Extra Copies</label>
                 <input
                   type="number"
                   min="0"
@@ -500,13 +500,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={extraCopies}
                   onChange={(e) => setExtraCopies(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 9. registration */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Registration</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Registration</label>
                 <input
                   type="number"
                   min="0"
@@ -514,13 +514,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={registration}
                   onChange={(e) => setRegistration(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 10. other */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Other</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Other</label>
                 <input
                   type="number"
                   min="0"
@@ -528,13 +528,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={other}
                   onChange={(e) => setOther(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 11. bank_charges */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Bank Charges</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Bank Charges</label>
                 <input
                   type="number"
                   min="0"
@@ -542,13 +542,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={bankCharges}
                   onChange={(e) => setBankCharges(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 12. transport */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Transport</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Transport</label>
                 <input
                   type="number"
                   min="0"
@@ -556,14 +556,14 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={transport}
                   onChange={(e) => setTransport(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
 
             {/* 13. total_disbursements */}
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-              <span className="font-semibold text-slate-700">13. Total Disbursements:</span>
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">13. Total Disbursements:</span>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -574,23 +574,23 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   onChange={(e) => setManualDisbursements(e.target.value)}
                   className={`w-36 text-right border rounded-lg px-3 py-1 font-mono tabular-nums font-bold ${
                     autoCalcDisbursements
-                      ? 'bg-amber-50 border-amber-300 text-amber-900'
-                      : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
+                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300'
+                      : 'bg-white dark:bg-slate-900 border-blue-400 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500'
                   }`}
                 />
-                <span className="text-slate-500 font-mono text-[11px]">UGX</span>
+                <span className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">UGX</span>
               </div>
             </div>
           </div>
 
           {/* Section 3: Legal Fees, VAT & Grand Total (Columns 14 - 16) */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-                <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold uppercase tracking-wider text-[11px]">
+                <Calculator className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>3. Legal Fees, VAT 18% &amp; Grand Total</span>
               </div>
-              <div className="flex items-center gap-3 text-[11px] text-slate-600 select-none">
+              <div className="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300 select-none">
                 <label className="inline-flex items-center gap-1 cursor-pointer">
                   <input
                     type="checkbox"
@@ -615,7 +615,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               {/* 14. legal_fees */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   14. Legal Fees (UGX)
                 </label>
                 <input
@@ -625,13 +625,13 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="0"
                   value={legalFees}
                   onChange={(e) => setLegalFees(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 15. vat_18 */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   15. VAT 18% (UGX)
                 </label>
                 <input
@@ -643,15 +643,15 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   onChange={(e) => setManualVat(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2 font-mono tabular-nums font-medium focus:outline-none ${
                     autoCalcVat
-                      ? 'bg-slate-100 border-slate-300 text-slate-700'
-                      : 'bg-white border-blue-400 focus:ring-2 focus:ring-blue-500'
+                      ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      : 'bg-white dark:bg-slate-900 border-blue-400 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500'
                   }`}
                 />
               </div>
 
               {/* 16. grand_total */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   16. Grand Total (UGX)
                 </label>
                 <input
@@ -664,7 +664,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   className={`w-full border rounded-lg px-3 py-2 font-mono tabular-nums font-bold text-base focus:outline-none ${
                     autoCalcGrandTotal
                       ? 'bg-gradient-to-r from-blue-900 to-indigo-900 text-white border-blue-700'
-                      : 'bg-white border-blue-400 text-blue-900 focus:ring-2 focus:ring-blue-500'
+                      : 'bg-white dark:bg-slate-900 border-blue-400 text-blue-900 dark:text-blue-300 focus:ring-2 focus:ring-blue-500'
                   }`}
                 />
               </div>
@@ -672,42 +672,42 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
           </div>
 
           {/* Section 4: Settlement Dates & Comments (Columns 17 - 19) */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3.5">
-            <div className="flex items-center gap-1.5 text-slate-800 font-bold uppercase tracking-wider text-[11px]">
-              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3.5">
+            <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold uppercase tracking-wider text-[11px]">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
               <span>4. Payment, Return Dates &amp; Comments</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               {/* 17. date_of_payment */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   17. Date of Payment
                 </label>
                 <input
                   type="date"
                   value={dateOfPayment}
                   onChange={(e) => setDateOfPayment(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 18. date_of_return */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   18. Date of Return
                 </label>
                 <input
                   type="date"
                   value={dateOfReturn}
                   onChange={(e) => setDateOfReturn(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
               {/* 19. comments */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   19. Comments
                 </label>
                 <input
@@ -715,19 +715,19 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   placeholder="e.g. Cleared and returned to bank registry"
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200/80 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg font-medium transition"
+              className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium transition"
             >
               Cancel
             </button>

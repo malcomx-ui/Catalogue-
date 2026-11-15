@@ -98,7 +98,7 @@ MK Advocates & Solicitors`;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-2xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -108,7 +108,7 @@ MK Advocates & Solicitors`;
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-bold">Staff Welcome & Onboarding Package</h2>
-                <span className="hidden sm:inline-block text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-semibold">
+                <span className="hidden sm:inline-block text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-semibold">
                   Credentials Active
                 </span>
               </div>
@@ -129,39 +129,39 @@ MK Advocates & Solicitors`;
         {/* Scrollable Content */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
           {/* Quick Credential Summary Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
             <div>
-              <span className="text-slate-400 text-[11px] block font-medium">Authorized Staff User:</span>
-              <strong className="text-slate-900 text-sm font-semibold">{user.name}</strong>
-              <div className="text-slate-500 text-[11px] mt-0.5">{user.email}</div>
+              <span className="text-slate-400 dark:text-slate-400 text-[11px] block font-medium">Authorized Staff User:</span>
+              <strong className="text-slate-900 dark:text-slate-100 text-sm font-semibold">{user.name}</strong>
+              <div className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">{user.email}</div>
             </div>
 
             <div>
-              <span className="text-slate-400 text-[11px] block font-medium">Assigned Role & Station:</span>
-              <div className="text-slate-900 font-medium">{roleName}</div>
-              <div className="text-slate-500 text-[11px] flex items-center gap-1 mt-0.5">
+              <span className="text-slate-400 dark:text-slate-400 text-[11px] block font-medium">Assigned Role & Station:</span>
+              <div className="text-slate-900 dark:text-slate-100 font-medium">{roleName}</div>
+              <div className="text-slate-500 dark:text-slate-400 text-[11px] flex items-center gap-1 mt-0.5">
                 <Building2 className="w-3 h-3 text-slate-400" />
                 <span>{branchName}</span>
               </div>
             </div>
 
-            <div className="sm:col-span-2 pt-2 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
+            <div className="sm:col-span-2 pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-amber-600" />
-                <span className="text-slate-600">Temporary Password:</span>
-                <code className="bg-amber-50 text-amber-900 border border-amber-200 px-2 py-0.5 rounded font-mono font-bold text-xs">
+                <Key className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-slate-600 dark:text-slate-300">Temporary Password:</span>
+                <code className="bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded font-mono font-bold text-xs tabular-nums">
                   {password}
                 </code>
               </div>
               <button
                 type="button"
                 onClick={handleCopyPassword}
-                className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 bg-white hover:bg-slate-100 rounded border border-slate-200 transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-medium px-2 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
               >
                 {copiedPassword ? (
                   <>
-                    <Check className="w-3 h-3 text-emerald-600" />
-                    <span className="text-emerald-700 font-semibold">Copied!</span>
+                    <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold">Copied!</span>
                   </>
                 ) : (
                   <>
@@ -175,7 +175,7 @@ MK Advocates & Solicitors`;
 
           {/* Direct Access Link Box */}
           <div className="space-y-1.5">
-            <label className="text-slate-700 font-bold flex items-center justify-between">
+            <label className="text-slate-700 dark:text-slate-300 font-bold flex items-center justify-between">
               <span>Direct Portal Access Link:</span>
               <span className="text-[11px] text-slate-400 font-normal">Pre-filled with staff login email</span>
             </label>
@@ -184,16 +184,16 @@ MK Advocates & Solicitors`;
                 type="text"
                 readOnly
                 value={directAccessLink}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 select-all focus:outline-none"
+                className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 select-all focus:outline-none"
               />
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors shrink-0 shadow-2xs"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-lg text-xs font-medium transition-colors shrink-0 shadow-2xs"
               >
                 {copiedLink ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-950" />
                     <span>Link Copied</span>
                   </>
                 ) : (
@@ -209,21 +209,21 @@ MK Advocates & Solicitors`;
           {/* Pre-Formatted Welcome Email Preview */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-slate-700 font-bold flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-indigo-600" />
+              <label className="text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Official Welcome Email Notice (Ready to Send):</span>
               </label>
               <button
                 type="button"
                 onClick={handleCopyEmail}
-                className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold"
+                className="inline-flex items-center gap-1 text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold"
               >
-                {copiedEmail ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                {copiedEmail ? <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedEmail ? 'Email Copied!' : 'Copy Full Email'}</span>
               </button>
             </div>
 
-            <div className="bg-slate-900 text-slate-200 p-3.5 rounded-xl font-mono text-[11px] whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto border border-slate-800 select-all">
+            <div className="bg-slate-900 dark:bg-slate-950 text-slate-200 p-3.5 rounded-xl font-mono text-[11px] whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto border border-slate-800 select-all">
               <div className="text-amber-300 font-bold mb-2 pb-1 border-b border-slate-800">
                 Subject: {emailSubject}
               </div>
@@ -232,8 +232,8 @@ MK Advocates & Solicitors`;
           </div>
 
           {/* Security Notice */}
-          <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-amber-900 flex items-start gap-2.5">
-            <Shield className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 rounded-xl text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+            <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-[11px] leading-relaxed">
               <strong>Super Admin Control:</strong> This staff user has been stored in the central firm database. When they log in on any computer or mobile phone, their assigned permissions and branch matters are instantly applied.
             </div>
@@ -241,7 +241,7 @@ MK Advocates & Solicitors`;
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-slate-50 p-3.5 sm:p-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={handleOpenMailClient}
@@ -255,15 +255,15 @@ MK Advocates & Solicitors`;
             <button
               type="button"
               onClick={handleCopyEmail}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium transition-colors"
             >
-              {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedEmail ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedEmail ? 'Copied to Clipboard' : 'Copy Full Email'}</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition-colors"
+              className="px-4 py-2 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-xl text-xs font-semibold transition-colors"
             >
               Done
             </button>

@@ -18,17 +18,17 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
   const activeNav = activeTab;
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
+    <div className="flex h-screen bg-slate-100 dark:bg-slate-950 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
       {/* Sidebar Navigation */}
-      <aside className="no-print w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-6 font-bold text-xl text-gray-900 border-b border-gray-100">
+      <aside className="no-print w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0">
+        <div className="p-6 font-bold text-xl text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800">
           Infosight Portal
         </div>
         <nav className="flex-1 px-4 py-4 space-y-1">
           <button 
             onClick={() => handleNavClick('dashboard')}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${
-              activeNav === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+            className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition ${
+              activeNav === 'dashboard' ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             📊 Dashboard
@@ -36,8 +36,8 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
           
           <button 
             onClick={() => handleNavClick('mortgages')}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition ${
-              activeNav === 'mortgages' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+            className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition ${
+              activeNav === 'mortgages' ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             🏛️ Mortgages
@@ -53,8 +53,8 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
             <div className="p-8 flex-1">{children}</div>
           ) : (
             <div className="p-8 flex-1">
-              <h1 className="text-2xl font-bold text-gray-900">General Dashboard</h1>
-              <p className="text-gray-500 mt-1">Welcome back, {currentUser?.name || 'Administrator'}</p>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">General Dashboard</h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-1">Welcome back, {currentUser?.name || 'Administrator'}</p>
             </div>
           )
         )}

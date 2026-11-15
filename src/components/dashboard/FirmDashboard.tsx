@@ -496,22 +496,22 @@ export const FirmDashboard: React.FC = () => {
 
       {/* 1.5 UPCOMING MATTERS THIS WEEK ALERT BANNER */}
       {weeklyMatters.length > 0 && (
-        <section className="bg-gradient-to-r from-amber-50 to-orange-50/60 border border-amber-200/90 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+        <section className="bg-gradient-to-r from-amber-50 to-orange-50/60 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200/90 dark:border-amber-800/70 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
           <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-xs">
               <Bell className="w-5 h-5 text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/80 text-amber-900 border border-amber-300 px-2 py-0.5 rounded">
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-200/80 dark:bg-amber-900/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full">
                   Upcoming Matters This Week
                 </span>
-                <span className="text-xs text-amber-900 font-semibold">
+                <span className="text-xs text-amber-900 dark:text-amber-300 font-semibold">
                   Next 7 Days
                 </span>
               </div>
-              <p className="text-xs text-slate-700 mt-1">
-                <strong>{weeklyMatters.length} matter{weeklyMatters.length === 1 ? '' : 's'}</strong> scheduled in the next 7 days across court registries requiring advocate appearance or filing deadlines.
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                <strong className="tabular-nums">{weeklyMatters.length} matter{weeklyMatters.length === 1 ? '' : 's'}</strong> scheduled in the next 7 days across court registries requiring advocate appearance or filing deadlines.
               </p>
             </div>
           </div>
@@ -520,14 +520,14 @@ export const FirmDashboard: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsWeeklyModalOpen(true)}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+              className="px-3.5 py-2 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-lg text-xs font-semibold transition-colors shadow-xs cursor-pointer"
             >
               View Weekly Alert
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('causelist')}
-              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
               Open Cause Diary
             </button>

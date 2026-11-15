@@ -726,51 +726,51 @@ export const CaseDetailModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-2xs flex items-center justify-center p-2 sm:p-6">
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
+      <div className="relative w-full max-w-4xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-200 flex items-start justify-between gap-3 sm:gap-4">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 sm:gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-xs flex-wrap">
               {selectedCase.case_number || selectedCase.suitNumber ? (
-                <span className="font-mono tabular-nums font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded" title="MK Case No.">
+                <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full" title="MK Case No.">
                   MK: {selectedCase.case_number || selectedCase.suitNumber}
                 </span>
               ) : (
-                <span className="text-[11px] italic text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                <span className="text-[11px] italic text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
                   No MK file number assigned
                 </span>
               )}
               {selectedCase.suit_no && (
                 <>
-                  <span className="text-slate-300">·</span>
-                  <span className="font-mono tabular-nums font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded text-[11px]" title="Court Registry Identifier">
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <span className="font-mono tabular-nums font-semibold text-blue-900 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-full text-[11px]" title="Court Registry Identifier">
                     Court Suit No: {selectedCase.suit_no}
                   </span>
                 </>
               )}
               {selectedCase.firmRefNumber && selectedCase.firmRefNumber !== (selectedCase.case_number || selectedCase.suitNumber) && (
                 <>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-500 font-mono tabular-nums">{selectedCase.firmRefNumber}</span>
+                  <span className="text-slate-300 dark:text-slate-600">·</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-mono tabular-nums">{selectedCase.firmRefNumber}</span>
                 </>
               )}
-              <span className="text-slate-300">·</span>
-              <span className="text-blue-700 font-medium">{selectedCase.branchName || selectedCase.branch}</span>
+              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="text-blue-700 dark:text-blue-400 font-medium">{selectedCase.branchName || selectedCase.branch}</span>
               {isLoadingRecord && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-medium border border-blue-200">
+                <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 px-2.5 py-0.5 rounded-full font-medium border border-blue-200 dark:border-blue-800/60">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Syncing Supabase...</span>
                 </span>
               )}
             </div>
-            <h2 className="text-lg font-bold text-slate-900 leading-snug">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 leading-snug">
               {selectedCase.title || 'Untitled Matter'}
             </h2>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {!canModifyThisCase && (
-              <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 shadow-2xs">
+              <span className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5 shadow-2xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                 <span>View Only · Assigned Branch: {effectiveUserForEdit?.branchName || currentUser?.branchName || 'Restricted'}</span>
               </span>
@@ -778,8 +778,8 @@ export const CaseDetailModal: React.FC = () => {
 
             {userPermissions?.canDeleteCases && (
               confirmDeletePending && canModifyThisCase ? (
-                <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg">
-                  <span className="text-[11px] font-semibold text-rose-800">Delete permanently?</span>
+                <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2 py-1 rounded-lg">
+                  <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-200">Delete permanently?</span>
                   <button
                     type="button"
                     onClick={handleConfirmDeleteCase}
@@ -792,7 +792,7 @@ export const CaseDetailModal: React.FC = () => {
                     type="button"
                     onClick={() => setConfirmDeletePending(false)}
                     disabled={isDeleting}
-                    className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium"
+                    className="px-2 py-0.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-[11px] font-medium"
                   >
                     Cancel
                   </button>
@@ -802,7 +802,7 @@ export const CaseDetailModal: React.FC = () => {
                   type="button"
                   onClick={handleRequestDeleteCase}
                   disabled={isDeleting || !canModifyThisCase}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-800/60 transition-colors disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:border-slate-200 dark:disabled:border-slate-700"
                   title={
                     canModifyThisCase
                       ? 'Permanently delete case from Supabase'
@@ -828,10 +828,10 @@ export const CaseDetailModal: React.FC = () => {
                     ? 'Edit case details'
                     : `View-Only: Editing disabled for cases outside ${effectiveUserForEdit?.branchName || currentUser?.branchName || 'your assigned branch'}`
                 }
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:border-slate-200 dark:disabled:border-slate-700 ${
                   isEditing
                     ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                    : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
                 }`}
               >
                 <Edit3 className="w-3.5 h-3.5" />
@@ -841,7 +841,7 @@ export const CaseDetailModal: React.FC = () => {
 
             <button
               onClick={() => setSelectedCase(null)}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -851,35 +851,35 @@ export const CaseDetailModal: React.FC = () => {
         {/* Edit Form Mode */}
         {isEditing ? (
           <form onSubmit={handleEditSubmit} className="p-6 overflow-y-auto space-y-6 text-xs flex-1">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-              <span className="font-bold text-slate-900 text-sm">Edit Case Record</span>
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+              <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">Edit Case Record</span>
               <span className="text-slate-400 text-[11px]">Update fields as per firm structure</span>
             </div>
 
             {editError && (
-              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 text-xs font-medium">
                 {editError}
               </div>
             )}
 
             {/* Card 1: Case details */}
-            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-                <Scale className="w-4 h-4 text-blue-600" />
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+                <Scale className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 <span>Case details</span>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 {/* 1. Branch */}
                 <div className="space-y-1.5">
-                  <label className="block font-medium text-slate-700">
+                  <label className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('branch', 'Branch').label} *
                   </label>
                   <select
                     value={editForm.branch}
                     onChange={(e) => setEdit('branch', e.target.value)}
                     disabled={isBranchStaffUser}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 disabled:opacity-85 disabled:bg-slate-100"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600 disabled:opacity-85 disabled:bg-slate-100 dark:disabled:bg-slate-800/60"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.name}>
@@ -888,7 +888,7 @@ export const CaseDetailModal: React.FC = () => {
                     ))}
                   </select>
                   {isBranchStaffUser && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
                       Branch staff cannot reassign case branch custody.
                     </p>
                   )}
@@ -896,7 +896,7 @@ export const CaseDetailModal: React.FC = () => {
 
                 {/* 2. MK Case No. */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_case_number" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_case_number" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('caseNumber', 'MK Case No.').label}
                     {getField('caseNumber', 'MK Case No.').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -906,13 +906,13 @@ export const CaseDetailModal: React.FC = () => {
                     value={editForm.case_number}
                     onChange={(e) => setEdit('case_number', e.target.value)}
                     placeholder="e.g. MKA/2026/012"
-                    className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full font-mono tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 {/* Suit No. (Court Registry Identifier) */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_suit_no" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_suit_no" className="block font-medium text-slate-700 dark:text-slate-300">
                     Suit No.
                   </label>
                   <input
@@ -921,7 +921,7 @@ export const CaseDetailModal: React.FC = () => {
                     value={editForm.suit_no}
                     onChange={(e) => setEdit('suit_no', e.target.value)}
                     placeholder="e.g. HCT-00-CC-CS-0245-2026"
-                    className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full font-mono tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
                     Unique identifier assigned by the court registry
@@ -930,7 +930,7 @@ export const CaseDetailModal: React.FC = () => {
 
                 {/* 3. Client Full Name/Entity */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_client" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_client" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('clientName', 'Client Full Name / Entity').label}
                     {getField('clientName', 'Client Full Name / Entity').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -939,13 +939,13 @@ export const CaseDetailModal: React.FC = () => {
                     type="text"
                     value={editForm.client}
                     onChange={(e) => setEdit('client', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 {/* 4. Case Title */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_title" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_title" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('title', 'Case Title').label}
                     {getField('title', 'Case Title').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -955,20 +955,20 @@ export const CaseDetailModal: React.FC = () => {
                     required={getField('title', 'Case Title').isMandatory}
                     value={editForm.title}
                     onChange={(e) => setEdit('title', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 font-medium"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600 font-medium"
                   />
                 </div>
 
                 {/* 5. Nature of case */}
                 <div className="space-y-1.5">
-                  <label className="block font-medium text-slate-700">
+                  <label className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('caseType', 'Nature of case').label}
                     {getField('caseType', 'Nature of case').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
                   <select
                     value={editForm.case_type}
                     onChange={(e) => setEdit('case_type', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   >
                     {CASE_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -980,14 +980,14 @@ export const CaseDetailModal: React.FC = () => {
 
                 {/* 6. Status */}
                 <div className="space-y-1.5">
-                  <label className="block font-medium text-slate-700">
+                  <label className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('status', 'Status').label}
                     {getField('status', 'Status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
                   <select
                     value={editForm.status}
                     onChange={(e) => setEdit('status', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   >
                     {CASE_STATUSES.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -999,7 +999,7 @@ export const CaseDetailModal: React.FC = () => {
 
                 {/* 7. Date of instructions */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_doi" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_doi" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('dateOfInstructions', 'Date of instructions').label}
                     {getField('dateOfInstructions', 'Date of instructions').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1008,13 +1008,13 @@ export const CaseDetailModal: React.FC = () => {
                     type="date"
                     value={editForm.date_of_instructions}
                     onChange={(e) => setEdit('date_of_instructions', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 tabular-nums focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 {/* 8. Hearing date */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_hearing" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_hearing" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('nextHearingDate', 'Hearing date').label}
                     {getField('nextHearingDate', 'Hearing date').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1023,13 +1023,13 @@ export const CaseDetailModal: React.FC = () => {
                     type="date"
                     value={editForm.hearing_date}
                     onChange={(e) => setEdit('hearing_date', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 tabular-nums focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 {/* 9. Court */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_court" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_court" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('court', 'Court').label}
                     {getField('court', 'Court').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1038,13 +1038,13 @@ export const CaseDetailModal: React.FC = () => {
                     type="text"
                     value={editForm.court}
                     onChange={(e) => setEdit('court', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 {/* 10. District */}
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_district" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_district" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('district', 'District').label}
                     {getField('district', 'District').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1052,7 +1052,7 @@ export const CaseDetailModal: React.FC = () => {
                     id="edit_district"
                     value={editForm.district}
                     onChange={(e) => setEdit('district', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   >
                     <option value="">Select district...</option>
                     {UGANDA_DISTRICTS.map((d) => (
@@ -1066,9 +1066,9 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Card 2: Client & file */}
-            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-                <FolderOpen className="w-4 h-4 text-amber-600" />
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+                <FolderOpen className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                 <span>Client & file</span>
               </div>
 
@@ -1080,9 +1080,9 @@ export const CaseDetailModal: React.FC = () => {
                   idPrefix="edit-case-person"
                 />
 
-                <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100">
+                <div className="grid gap-4 md:grid-cols-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="space-y-1.5">
-                    <label htmlFor="edit_file_loc" className="block font-medium text-slate-700">
+                    <label htmlFor="edit_file_loc" className="block font-medium text-slate-700 dark:text-slate-300">
                       {getField('fileLocation', 'Location of physical file').label}
                       {getField('fileLocation', 'Location of physical file').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                     </label>
@@ -1091,12 +1091,12 @@ export const CaseDetailModal: React.FC = () => {
                       type="text"
                       value={editForm.file_location}
                       onChange={(e) => setEdit('file_location', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="edit_target" className="block font-medium text-slate-700">
+                    <label htmlFor="edit_target" className="block font-medium text-slate-700 dark:text-slate-300">
                       {getField('target', 'Target').label}
                       {getField('target', 'Target').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                     </label>
@@ -1105,7 +1105,7 @@ export const CaseDetailModal: React.FC = () => {
                       type="text"
                       value={editForm.target}
                       onChange={(e) => setEdit('target', e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                     />
                   </div>
                 </div>
@@ -1113,15 +1113,15 @@ export const CaseDetailModal: React.FC = () => {
             </div>
 
             {/* Card 3: Matter details */}
-            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-              <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
-                <FileText className="w-4 h-4 text-indigo-600" />
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
+                <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Matter details</span>
               </div>
 
               <div className="grid gap-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_subject" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_subject" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('subjectMatter', 'Subject matter').label}
                     {getField('subjectMatter', 'Subject matter').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1130,12 +1130,12 @@ export const CaseDetailModal: React.FC = () => {
                     rows={3}
                     value={editForm.subject_matter}
                     onChange={(e) => setEdit('subject_matter', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_notes" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_notes" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('notes', 'Notes').label}
                     {getField('notes', 'Notes').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1144,21 +1144,21 @@ export const CaseDetailModal: React.FC = () => {
                     rows={3}
                     value={editForm.notes}
                     onChange={(e) => setEdit('notes', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
             </div>
 
             {/* Card 4: Closure & billing */}
-            <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-4">
-              <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-sm">
+            <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-4">
+              <div className="text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-sm">
                 <span>Closure & billing</span>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_yoc" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_yoc" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('yearOfClosure', 'Year of closure').label}
                     {getField('yearOfClosure', 'Year of closure').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1167,12 +1167,12 @@ export const CaseDetailModal: React.FC = () => {
                     type="number"
                     value={editForm.year_of_closure}
                     onChange={(e) => setEdit('year_of_closure', e.target.value)}
-                    className="w-full font-mono bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full font-mono tabular-nums bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_billing" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_billing" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('billingStatus', 'Billing status').label}
                     {getField('billingStatus', 'Billing status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1181,12 +1181,12 @@ export const CaseDetailModal: React.FC = () => {
                     type="text"
                     value={editForm.billing_status}
                     onChange={(e) => setEdit('billing_status', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="edit_payment" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_payment" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('paymentStatus', 'Payment status').label}
                     {getField('paymentStatus', 'Payment status').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1195,12 +1195,12 @@ export const CaseDetailModal: React.FC = () => {
                     type="text"
                     value={editForm.payment_status}
                     onChange={(e) => setEdit('payment_status', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-1.5 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label htmlFor="edit_verdict" className="block font-medium text-slate-700">
+                  <label htmlFor="edit_verdict" className="block font-medium text-slate-700 dark:text-slate-300">
                     {getField('verdict', 'Verdict').label}
                     {getField('verdict', 'Verdict').isMandatory && <span className="text-rose-600 font-bold ml-1">*</span>}
                   </label>
@@ -1209,17 +1209,17 @@ export const CaseDetailModal: React.FC = () => {
                     rows={2}
                     value={editForm.verdict}
                     onChange={(e) => setEdit('verdict', e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-blue-600"
                   />
                 </div>
               </div>
             </div>
 
             {/* Save Buttons */}
-            <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
               {confirmDeletePending ? (
-                <div className="flex items-center gap-1.5 bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg">
-                  <span className="text-[11px] font-semibold text-rose-800">Confirm permanent delete?</span>
+                <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-2.5 py-1.5 rounded-lg">
+                  <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-200">Confirm permanent delete?</span>
                   <button
                     type="button"
                     onClick={handleConfirmDeleteCase}
@@ -1232,7 +1232,7 @@ export const CaseDetailModal: React.FC = () => {
                     type="button"
                     onClick={() => setConfirmDeletePending(false)}
                     disabled={isDeleting}
-                    className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium"
+                    className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded text-[11px] font-medium"
                   >
                     Cancel
                   </button>
@@ -1242,9 +1242,9 @@ export const CaseDetailModal: React.FC = () => {
                   type="button"
                   onClick={handleRequestDeleteCase}
                   disabled={isDeleting}
-                  className="px-3 py-2 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-3 py-2 border border-rose-200 dark:border-rose-800/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>{isDeleting ? 'Deleting...' : 'Delete Case'}</span>
                 </button>
               )}
@@ -1253,16 +1253,16 @@ export const CaseDetailModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg font-medium transition-colors"
+                  className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingEdit}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-60"
+                  className="px-5 py-2 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-xl font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-60"
                 >
-                  <Save className="w-4 h-4 text-amber-400" />
+                  <Save className="w-4 h-4 text-amber-400 dark:text-slate-950" />
                   <span>{isSavingEdit ? 'Saving to Supabase...' : 'Save changes'}</span>
                 </button>
               </div>
@@ -1271,7 +1271,7 @@ export const CaseDetailModal: React.FC = () => {
         ) : (
           <>
             {/* Navigation Tabs */}
-            <div className="px-5 pt-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-5 pt-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto">
                 {[
                   { id: 'overview', label: 'Matter Overview' },
@@ -1286,8 +1286,8 @@ export const CaseDetailModal: React.FC = () => {
                     onClick={() => setActiveTab(tab.id as any)}
                     className={`pb-2.5 px-1 text-xs font-medium border-b-2 transition-colors whitespace-nowrap tabular-nums ${
                       activeTab === tab.id
-                        ? 'border-slate-900 text-slate-900 font-bold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        ? 'border-slate-900 dark:border-amber-400 text-slate-900 dark:text-slate-100 font-bold'
+                        : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
                     {tab.label}
@@ -1304,10 +1304,10 @@ export const CaseDetailModal: React.FC = () => {
                     setActiveTab('notes');
                     setIsAddingNote(true);
                   }}
-                  className="text-xs px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  className="text-xs px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 rounded-lg font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                   title={canModifyThisCase ? 'Add progressive note to continuous case trail' : 'View-Only: Disabled outside your assigned branch'}
                 >
-                  <StickyNote className="w-3.5 h-3.5 text-indigo-600" />
+                  <StickyNote className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>+ Note</span>
                 </button>
                 <button
@@ -1318,10 +1318,10 @@ export const CaseDetailModal: React.FC = () => {
                     setActiveTab('movement');
                     setIsRecordingMovement(true);
                   }}
-                  className="text-xs px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  className="text-xs px-2.5 py-1 bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 rounded-lg font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                   title={canModifyThisCase ? 'Record physical file transfer / movement' : 'View-Only: Disabled outside your assigned branch'}
                 >
-                  <ArrowRightLeft className="w-3.5 h-3.5 text-amber-700" />
+                  <ArrowRightLeft className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
                   <span>+ Move File</span>
                 </button>
                 <button
@@ -1332,9 +1332,9 @@ export const CaseDetailModal: React.FC = () => {
                     setIsSchedulingHearing(true);
                   }}
                   title={canModifyThisCase ? 'Schedule Hearing' : 'View-Only: Disabled outside your assigned branch'}
-                  className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  className="text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                 >
-                  <Calendar className="w-3.5 h-3.5 text-slate-600" />
+                  <Calendar className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                   <span>Schedule Hearing</span>
                 </button>
                 <button
@@ -1345,7 +1345,7 @@ export const CaseDetailModal: React.FC = () => {
                     setIsUploadingDoc(true);
                   }}
                   title={canModifyThisCase ? 'Upload File' : 'View-Only: Disabled outside your assigned branch'}
-                  className="text-xs px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
+                  className="text-xs px-2.5 py-1 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 text-white dark:text-slate-950 rounded-lg font-medium transition-colors flex items-center gap-1 disabled:opacity-45 disabled:cursor-not-allowed"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload File</span>
@@ -1358,18 +1358,18 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'overview' && (
                 <div className="space-y-4">
                   {/* Card: Suit No. */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-2">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                       <div>
-                        <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                          <Gavel className="w-4 h-4 text-blue-600" />
+                        <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs uppercase tracking-wider">
+                          <Gavel className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                           <span>Suit No.</span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1">
                           Unique identifier assigned by the court registry
                         </p>
                       </div>
-                      <span className="text-[10px] bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded">
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium px-2.5 py-0.5 rounded-full">
                         Court Registry Assigned
                       </span>
                     </div>
@@ -1378,36 +1378,36 @@ export const CaseDetailModal: React.FC = () => {
                       <div>
                         {selectedCase.suit_no ? (
                           <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-sm sm:text-base text-slate-900 bg-slate-100 border border-slate-200 px-3 py-1 rounded-md tracking-wider">
+                            <span className="font-mono tabular-nums font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-lg tracking-wider">
                               {selectedCase.suit_no}
                             </span>
-                            <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                               Official Registry Identifier
                             </span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 text-slate-500 italic text-xs py-1">
+                          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 italic text-xs py-1">
                             <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
                             <span>Not yet assigned by registry</span>
                           </div>
                         )}
                       </div>
 
-                      <div className="text-[11px] text-slate-500">
-                        Registry: <span className="text-slate-800 font-medium">{selectedCase.court || 'High Court of Uganda'}</span>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Registry: <span className="text-slate-800 dark:text-slate-200 font-medium">{selectedCase.court || 'High Court of Uganda'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Card 1: Case details */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <div className="flex items-center gap-2 text-slate-900 font-bold text-xs uppercase tracking-wider">
-                        <Scale className="w-4 h-4 text-blue-600" />
+                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                      <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold text-xs uppercase tracking-wider">
+                        <Scale className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         <span>Case details</span>
                       </div>
-                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
+                      <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-0.5 rounded-full font-mono">
                         {selectedCase.case_type || selectedCase.division}
                       </span>
                     </div>
@@ -1416,14 +1416,14 @@ export const CaseDetailModal: React.FC = () => {
                       {/* 1. Branch */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('branch', 'Branch').label}</span>
-                        <span className="font-medium text-blue-700">{selectedCase.branch || selectedCase.branchName}</span>
+                        <span className="font-medium text-blue-700 dark:text-blue-400">{selectedCase.branch || selectedCase.branchName}</span>
                       </div>
 
                       {/* 2. MK Case No. */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('caseNumber', 'MK Case No.').label}</span>
                         {selectedCase.case_number || selectedCase.suitNumber ? (
-                          <span className="font-mono font-medium text-slate-800">
+                          <span className="font-mono tabular-nums font-medium text-slate-800 dark:text-slate-200">
                             {selectedCase.case_number || selectedCase.suitNumber}
                           </span>
                         ) : (
@@ -1435,7 +1435,7 @@ export const CaseDetailModal: React.FC = () => {
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">Suit No.</span>
                         {selectedCase.suit_no ? (
-                          <span className="font-mono font-medium text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          <span className="font-mono tabular-nums font-medium text-blue-900 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full border border-blue-200 dark:border-blue-800/60">
                             {selectedCase.suit_no}
                           </span>
                         ) : (
@@ -1446,19 +1446,19 @@ export const CaseDetailModal: React.FC = () => {
                       {/* 3. Client Full Name/Entity */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('clientName', 'Client Full Name / Entity').label}</span>
-                        <span className="font-medium text-slate-900">{selectedCase.client || selectedCase.clientName}</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{selectedCase.client || selectedCase.clientName}</span>
                       </div>
 
                       {/* 4. Case Title */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('title', 'Case Title').label}</span>
-                        <span className="font-semibold text-slate-900">{selectedCase.title}</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{selectedCase.title}</span>
                       </div>
 
                       {/* 5. Nature of case */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('caseType', 'Nature of case').label}</span>
-                        <span className="font-medium text-slate-800">{selectedCase.case_type || selectedCase.division || 'General'}</span>
+                        <span className="font-medium text-slate-800 dark:text-slate-200">{selectedCase.case_type || selectedCase.division || 'General'}</span>
                       </div>
 
                       {/* 6. Status */}
@@ -1470,7 +1470,7 @@ export const CaseDetailModal: React.FC = () => {
                             disabled={isUpdatingStatus}
                             onChange={(e) => handleQuickStatusChange(e.target.value)}
                             aria-label="Update case status"
-                            className="mt-0.5 bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-[11px] font-semibold text-slate-800 focus:outline-none focus:border-blue-600 disabled:opacity-50"
+                            className="mt-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-0.5 text-[11px] font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-600 disabled:opacity-50"
                           >
                             {CASE_STATUSES.map((s) => (
                               <option key={s.value} value={s.value}>
@@ -1488,33 +1488,33 @@ export const CaseDetailModal: React.FC = () => {
                       {/* 7. Date of instructions */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('dateOfInstructions', 'Date of instructions').label}</span>
-                        <span className="text-slate-800 tabular-nums">{selectedCase.date_of_instructions || selectedCase.filingDate || '—'}</span>
+                        <span className="text-slate-800 dark:text-slate-200 tabular-nums">{selectedCase.date_of_instructions || selectedCase.filingDate || '—'}</span>
                       </div>
 
                       {/* 8. Hearing date */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('nextHearingDate', 'Hearing date').label}</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">{selectedCase.hearing_date || selectedCase.nextHearingDate || 'Not set'}</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{selectedCase.hearing_date || selectedCase.nextHearingDate || 'Not set'}</span>
                       </div>
 
                       {/* 9. Court */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('court', 'Court').label}</span>
-                        <span className="text-slate-800">{selectedCase.court || '—'}</span>
+                        <span className="text-slate-800 dark:text-slate-200">{selectedCase.court || '—'}</span>
                       </div>
 
                       {/* 10. District */}
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('district', 'District').label}</span>
-                        <span className="text-slate-800">{selectedCase.district || selectedCase.courtStation || '—'}</span>
+                        <span className="text-slate-800 dark:text-slate-200">{selectedCase.district || selectedCase.courtStation || '—'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Card 2: Client & file */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
-                      <FolderOpen className="w-4 h-4 text-amber-600" />
+                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-xs uppercase tracking-wider">
+                      <FolderOpen className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       <span>Client & file</span>
                     </div>
 
@@ -1530,21 +1530,21 @@ export const CaseDetailModal: React.FC = () => {
                                   .map((s: string) => s.trim())
                                   .filter(Boolean);
                             if (persons.length === 0) {
-                              return <span className="font-semibold text-slate-900">—</span>;
+                              return <span className="font-semibold text-slate-900 dark:text-slate-100">—</span>;
                             }
                             return persons.map((p: string, idx: number) => (
                               <span
                                 key={idx}
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                                   idx === 0
-                                    ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200'
+                                    ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                                 }`}
                               >
-                                <User className={`w-3 h-3 ${idx === 0 ? 'text-blue-600' : 'text-slate-500'}`} />
+                                <User className={`w-3 h-3 ${idx === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`} />
                                 <span>{p}</span>
                                 {idx === 0 && (
-                                  <span className="text-[9px] bg-blue-200 text-blue-900 font-bold px-1 rounded ml-0.5">
+                                  <span className="text-[9px] bg-blue-200 dark:bg-blue-900 text-blue-900 dark:text-blue-200 font-bold px-1.5 rounded-full ml-0.5">
                                     Lead
                                   </span>
                                 )}
@@ -1555,25 +1555,25 @@ export const CaseDetailModal: React.FC = () => {
                       </div>
 
                       {/* Enriched Physical File Custody block */}
-                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                      <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-500 font-semibold text-[10px] uppercase flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-blue-600" />
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold text-[10px] uppercase flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                             {getField('fileLocation', 'Location of physical file').label}
                           </span>
-                          <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60">
                             {selectedCase.fileMovementHistory?.[0]?.status || 'At Registry'}
                           </span>
                         </div>
-                        <div className="font-mono font-medium text-slate-900 text-xs">
+                        <div className="font-mono font-medium text-slate-900 dark:text-slate-100 text-xs">
                           {selectedCase.file_location || `${selectedCase.branchName?.split(' ')[0]?.toUpperCase() || 'KAMPALA'} OFFICE - Central Cabinet`}
                         </div>
-                        <div className="text-[10px] text-slate-500">
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums">
                           {selectedCase.fileMovementHistory?.[0]
                             ? `Last moved: ${new Date(selectedCase.fileMovementHistory[0].timestamp).toLocaleDateString()} (${selectedCase.fileMovementHistory[0].movedBy})`
                             : 'Registry catalogued'}
                         </div>
-                        <div className="pt-1.5 border-t border-slate-200 flex items-center gap-1.5">
+                        <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
                           {canModifyThisCase && (
                             <button
                               type="button"
@@ -1581,7 +1581,7 @@ export const CaseDetailModal: React.FC = () => {
                                 setActiveTab('movement');
                                 setIsRecordingMovement(true);
                               }}
-                              className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors flex items-center gap-1"
+                              className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors flex items-center gap-1"
                             >
                               <ArrowRightLeft className="w-2.5 h-2.5" />
                               <span>Log Movement</span>
@@ -1590,9 +1590,9 @@ export const CaseDetailModal: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setActiveTab('movement')}
-                            className="text-[10px] px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded font-medium transition-colors flex items-center gap-1"
+                            className="text-[10px] px-2 py-0.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-md font-medium transition-colors flex items-center gap-1"
                           >
-                            <History className="w-2.5 h-2.5 text-slate-500" />
+                            <History className="w-2.5 h-2.5 text-slate-500 dark:text-slate-400" />
                             <span>History ({(selectedCase.fileMovementHistory || []).length})</span>
                           </button>
                         </div>
@@ -1600,22 +1600,22 @@ export const CaseDetailModal: React.FC = () => {
 
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('target', 'Target').label}</span>
-                        <span className="text-slate-800">{selectedCase.target || 'Obtain final decree with costs.'}</span>
+                        <span className="text-slate-800 dark:text-slate-200">{selectedCase.target || 'Obtain final decree with costs.'}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Card 3: Matter details & Continuous Notes Trail */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
-                    <div className="flex items-center gap-2 text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
-                      <FileText className="w-4 h-4 text-indigo-600" />
+                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+                    <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-xs uppercase tracking-wider">
+                      <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                       <span>Matter details & Progressive Tracking</span>
                     </div>
 
                     <div className="space-y-3 pt-1">
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase mb-0.5">{getField('subjectMatter', 'Subject matter').label}</span>
-                        <p className="text-slate-800 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
+                        <p className="text-slate-800 dark:text-slate-200 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
                           {selectedCase.subject_matter || selectedCase.briefSummary}
                         </p>
                       </div>
@@ -1623,28 +1623,28 @@ export const CaseDetailModal: React.FC = () => {
                       {selectedCase.notes && (
                         <div>
                           <span className="text-slate-400 block text-[10px] uppercase mb-0.5">{getField('notes', 'Notes').label}</span>
-                          <p className="text-slate-700 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100">
+                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
                             {selectedCase.notes}
                           </p>
                         </div>
                       )}
 
                       {/* Continuous Progressive Notes Trail Snapshot */}
-                      <div className="pt-2 border-t border-slate-200/80">
+                      <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-1.5">
-                            <StickyNote className="w-3.5 h-3.5 text-indigo-600" />
-                            <span className="text-slate-900 font-bold text-xs uppercase tracking-wider">
+                            <StickyNote className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <span className="text-slate-900 dark:text-slate-100 font-bold text-xs uppercase tracking-wider">
                               Continuous Progressive Notes Trail
                             </span>
-                            <span className="text-[10px] bg-indigo-50 text-indigo-700 font-mono font-bold px-1.5 py-0.2 rounded border border-indigo-200">
+                            <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-mono tabular-nums font-bold px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60">
                               {(selectedCase.progressiveNotes || []).length} recorded
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() => setActiveTab('notes')}
-                            className="text-[11px] text-blue-700 hover:text-blue-900 font-medium hover:underline flex items-center gap-1"
+                            className="text-[11px] text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 font-medium hover:underline flex items-center gap-1"
                           >
                             <span>Open Full Notes Trail</span>
                             <ArrowRight className="w-3 h-3" />
@@ -1653,13 +1653,13 @@ export const CaseDetailModal: React.FC = () => {
 
                         {/* Quick Add Note Form */}
                         {canModifyThisCase && (
-                          <form onSubmit={handleQuickNoteSubmit} className="mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-2">
+                          <form onSubmit={handleQuickNoteSubmit} className="mb-3 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[11px] text-slate-600 font-medium">Quick progressive update:</span>
+                              <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Quick progressive update:</span>
                               <select
                                 value={quickNoteCategory}
                                 onChange={(e) => setQuickNoteCategory(e.target.value as any)}
-                                className="bg-white border border-slate-300 rounded text-[11px] px-2 py-0.5 font-medium text-slate-700"
+                                className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-[11px] px-2 py-0.5 font-medium text-slate-700 dark:text-slate-200"
                               >
                                 <option value="Court Milestone">Court Milestone</option>
                                 <option value="Client Communication">Client Communication</option>
@@ -1675,12 +1675,12 @@ export const CaseDetailModal: React.FC = () => {
                                 value={quickNoteContent}
                                 onChange={(e) => setQuickNoteContent(e.target.value)}
                                 placeholder="Type brief progressive tracking note (e.g. Ruling delivered, witness summoned, client deposited fee)..."
-                                className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
+                                className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-600"
                               />
                               <button
                                 type="submit"
                                 disabled={!quickNoteContent.trim() || isSubmittingTrail}
-                                className="px-3 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-medium flex items-center gap-1"
+                                className="px-3 py-1 bg-slate-900 dark:bg-amber-500 hover:bg-slate-800 dark:hover:bg-amber-400 disabled:opacity-50 text-white dark:text-slate-950 rounded-lg text-xs font-medium flex items-center gap-1"
                               >
                                 <Send className="w-3 h-3" />
                                 <span>{isSubmittingTrail ? 'Saving...' : 'Add'}</span>
@@ -1697,24 +1697,24 @@ export const CaseDetailModal: React.FC = () => {
                         ) : (
                           <div className="space-y-2">
                             {selectedCase.progressiveNotes.slice(0, 3).map((note: ProgressiveNote) => (
-                              <div key={note.id} className="bg-slate-50/80 p-2.5 rounded border border-slate-100 space-y-1">
+                              <div key={note.id} className="bg-slate-50/80 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1">
                                 <div className="flex items-center justify-between text-[11px]">
                                   <div className="flex items-center gap-1.5">
-                                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
-                                      note.category === 'Court Milestone' ? 'bg-amber-100 text-amber-800' :
-                                      note.category === 'Client Communication' ? 'bg-purple-100 text-purple-800' :
-                                      note.category === 'Strategy' ? 'bg-indigo-100 text-indigo-800' :
-                                      note.category === 'Settlement / Recovery' ? 'bg-emerald-100 text-emerald-800' :
-                                      'bg-slate-200 text-slate-700'
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                      note.category === 'Court Milestone' ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300' :
+                                      note.category === 'Client Communication' ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300' :
+                                      note.category === 'Strategy' ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300' :
+                                      note.category === 'Settlement / Recovery' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' :
+                                      'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
                                     }`}>
                                       {note.category}
                                     </span>
-                                    <span className="font-medium text-slate-800">{note.author}</span>
+                                    <span className="font-medium text-slate-800 dark:text-slate-200">{note.author}</span>
                                     {note.authorRole && <span className="text-slate-400 text-[10px]">({note.authorRole})</span>}
                                   </div>
-                                  <span className="text-slate-400 text-[10px]">{new Date(note.timestamp).toLocaleDateString()}</span>
+                                  <span className="text-slate-400 text-[10px] tabular-nums">{new Date(note.timestamp).toLocaleDateString()}</span>
                                 </div>
-                                <p className="text-slate-700 text-xs line-clamp-2 leading-relaxed">
+                                <p className="text-slate-700 dark:text-slate-300 text-xs line-clamp-2 leading-relaxed">
                                   {note.content}
                                 </p>
                               </div>
@@ -1726,34 +1726,34 @@ export const CaseDetailModal: React.FC = () => {
                   </div>
 
                   {/* Card 4: Closure & billing */}
-                  <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-xs space-y-3">
-                    <div className="text-slate-900 font-bold border-b border-slate-100 pb-2 text-xs uppercase tracking-wider">
+                  <div className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+                    <div className="text-slate-900 dark:text-slate-100 font-bold border-b border-slate-100 dark:border-slate-800 pb-2 text-xs uppercase tracking-wider">
                       <span>Closure & billing</span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('yearOfClosure', 'Year of closure').label}</span>
-                        <span className="font-mono tabular-nums text-slate-800">{selectedCase.year_of_closure || '— (Active)'}</span>
+                        <span className="font-mono tabular-nums text-slate-800 dark:text-slate-200">{selectedCase.year_of_closure || '— (Active)'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('billingStatus', 'Billing status').label}</span>
-                        <span className="text-slate-800">{selectedCase.billing_status || 'Retainer Account'}</span>
+                        <span className="text-slate-800 dark:text-slate-200">{selectedCase.billing_status || 'Retainer Account'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">{getField('paymentStatus', 'Payment status').label}</span>
-                        <span className="text-slate-800">{selectedCase.payment_status || 'Regular / Active'}</span>
+                        <span className="text-slate-800 dark:text-slate-200">{selectedCase.payment_status || 'Regular / Active'}</span>
                       </div>
                       <div>
                         <span className="text-slate-400 block text-[10px] uppercase">Claim UGX</span>
-                        <span className="font-mono tabular-nums font-medium text-slate-800">UGX {selectedCase.claimValueUGX ? selectedCase.claimValueUGX.toLocaleString() : '—'}</span>
+                        <span className="font-mono tabular-nums font-medium text-slate-800 dark:text-slate-200">UGX {selectedCase.claimValueUGX ? selectedCase.claimValueUGX.toLocaleString() : '—'}</span>
                       </div>
                     </div>
 
                     {selectedCase.verdict && (
-                      <div className="pt-2 border-t border-slate-100">
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                         <span className="text-slate-400 block text-[10px] uppercase mb-0.5">{getField('verdict', 'Verdict').label}</span>
-                        <p className="text-slate-800 bg-emerald-50/50 p-2.5 rounded border border-emerald-100">
+                        <p className="text-slate-800 dark:text-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
                           {selectedCase.verdict}
                         </p>
                       </div>
@@ -1766,16 +1766,16 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'notes' && (
                 <div className="space-y-4">
                   {/* Top Header / Actions */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100">
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-indigo-50/70 dark:bg-indigo-950/30 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <StickyNote className="w-4 h-4 text-indigo-700" />
-                        <span className="font-bold text-indigo-950 text-sm">Continuous Notes Trail</span>
-                        <span className="bg-indigo-200/80 text-indigo-900 font-mono tabular-nums font-bold text-[10px] px-2 py-0.5 rounded-full">
+                        <StickyNote className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
+                        <span className="font-bold text-indigo-950 dark:text-indigo-100 text-sm">Continuous Notes Trail</span>
+                        <span className="bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 font-mono tabular-nums font-bold text-[10px] px-2.5 py-0.5 rounded-full">
                           {(selectedCase.progressiveNotes || []).length} Progressive Entries
                         </span>
                       </div>
-                      <p className="text-[11px] text-indigo-800">
+                      <p className="text-[11px] text-indigo-800 dark:text-indigo-300">
                         Centralized progressive tracking trail for court milestones, client instructions, legal strategies, and case developments.
                       </p>
                     </div>
@@ -1794,24 +1794,24 @@ export const CaseDetailModal: React.FC = () => {
 
                   {/* Add Progressive Note Form */}
                   {isAddingNote && (
-                    <form onSubmit={handleProgressiveNoteSubmit} className="p-4 bg-white border border-indigo-200 rounded-lg shadow-xs space-y-3">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                          <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                    <form onSubmit={handleProgressiveNoteSubmit} className="p-4 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800/60 rounded-xl shadow-xs space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                          <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                           Record New Progressive Note
                         </span>
-                        <span className="text-[10px] text-slate-500">
-                          Posting as: <strong className="text-slate-800">{currentUser?.name || 'System User'}</strong> ({currentUser?.roleTitle || 'Advocate'})
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Posting as: <strong className="text-slate-800 dark:text-slate-200">{currentUser?.name || 'System User'}</strong> ({currentUser?.roleTitle || 'Advocate'})
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">Note Category *</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Note Category *</label>
                           <select
                             value={noteCategory}
                             onChange={(e) => setNoteCategory(e.target.value as any)}
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-600 font-medium"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-600 font-medium"
                           >
                             <option value="Court Milestone">Court Milestone (Rulings, Mentions, Hearings)</option>
                             <option value="Client Communication">Client Communication (Calls, Instructions, Meetings)</option>
@@ -1823,43 +1823,43 @@ export const CaseDetailModal: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">Author Stamp</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Author Stamp</label>
                           <input
                             type="text"
                             disabled
                             value={`${currentUser?.name || 'System User'} — ${currentUser?.branchName || 'MK Advocates'}`}
-                            className="w-full bg-slate-100 border border-slate-200 rounded px-2.5 py-1.5 text-xs text-slate-600 cursor-not-allowed"
+                            className="w-full bg-slate-100 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-not-allowed"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-slate-700 font-medium mb-1 text-[11px]">Continuous Note Content *</label>
+                        <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Continuous Note Content *</label>
                         <textarea
                           required
                           rows={4}
                           value={noteContent}
                           onChange={(e) => setNoteContent(e.target.value)}
                           placeholder="Document continuous progressive update e.g.: Presiding Judge delivered ruling on preliminary objection; directed plaintiff to file witness statements within 14 days. Client advised via email..."
-                          className="w-full bg-slate-50 border border-slate-300 rounded-md p-2.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-indigo-600 leading-relaxed"
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:border-indigo-600 leading-relaxed"
                         />
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                         <button
                           type="button"
                           onClick={() => {
                             setIsAddingNote(false);
                             setNoteContent('');
                           }}
-                          className="px-3 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded text-xs transition-colors"
+                          className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={!noteContent.trim()}
-                          className="px-4 py-1.5 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white rounded text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5"
+                          className="px-4 py-1.5 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 text-white rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5"
                         >
                           <Save className="w-3.5 h-3.5" />
                           <span>Save Note to Progressive Trail</span>
@@ -1888,7 +1888,7 @@ export const CaseDetailModal: React.FC = () => {
                           className={`text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-colors border ${
                             selectedNoteFilter === chip.id
                               ? 'bg-indigo-600 text-white border-indigo-600'
-                              : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                              : 'bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }`}
                         >
                           {chip.label}
@@ -1904,7 +1904,7 @@ export const CaseDetailModal: React.FC = () => {
                         value={noteSearch}
                         onChange={(e) => setNoteSearch(e.target.value)}
                         placeholder="Search notes trail..."
-                        className="w-full pl-8 pr-3 py-1 bg-white border border-slate-300 rounded text-xs text-slate-800 focus:outline-none focus:border-indigo-600"
+                        className="w-full pl-8 pr-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-600"
                       />
                     </div>
                   </div>
@@ -1924,9 +1924,9 @@ export const CaseDetailModal: React.FC = () => {
 
                     if (filtered.length === 0) {
                       return (
-                        <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg space-y-2">
-                          <StickyNote className="w-8 h-8 text-slate-300 mx-auto" />
-                          <div className="font-medium text-slate-600 text-xs">
+                        <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                          <StickyNote className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                          <div className="font-medium text-slate-600 dark:text-slate-300 text-xs">
                             {noteSearch || selectedNoteFilter !== 'all'
                               ? 'No progressive notes match your filter or search query.'
                               : 'No continuous progressive notes recorded yet for this matter.'}
@@ -1942,7 +1942,7 @@ export const CaseDetailModal: React.FC = () => {
                                 setNoteSearch('');
                                 setIsAddingNote(true);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Add First Progressive Note</span>
@@ -1953,15 +1953,15 @@ export const CaseDetailModal: React.FC = () => {
                     }
 
                     return (
-                      <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                      <div className="relative pl-6 space-y-3 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
                         {filtered.map((note: ProgressiveNote) => {
                           const categoryStyles: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-                            'Court Milestone': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-500' },
-                            'Client Communication': { bg: 'bg-purple-50', text: 'text-purple-800', border: 'border-purple-200', dot: 'bg-purple-500' },
-                            'Strategy': { bg: 'bg-indigo-50', text: 'text-indigo-800', border: 'border-indigo-200', dot: 'bg-indigo-500' },
-                            'Registry & Filing': { bg: 'bg-slate-100', text: 'text-slate-800', border: 'border-slate-300', dot: 'bg-slate-600' },
-                            'Settlement / Recovery': { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', dot: 'bg-emerald-500' },
-                            'General': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200', dot: 'bg-blue-500' },
+                            'Court Milestone': { bg: 'bg-amber-50 dark:bg-amber-950/50', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800/60', dot: 'bg-amber-500' },
+                            'Client Communication': { bg: 'bg-purple-50 dark:bg-purple-950/50', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-800/60', dot: 'bg-purple-500' },
+                            'Strategy': { bg: 'bg-indigo-50 dark:bg-indigo-950/50', text: 'text-indigo-800 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800/60', dot: 'bg-indigo-500' },
+                            'Registry & Filing': { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-800 dark:text-slate-300', border: 'border-slate-300 dark:border-slate-700', dot: 'bg-slate-600' },
+                            'Settlement / Recovery': { bg: 'bg-emerald-50 dark:bg-emerald-950/50', text: 'text-emerald-800 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-800/60', dot: 'bg-emerald-500' },
+                            'General': { bg: 'bg-blue-50 dark:bg-blue-950/50', text: 'text-blue-800 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-800/60', dot: 'bg-blue-500' },
                           };
                           const style = categoryStyles[note.category] || categoryStyles['General'];
 
@@ -1969,25 +1969,25 @@ export const CaseDetailModal: React.FC = () => {
                             <div key={note.id} className="relative group">
                               {/* Dot on timeline */}
                               <div
-                                className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white shadow-xs ${style.dot}`}
+                                className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${style.dot}`}
                               />
 
-                              <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs hover:border-slate-300 transition-colors space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                                   <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${style.bg} ${style.text} ${style.border}`}>
+                                    <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${style.bg} ${style.text} ${style.border}`}>
                                       {note.category}
                                     </span>
-                                    <span className="font-semibold text-slate-900">{note.author}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-slate-100">{note.author}</span>
                                     {note.authorRole && (
-                                      <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
+                                      <span className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
                                         {note.authorRole}
                                       </span>
                                     )}
                                   </div>
 
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-slate-400 font-mono">
+                                    <span className="text-[10px] text-slate-400 font-mono tabular-nums">
                                       {new Date(note.timestamp).toLocaleString(undefined, {
                                         year: 'numeric',
                                         month: 'short',
@@ -1999,11 +1999,11 @@ export const CaseDetailModal: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleCopyNote(note.id, note.content)}
-                                      className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
                                       title="Copy note text"
                                     >
                                       {copiedNoteId === note.id ? (
-                                        <Check className="w-3 h-3 text-emerald-600" />
+                                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                       ) : (
                                         <Copy className="w-3 h-3" />
                                       )}
@@ -2011,7 +2011,7 @@ export const CaseDetailModal: React.FC = () => {
                                   </div>
                                 </div>
 
-                                <p className="text-slate-800 leading-relaxed whitespace-pre-wrap">
+                                <p className="text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
                                   {note.content}
                                 </p>
                               </div>
@@ -2028,14 +2028,14 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'movement' && (
                 <div className="space-y-4">
                   {/* Top Custody Summary Card */}
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-5 space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-amber-700" />
-                          <span className="font-bold text-amber-950 text-sm">Physical File Custody & Movement History</span>
+                          <MapPin className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                          <span className="font-bold text-amber-950 dark:text-amber-100 text-sm">Physical File Custody & Movement History</span>
                         </div>
-                        <p className="text-[11px] text-amber-800">
+                        <p className="text-[11px] text-amber-800 dark:text-amber-300">
                           Complete chain-of-custody tracking for this physical matter folder across firm registries, advocate chambers, and court halls.
                         </p>
                       </div>
@@ -2052,24 +2052,24 @@ export const CaseDetailModal: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60 text-xs">
-                      <div className="bg-white/80 p-2.5 rounded border border-amber-200/80">
-                        <span className="text-[10px] uppercase text-amber-700 font-bold block">Current Location</span>
-                        <span className="font-mono font-bold text-slate-900 truncate block mt-0.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-amber-200/60 dark:border-amber-800/50 text-xs">
+                      <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60">
+                        <span className="text-[10px] uppercase text-amber-700 dark:text-amber-400 font-bold block">Current Location</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100 truncate block mt-0.5">
                           {selectedCase.file_location || `${selectedCase.branchName || 'Kampala Central'} Registry`}
                         </span>
                       </div>
 
-                      <div className="bg-white/80 p-2.5 rounded border border-amber-200/80">
-                        <span className="text-[10px] uppercase text-amber-700 font-bold block">Status</span>
-                        <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-900 border border-amber-300">
+                      <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60">
+                        <span className="text-[10px] uppercase text-amber-700 dark:text-amber-400 font-bold block">Status</span>
+                        <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800/60">
                           {selectedCase.fileMovementHistory?.[0]?.status || 'At Registry'}
                         </span>
                       </div>
 
-                      <div className="bg-white/80 p-2.5 rounded border border-amber-200/80">
-                        <span className="text-[10px] uppercase text-amber-700 font-bold block">Total Movements</span>
-                        <span className="font-mono font-bold text-slate-900 text-sm block mt-0.5">
+                      <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-800/60">
+                        <span className="text-[10px] uppercase text-amber-700 dark:text-amber-400 font-bold block">Total Movements</span>
+                        <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100 text-sm block mt-0.5">
                           {(selectedCase.fileMovementHistory || []).length} Recorded
                         </span>
                       </div>
@@ -2078,39 +2078,39 @@ export const CaseDetailModal: React.FC = () => {
 
                   {/* Record File Movement Form */}
                   {isRecordingMovement && (
-                    <form onSubmit={handleMovementSubmit} className="p-4 bg-white border border-amber-300 rounded-lg shadow-xs space-y-3.5">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <span className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
-                          <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600" />
+                    <form onSubmit={handleMovementSubmit} className="p-4 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800/60 rounded-xl shadow-xs space-y-3.5">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <span className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                          <ArrowRightLeft className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                           Log Physical File Movement
                         </span>
-                        <span className="text-[10px] text-slate-500">
-                          Logged by: <strong className="text-slate-800">{currentUser?.name || 'System User'}</strong>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Logged by: <strong className="text-slate-800 dark:text-slate-200">{currentUser?.name || 'System User'}</strong>
                         </span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">From Location *</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">From Location *</label>
                           <input
                             type="text"
                             required
                             value={fromLoc}
                             onChange={(e) => setFromLoc(e.target.value)}
                             placeholder="e.g. Central Registry - Cabinet 4"
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">To Destination Location *</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">To Destination Location *</label>
                           <input
                             type="text"
                             required
                             value={toLoc}
                             onChange={(e) => setToLoc(e.target.value)}
                             placeholder="e.g. Counsel Office Desk / Court Registry"
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600"
                           />
                         </div>
                       </div>
@@ -2131,7 +2131,7 @@ export const CaseDetailModal: React.FC = () => {
                               key={loc}
                               type="button"
                               onClick={() => setToLoc(loc)}
-                              className="text-[10px] bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 px-2 py-0.5 rounded transition-colors"
+                              className="text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 hover:text-amber-900 dark:hover:text-amber-200 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full transition-colors"
                             >
                               {loc}
                             </button>
@@ -2141,11 +2141,11 @@ export const CaseDetailModal: React.FC = () => {
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">Movement Status *</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Movement Status *</label>
                           <select
                             value={movementStatus}
                             onChange={(e) => setMovementStatus(e.target.value as any)}
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600 font-medium"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600 font-medium"
                           >
                             <option value="At Registry">At Registry (In Cabinet/Shelf)</option>
                             <option value="With Advocate">With Advocate (Chambers/Study)</option>
@@ -2156,40 +2156,40 @@ export const CaseDetailModal: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">Moved / Dispatched By</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Moved / Dispatched By</label>
                           <input
                             type="text"
                             value={movedBy}
                             onChange={(e) => setMovedBy(e.target.value)}
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1 text-[11px]">Received By</label>
+                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Received By</label>
                           <input
                             type="text"
                             value={receivedBy}
                             onChange={(e) => setReceivedBy(e.target.value)}
                             placeholder="e.g. Assigned Counsel / Clerk"
-                            className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-slate-700 font-medium mb-1 text-[11px]">Reason / Purpose of Movement *</label>
+                        <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1 text-[11px]">Reason / Purpose of Movement *</label>
                         <input
                           type="text"
                           required
                           value={movementReason}
                           onChange={(e) => setMovementReason(e.target.value)}
                           placeholder="e.g. Retrieved for trial preparation and witness cross-examination outline..."
-                          className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-amber-600"
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-600"
                         />
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                         <button
                           type="button"
                           onClick={() => {
@@ -2197,14 +2197,14 @@ export const CaseDetailModal: React.FC = () => {
                             setToLoc('');
                             setMovementReason('');
                           }}
-                          className="px-3 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-600 rounded text-xs transition-colors"
+                          className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-xs transition-colors"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={!toLoc.trim() || !movementReason.trim() || isSubmittingTrail}
-                          className="px-4 py-1.5 bg-amber-700 hover:bg-amber-800 disabled:opacity-50 text-white rounded text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5"
+                          className="px-4 py-1.5 bg-amber-700 hover:bg-amber-800 disabled:opacity-50 text-white rounded-lg text-xs font-medium shadow-xs transition-colors flex items-center gap-1.5"
                         >
                           <Check className="w-3.5 h-3.5" />
                           <span>{isSubmittingTrail ? 'Saving...' : 'Confirm & Log Movement'}</span>
@@ -2218,9 +2218,9 @@ export const CaseDetailModal: React.FC = () => {
                     const history: FileMovementRecord[] = selectedCase.fileMovementHistory || [];
                     if (history.length === 0) {
                       return (
-                        <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg space-y-2">
-                          <History className="w-8 h-8 text-slate-300 mx-auto" />
-                          <div className="font-medium text-slate-600 text-xs">No physical file movement recorded yet.</div>
+                        <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                          <History className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                          <div className="font-medium text-slate-600 dark:text-slate-300 text-xs">No physical file movement recorded yet.</div>
                           <p className="text-[11px] text-slate-400 max-w-md mx-auto">
                             Log file checkouts, transfers to advocate desks, court hearing dispatches, or inter-branch couriers to maintain a full chain-of-custody.
                           </p>
@@ -2232,7 +2232,7 @@ export const CaseDetailModal: React.FC = () => {
                                 setMovementReason('Initial file indexing and intake into registry');
                                 setIsRecordingMovement(true);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-xs font-medium transition-colors"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Record First Movement</span>
@@ -2244,51 +2244,51 @@ export const CaseDetailModal: React.FC = () => {
 
                     return (
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-900 border-b border-slate-200 pb-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-slate-100 border-b border-slate-200 dark:border-slate-800 pb-2">
                           <div className="flex items-center gap-1.5">
-                            <History className="w-4 h-4 text-slate-600" />
+                            <History className="w-4 h-4 text-slate-600 dark:text-slate-400" />
                             <span>Chain of Custody Ledger</span>
                           </div>
-                          <span className="text-[11px] font-normal text-slate-500">
+                          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400 tabular-nums">
                             Showing all {history.length} physical transfers
                           </span>
                         </div>
 
-                        <div className="relative pl-6 space-y-3.5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200">
+                        <div className="relative pl-6 space-y-3.5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200 dark:before:bg-amber-800/60">
                           {history.map((record: FileMovementRecord, idx: number) => {
                             const statusColor =
                               record.status === 'At Registry'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
                                 : record.status === 'With Advocate'
-                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
                                 : record.status === 'In Court'
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60'
                                 : record.status === 'In Transit'
-                                ? 'bg-purple-50 text-purple-800 border-purple-200'
-                                : 'bg-slate-100 text-slate-800 border-slate-200';
+                                ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
 
                             return (
                               <div key={record.id} className="relative group">
                                 {/* Dot on timeline */}
                                 <div
-                                  className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white shadow-xs ${
-                                    idx === 0 ? 'bg-amber-600 ring-2 ring-amber-300' : 'bg-slate-400'
+                                  className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-xs ${
+                                    idx === 0 ? 'bg-amber-600 ring-2 ring-amber-300 dark:ring-amber-700' : 'bg-slate-400'
                                   }`}
                                 />
 
-                                <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs hover:border-slate-300 transition-colors space-y-2">
-                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-colors space-y-2">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                                     <div className="flex items-center gap-2">
-                                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${statusColor}`}>
+                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${statusColor}`}>
                                         {record.status || 'Movement'}
                                       </span>
                                       {idx === 0 && (
-                                        <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.2 rounded">
+                                        <span className="text-[9px] bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 font-bold px-2 py-0.5 rounded-full">
                                           Current Custody
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-[10px] text-slate-400 font-mono">
+                                    <span className="text-[10px] text-slate-400 font-mono tabular-nums">
                                       {new Date(record.timestamp).toLocaleString(undefined, {
                                         year: 'numeric',
                                         month: 'short',
@@ -2301,31 +2301,31 @@ export const CaseDetailModal: React.FC = () => {
 
                                   {/* Route */}
                                   <div className="flex items-center gap-2 py-1 text-xs">
-                                    <div className="bg-slate-100 px-2 py-1 rounded text-slate-700 font-mono truncate max-w-[45%]">
+                                    <div className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg text-slate-700 dark:text-slate-300 font-mono truncate max-w-[45%]">
                                       {record.fromLocation}
                                     </div>
-                                    <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                    <div className="bg-amber-50 border border-amber-200 px-2 py-1 rounded text-amber-950 font-mono font-medium truncate max-w-[45%]">
+                                    <ArrowRight className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 px-2 py-1 rounded-lg text-amber-950 dark:text-amber-200 font-mono font-medium truncate max-w-[45%]">
                                       {record.toLocation}
                                     </div>
                                   </div>
 
                                   {/* Reason */}
-                                  <p className="text-slate-700 text-xs leading-relaxed bg-slate-50/80 p-2 rounded border border-slate-100">
-                                    <strong className="text-slate-800">Reason: </strong>
+                                  <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed bg-slate-50/80 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                                    <strong className="text-slate-800 dark:text-slate-200">Reason: </strong>
                                     {record.reason}
                                   </p>
 
                                   {/* Handlers */}
-                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 border-t border-slate-100">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
                                     <div className="flex items-center gap-1">
                                       <User className="w-3 h-3 text-slate-400" />
-                                      <span>Dispatched by: <strong className="text-slate-700">{record.movedBy}</strong></span>
+                                      <span>Dispatched by: <strong className="text-slate-700 dark:text-slate-200">{record.movedBy}</strong></span>
                                     </div>
                                     {record.receivedBy && (
                                       <div className="flex items-center gap-1">
-                                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                                        <span>Received by: <strong className="text-slate-700">{record.receivedBy}</strong></span>
+                                        <ShieldCheck className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                        <span>Received by: <strong className="text-slate-700 dark:text-slate-200">{record.receivedBy}</strong></span>
                                       </div>
                                     )}
                                   </div>
@@ -2344,60 +2344,60 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'hearings' && (
                 <div className="space-y-4">
                   {isSchedulingHearing && (
-                    <form onSubmit={handleScheduleHearing} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
-                      <div className="font-bold text-slate-800 text-xs">Schedule New Court Hearing</div>
+                    <form onSubmit={handleScheduleHearing} className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-3">
+                      <div className="font-bold text-slate-800 dark:text-slate-100 text-xs">Schedule New Court Hearing</div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-slate-600 mb-1">Hearing Date *</label>
+                          <label className="block text-slate-600 dark:text-slate-300 mb-1">Hearing Date *</label>
                           <input
                             type="date"
                             required
                             value={newHearingDate}
                             onChange={(e) => setNewHearingDate(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5 tabular-nums"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-600 mb-1">Time</label>
+                          <label className="block text-slate-600 dark:text-slate-300 mb-1">Time</label>
                           <input
                             type="text"
                             value={newHearingTime}
                             onChange={(e) => setNewHearingTime(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5 tabular-nums"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-600 mb-1">Judge / Registrar</label>
+                          <label className="block text-slate-600 dark:text-slate-300 mb-1">Judge / Registrar</label>
                           <input
                             type="text"
                             value={newHearingJudge}
                             onChange={(e) => setNewHearingJudge(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-slate-600 mb-1">Hearing Purpose *</label>
+                        <label className="block text-slate-600 dark:text-slate-300 mb-1">Hearing Purpose *</label>
                         <input
                           type="text"
                           required
                           value={newHearingPurpose}
                           onChange={(e) => setNewHearingPurpose(e.target.value)}
                           placeholder="e.g. Cross-examination of PW1"
-                          className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                         />
                       </div>
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => setIsSchedulingHearing(false)}
-                          className="px-3 py-1 text-slate-600"
+                          className="px-3 py-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-3 py-1 bg-slate-900 text-white rounded font-medium"
+                          className="px-3 py-1 bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 rounded-lg font-medium"
                         >
                           Save Hearing
                         </button>
@@ -2410,17 +2410,17 @@ export const CaseDetailModal: React.FC = () => {
                       No hearings scheduled yet for this matter.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden">
                       {caseHearings.map((h) => (
-                        <div key={h.id} className="p-4 bg-white flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+                        <div key={h.id} className="p-4 bg-white dark:bg-slate-900 flex items-center justify-between hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-slate-900 tabular-nums">{h.hearingDate}</span>
+                              <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">{h.hearingDate}</span>
                               <span className="text-slate-400 tabular-nums">at {h.hearingTime}</span>
                               <StatusBadge status={h.status || 'Scheduled'} size="xs" />
                             </div>
-                            <div className="font-medium text-slate-800">{h.hearingPurpose}</div>
-                            <div className="text-[11px] text-slate-500">{h.courtName} · {h.presidingJudge}</div>
+                            <div className="font-medium text-slate-800 dark:text-slate-200">{h.hearingPurpose}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{h.courtName} · {h.presidingJudge}</div>
                           </div>
                         </div>
                       ))}
@@ -2433,26 +2433,26 @@ export const CaseDetailModal: React.FC = () => {
               {activeTab === 'documents' && (
                 <div className="space-y-4">
                   {isUploadingDoc && (
-                    <form onSubmit={handleDocumentSubmit} className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
-                      <div className="font-bold text-slate-800 text-xs">Index New Court Document</div>
+                    <form onSubmit={handleDocumentSubmit} className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-3">
+                      <div className="font-bold text-slate-800 dark:text-slate-100 text-xs">Index New Court Document</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-slate-600 mb-1">Document Title *</label>
+                          <label className="block text-slate-600 dark:text-slate-300 mb-1">Document Title *</label>
                           <input
                             type="text"
                             required
                             value={docTitle}
                             onChange={(e) => setDocTitle(e.target.value)}
                             placeholder="e.g. Plaint / Witness Statement of DW1"
-                            className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-600 mb-1">Document Type</label>
+                          <label className="block text-slate-600 dark:text-slate-300 mb-1">Document Type</label>
                           <select
                             value={docType}
                             onChange={(e) => setDocType(e.target.value as any)}
-                            className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5"
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                           >
                             <option value="Plaint">Plaint</option>
                             <option value="Written Statement of Defense">Written Statement of Defense</option>
@@ -2466,13 +2466,13 @@ export const CaseDetailModal: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsUploadingDoc(false)}
-                          className="px-3 py-1 text-slate-600"
+                          className="px-3 py-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-3 py-1 bg-slate-900 text-white rounded font-medium"
+                          className="px-3 py-1 bg-slate-900 dark:bg-amber-500 text-white dark:text-slate-950 rounded-lg font-medium"
                         >
                           Upload Document
                         </button>
@@ -2485,12 +2485,12 @@ export const CaseDetailModal: React.FC = () => {
                       No documents indexed for this case yet.
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden">
                       {caseDocs.map((d) => (
-                        <div key={d.id} className="p-4 bg-white flex items-center justify-between hover:bg-slate-50/70 transition-colors">
+                        <div key={d.id} className="p-4 bg-white dark:bg-slate-900 flex items-center justify-between hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
                           <div className="space-y-1">
-                            <div className="font-semibold text-slate-900">{d.title}</div>
-                            <div className="text-[11px] text-slate-500 tabular-nums">
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{d.title}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                               {d.documentType} · Filed {d.filingDate} by {d.filedBy}
                             </div>
                           </div>
@@ -2505,22 +2505,22 @@ export const CaseDetailModal: React.FC = () => {
               {/* Branch Transfer Tab */}
               {activeTab === 'transfer' && (
                 <div className="space-y-4">
-                  <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 space-y-2">
-                    <div className="font-bold text-amber-900">Inter-Branch Case Reallocation</div>
-                    <p className="text-amber-800 text-xs">
+                  <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-xl border border-amber-200 dark:border-amber-800/60 space-y-2">
+                    <div className="font-bold text-amber-900 dark:text-amber-200">Inter-Branch Case Reallocation</div>
+                    <p className="text-amber-800 dark:text-amber-300 text-xs">
                       Reallocate this matter between Kampala Head Office and regional branch offices (Fort Portal, Mbarara, Gulu, Masindi, Masaka, Jinja).
                     </p>
                   </div>
 
-                  <form onSubmit={handleTransferSubmit} className="space-y-3 bg-white p-4 border border-slate-200 rounded-lg">
+                  <form onSubmit={handleTransferSubmit} className="space-y-3 bg-white dark:bg-slate-900 p-4 border border-slate-200/80 dark:border-slate-800 rounded-xl">
                     <div>
-                      <label className="block font-medium text-slate-700 mb-1">
+                      <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
                         Select Destination Branch Office *
                       </label>
                       <select
                         value={targetBranchId}
                         onChange={(e) => setTargetBranchId(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                       >
                         {branches
                           .filter((b) => b.id !== selectedCase.branchId)
@@ -2533,7 +2533,7 @@ export const CaseDetailModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block font-medium text-slate-700 mb-1">
+                      <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
                         Reason for Transfer / Registry Directive *
                       </label>
                       <textarea
@@ -2542,14 +2542,14 @@ export const CaseDetailModal: React.FC = () => {
                         value={transferReason}
                         onChange={(e) => setTransferReason(e.target.value)}
                         placeholder="e.g. Venue of trial moved to Fort Portal High Court Circuit for on-site locus visit..."
-                        className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5"
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-1.5"
                       />
                     </div>
 
                     <div className="flex justify-end">
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium flex items-center gap-1.5"
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center gap-1.5"
                       >
                         <ArrowRightLeft className="w-3.5 h-3.5" />
                         <span>Transfer Matter</span>

@@ -126,18 +126,18 @@ export const AccessRolesManager: React.FC = () => {
 
   if (!isSuperAdmin) {
     return (
-      <div className="max-w-md mx-auto my-12 p-8 bg-white border border-slate-200 rounded-2xl text-center shadow-xs">
-        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+      <div className="max-w-md mx-auto my-12 p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center shadow-xs">
+        <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
           <Lock className="w-6 h-6" />
         </div>
-        <h2 className="text-base font-bold text-slate-900 mb-1">Super Admin Access Required</h2>
-        <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+        <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Super Admin Access Required</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
           Access Roles, Staff Provisioning, and Security Governance are strictly reserved for the Managing Partner / Super Admin. Branch Administrators manage operations within their assigned branch only.
         </p>
         <button
           type="button"
           onClick={() => setActiveTab('dashboard')}
-          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-colors"
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white text-xs font-semibold rounded-xl transition-colors"
         >
           Return to Dashboard
         </button>
@@ -417,8 +417,8 @@ $$;`;
         <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-slate-800/80">
           <button
             onClick={() => setActiveSubTab('users')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'users' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 tabular-nums ${
+              activeSubTab === 'users' ? 'bg-white text-slate-900 shadow-sm dark:bg-amber-400 dark:text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -426,8 +426,8 @@ $$;`;
           </button>
           <button
             onClick={() => setActiveSubTab('roles')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'roles' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 tabular-nums ${
+              activeSubTab === 'roles' ? 'bg-white text-slate-900 shadow-sm dark:bg-amber-400 dark:text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
@@ -435,8 +435,8 @@ $$;`;
           </button>
           <button
             onClick={() => setActiveSubTab('branches')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'branches' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 tabular-nums ${
+              activeSubTab === 'branches' ? 'bg-white text-slate-900 shadow-sm dark:bg-amber-400 dark:text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
@@ -445,7 +445,7 @@ $$;`;
           <button
             onClick={() => setActiveSubTab('rls')}
             className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'rls' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              activeSubTab === 'rls' ? 'bg-white text-slate-900 shadow-sm dark:bg-amber-400 dark:text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             <Lock className="w-3.5 h-3.5" />
@@ -453,8 +453,8 @@ $$;`;
           </button>
           <button
             onClick={() => setActiveSubTab('audit')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'audit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 tabular-nums ${
+              activeSubTab === 'audit' ? 'bg-white text-slate-900 shadow-sm dark:bg-amber-400 dark:text-slate-950' : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
             }`}
           >
             <History className="w-3.5 h-3.5" />
@@ -466,28 +466,28 @@ $$;`;
       {/* Inline Feedback Banner */}
       {statusBanner && (
         <div
-          className={`px-4 py-3 rounded-xl border text-xs font-medium flex items-center justify-between gap-3 ${
+          className={`px-4 py-3 rounded-2xl border text-xs font-medium flex items-center justify-between gap-3 ${
             statusBanner.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
               : statusBanner.type === 'warning'
-              ? 'bg-amber-50 border-amber-200 text-amber-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+              ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+              : 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
           }`}
         >
           <div className="flex items-center gap-2">
             {statusBanner.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : statusBanner.type === 'warning' ? (
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             )}
             <span>{statusBanner.message}</span>
           </div>
           <button
             type="button"
             onClick={() => setStatusBanner(null)}
-            className="text-slate-400 hover:text-slate-700"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           >
             <X className="w-4 h-4" />
           </button>
@@ -499,8 +499,8 @@ $$;`;
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Firm Staff Accounts &amp; Access Control</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Firm Staff Accounts &amp; Access Control</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Create staff accounts with login credentials, reassign roles or regional stations directly, and manage account status.
               </p>
             </div>
@@ -517,9 +517,9 @@ $$;`;
                     setTimeout(() => setIsRefreshingStaff(false), 300);
                   }
                 }}
-                className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs font-medium border border-slate-200"
+                className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingStaff ? 'animate-spin text-blue-600' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingStaff ? 'animate-spin text-blue-600 dark:text-blue-400' : ''}`} />
                 <span>Sync Profiles</span>
               </button>
 
@@ -529,7 +529,7 @@ $$;`;
                   setUserError(null);
                   setIsUserModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs"
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Staff User</span>
@@ -537,11 +537,11 @@ $$;`;
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                  <tr className="divide-x divide-slate-200/60">
+                <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr className="divide-x divide-slate-200/60 dark:divide-slate-700/60">
                     <th className="py-3.5 px-4">Staff Name &amp; Contact</th>
                     <th className="py-3.5 px-4">Assigned Role</th>
                     <th className="py-3.5 px-4">Branch Station</th>
@@ -549,7 +549,7 @@ $$;`;
                     <th className="py-3.5 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {availableUsers.map((user) => {
                     const isSelf = user.id === currentUser?.id;
                     const isPrimaryOwner = user.email.toLowerCase() === 'infosightug@gmail.com';
@@ -574,13 +574,13 @@ $$;`;
                         : branches[0]?.id || 'kla-hq';
 
                     return (
-                      <tr key={user.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100/70">
+                      <tr key={user.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70">
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-slate-100">
                             <span>{user.name}</span>
-                            {isRowUpdating && <Loader2 className="w-3.5 h-3.5 text-indigo-600 animate-spin" />}
+                            {isRowUpdating && <Loader2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 animate-spin" />}
                           </div>
-                          <div className="text-[11px] text-slate-500">{user.email}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">{user.email}</div>
                         </td>
                         <td className="py-3 px-4">
                           <div className="space-y-1">
@@ -588,14 +588,14 @@ $$;`;
                               disabled={isPrimaryOwner || isSelf || isRowUpdating}
                               value={resolvedRoleValue}
                               onChange={(e) => handleInlineRoleChange(user, e.target.value)}
-                              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900"
+                              className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-200 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900 dark:focus:border-slate-500"
                             >
                               {roles.map((r) => (
                                 <option key={r.id} value={r.id}>{r.name}</option>
                               ))}
                             </select>
                             <div>
-                              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${getUserRoleBadge(resolvedRoleValue)}`}>
+                              <span className={`inline-block text-[10px] font-medium px-2.5 py-0.5 rounded-full border ${getUserRoleBadge(resolvedRoleValue)}`}>
                                 {getUserRoleLabel(resolvedRoleValue)}
                               </span>
                             </div>
@@ -606,7 +606,7 @@ $$;`;
                             disabled={isRowUpdating}
                             value={resolvedBranchValue}
                             onChange={(e) => handleInlineBranchChange(user, e.target.value)}
-                            className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900"
+                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-700 dark:text-slate-200 font-medium disabled:opacity-60 focus:outline-none focus:border-slate-900 dark:focus:border-slate-500"
                           >
                             {branches.map((b) => (
                               <option key={b.id} value={b.id}>{b.name}</option>
@@ -682,15 +682,15 @@ $$;`;
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Firm Access Roles &amp; Permission Tiers</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Firm Access Roles &amp; Permission Tiers</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Branch Administrators are strictly isolated to their own branch and cannot access firm-wide analytics, roles, or system configuration.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setIsRoleModalOpen(true)}
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs"
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Create Custom Role</span>
@@ -707,24 +707,24 @@ $$;`;
                 return effectiveRoleId === role.id;
               }).length;
               return (
-                <div key={role.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between gap-4">
+                <div key={role.id} className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${role.badgeColor || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                        <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${role.badgeColor || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'}`}>
                           {role.isSuperAdmin ? 'SUPER ADMIN' : role.isSystem ? 'SYSTEM ROLE' : 'CUSTOM ROLE'}
                         </span>
-                        <h3 className="text-sm font-bold text-slate-900 mt-1.5">{role.name}</h3>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-1.5">{role.name}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-mono tabular-nums text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[11px] font-mono tabular-nums text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
                           {assignedCount} staff
                         </span>
                         {!role.isSystem && !role.isSuperAdmin && (
                           <button
                             type="button"
                             onClick={() => deleteCustomRole(role.id)}
-                            className="p-1 text-rose-500 hover:bg-rose-50 rounded"
+                            className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded"
                             title="Delete Custom Role"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -732,19 +732,19 @@ $$;`;
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-slate-500 leading-relaxed">{role.description}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{role.description}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100 text-[10px]">
-                    <span className={`px-2 py-0.5 rounded font-medium ${role.permissions.canViewAllBranches ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                  <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800 text-[10px]">
+                    <span className={`px-2.5 py-0.5 rounded-full font-medium ${role.permissions.canViewAllBranches ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'}`}>
                       {role.permissions.canViewAllBranches ? 'All Branches' : 'Own Branch Only'}
                     </span>
-                    {role.permissions.canCreateCases && <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Create Cases</span>}
-                    {role.permissions.canEditCases && <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Edit Cases</span>}
-                    {role.permissions.canDeleteCases && <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700">Delete Cases</span>}
-                    {role.permissions.canManageUsers && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-semibold">Manage Users &amp; Roles</span>}
-                    {role.permissions.canManageSettings && <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-semibold">System Settings</span>}
-                    {role.permissions.canBulkImport && <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-semibold">Bulk Import/Export</span>}
+                    {role.permissions.canCreateCases && <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">Create Cases</span>}
+                    {role.permissions.canEditCases && <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">Edit Cases</span>}
+                    {role.permissions.canDeleteCases && <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">Delete Cases</span>}
+                    {role.permissions.canManageUsers && <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 font-medium">Manage Users &amp; Roles</span>}
+                    {role.permissions.canManageSettings && <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 font-medium">System Settings</span>}
+                    {role.permissions.canBulkImport && <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 font-medium">Bulk Import/Export</span>}
                   </div>
                 </div>
               );
@@ -758,13 +758,13 @@ $$;`;
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Regional Branch Registry</h2>
-              <p className="text-xs text-slate-500">Managing {branches.length} active regional circuit offices across Uganda.</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Regional Branch Registry</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 tabular-nums">Managing {branches.length} active regional circuit offices across Uganda.</p>
             </div>
             <button
               type="button"
               onClick={() => setIsBranchModalOpen(true)}
-              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs"
+              className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Add Branch Office</span>
@@ -775,20 +775,20 @@ $$;`;
             {branches.map((branch) => {
               const staffCount = availableUsers.filter((u) => u.branchId === branch.id).length;
               return (
-                <div key={branch.id} className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow space-y-3">
+                <div key={branch.id} className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-indigo-600 shrink-0" />
-                        <h3 className="text-sm font-bold text-slate-900">{branch.name}</h3>
+                        <MapPin className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{branch.name}</h3>
                       </div>
-                      <p className="text-xs text-slate-500 mt-1">{branch.address}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{branch.address}</p>
                     </div>
                     {!branch.isHeadquarters ? (
                       <button
                         type="button"
                         onClick={() => deleteBranch(branch.id)}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"
                         title="Remove Branch"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -797,9 +797,9 @@ $$;`;
                       <StatusBadge tone="emerald" label="HQ" showDot={false} size="xs" />
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-[11px] text-slate-600 tabular-nums">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 tabular-nums">
                     <span>{staffCount} assigned staff</span>
-                    <span className="font-mono font-semibold">{branch.caseCount || 0} matters</span>
+                    <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{branch.caseCount || 0} matters</span>
                   </div>
                 </div>
               );
@@ -810,12 +810,12 @@ $$;`;
 
       {/* TAB 4: SUPABASE RLS */}
       {activeSubTab === 'rls' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow space-y-4">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Supabase Row Level Security (RLS)</h2>
-              <p className="text-xs text-slate-500">
-                Branch Administrators are strictly scoped to rows matching their assigned <code className="bg-slate-100 px-1 rounded">branch_id</code>. Only Managing Partners / Super Admins have cross-branch privileges.
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Supabase Row Level Security (RLS)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Branch Administrators are strictly scoped to rows matching their assigned <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded">branch_id</code>. Only Managing Partners / Super Admins have cross-branch privileges.
               </p>
             </div>
             <button
@@ -825,13 +825,13 @@ $$;`;
                 setCopiedSql(true);
                 setTimeout(() => setCopiedSql(false), 2000);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shrink-0"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold shrink-0 transition-colors"
             >
               {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedSql ? 'Copied SQL' : 'Copy Isolation SQL'}</span>
             </button>
           </div>
-          <pre className="bg-slate-950 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed">
+          <pre className="bg-slate-950 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
             {rlsSqlSnippet}
           </pre>
         </div>
@@ -841,25 +841,25 @@ $$;`;
       {activeSubTab === 'audit' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="text-[10px] font-bold uppercase text-slate-400">Total Logged Events</div>
-              <div className="text-xl font-bold text-slate-900 mt-1 tabular-nums">{auditStats.total}</div>
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+              <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500">Total Logged Events</div>
+              <div className="text-xl font-bold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">{auditStats.total}</div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="text-[10px] font-bold uppercase text-emerald-600">Inserts</div>
-              <div className="text-xl font-bold text-emerald-700 mt-1 tabular-nums">{auditStats.inserts}</div>
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+              <div className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Inserts</div>
+              <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300 mt-1 tabular-nums">{auditStats.inserts}</div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="text-[10px] font-bold uppercase text-amber-600">Updates</div>
-              <div className="text-xl font-bold text-amber-700 mt-1 tabular-nums">{auditStats.updates}</div>
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+              <div className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Updates</div>
+              <div className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1 tabular-nums">{auditStats.updates}</div>
             </div>
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="text-[10px] font-bold uppercase text-rose-600">Deletes</div>
-              <div className="text-xl font-bold text-rose-700 mt-1 tabular-nums">{auditStats.deletes}</div>
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow">
+              <div className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">Deletes</div>
+              <div className="text-xl font-bold text-rose-700 dark:text-rose-300 mt-1 tabular-nums">{auditStats.deletes}</div>
             </div>
           </div>
 
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 flex-1">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -868,13 +868,13 @@ $$;`;
                   value={auditSearch}
                   onChange={(e) => setAuditSearch(e.target.value)}
                   placeholder="Search suit no, user email, branch..."
-                  className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs"
+                  className="w-full pl-8 pr-3 py-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-900/15 dark:focus:ring-slate-600"
                 />
               </div>
               <select
                 value={auditActionFilter}
                 onChange={(e) => setAuditActionFilter(e.target.value as any)}
-                className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50"
+                className="border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
               >
                 <option value="ALL">All Actions</option>
                 <option value="INSERT">INSERT</option>
@@ -884,7 +884,7 @@ $$;`;
               <select
                 value={auditBranchFilter}
                 onChange={(e) => setAuditBranchFilter(e.target.value)}
-                className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50"
+                className="border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200"
               >
                 <option value="ALL">All Branches</option>
                 {branches.map((b) => (
@@ -896,7 +896,7 @@ $$;`;
               <button
                 type="button"
                 onClick={handleRefreshAuditLogs}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1"
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingLogs ? 'animate-spin' : ''}`} />
                 <span>Refresh</span>
@@ -904,7 +904,7 @@ $$;`;
               <button
                 type="button"
                 onClick={exportAuditLogsToCsv}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium flex items-center gap-1"
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Export CSV</span>
@@ -912,11 +912,11 @@ $$;`;
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                  <tr className="divide-x divide-slate-200/60">
+                <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
+                  <tr className="divide-x divide-slate-200/60 dark:divide-slate-700/60">
                     <th className="py-3 px-4">Timestamp</th>
                     <th className="py-3 px-4">Action</th>
                     <th className="py-3 px-4">Matter No.</th>
@@ -925,15 +925,15 @@ $$;`;
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredAuditLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-slate-400">No audit events match current filters.</td>
+                      <td colSpan={6} className="py-10 text-center text-slate-400 dark:text-slate-500">No audit events match current filters.</td>
                     </tr>
                   ) : (
                     filteredAuditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100/70">
-                        <td className="py-3 px-4 font-mono tabular-nums text-[11px] text-slate-600">{new Date(log.created_at).toLocaleString()}</td>
+                      <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70">
+                        <td className="py-3 px-4 font-mono tabular-nums text-[11px] text-slate-600 dark:text-slate-400">{new Date(log.created_at).toLocaleString()}</td>
                         <td className="py-3 px-4">
                           <StatusBadge
                             tone={log.action === 'INSERT' ? 'emerald' : log.action === 'DELETE' ? 'rose' : 'amber'}
@@ -941,9 +941,9 @@ $$;`;
                             size="xs"
                           />
                         </td>
-                        <td className="py-3 px-4 font-mono tabular-nums">{log.case_number || log.case_id || '—'}</td>
-                        <td className="py-3 px-4">{log.user_email || 'System'}</td>
-                        <td className="py-3 px-4">{log.branch || '—'}</td>
+                        <td className="py-3 px-4 font-mono tabular-nums text-slate-800 dark:text-slate-200">{log.case_number || log.case_id || '—'}</td>
+                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{log.user_email || 'System'}</td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{log.branch || '—'}</td>
                         <td className="py-3 px-4 text-right">
                           <RowActionMenu
                             ariaLabel={`Actions for audit log ${log.id}`}
@@ -970,7 +970,7 @@ $$;`;
       {/* MODAL: ADD NEW STAFF USER */}
       {isUserModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-4 sm:p-5 text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
@@ -992,38 +992,38 @@ $$;`;
 
             <form onSubmit={handleCreateUser} className="p-5 space-y-4 text-xs">
               {userError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2">
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{userError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Full Name &amp; Title *</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name &amp; Title *</label>
                 <input
                   type="text"
                   required
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="e.g. Counsel Brenda Kyomugisha"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Authorised Login Email *</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Authorised Login Email *</label>
                 <input
                   type="email"
                   required
                   value={userEmail}
                   onChange={(e) => setUserEmail(e.target.value)}
                   placeholder="staff@mkadvocates.ug"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Temporary Initial Password *</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Temporary Initial Password *</label>
                 <div className="relative">
                   <Key className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -1032,18 +1032,18 @@ $$;`;
                     value={userPassword}
                     onChange={(e) => setUserPassword(e.target.value)}
                     placeholder="Minimum 6 characters"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs font-mono"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg pl-9 pr-3 py-2 text-xs font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Access Role *</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Access Role *</label>
                   <select
                     value={userRoleId}
                     onChange={(e) => setUserRoleId(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-2 text-xs"
                   >
                     {roles.map((r) => (
                       <option key={r.id} value={r.id}>{r.name}</option>
@@ -1051,11 +1051,11 @@ $$;`;
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Branch Station *</label>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Station *</label>
                   <select
                     value={userBranchId}
                     onChange={(e) => setUserBranchId(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-2 text-xs"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-2 text-xs"
                   >
                     {branches.map((b) => (
                       <option key={b.id} value={b.id}>{b.name}</option>
@@ -1065,21 +1065,21 @@ $$;`;
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Advocate Roll / Practicing No. (Optional)</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Advocate Roll / Practicing No. (Optional)</label>
                 <input
                   type="text"
                   value={userRollNo}
                   onChange={(e) => setUserRollNo(e.target.value)}
                   placeholder="e.g. ULS/ADV/2026/089"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs font-mono tabular-nums"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsUserModalOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium"
+                  className="px-3.5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 >
                   Cancel
                 </button>
@@ -1100,7 +1100,7 @@ $$;`;
       {/* MODAL: CREATE CUSTOM ROLE */}
       {isRoleModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-lg overflow-hidden">
             <div className="bg-slate-900 p-4 text-white flex items-center justify-between">
               <h2 className="text-base font-bold">Create Custom Access Role</h2>
               <button type="button" onClick={() => setIsRoleModalOpen(false)} className="text-slate-400 hover:text-white">
@@ -1109,23 +1109,23 @@ $$;`;
             </div>
             <form onSubmit={handleCreateRole} className="p-5 space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Role Title *</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role Title *</label>
                 <input
                   type="text"
                   required
                   value={roleFormName}
                   onChange={(e) => setRoleFormName(e.target.value)}
                   placeholder="e.g. Senior Legal Associate"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Description</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
                 <textarea
                   value={roleFormDesc}
                   onChange={(e) => setRoleFormDesc(e.target.value)}
                   rows={2}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
@@ -1139,22 +1139,22 @@ $$;`;
                   ['canManageDocuments', 'Manage Documents'],
                   ['canViewFinancials', 'View Financials'],
                 ].map(([key, label]) => (
-                  <label key={key} className="flex items-center gap-2 cursor-pointer text-slate-700">
+                  <label key={key} className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={Boolean((roleFormPerms as any)[key])}
                       onChange={(e) =>
                         setRoleFormPerms((prev) => ({ ...prev, [key]: e.target.checked }))
                       }
-                      className="rounded border-slate-300"
+                      className="rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800"
                     />
                     <span>{label}</span>
                   </label>
                 ))}
               </div>
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                <button type="button" onClick={() => setIsRoleModalOpen(false)} className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold">Save Custom Role</button>
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsRoleModalOpen(false)} className="px-3.5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white rounded-xl font-semibold">Save Custom Role</button>
               </div>
             </form>
           </div>
@@ -1164,7 +1164,7 @@ $$;`;
       {/* MODAL: ADD BRANCH */}
       {isBranchModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-md overflow-hidden">
             <div className="bg-slate-900 p-4 text-white flex items-center justify-between">
               <h2 className="text-base font-bold">Provision New Branch Station</h2>
               <button type="button" onClick={() => setIsBranchModalOpen(false)} className="text-slate-400 hover:text-white">
@@ -1173,39 +1173,39 @@ $$;`;
             </div>
             <form onSubmit={handleCreateBranch} className="p-5 space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">City / Circuit *</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">City / Circuit *</label>
                 <input
                   type="text"
                   required
                   value={branchCity}
                   onChange={(e) => setBranchCity(e.target.value)}
                   placeholder="e.g. Mbale"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Official Office Name</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Official Office Name</label>
                 <input
                   type="text"
                   value={branchName}
                   onChange={(e) => setBranchName(e.target.value)}
                   placeholder="e.g. Mbale Regional Office"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Physical Address</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Physical Address</label>
                 <input
                   type="text"
                   value={branchAddress}
                   onChange={(e) => setBranchAddress(e.target.value)}
                   placeholder="Plot & Street"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
                 />
               </div>
-              <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
-                <button type="button" onClick={() => setIsBranchModalOpen(false)} className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-slate-900 text-white rounded-xl font-semibold">Add Branch</button>
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+                <button type="button" onClick={() => setIsBranchModalOpen(false)} className="px-3.5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 text-white rounded-xl font-semibold">Add Branch</button>
               </div>
             </form>
           </div>
@@ -1215,17 +1215,17 @@ $$;`;
       {/* MODAL: SUSPEND CONFIRMATION */}
       {suspendTargetUser && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-5 space-y-4 text-xs">
-            <h3 className="text-base font-bold text-slate-900">Suspend {suspendTargetUser.name}?</h3>
-            <p className="text-slate-600">Suspended staff users are immediately blocked from signing into any terminal or mobile device.</p>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-md p-5 space-y-4 text-xs">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Suspend {suspendTargetUser.name}?</h3>
+            <p className="text-slate-600 dark:text-slate-400">Suspended staff users are immediately blocked from signing into any terminal or mobile device.</p>
             <input
               type="text"
               value={suspendReason}
               onChange={(e) => setSuspendReason(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs"
             />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setSuspendTargetUser(null)} className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button type="button" onClick={() => setSuspendTargetUser(null)} className="px-3.5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
               <button type="button" onClick={handleConfirmSuspend} className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold">Confirm Suspension</button>
             </div>
           </div>
@@ -1235,13 +1235,13 @@ $$;`;
       {/* MODAL: DELETE CONFIRMATION */}
       {deleteTargetUser && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-5 space-y-4 text-xs">
-            <h3 className="text-base font-bold text-slate-900">Delete Staff Account?</h3>
-            <p className="text-slate-600">
-              Are you sure you want to permanently remove <strong>{deleteTargetUser.name}</strong> ({deleteTargetUser.email}) from the firm directory?
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-md p-5 space-y-4 text-xs">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Delete Staff Account?</h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              Are you sure you want to permanently remove <strong className="text-slate-900 dark:text-slate-200">{deleteTargetUser.name}</strong> ({deleteTargetUser.email}) from the firm directory?
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setDeleteTargetUser(null)} className="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button type="button" onClick={() => setDeleteTargetUser(null)} className="px-3.5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
               <button type="button" onClick={handleConfirmDeleteUser} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold">Delete Account</button>
             </div>
           </div>
@@ -1251,14 +1251,14 @@ $$;`;
       {/* MODAL: AUDIT INSPECT */}
       {inspectLog && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg p-5 space-y-3 text-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-lg p-5 space-y-3 text-xs">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">Audit Event Payload</h3>
-              <button type="button" onClick={() => setInspectLog(null)} className="text-slate-400 hover:text-slate-700">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Audit Event Payload</h3>
+              <button type="button" onClick={() => setInspectLog(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <pre className="bg-slate-950 text-slate-100 p-3 rounded-xl font-mono text-[11px] overflow-auto max-h-80">
+            <pre className="bg-slate-950 text-slate-100 p-3 rounded-xl font-mono text-[11px] overflow-auto max-h-80 border border-slate-800">
               {JSON.stringify(inspectLog, null, 2)}
             </pre>
           </div>
