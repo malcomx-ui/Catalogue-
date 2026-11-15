@@ -28,6 +28,16 @@ export const MONTHS = [
 ];
 
 export const MORTGAGE_RLS_FIX_SQL = `-- Run once in Supabase SQL Editor to enable direct cloud saves on mortgage_cases & mortgages
+ALTER TABLE IF EXISTS public.mortgage_cases ADD COLUMN IF NOT EXISTS bank_branch_station TEXT;
+ALTER TABLE IF EXISTS public.mortgage_cases ADD COLUMN IF NOT EXISTS firm_branch_station TEXT;
+ALTER TABLE IF EXISTS public.mortgage_cases ADD COLUMN IF NOT EXISTS branch_id TEXT;
+ALTER TABLE IF EXISTS public.mortgage_cases ADD COLUMN IF NOT EXISTS branch_name TEXT;
+
+ALTER TABLE IF EXISTS public.mortgages ADD COLUMN IF NOT EXISTS bank_branch_station TEXT;
+ALTER TABLE IF EXISTS public.mortgages ADD COLUMN IF NOT EXISTS firm_branch_station TEXT;
+ALTER TABLE IF EXISTS public.mortgages ADD COLUMN IF NOT EXISTS branch_id TEXT;
+ALTER TABLE IF EXISTS public.mortgages ADD COLUMN IF NOT EXISTS branch_name TEXT;
+
 DROP POLICY IF EXISTS "Admin and Finance insert policy on mortgage_cases" ON public.mortgage_cases;
 DROP POLICY IF EXISTS "Allow authenticated write on mortgage_cases" ON public.mortgage_cases;
 DROP POLICY IF EXISTS "Allow public write on mortgage_cases" ON public.mortgage_cases;
@@ -186,6 +196,8 @@ const extractRecordsFromWorkbook = (
     monthSheet: string;
     recordYear: number;
     sheetSelection?: string;
+    firmBranchStation?: string;
+    branchId?: string;
   }
 ): any[] => {
   const allRecords: any[] = [];
@@ -274,10 +286,26 @@ const extractRecordsFromWorkbook = (
       // Skip summary / total rows
       if (/^(total|grand total|sub ?total|totals)$/i.test(clientName)) continue;
 
-      const branchVal = getVal(
-        ['Branch', 'Bank Branch', 'Branch Name', 'Branch Station', 'Client Branch', 'Branch Location', 'bank_branch', 'client_branch_location'],
-        ['branch']
+      const bankBranchVal = getVal(
+        [
+          'Bank Branch Station',
+          'Bank Branch',
+          'Bank Handling Branch',
+          'Branch',
+          'Branch Station',
+          'Client Branch',
+          'Branch Location',
+          'bank_branch_station',
+          'bank_branch',
+          'client_branch_location',
+        ],
+        ['bank branch', 'branch']
       );
+      const firmBranchVal = getVal(
+        ['Firm Branch Station', 'Firm Branch', 'MK Office', 'MK Branch', 'firm_branch_station', 'branch_name'],
+        ['firm branch', 'mk office', 'mk branch']
+      );
+      const firmBranchIdVal = getVal(['branch_id', 'Firm Branch ID'], []);
       const rimVal = getVal(
         ['RIM NO', 'RIM NO.', 'RIM Number', 'RIM #', 'RIM', 'rim_no', 'File No', 'File Number', 'CIF'],
         ['rim']
@@ -341,7 +369,21 @@ const extractRecordsFromWorkbook = (
 
       const commentsVal = getVal(['Comments', 'Comment', 'comments', 'Remarks', 'Notes'], ['comment', 'remark', 'note']);
 
-      const branchStr = branchVal ? String(branchVal).trim() : '';
+      const bankBranchStr = bankBranchVal ? String(bankBranchVal).trim() : '';
+      const rawFirmBranchStr = firmBranchVal
+        ? String(firmBranchVal).trim()
+        : options.firmBranchStation
+        ? String(options.firmBranchStation).trim()
+        : '';
+      const rawFirmBranchId = firmBranchIdVal
+        ? String(firmBranchIdVal).trim()
+        : options.branchId
+        ? String(options.branchId).trim()
+        : '';
+      const firmBranchMeta =
+        rawFirmBranchStr || rawFirmBranchId
+          ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchStr || undefined)
+          : null;
       const descStr = descVal ? String(descVal).trim() : '';
 
       allRecords.push({
@@ -351,8 +393,13 @@ const extractRecordsFromWorkbook = (
         month_sheet: options.monthSheet,
         source_sheet: sheetName,
         date_of_receipt: dateReceipt || null,
-        branch: branchStr,
-        client_branch_location: branchStr,
+        bank_branch_station: bankBranchStr,
+        bank_branch: bankBranchStr,
+        branch: bankBranchStr,
+        client_branch_location: bankBranchStr,
+        firm_branch_station: rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_name: rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_id: firmBranchMeta?.id || rawFirmBranchId || '',
         client_name: clientName,
         mortgagor_name: clientName,
         name: clientName,
@@ -391,8 +438,24 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 /**
  * Builds a clean payload matching the exact columns of live `public.mortgage_cases`
  * so PostgREST never rejects inserts/updates with PGRST204 unknown column errors.
+ * Keeps `bank_branch_station` (bank handling branch) and `firm_branch_station` / `branch_id` (MK office) strictly separate.
  */
 export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean }) => {
+  const bankBranchVal =
+    r.bank_branch_station ??
+    r.bankBranchStation ??
+    r.bank_branch ??
+    r.client_branch_location ??
+    r.branch ??
+    '';
+  const rawFirmBranchName =
+    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
+  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
+
   const row: Record<string, any> = {
     bank_name: r.bank_name || r.client_bank_name || 'Centenary Bank',
     client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
@@ -400,8 +463,12 @@ export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean })
     month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
     source_sheet: r.source_sheet || 'Tracker Entry',
     date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
-    branch: r.branch || r.client_branch_location || r.bank_branch || '',
-    client_branch_location: r.client_branch_location || r.branch || r.bank_branch || '',
+    bank_branch_station: bankBranchVal,
+    branch: bankBranchVal,
+    client_branch_location: bankBranchVal,
+    firm_branch_station: resolvedFirmName,
+    branch_name: resolvedFirmName,
+    branch_id: resolvedFirmId,
     client_name: r.client_name || r.mortgagor_name || r.borrower_name || r.name || '',
     mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
     rim_no: r.rim_no || r.file_number || '',
@@ -440,11 +507,30 @@ export const buildMortgagesRow = (r: any) => {
     typeof r.assigned_lawyer_id === 'string' &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.assigned_lawyer_id);
 
+  const bankBranchVal =
+    r.bank_branch_station ??
+    r.bankBranchStation ??
+    r.bank_branch ??
+    r.client_branch_location ??
+    r.branch ??
+    '';
+  const rawFirmBranchName =
+    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
+  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
+
   const row: Record<string, any> = {
     client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
     record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
     month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
     date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
+    bank_branch_station: bankBranchVal,
+    firm_branch_station: resolvedFirmName,
+    branch_name: resolvedFirmName,
+    branch_id: resolvedFirmId,
     mortgagor_name: r.mortgagor_name || r.client_name || r.borrower_name || r.name || '',
     rim_no: r.rim_no || r.file_number || '',
     property_description: r.property_description || r.description || '',
@@ -551,8 +637,26 @@ async function safeMortgageTableMutation(
 }
 
 const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
-  const resolvedBranch =
-    row.branch || row.client_branch_location || row.bank_branch || row.branch_name || '';
+  // Bank Branch Station (lending bank's handling branch, e.g. Centenary Bank Kamwenge Branch)
+  const resolvedBankBranch =
+    row.bank_branch_station ??
+    row.bankBranchStation ??
+    row.bank_branch ??
+    row.client_branch_location ??
+    row.branch ??
+    '';
+
+  // Firm Branch Station (MK Advocates office processing instructions, e.g. Kampala Central (Head Office))
+  const rawFirmBranchName =
+    row.firm_branch_station || row.firmBranchStation || row.branch_name || row.branchName || '';
+  const rawFirmBranchId = row.branch_id || row.branchId || '';
+  const hasExplicitFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  const resolvedFirmMeta = hasExplicitFirmBranch
+    ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
+    : null;
+  const resolvedFirmBranch = rawFirmBranchName || resolvedFirmMeta?.name || '';
+  const resolvedFirmBranchId = rawFirmBranchId || resolvedFirmMeta?.id || '';
+
   const resolvedClient =
     row.client_name || row.mortgagor_name || row.borrower_name || row.name || '';
   const stampDuty = Number(row.stamp_duty || 0);
@@ -584,10 +688,13 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     client_bank_name: row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank',
     bank_name: row.bank_name || row.client_bank_name || fallbackBankName || 'Centenary Bank',
     date_of_receipt: row.date_of_receipt || null,
-    branch: resolvedBranch,
-    client_branch_location: row.client_branch_location || resolvedBranch,
-    bank_branch: row.bank_branch || resolvedBranch,
-    branch_name: row.branch_name || resolvedBranch,
+    bank_branch_station: resolvedBankBranch,
+    bank_branch: resolvedBankBranch,
+    client_branch_location: resolvedBankBranch,
+    branch: resolvedBankBranch,
+    firm_branch_station: resolvedFirmBranch,
+    branch_name: resolvedFirmBranch,
+    branch_id: resolvedFirmBranchId,
     client_name: resolvedClient,
     name: row.name || resolvedClient,
     borrower_name: row.borrower_name || resolvedClient,
@@ -652,6 +759,8 @@ export const MortgageService = {
       monthSheet: string;
       recordYear: number;
       sheetSelection?: string;
+      firmBranchStation?: string;
+      branchId?: string;
     }) => any[];
   }> {
     const data = await file.arrayBuffer();
@@ -689,8 +798,21 @@ export const MortgageService = {
 
       if (onProgress) onProgress(`Appending ${records.length} records to ${bankName}...`);
 
+      const defaultFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
+
       const preparedRecords = records.map((r, idx) => {
-        const normalized = normalizeMortgageRecord(r, r.bank_name || bankName);
+        const rowFirmName = r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || defaultFirmMeta.name;
+        const rowFirmId = r.branch_id || r.branchId || defaultFirmMeta.id;
+        const firmMeta = resolveBranchMeta(rowFirmId, rowFirmName);
+        const normalized = normalizeMortgageRecord(
+          {
+            ...r,
+            firm_branch_station: rowFirmName || firmMeta.name,
+            branch_name: rowFirmName || firmMeta.name,
+            branch_id: firmMeta.id,
+          },
+          r.bank_name || bankName
+        );
         const hasUuid = Boolean(r.id && UUID_REGEX.test(String(r.id)));
         return {
           ...normalized,
@@ -1070,24 +1192,55 @@ export const MortgageService = {
   }> {
     const effectiveUser = getEffectiveUser(userProfile);
     const isGlobalAdmin = isUserAdmin(effectiveUser);
-    const rawBranch = payload?.branch || payload?.branch_name || payload?.branchName || payload?.client_branch_location || payload?.bank_branch || '';
-    const rawBranchId = payload?.branch_id || payload?.branchId || '';
+    const userFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
 
-    let effectivePayload = payload;
+    const rawBankBranch =
+      payload?.bank_branch_station ??
+      payload?.bankBranchStation ??
+      payload?.bank_branch ??
+      payload?.client_branch_location ??
+      payload?.branch ??
+      '';
+
+    const rawFirmBranchName =
+      payload?.firm_branch_station || payload?.firmBranchStation || payload?.branch_name || payload?.branchName || '';
+    const rawFirmBranchId = payload?.branch_id || payload?.branchId || '';
+
+    const targetFirmMeta =
+      rawFirmBranchName || rawFirmBranchId
+        ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
+        : userFirmMeta;
+
     if (!isGlobalAdmin) {
-      const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'Kampala Central (Head Office)';
-      if (!rawBranch && !rawBranchId) {
-        effectivePayload = {
-          ...payload,
-          branch: userBranchName,
-          client_branch_location: userBranchName,
-        };
-      } else if (!canUserModifyMortgage(effectiveUser, payload)) {
-        const msg = `Permission Denied: You can only add mortgages belonging to your assigned branch (${userBranchName}).`;
+      if (
+        (rawFirmBranchName || rawFirmBranchId) &&
+        !canUserModifyMortgage(effectiveUser, {
+          branch_id: targetFirmMeta.id,
+          firm_branch_station: rawFirmBranchName || targetFirmMeta.name,
+          branch_name: rawFirmBranchName || targetFirmMeta.name,
+        })
+      ) {
+        const msg = `Permission Denied: You can only add mortgages belonging to your assigned MK firm branch (${userFirmMeta.name}).`;
         showCleanMessage(msg, 'warning');
         return { success: false, error: msg };
       }
     }
+
+    const effectiveFirmName = isGlobalAdmin
+      ? rawFirmBranchName || targetFirmMeta.name
+      : effectiveUser.branchName || userFirmMeta.name;
+    const effectiveFirmId = isGlobalAdmin ? targetFirmMeta.id : userFirmMeta.id;
+
+    const effectivePayload = {
+      ...payload,
+      bank_branch_station: rawBankBranch,
+      bank_branch: rawBankBranch,
+      client_branch_location: rawBankBranch,
+      branch: rawBankBranch,
+      firm_branch_station: effectiveFirmName,
+      branch_name: effectiveFirmName,
+      branch_id: effectiveFirmId,
+    };
 
     let savedRecord: any = null;
     let cloudSaved = false;
@@ -1217,11 +1370,16 @@ export const MortgageService = {
         showCleanMessage(msg, 'warning');
         return { success: false, error: msg };
       }
-      const updatesSpecifyBranch = Boolean(
-        updates?.branch || updates?.branch_name || updates?.branchName || updates?.client_branch_location || updates?.bank_branch || updates?.branch_id || updates?.branchId
+      const updatesSpecifyFirmBranch = Boolean(
+        updates?.firm_branch_station ||
+          updates?.firmBranchStation ||
+          updates?.branch_name ||
+          updates?.branchName ||
+          updates?.branch_id ||
+          updates?.branchId
       );
-      if (updatesSpecifyBranch && !canUserModifyMortgage(effectiveUser, updates)) {
-        const msg = `Permission Denied: You cannot reassign or edit a mortgage outside your assigned branch (${userBranchName}).`;
+      if (updatesSpecifyFirmBranch && !canUserModifyMortgage(effectiveUser, updates)) {
+        const msg = `Permission Denied: You cannot reassign or edit a mortgage outside your assigned MK firm branch (${userBranchName}).`;
         showCleanMessage(msg, 'warning');
         return { success: false, error: msg };
       }
@@ -1242,11 +1400,41 @@ export const MortgageService = {
           mcPayload.bank_name = updates.bank_name || updates.client_bank_name;
           mcPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
         }
-        if (updates.branch !== undefined || updates.bank_branch !== undefined || updates.client_branch_location !== undefined || updates.branch_name !== undefined) {
-          const br = updates.branch ?? updates.bank_branch ?? updates.client_branch_location ?? updates.branch_name;
-          mcPayload.branch = br;
-          mcPayload.client_branch_location = updates.client_branch_location ?? br;
-          if (updates.branch_name !== undefined) mcPayload.branch_name = updates.branch_name;
+        // Bank Branch Station (never overwrites firm_branch_station / branch_id / branch_name)
+        if (
+          updates.bank_branch_station !== undefined ||
+          updates.bankBranchStation !== undefined ||
+          updates.bank_branch !== undefined ||
+          updates.client_branch_location !== undefined ||
+          updates.branch !== undefined
+        ) {
+          const bankBr =
+            updates.bank_branch_station ??
+            updates.bankBranchStation ??
+            updates.bank_branch ??
+            updates.client_branch_location ??
+            updates.branch ??
+            '';
+          mcPayload.bank_branch_station = bankBr;
+          mcPayload.branch = bankBr;
+          mcPayload.client_branch_location = updates.client_branch_location ?? bankBr;
+        }
+        // Firm Branch Station (MK Advocates Office — never overwrites bank_branch_station)
+        if (
+          updates.firm_branch_station !== undefined ||
+          updates.firmBranchStation !== undefined ||
+          updates.branch_name !== undefined ||
+          updates.branchName !== undefined ||
+          updates.branch_id !== undefined ||
+          updates.branchId !== undefined
+        ) {
+          const rawFirmName =
+            updates.firm_branch_station ?? updates.firmBranchStation ?? updates.branch_name ?? updates.branchName;
+          const rawFirmId = updates.branch_id ?? updates.branchId;
+          const firmMeta = resolveBranchMeta(rawFirmId || undefined, rawFirmName || undefined);
+          mcPayload.firm_branch_station = rawFirmName || firmMeta.name;
+          mcPayload.branch_name = rawFirmName || firmMeta.name;
+          mcPayload.branch_id = firmMeta.id;
         }
         if (updates.client_name || updates.mortgagor_name || updates.borrower_name) {
           const cname = updates.client_name || updates.mortgagor_name || updates.borrower_name;
@@ -1318,6 +1506,38 @@ export const MortgageService = {
         if (updates.month_sheet !== undefined) mPayload.month_sheet = updates.month_sheet;
         if (updates.client_bank_name || updates.bank_name) {
           mPayload.client_bank_name = updates.client_bank_name || updates.bank_name;
+        }
+        if (
+          updates.bank_branch_station !== undefined ||
+          updates.bankBranchStation !== undefined ||
+          updates.bank_branch !== undefined ||
+          updates.client_branch_location !== undefined ||
+          updates.branch !== undefined
+        ) {
+          const bankBr =
+            updates.bank_branch_station ??
+            updates.bankBranchStation ??
+            updates.bank_branch ??
+            updates.client_branch_location ??
+            updates.branch ??
+            '';
+          mPayload.bank_branch_station = bankBr;
+        }
+        if (
+          updates.firm_branch_station !== undefined ||
+          updates.firmBranchStation !== undefined ||
+          updates.branch_name !== undefined ||
+          updates.branchName !== undefined ||
+          updates.branch_id !== undefined ||
+          updates.branchId !== undefined
+        ) {
+          const rawFirmName =
+            updates.firm_branch_station ?? updates.firmBranchStation ?? updates.branch_name ?? updates.branchName;
+          const rawFirmId = updates.branch_id ?? updates.branchId;
+          const firmMeta = resolveBranchMeta(rawFirmId || undefined, rawFirmName || undefined);
+          mPayload.firm_branch_station = rawFirmName || firmMeta.name;
+          mPayload.branch_name = rawFirmName || firmMeta.name;
+          mPayload.branch_id = firmMeta.id;
         }
         if (updates.mortgagor_name || updates.client_name || updates.borrower_name) {
           mPayload.mortgagor_name = updates.mortgagor_name || updates.client_name || updates.borrower_name;

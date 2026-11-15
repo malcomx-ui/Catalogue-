@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '../../services/supabaseClient';
 import { MortgageService, MORTGAGE_RLS_FIX_SQL } from '../../services/mortgageService';
 import { useApp } from '../../context/AppContext';
-import { getEffectiveUser, isUserAdmin, canUserModifyMortgage } from '../../lib/supabase';
+import { getEffectiveUser, isUserAdmin, canUserModifyMortgage, resolveBranchMeta } from '../../lib/supabase';
 import { showCleanMessage } from '../../utils/notification';
 
 export interface MortgageCaseFormProps {
@@ -10,6 +10,16 @@ export interface MortgageCaseFormProps {
   onClose?: () => void;
   defaultBank?: string;
 }
+
+const DEFAULT_FIRM_BRANCHES = [
+  { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
+  { id: 'ftp-reg', name: 'Fort Portal Regional Office' },
+  { id: 'mbr-reg', name: 'Mbarara Regional Office' },
+  { id: 'msk-reg', name: 'Masaka Regional Office' },
+  { id: 'jnj-reg', name: 'Jinja Regional Office' },
+  { id: 'glu-reg', name: 'Gulu Regional Office' },
+  { id: 'msn-reg', name: 'Masindi Regional Office' },
+];
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -20,13 +30,33 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
   const { currentUser } = useApp();
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
-  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || 'Kampala Central (Head Office)';
+  const assignedBranchMeta = useMemo(
+    () =>
+      resolveBranchMeta(
+        effectiveUser?.branchId || currentUser?.branchId,
+        effectiveUser?.branchName || currentUser?.branchName
+      ),
+    [effectiveUser?.branchId, effectiveUser?.branchName, currentUser?.branchId, currentUser?.branchName]
+  );
+  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || assignedBranchMeta.name;
+  const firmBranchOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    DEFAULT_FIRM_BRANCHES.forEach((b) => map.set(b.name.toLowerCase(), b));
+    if (assignedBranchLabel && !map.has(assignedBranchLabel.toLowerCase())) {
+      map.set(assignedBranchLabel.toLowerCase(), {
+        id: assignedBranchMeta.id,
+        name: assignedBranchLabel,
+      });
+    }
+    return Array.from(map.values());
+  }, [assignedBranchLabel, assignedBranchMeta.id]);
 
   const [formData, setFormData] = useState({
     record_year: new Date().getFullYear(), // Defaults to current year (e.g. 2026)
     month_sheet: MONTHS[new Date().getMonth()], // Defaults to current month
     date_of_receipt: '',
-    branch: isGlobalAdmin ? '' : assignedBranchLabel,
+    bank_branch_station: '',
+    firm_branch_station: assignedBranchLabel,
     name: '',
     rim_no: '',
     description: '',
@@ -76,15 +106,30 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
     e.preventDefault();
     setFeedback(null);
 
-    const resolvedBranch = isGlobalAdmin ? formData.branch || null : assignedBranchLabel;
-    if (!isGlobalAdmin && !canUserModifyMortgage(effectiveUser, { branch: resolvedBranch })) {
-      const msg = `Permission Denied: You can only add mortgages for your assigned branch (${assignedBranchLabel}).`;
+    const effectiveFirmName = isGlobalAdmin
+      ? String(formData.firm_branch_station || '').trim() || assignedBranchLabel
+      : assignedBranchLabel;
+    const effectiveFirmMeta = resolveBranchMeta(
+      !isGlobalAdmin ? assignedBranchMeta.id : undefined,
+      effectiveFirmName
+    );
+
+    if (
+      !isGlobalAdmin &&
+      !canUserModifyMortgage(effectiveUser, {
+        branch_id: effectiveFirmMeta.id,
+        firm_branch_station: effectiveFirmName,
+        branch_name: effectiveFirmName,
+      })
+    ) {
+      const msg = `Permission Denied: You can only add mortgages for your assigned MK firm branch (${assignedBranchLabel}).`;
       setFeedback({ type: 'error', text: msg });
       showCleanMessage(msg, 'warning');
       return;
     }
 
     setLoading(true);
+    const trimmedBankBranch = String(formData.bank_branch_station || '').trim();
 
     const payload = {
       record_year: formData.record_year ? parseInt(String(formData.record_year), 10) : new Date().getFullYear(),
@@ -92,7 +137,13 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
       bank_name: defaultBank,
       client_bank_name: defaultBank,
       date_of_receipt: formData.date_of_receipt || null,
-      branch: resolvedBranch,
+      bank_branch_station: trimmedBankBranch,
+      bank_branch: trimmedBankBranch,
+      client_branch_location: trimmedBankBranch,
+      branch: trimmedBankBranch,
+      firm_branch_station: effectiveFirmName,
+      branch_name: effectiveFirmName,
+      branch_id: effectiveFirmMeta.id,
       client_name: formData.name,
       mortgagor_name: formData.name,
       rim_no: formData.rim_no || null,
@@ -132,7 +183,8 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
         setFormData((prev) => ({
           ...prev,
           date_of_receipt: '',
-          branch: isGlobalAdmin ? '' : assignedBranchLabel,
+          bank_branch_station: '',
+          firm_branch_station: assignedBranchLabel,
           name: '',
           rim_no: '',
           description: '',
@@ -245,26 +297,45 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Date of Receipt</label>
             <input type="date" name="date_of_receipt" value={formData.date_of_receipt} onChange={handleChange} className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm tabular-nums focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Branch</label>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Bank Branch Station</label>
             <input
               type="text"
-              name="branch"
-              placeholder="e.g. RUBAGA"
-              value={isGlobalAdmin ? formData.branch : assignedBranchLabel}
-              onChange={(e) => {
-                if (isGlobalAdmin) handleChange(e);
-              }}
-              disabled={!isGlobalAdmin}
-              className={`w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100'
-              }`}
+              name="bank_branch_station"
+              placeholder="e.g. Centenary Bank Kamwenge Branch"
+              value={formData.bank_branch_station}
+              onChange={handleChange}
+              className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Firm Branch Station (MK Office)</label>
+            {isGlobalAdmin ? (
+              <select
+                name="firm_branch_station"
+                value={formData.firm_branch_station}
+                onChange={handleChange}
+                className="w-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 p-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                {firmBranchOptions.map((b) => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                name="firm_branch_station"
+                value={assignedBranchLabel}
+                disabled
+                readOnly
+                className="w-full border border-slate-300 dark:border-slate-700 p-2 rounded-lg text-sm bg-slate-100 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 cursor-not-allowed"
+              />
+            )}
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Client Name (Name)</label>

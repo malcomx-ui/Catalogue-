@@ -1876,10 +1876,33 @@ export function canUserModifyCase(u: any, caseItem: any): boolean {
 }
 
 /**
+ * Checks whether a branch label corresponds to a known MK Advocates firm office
+ * rather than an external lending bank branch (e.g. "Centenary Bank Kamwenge Branch").
+ */
+export function isFirmBranchName(branchLabel?: string | null): boolean {
+  const clean = String(branchLabel || '').toLowerCase().trim();
+  if (!clean) return false;
+  if (
+    ['ftp-reg', 'glu-reg', 'jnj-reg', 'kla-hq', 'msk-reg', 'msn-reg', 'mbr-reg'].includes(clean) ||
+    clean.startsWith('br-')
+  ) {
+    return true;
+  }
+  const canonicalTokens = ['kampala', 'head office', 'fort portal', 'mbarara', 'masaka', 'jinja', 'gulu', 'masindi'];
+  const looksLikeFirmOffice =
+    clean.includes('regional office') ||
+    clean.includes('head office') ||
+    clean.endsWith('office') ||
+    canonicalTokens.some((tok) => clean === tok || clean === `${tok} office` || clean === `${tok} regional office`);
+  return looksLikeFirmOffice;
+}
+
+/**
  * Mortgage branch write check:
  * - `super_admin` and `admin` can create, edit, and delete across all branches.
  * - `admin_finance_assistant` & other non-super users can view all branches,
- *   but may only add/edit/delete records belonging to their assigned branch (`branchId` or `branchName`).
+ *   but may only add/edit/delete records belonging to their assigned MK firm branch (`branchId` / `firm_branch_station`).
+ * - Never treats `bank_branch_station` (e.g. Centenary Bank Kamwenge Branch) as the MK firm office when firm branch is known.
  */
 export function canUserModifyMortgage(u: any, record: any): boolean {
   const effective = getEffectiveUser(u);
@@ -1892,31 +1915,44 @@ export function canUserModifyMortgage(u: any, record: any): boolean {
   const userBranchId = String(effective.branchId || (effective as any).branch_id || '').toLowerCase().trim();
   const userBranchName = String(effective.branchName || (effective as any).branch_name || (effective as any).branch || '').toLowerCase().trim();
 
-  const recBranchId = String(record.branch_id || record.branchId || '').toLowerCase().trim();
-  const recBranchName = String(
-    record.branch_name || record.branchName || record.branch || record.client_branch_location || record.bank_branch || ''
+  const recFirmBranchId = String(record.branch_id || record.branchId || '').toLowerCase().trim();
+  const recFirmBranchName = String(
+    record.firm_branch_station ||
+      record.firmBranchStation ||
+      record.branch_name ||
+      record.branchName ||
+      ''
   ).toLowerCase().trim();
 
-  if (!recBranchId && !recBranchName) {
+  // Only fall back to legacy `branch` when no explicit firm branch columns exist on the record
+  const legacyFallbackBranch =
+    !recFirmBranchId && !recFirmBranchName
+      ? String(record.branch || record.client_branch_location || '').toLowerCase().trim()
+      : '';
+
+  const targetRecId = recFirmBranchId;
+  const targetRecName = recFirmBranchName || legacyFallbackBranch;
+
+  if (!targetRecId && !targetRecName) {
     return false;
   }
 
-  if (userBranchId && recBranchId && userBranchId === recBranchId) {
+  if (userBranchId && targetRecId && userBranchId === targetRecId) {
     return true;
   }
 
-  if (userBranchName && recBranchName && userBranchName === recBranchName) {
+  if (userBranchName && targetRecName && userBranchName === targetRecName) {
     return true;
   }
 
   const resolvedUserBranch = resolveBranchId(userBranchId, userBranchName);
-  const resolvedRecordBranch = resolveBranchId(recBranchId, recBranchName);
+  const resolvedRecordBranch = resolveBranchId(targetRecId, targetRecName);
   if (resolvedUserBranch && resolvedRecordBranch && resolvedUserBranch === resolvedRecordBranch) {
     return true;
   }
 
   const normUser = normalizeComparableBranchName(userBranchName || userBranchId);
-  const normRec = normalizeComparableBranchName(recBranchName || recBranchId);
+  const normRec = normalizeComparableBranchName(targetRecName || targetRecId);
   if (normUser && normRec && normUser === normRec) {
     return true;
   }

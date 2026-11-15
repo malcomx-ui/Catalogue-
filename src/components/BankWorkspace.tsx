@@ -28,6 +28,7 @@ import {
   isAdminFinanceAssistant,
   canUserModifyMortgage,
   resolveBranchId,
+  isFirmBranchName,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 import { StatusBadge } from './common/StatusBadge';
@@ -246,8 +247,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
     const set = new Set<string>(canonical);
     if (effectiveUser?.branchName) set.add(effectiveUser.branchName);
     mortgages.forEach((m) => {
-      const br = String(m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '').trim();
-      if (br && br !== '-') set.add(br);
+      const bankBr = String(
+        m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || ''
+      ).trim();
+      const firmBr = String(m.firm_branch_station || m.branch_name || '').trim();
+      if (bankBr && bankBr !== '-') set.add(bankBr);
+      if (firmBr && firmBr !== '-') set.add(firmBr);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [mortgages, effectiveUser?.branchName]);
@@ -255,7 +260,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const canAddInActiveBranchView = useMemo(() => {
     if (isGlobalAdmin) return true;
     if (!filters.branch || filters.branch === 'ALL') return true;
-    return canUserModifyMortgage(effectiveUser, { branch: filters.branch });
+    if (!isFirmBranchName(filters.branch)) return true;
+    return canUserModifyMortgage(effectiveUser, {
+      firm_branch_station: filters.branch,
+      branch_name: filters.branch,
+      branch: filters.branch,
+    });
   }, [isGlobalAdmin, filters.branch, effectiveUser]);
 
   const addDisabledTooltip = !canAddInActiveBranchView
@@ -275,9 +285,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         m.property_description?.toLowerCase().includes(searchQ) ||
         m.file_number?.toLowerCase().includes(searchQ) ||
         m.rim_no?.toLowerCase().includes(searchQ) ||
-        m.branch?.toLowerCase().includes(searchQ) ||
-        m.client_branch_location?.toLowerCase().includes(searchQ) ||
+        m.bank_branch_station?.toLowerCase().includes(searchQ) ||
         m.bank_branch?.toLowerCase().includes(searchQ) ||
+        m.client_branch_location?.toLowerCase().includes(searchQ) ||
+        m.branch?.toLowerCase().includes(searchQ) ||
+        m.firm_branch_station?.toLowerCase().includes(searchQ) ||
+        m.branch_name?.toLowerCase().includes(searchQ) ||
         m.month_sheet?.toLowerCase().includes(searchQ) ||
         m.source_sheet?.toLowerCase().includes(searchQ) ||
         m.department?.toLowerCase().includes(searchQ) ||
@@ -302,18 +315,38 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       const matchesBranch = (() => {
         if (!filters.branch || filters.branch === 'ALL') return true;
         const target = filters.branch.trim().toLowerCase();
-        const targetBranchId = resolveBranchId(undefined, filters.branch);
-        const rowBranch = String(
-          m.branch || m.client_branch_location || m.bank_branch || m.branch_name || ''
+        const bankBranch = String(
+          m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || ''
         )
           .trim()
           .toLowerCase();
-        if (!rowBranch) return false;
-        if (rowBranch === target || rowBranch.includes(target) || target.includes(rowBranch)) {
-          return true;
+        const firmBranch = String(m.firm_branch_station || m.branch_name || '')
+          .trim()
+          .toLowerCase();
+
+        const bankMatch =
+          Boolean(bankBranch) &&
+          (bankBranch === target || bankBranch.includes(target) || target.includes(bankBranch));
+        const firmMatch =
+          Boolean(firmBranch) &&
+          (firmBranch === target || firmBranch.includes(target) || target.includes(firmBranch));
+
+        if (bankMatch || firmMatch) return true;
+
+        if (isFirmBranchName(filters.branch)) {
+          const targetBranchId = resolveBranchId(undefined, filters.branch);
+          const rowFirmLabel =
+            firmBranch || (isFirmBranchName(m.branch) ? String(m.branch).trim().toLowerCase() : '');
+          const rowBranchId =
+            m.branch_id || m.branchId
+              ? resolveBranchId(m.branch_id || m.branchId, rowFirmLabel)
+              : rowFirmLabel
+              ? resolveBranchId(undefined, rowFirmLabel)
+              : '';
+          return Boolean(targetBranchId && rowBranchId && targetBranchId === rowBranchId);
         }
-        const rowBranchId = resolveBranchId(m.branch_id || m.branchId, rowBranch);
-        return Boolean(targetBranchId && rowBranchId && targetBranchId === rowBranchId);
+
+        return false;
       })();
 
       const matchesDept =
@@ -901,9 +934,20 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         {m.month_sheet || m.source_sheet || '-'}
                         {m.record_year ? ` ${m.record_year}` : ''}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200/80 dark:border-slate-700">
-                        {m.branch || m.client_branch_location || m.bank_branch || 'No Branch'}
+                      <span
+                        className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium border border-slate-200/80 dark:border-slate-700"
+                        title="Bank Branch Station"
+                      >
+                        {m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || 'No Bank Branch'}
                       </span>
+                      {(m.firm_branch_station || m.branch_name) && (
+                        <span
+                          className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium border border-indigo-200/80 dark:border-indigo-800/80"
+                          title="Firm Branch Station (MK Office)"
+                        >
+                          MK: {m.firm_branch_station || m.branch_name}
+                        </span>
+                      )}
                       {!canModify && (
                         <StatusBadge
                           tone="amber"
@@ -1077,8 +1121,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   <th className="w-[110px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Date of Receipt
                   </th>
-                  <th className="w-[120px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
-                    Branch
+                  <th className="w-[140px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
+                    Bank Branch
                   </th>
                   <th className="w-[180px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Client Name
@@ -1108,7 +1152,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 {filteredMortgages.map((m, idx) => {
                   const receiptText = formatDate(m.date_of_receipt);
                   const branchText =
-                    m.branch || m.client_branch_location || m.bank_branch || m.branch_name || '-';
+                    m.bank_branch_station ||
+                    m.bank_branch ||
+                    m.client_branch_location ||
+                    m.branch ||
+                    '-';
+                  const firmOfficeText = m.firm_branch_station || m.branch_name || '';
                   const clientText =
                     m.client_name || m.mortgagor_name || m.borrower_name || m.name || 'N/A';
                   const rimText = m.rim_no || m.file_number || '-';
@@ -1132,16 +1181,27 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       </td>
                       <td
                         className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 truncate whitespace-nowrap"
-                        title={canModifyRow ? branchText : `${branchText} (View-only)`}
+                        title={
+                          `${branchText}${firmOfficeText ? ` · MK Office: ${firmOfficeText}` : ''}${
+                            canModifyRow ? '' : ' (View-only)'
+                          }`
+                        }
                       >
-                        {branchText}
-                        {!canModifyRow && (
-                          <span
-                            className="print:hidden ml-1 text-amber-600 dark:text-amber-400 inline-flex align-middle"
-                            title="View-only (external branch)"
-                          >
-                            <Lock className="w-3 h-3" />
-                          </span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="truncate">{branchText}</span>
+                          {!canModifyRow && (
+                            <span
+                              className="print:hidden text-amber-600 dark:text-amber-400 inline-flex shrink-0"
+                              title="View-only (external branch)"
+                            >
+                              <Lock className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
+                        {firmOfficeText && (
+                          <div className="print:hidden text-[10px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                            MK: {firmOfficeText}
+                          </div>
                         )}
                       </td>
                       <td
@@ -1301,9 +1361,21 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 dark:text-slate-400 block">Branch Station</span>
+                    <span className="text-slate-500 dark:text-slate-400 block">Bank Branch Station</span>
                     <span className="font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedRecordForView.branch || selectedRecordForView.client_branch_location || selectedRecordForView.bank_branch || '-'}
+                      {selectedRecordForView.bank_branch_station ||
+                        selectedRecordForView.bank_branch ||
+                        selectedRecordForView.client_branch_location ||
+                        selectedRecordForView.branch ||
+                        '-'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block">Firm Branch Station (MK Office)</span>
+                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                      {selectedRecordForView.firm_branch_station ||
+                        selectedRecordForView.branch_name ||
+                        '-'}
                     </span>
                   </div>
                   <div>

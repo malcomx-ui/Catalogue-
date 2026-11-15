@@ -754,10 +754,17 @@ function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
 
 function getRecordBranchId(record: any): string | null {
   if (!record) return null;
-  const rawId = String(record.branch_id || record.branchId || '').trim();
-  const rawName = String(record.branch || record.branch_name || record.branchName || record.bank_branch || record.client_branch_location || '').trim();
-  if (!rawId && !rawName) return null;
-  return resolveCanonicalBranch(rawId, rawName).id;
+  const rawFirmId = String(record.branch_id || record.branchId || '').trim();
+  const rawFirmName = String(
+    record.firm_branch_station || record.firmBranchStation || record.branch_name || record.branchName || ''
+  ).trim();
+  if (rawFirmId || rawFirmName) {
+    return resolveCanonicalBranch(rawFirmId, rawFirmName).id;
+  }
+  // Legacy fallback only when no firm branch columns exist
+  const legacyName = String(record.branch || record.client_branch_location || '').trim();
+  if (!legacyName) return null;
+  return resolveCanonicalBranch('', legacyName).id;
 }
 
 function canActorModifyMortgage(actor: ReturnType<typeof resolveRequestActor>, record: any): boolean {
@@ -774,29 +781,42 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     const currentList: any[] = (db as any).mortgages || [];
     const payload = { ...(req.body || {}) };
 
-    const rawBranchId = String(payload.branch_id || payload.branchId || '').trim();
-    const rawBranchName = String(payload.branch || payload.bank_branch || payload.branch_name || payload.client_branch_location || '').trim();
+    // 1. Firm Branch Station (MK Advocates Office) - governs branch custody & RBAC
+    const rawFirmBranchId = String(payload.branch_id || payload.branchId || '').trim();
+    const rawFirmBranchName = String(
+      payload.firm_branch_station || payload.firmBranchStation || payload.branch_name || payload.branchName || ''
+    ).trim();
 
-    let resolvedBranch: { id: string; name: string };
-    if (!rawBranchId && !rawBranchName) {
-      resolvedBranch = actor.hasActor
+    let resolvedFirmBranch: { id: string; name: string };
+    if (!rawFirmBranchId && !rawFirmBranchName) {
+      resolvedFirmBranch = actor.hasActor
         ? { id: actor.branchId, name: actor.branchName }
         : { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
     } else {
-      resolvedBranch = resolveCanonicalBranch(rawBranchId, rawBranchName);
+      resolvedFirmBranch = resolveCanonicalBranch(rawFirmBranchId, rawFirmBranchName);
     }
 
-    if (actor.hasActor && !actor.isSuperAdmin && resolvedBranch.id !== actor.branchId) {
+    if (actor.hasActor && !actor.isSuperAdmin && resolvedFirmBranch.id !== actor.branchId) {
       return res.status(403).json({
         success: false,
         error: `Branch restriction: You can only create mortgage files assigned to ${actor.branchName}.`,
       });
     }
 
+    // 2. Bank Branch Station (Lending Bank Handling Branch, e.g. Centenary Bank Kamwenge Branch)
+    const rawBankBranch = String(
+      payload.bank_branch_station ??
+        payload.bankBranchStation ??
+        payload.bank_branch ??
+        payload.client_branch_location ??
+        payload.branch ??
+        ''
+    ).trim();
+
     const id = payload.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
     const clientName = payload.client_name || payload.mortgagor_name || payload.borrower_name || payload.name || '';
-    const branchName = rawBranchName || resolvedBranch.name;
+    const firmBranchLabel = rawFirmBranchName || resolvedFirmBranch.name;
 
     const newRecord = {
       ...payload,
@@ -806,10 +826,13 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
       client_name: clientName,
       mortgagor_name: clientName,
       borrower_name: clientName,
-      branch_id: resolvedBranch.id,
-      branch: branchName,
-      branch_name: resolvedBranch.name,
-      bank_branch: branchName,
+      bank_branch_station: rawBankBranch,
+      bank_branch: rawBankBranch,
+      client_branch_location: rawBankBranch,
+      branch: rawBankBranch,
+      firm_branch_station: firmBranchLabel,
+      branch_id: resolvedFirmBranch.id,
+      branch_name: firmBranchLabel,
       created_at: payload.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -862,19 +885,44 @@ app.put('/api/mortgages/:id', (req: Request, res: Response) => {
       });
     }
 
-    const incomingBranchId = String(updates.branch_id || updates.branchId || '').trim();
-    const incomingBranchName = String(updates.branch || updates.branch_name || updates.bank_branch || updates.client_branch_location || '').trim();
-    if (incomingBranchId || incomingBranchName) {
-      const targetBranch = resolveCanonicalBranch(incomingBranchId, incomingBranchName);
-      if (actor.hasActor && !actor.isSuperAdmin && targetBranch.id !== actor.branchId) {
+    // Bank Branch Station updates never overwrite firm_branch_station / branch_id / branch_name
+    if (
+      updates.bank_branch_station !== undefined ||
+      updates.bankBranchStation !== undefined ||
+      updates.bank_branch !== undefined ||
+      updates.client_branch_location !== undefined ||
+      updates.branch !== undefined
+    ) {
+      const bankBr = String(
+        updates.bank_branch_station ??
+          updates.bankBranchStation ??
+          updates.bank_branch ??
+          updates.client_branch_location ??
+          updates.branch ??
+          ''
+      ).trim();
+      updates.bank_branch_station = bankBr;
+      updates.bank_branch = bankBr;
+      updates.client_branch_location = bankBr;
+      updates.branch = bankBr;
+    }
+
+    // Firm Branch Station updates only check/update firm branch fields
+    const incomingFirmBranchId = String(updates.branch_id || updates.branchId || '').trim();
+    const incomingFirmBranchName = String(
+      updates.firm_branch_station || updates.firmBranchStation || updates.branch_name || updates.branchName || ''
+    ).trim();
+    if (incomingFirmBranchId || incomingFirmBranchName) {
+      const targetFirmBranch = resolveCanonicalBranch(incomingFirmBranchId, incomingFirmBranchName);
+      if (actor.hasActor && !actor.isSuperAdmin && targetFirmBranch.id !== actor.branchId) {
         return res.status(403).json({
           success: false,
           error: `Cross-branch transfer is restricted. You cannot reassign this file away from ${actor.branchName}.`,
         });
       }
-      updates.branch_id = targetBranch.id;
-      updates.branch_name = targetBranch.name;
-      if (!updates.branch) updates.branch = targetBranch.name;
+      updates.branch_id = targetFirmBranch.id;
+      updates.firm_branch_station = incomingFirmBranchName || targetFirmBranch.name;
+      updates.branch_name = incomingFirmBranchName || targetFirmBranch.name;
     }
 
     currentList[index] = {
@@ -951,8 +999,13 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
     records.forEach((r: any) => {
       const id = r.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
-      const branchName = r.branch || r.client_branch_location || r.bank_branch || 'Head Office';
-      const resolvedBranch = resolveCanonicalBranch(r.branch_id || r.branchId, branchName);
+      const bankBranchName = String(
+        r.bank_branch_station ?? r.bankBranchStation ?? r.bank_branch ?? r.client_branch_location ?? r.branch ?? ''
+      ).trim();
+      const rawFirmBranchName = String(
+        r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || (actor.hasActor ? actor.branchName : 'Kampala Central (Head Office)')
+      ).trim();
+      const resolvedFirmBranch = resolveCanonicalBranch(r.branch_id || r.branchId, rawFirmBranchName);
       const targetBank = r.bank_name || r.client_bank_name || bank_name || 'Centenary Bank';
       const loanAmount = Number(r.loan_amount) || 0;
       const grandTotal = Number(r.grand_total) || 0;
@@ -968,8 +1021,11 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
       normalizedCentenary.push({
         id,
         bank_name: targetBank,
-        branch_id: resolvedBranch.id,
-        branch: branchName,
+        bank_branch_station: bankBranchName,
+        branch: bankBranchName,
+        firm_branch_station: rawFirmBranchName || resolvedFirmBranch.name,
+        branch_id: resolvedFirmBranch.id,
+        branch_name: rawFirmBranchName || resolvedFirmBranch.name,
         client_name: clientName,
         rim_no: rimNo,
         property_description: propDesc,
@@ -992,11 +1048,13 @@ app.post('/api/mortgages/batch', (req: Request, res: Response) => {
         month_sheet: monthSheet,
         source_sheet: sourceSheet,
         date_of_receipt: r.date_of_receipt || null,
-        bank_branch: branchName,
-        branch: branchName,
-        client_branch_location: branchName,
-        branch_id: resolvedBranch.id,
-        branch_name: resolvedBranch.name,
+        bank_branch_station: bankBranchName,
+        bank_branch: bankBranchName,
+        branch: bankBranchName,
+        client_branch_location: bankBranchName,
+        firm_branch_station: rawFirmBranchName || resolvedFirmBranch.name,
+        branch_id: resolvedFirmBranch.id,
+        branch_name: rawFirmBranchName || resolvedFirmBranch.name,
         file_number: rimNo || `MORT-${Date.now().toString().slice(-5)}`,
         rim_no: rimNo,
         borrower_name: clientName,

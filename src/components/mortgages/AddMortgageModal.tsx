@@ -5,6 +5,7 @@ import {
   getEffectiveUser,
   isUserAdmin,
   canUserModifyMortgage,
+  resolveBranchMeta,
 } from '../../lib/supabase';
 import { showCleanMessage } from '../../utils/notification';
 import {
@@ -38,6 +39,16 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+const DEFAULT_FIRM_BRANCHES = [
+  { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
+  { id: 'ftp-reg', name: 'Fort Portal Regional Office' },
+  { id: 'mbr-reg', name: 'Mbarara Regional Office' },
+  { id: 'msk-reg', name: 'Masaka Regional Office' },
+  { id: 'jnj-reg', name: 'Jinja Regional Office' },
+  { id: 'glu-reg', name: 'Gulu Regional Office' },
+  { id: 'msn-reg', name: 'Masindi Regional Office' },
+];
+
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   bankName = 'Centenary Bank',
   allowBankSelection = false,
@@ -48,7 +59,27 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 }) => {
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
-  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || 'Kampala Central (Head Office)';
+  const assignedBranchMeta = useMemo(
+    () =>
+      resolveBranchMeta(
+        effectiveUser?.branchId || currentUser?.branchId,
+        effectiveUser?.branchName || currentUser?.branchName
+      ),
+    [effectiveUser?.branchId, effectiveUser?.branchName, currentUser?.branchId, currentUser?.branchName]
+  );
+  const assignedBranchLabel = effectiveUser?.branchName || currentUser?.branchName || assignedBranchMeta.name;
+  const firmBranchOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    DEFAULT_FIRM_BRANCHES.forEach((b) => map.set(b.name.toLowerCase(), b));
+    if (assignedBranchLabel && !map.has(assignedBranchLabel.toLowerCase())) {
+      map.set(assignedBranchLabel.toLowerCase(), {
+        id: assignedBranchMeta.id,
+        name: assignedBranchLabel,
+      });
+    }
+    return Array.from(map.values());
+  }, [assignedBranchLabel, assignedBranchMeta.id]);
+
   const [selectedBank, setSelectedBank] = useState<string>(bankName);
 
   // Reporting Period (defaults to selected month if provided, else current year and current month)
@@ -57,15 +88,15 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
     defaultMonth && MONTHS.includes(defaultMonth) ? defaultMonth : MONTHS[new Date().getMonth()]
   );
 
-  // 1. Exactly 19 Columns from the tracker sheet and live Supabase table `mortgage_cases`:
+  // 1. Distinct Branch Fields + Tracker Fields:
   // 1) date_of_receipt (Date)
   const [dateOfReceipt, setDateOfReceipt] = useState<string>(
     () => new Date().toISOString().slice(0, 10)
   );
-  // 2) branch (Text)
-  const [branch, setBranch] = useState<string>(() =>
-    isGlobalAdmin ? '' : assignedBranchLabel
-  );
+  // 2a) bank_branch_station (Lending bank's handling branch, always editable e.g. Centenary Bank Kamwenge Branch)
+  const [bankBranchStation, setBankBranchStation] = useState<string>('');
+  // 2b) firm_branch_station (MK Advocates office processing instructions, defaulted/locked to user's office)
+  const [firmBranchStation, setFirmBranchStation] = useState<string>(() => assignedBranchLabel);
   // 3) client_name / name (Text, Required)
   const [clientName, setClientName] = useState<string>('');
   // 4) rim_no (Text)
@@ -169,9 +200,23 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       return;
     }
 
-    const resolvedBranch = isGlobalAdmin ? branch.trim() : assignedBranchLabel;
-    if (!isGlobalAdmin && !canUserModifyMortgage(effectiveUser, { branch: resolvedBranch })) {
-      const msg = `Permission Denied: You can only add mortgages for your assigned branch (${assignedBranchLabel}).`;
+    const effectiveFirmBranchName = isGlobalAdmin
+      ? firmBranchStation.trim() || assignedBranchLabel
+      : assignedBranchLabel;
+    const effectiveFirmMeta = resolveBranchMeta(
+      !isGlobalAdmin ? assignedBranchMeta.id : undefined,
+      effectiveFirmBranchName
+    );
+
+    if (
+      !isGlobalAdmin &&
+      !canUserModifyMortgage(effectiveUser, {
+        branch_id: effectiveFirmMeta.id,
+        firm_branch_station: effectiveFirmBranchName,
+        branch_name: effectiveFirmBranchName,
+      })
+    ) {
+      const msg = `Permission Denied: You can only add mortgages for your assigned MK firm branch (${assignedBranchLabel}).`;
       setErrorMessage(msg);
       showCleanMessage(msg, 'warning');
       return;
@@ -179,12 +224,20 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
     setLoading(true);
 
-    // Exact live database column mapping (without non-existent PGRST204 columns):
+    const trimmedBankBranch = bankBranchStation.trim();
+
+    // Exact live database column mapping with strict separation of bank_branch_station and firm_branch_station:
     const payload = {
       bank_name: selectedBank,
       client_bank_name: selectedBank,
       date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10),
-      branch: resolvedBranch,
+      bank_branch_station: trimmedBankBranch,
+      bank_branch: trimmedBankBranch,
+      client_branch_location: trimmedBankBranch,
+      branch: trimmedBankBranch,
+      firm_branch_station: effectiveFirmBranchName,
+      branch_name: effectiveFirmBranchName,
+      branch_id: effectiveFirmMeta.id,
       client_name: clientName.trim(),
       mortgagor_name: clientName.trim(),
       rim_no: rimNo.trim(),
@@ -367,30 +420,71 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 />
               </div>
 
-              {/* 2. branch */}
+              {/* 2a. bank_branch_station (Lending Bank Handling Branch - always editable) */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Branch Station
+                  Bank Branch Station
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Mbarara Branch"
-                  value={isGlobalAdmin ? branch : assignedBranchLabel}
-                  onChange={(e) => {
-                    if (isGlobalAdmin) setBranch(e.target.value);
-                  }}
-                  disabled={!isGlobalAdmin}
-                  className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
-                    !isGlobalAdmin
-                      ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium cursor-not-allowed'
-                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
-                  }`}
+                  name="bank_branch_station"
+                  placeholder="e.g. Centenary Bank Kamwenge Branch"
+                  value={bankBranchStation}
+                  onChange={(e) => setBankBranchStation(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
-                {!isGlobalAdmin && (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
-                    Locked to your assigned branch: {assignedBranchLabel}
-                  </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                  Bank handling branch (editable)
+                </p>
+              </div>
+
+              {/* 2b. firm_branch_station (MK Advocates Office - restricted/defaulted to logged-in user's office) */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Firm Branch Station (MK Office)
+                </label>
+                {isGlobalAdmin ? (
+                  <select
+                    name="firm_branch_station"
+                    value={firmBranchStation}
+                    onChange={(e) => setFirmBranchStation(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    {firmBranchOptions.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    name="firm_branch_station"
+                    value={assignedBranchLabel}
+                    disabled
+                    readOnly
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium cursor-not-allowed"
+                  />
                 )}
+                <p className={`text-[10px] mt-1 ${!isGlobalAdmin ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {!isGlobalAdmin
+                    ? `Locked to your MK office: ${assignedBranchLabel}`
+                    : 'MK Advocates office processing instructions'}
+                </p>
+              </div>
+
+              {/* 4. rim_no */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  RIM NO.
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 1029482"
+                  value={rimNo}
+                  onChange={(e) => setRimNo(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
               </div>
 
               {/* 3. client_name / name (Required) */}
@@ -408,22 +502,8 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 />
               </div>
 
-              {/* 4. rim_no */}
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  RIM NO.
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 1029482"
-                  value={rimNo}
-                  onChange={(e) => setRimNo(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 font-mono tabular-nums text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-
               {/* 6. loan_amount */}
-              <div>
+              <div className="sm:col-span-2">
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Loan Amount (UGX)
                 </label>
@@ -442,7 +522,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 5. property_description / description */}
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-4">
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Property Description / Description
                 </label>

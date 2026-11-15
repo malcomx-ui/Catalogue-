@@ -10,6 +10,17 @@ import {
   Loader2,
 } from 'lucide-react';
 import { MortgageService, DEFAULT_BANKS, MONTHS } from '../../services/mortgageService';
+import { getEffectiveUser, isUserAdmin, resolveBranchMeta } from '../../lib/supabase';
+
+const DEFAULT_FIRM_BRANCHES = [
+  { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
+  { id: 'ftp-reg', name: 'Fort Portal Regional Office' },
+  { id: 'mbr-reg', name: 'Mbarara Regional Office' },
+  { id: 'msk-reg', name: 'Masaka Regional Office' },
+  { id: 'jnj-reg', name: 'Jinja Regional Office' },
+  { id: 'glu-reg', name: 'Gulu Regional Office' },
+  { id: 'msn-reg', name: 'Masindi Regional Office' },
+];
 
 export interface ImportMortgagesModalProps {
   defaultBank?: string;
@@ -33,11 +44,31 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
       ? defaultMonth
       : MONTHS[new Date().getMonth()];
 
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const assignedBranchMeta = useMemo(
+    () =>
+      resolveBranchMeta(
+        effectiveUser?.branchId || currentUser?.branchId,
+        effectiveUser?.branchName || currentUser?.branchName
+      ),
+    [effectiveUser?.branchId, effectiveUser?.branchName, currentUser?.branchId, currentUser?.branchName]
+  );
+  const firmBranchOptions = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    DEFAULT_FIRM_BRANCHES.forEach((b) => map.set(b.name.toLowerCase(), b));
+    if (assignedBranchMeta.name && !map.has(assignedBranchMeta.name.toLowerCase())) {
+      map.set(assignedBranchMeta.name.toLowerCase(), assignedBranchMeta);
+    }
+    return Array.from(map.values());
+  }, [assignedBranchMeta]);
+
   const [selectedBank, setSelectedBank] = useState<string>(defaultBank);
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [recordYear, setRecordYear] = useState<number>(
     defaultYear || new Date().getFullYear()
   );
+  const [firmBranchStation, setFirmBranchStation] = useState<string>(() => assignedBranchMeta.name);
 
   const [fileName, setFileName] = useState<string>('');
   const [sheetNames, setSheetNames] = useState<string[]>([]);
@@ -48,6 +79,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
       monthSheet: string;
       recordYear: number;
       sheetSelection?: string;
+      firmBranchStation?: string;
+      branchId?: string;
     }) => any[]) | null
   >(null);
 
@@ -65,16 +98,29 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     return list;
   }, [defaultBank]);
 
-  // Live parsed records whenever bank, month, year, or sheet changes
+  // Live parsed records whenever bank, month, year, firm branch, or sheet changes
   const parsedRecords = useMemo(() => {
     if (!workbookExtractor) return [];
+    const targetFirmMeta = resolveBranchMeta(undefined, firmBranchStation || assignedBranchMeta.name);
     return workbookExtractor({
       bankName: selectedBank,
       monthSheet: selectedMonth,
       recordYear: recordYear || new Date().getFullYear(),
       sheetSelection,
+      firmBranchStation: isGlobalAdmin ? firmBranchStation : assignedBranchMeta.name,
+      branchId: isGlobalAdmin ? targetFirmMeta.id : assignedBranchMeta.id,
     });
-  }, [workbookExtractor, selectedBank, selectedMonth, recordYear, sheetSelection]);
+  }, [
+    workbookExtractor,
+    selectedBank,
+    selectedMonth,
+    recordYear,
+    sheetSelection,
+    firmBranchStation,
+    assignedBranchMeta.name,
+    assignedBranchMeta.id,
+    isGlobalAdmin,
+  ]);
 
   const handleFileLoad = async (file: File) => {
     setErrorMsg(null);
@@ -236,7 +282,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
               <span>1. Target Bank &amp; Reporting Month</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Target Bank <span className="text-rose-500">*</span>
@@ -250,6 +296,24 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                   {bankOptions.map((bank) => (
                     <option key={bank} value={bank}>
                       {bank}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Firm Branch Station (MK Office) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={firmBranchStation}
+                  onChange={(e) => setFirmBranchStation(e.target.value)}
+                  disabled={importing || !isGlobalAdmin}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:opacity-60"
+                >
+                  {firmBranchOptions.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
                     </option>
                   ))}
                 </select>
@@ -370,7 +434,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                     <thead className="bg-slate-50/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-b border-slate-200/80 dark:border-slate-800">
                       <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 whitespace-nowrap">
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Client Name</th>
-                        <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Branch</th>
+                        <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Bank Branch Station</th>
+                        <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Firm Office (MK)</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">RIM No.</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Property Description</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap text-right">Loan Amount</th>
@@ -385,7 +450,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                       {parsedRecords.slice(0, 5).map((rec, i) => (
                         <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 divide-x divide-slate-100/70 dark:divide-slate-800/70 whitespace-nowrap">
                           <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">{rec.client_name}</td>
-                          <td className="py-2.5 px-3.5 whitespace-nowrap">{rec.branch || '-'}</td>
+                          <td className="py-2.5 px-3.5 whitespace-nowrap">{rec.bank_branch_station || rec.branch || '-'}</td>
+                          <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">{rec.firm_branch_station || firmBranchStation}</td>
                           <td className="py-2.5 px-3.5 font-mono tabular-nums whitespace-nowrap">{rec.rim_no || '-'}</td>
                           <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                             {rec.property_description || '-'}
