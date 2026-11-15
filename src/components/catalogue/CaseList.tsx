@@ -444,6 +444,7 @@ export const CaseList: React.FC = () => {
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase text-[10px] tracking-wider">
                 <tr className="divide-x divide-slate-200/60 dark:divide-slate-800">
+                  <th className="py-3.5 px-3 w-12 text-center">No.</th>
                   <th className="py-3.5 px-4">MK File No.</th>
                   <th className="py-3.5 px-4">Case Title &amp; Parties</th>
                   <th className="py-3.5 px-4">Court &amp; Division</th>
@@ -457,7 +458,7 @@ export const CaseList: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {displayCases.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                    <td colSpan={9} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                       {selectedLawyerFilter !== 'all' ? (
                         <div className="max-w-md mx-auto py-6 space-y-3">
                           <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto border border-indigo-200 dark:border-indigo-800/60">
@@ -572,7 +573,7 @@ export const CaseList: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  displayCases.map((caseItem) => {
+                  displayCases.map((caseItem, idx) => {
                     const canModifyRow = canUserModifyCase(effectiveUser, caseItem);
                     const fileRef = caseItem.case_number || caseItem.suitNumber || '';
                     return (
@@ -581,6 +582,9 @@ export const CaseList: React.FC = () => {
                       onClick={() => setSelectedCase(caseItem)}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 cursor-pointer transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70"
                     >
+                      <td className="py-3.5 px-3 w-12 text-center text-xs font-mono tabular-nums text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        {idx + 1}
+                      </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {fileRef ? (
                           <>

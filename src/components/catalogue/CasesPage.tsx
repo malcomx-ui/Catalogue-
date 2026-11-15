@@ -135,6 +135,7 @@ export default function CasesPage({ userSession }: CasesPageProps) {
             <table className="min-w-full divide-y divide-slate-200/80 dark:divide-slate-800 border-collapse">
               <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
                 <tr className="divide-x divide-slate-200/60 dark:divide-slate-800">
+                  <th className="px-3 py-3.5 w-12 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">No.</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">MK Case No</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Case Title</th>
                   <th className="px-5 py-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Client</th>
@@ -146,7 +147,7 @@ export default function CasesPage({ userSession }: CasesPageProps) {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
-                {cases.map((c) => {
+                {cases.map((c, idx) => {
                   const canModify = canUserModifyCase(effectiveUser, c);
                   return (
                     <tr
@@ -158,6 +159,9 @@ export default function CasesPage({ userSession }: CasesPageProps) {
                       }}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer divide-x divide-slate-100/70 dark:divide-slate-800/70"
                     >
+                      <td className="px-3 py-3.5 w-12 text-center whitespace-nowrap text-xs font-mono tabular-nums text-slate-400 dark:text-slate-500">
+                        {idx + 1}
+                      </td>
                       <td className="px-5 py-3.5 whitespace-nowrap text-xs">
                         <div className="font-mono tabular-nums font-bold text-indigo-600 dark:text-indigo-400" title="MK Case No.">
                           {c.case_number}

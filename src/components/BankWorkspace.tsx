@@ -543,21 +543,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             text-align: right !important;
           }
           .mortgage-print-table thead tr th:nth-child(1),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(1) { width: 9% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(1) { width: 4% !important; text-align: center !important; }
           .mortgage-print-table thead tr th:nth-child(2),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(2) { width: 10% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(2) { width: 8.5% !important; }
           .mortgage-print-table thead tr th:nth-child(3),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(3) { width: 16% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(3) { width: 10% !important; }
           .mortgage-print-table thead tr th:nth-child(4),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(4) { width: 9% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(4) { width: 15.5% !important; }
           .mortgage-print-table thead tr th:nth-child(5),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(5) { width: 24% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(5) { width: 9% !important; }
           .mortgage-print-table thead tr th:nth-child(6),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(6) { width: 10.5% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(6) { width: 21% !important; }
           .mortgage-print-table thead tr th:nth-child(7),
           .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(7) { width: 10.5% !important; }
           .mortgage-print-table thead tr th:nth-child(8),
-          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(8) { width: 11% !important; }
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(8) { width: 10.5% !important; }
+          .mortgage-print-table thead tr th:nth-child(9),
+          .mortgage-print-table tbody tr:not(.mortgage-print-totals-row) td:nth-child(9) { width: 11% !important; }
         }
       `}</style>
 
@@ -1115,9 +1117,12 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 viewMode === 'cards' ? 'hidden print:block' : ''
               }`}
             >
-              <table className="mortgage-print-table table-fixed w-full min-w-[1230px] text-left border-collapse">
+              <table className="mortgage-print-table table-fixed w-full min-w-[1280px] text-left border-collapse">
               <thead className="bg-slate-50/90 dark:bg-slate-800/60 print:bg-slate-50 border-b border-slate-200/80 dark:border-slate-800">
                 <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 print:divide-x-0">
+                  <th className="w-12 py-3.5 px-3 text-center text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
+                    No.
+                  </th>
                   <th className="w-[110px] py-3.5 px-3.5 text-left text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate whitespace-nowrap">
                     Date of Receipt
                   </th>
@@ -1173,6 +1178,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       onClick={() => setSelectedRecordForView(m)}
                       className="hover:bg-slate-50/90 dark:hover:bg-slate-800/50 transition-colors cursor-pointer divide-x divide-slate-100/70 dark:divide-slate-800 print:divide-x-0"
                     >
+                      <td className="w-12 py-3.5 px-3 text-center text-xs font-mono tabular-nums text-slate-400 dark:text-slate-500 print:text-slate-500 whitespace-nowrap">
+                        {idx + 1}
+                      </td>
                       <td
                         className="print-col-text py-3.5 px-3.5 text-left text-xs font-mono tabular-nums text-slate-600 dark:text-slate-400 print:text-slate-600 truncate whitespace-nowrap"
                         title={receiptText}
@@ -1284,7 +1292,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   className="hidden print:table-row mortgage-print-totals-row bg-slate-50 border-t-2 border-[#1e3a8a] font-bold text-slate-900"
                   style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}
                 >
-                  <td colSpan={5} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
+                  <td colSpan={6} className="print-col-text py-2.5 px-3.5 text-left text-xs uppercase tracking-wider">
                     TOTAL RECORDS: {filteredMortgages.length} · TOTAL UGX
                   </td>
                   <td className="print-col-num py-2.5 px-3.5 text-right text-xs font-mono tabular-nums">
