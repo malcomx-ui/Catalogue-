@@ -3,9 +3,9 @@ import { FileSpreadsheet, AlertTriangle, Copy, Check, X, Plus } from 'lucide-rea
 import { MortgageService, BankSummary, DEFAULT_BANKS, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
 import { AddMortgageModal } from '../components/AddMortgageModal';
-import { hasIndependentModule } from '../components/mortgages/banks/bankConfigs';
+import { hasIndependentModule, isSuperAdminOnlyBank } from '../components/mortgages/banks/bankConfigs';
 import { useApp, MortgageViewAction } from '../context/AppContext';
-import { getEffectiveUser, canUserImportMortgages } from '../lib/supabase';
+import { getEffectiveUser, canUserImportMortgages, isStrictSuperAdmin } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 
 export const BankHubPage: React.FC<{
@@ -14,9 +14,15 @@ export const BankHubPage: React.FC<{
   externalActionNonce?: number;
 }> = ({ onSelectBank, externalAction, externalActionNonce }) => {
   const { currentUser, userPermissions } = useApp();
-  const canBulkImportMortgages = canUserImportMortgages(getEffectiveUser(currentUser), userPermissions);
+  const effectiveUser = getEffectiveUser(currentUser);
+  const canSeeRestrictedBanks = isStrictSuperAdmin(effectiveUser);
+  const canBulkImportMortgages = canUserImportMortgages(effectiveUser, userPermissions);
   const [banksSummary, setBanksSummary] = useState<BankSummary[]>(() =>
-    DEFAULT_BANKS.map((bank_name) => ({ bank_name, file_count: 0, total_loan: 0 }))
+    DEFAULT_BANKS.filter((b) => canSeeRestrictedBanks || !isSuperAdminOnlyBank(b)).map((bank_name) => ({
+      bank_name,
+      file_count: 0,
+      total_loan: 0,
+    }))
   );
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
@@ -28,7 +34,7 @@ export const BankHubPage: React.FC<{
 
   useEffect(() => {
     fetchPortfolios();
-  }, [selectedYear]);
+  }, [selectedYear, effectiveUser?.id, effectiveUser?.roleId, canSeeRestrictedBanks]);
 
   useEffect(() => {
     if (!externalActionNonce) return;
@@ -55,9 +61,11 @@ export const BankHubPage: React.FC<{
   const fetchPortfolios = async () => {
     setLoading(true);
     try {
-      const result = await MortgageService.fetchBankSummaries(selectedYear);
+      const result = await MortgageService.fetchBankSummaries(selectedYear, currentUser);
       if (result.summaries && result.summaries.length > 0) {
-        setBanksSummary(result.summaries);
+        setBanksSummary(
+          result.summaries.filter((b) => canSeeRestrictedBanks || !isSuperAdminOnlyBank(b.bank_name))
+        );
       }
     } catch (err: any) {
       console.warn('[BankHubPage] Notice loading bank summaries:', err?.message || err);
@@ -176,12 +184,17 @@ export const BankHubPage: React.FC<{
         <div className="text-center py-12 text-slate-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {banksSummary.map((b) => {
+          {banksSummary
+            .filter((b) => canSeeRestrictedBanks || !isSuperAdminOnlyBank(b.bank_name))
+            .map((b) => {
             const hasDedicated = hasIndependentModule(b.bank_name);
             return (
               <div
                 key={b.bank_name}
-                onClick={() => onSelectBank(b.bank_name)}
+                onClick={() => {
+                  if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(b.bank_name)) return;
+                  onSelectBank(b.bank_name);
+                }}
                 className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
               >
                 <div>

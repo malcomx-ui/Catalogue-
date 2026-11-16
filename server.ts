@@ -693,10 +693,36 @@ app.delete('/api/cases/:id', (req: Request, res: Response) => {
 // ==============================================================================
 // Mortgages Register API Endpoints (Local Workstation & Cloud Dual-Sync)
 // ==============================================================================
+function isSuperAdminOnlyBank(bank?: string | null): boolean {
+  const clean = String(bank || '').trim().toLowerCase();
+  if (!clean) return false;
+  return (
+    clean === 'i&m bank' ||
+    clean === 'i & m bank' ||
+    clean === 'im bank' ||
+    clean.includes('i&m') ||
+    clean.includes('i & m') ||
+    clean === 'bank of baroda' ||
+    clean === 'baroda' ||
+    clean.includes('baroda') ||
+    clean === 'kcb' ||
+    clean === 'kcb bank' ||
+    clean === 'kcb bank uganda' ||
+    clean.startsWith('kcb ')
+  );
+}
+
 app.get('/api/mortgages', (req: Request, res: Response) => {
   try {
     const db = readDatabase();
+    const actor = resolveRequestActor(req, db);
     let records: any[] = (db as any).mortgages || [];
+
+    if (actor.hasActor && !actor.isSuperAdmin) {
+      records = records.filter(
+        (m) => !isSuperAdminOnlyBank(m?.client_bank_name || m?.bank_name)
+      );
+    }
 
     const { record_year, client_bank_name } = req.query;
     if (record_year) {
@@ -826,6 +852,13 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     const payload = { ...(req.body || {}) };
 
     const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
+    if (actor.hasActor && !actor.isSuperAdmin && isSuperAdminOnlyBank(targetBank)) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.',
+      });
+    }
     const isCentenary = String(targetBank).trim().toLowerCase() === 'centenary bank';
 
     // 1. Firm Branch Station (MK Advocates Office) - omitted for Centenary Bank
@@ -928,6 +961,18 @@ app.put('/api/mortgages/:id', (req: Request, res: Response) => {
     }
 
     const existing = currentList[index];
+    if (
+      actor.hasActor &&
+      !actor.isSuperAdmin &&
+      (isSuperAdminOnlyBank(existing?.client_bank_name || existing?.bank_name) ||
+        isSuperAdminOnlyBank(updates.client_bank_name || updates.bank_name))
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.',
+      });
+    }
     if (!canActorModifyMortgage(actor, existing)) {
       return res.status(403).json({
         success: false,
@@ -1002,6 +1047,18 @@ app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
     const currentList: any[] = (db as any).mortgages || [];
 
     const target = currentList.find((m) => String(m.id) === String(id));
+    if (
+      target &&
+      actor.hasActor &&
+      !actor.isSuperAdmin &&
+      isSuperAdminOnlyBank(target?.client_bank_name || target?.bank_name)
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.',
+      });
+    }
     if (target && !canActorModifyMortgage(actor, target)) {
       return res.status(403).json({
         success: false,
@@ -1081,6 +1138,17 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
     const { records, bank_name } = req.body;
     if (!Array.isArray(records) || records.length === 0) {
       return res.status(400).json({ success: false, error: 'Records array is required' });
+    }
+    if (
+      !actor.isSuperAdmin &&
+      (isSuperAdminOnlyBank(bank_name) ||
+        records.some((r: any) => isSuperAdminOnlyBank(r?.bank_name || r?.client_bank_name)))
+    ) {
+      return res.status(403).json({
+        success: false,
+        error:
+          'Restricted: Bulk importing into I&M Bank, Bank of Baroda, or KCB is currently limited to Super Admin users.',
+      });
     }
 
     const currentMortgages: any[] = (db as any).mortgages || [];

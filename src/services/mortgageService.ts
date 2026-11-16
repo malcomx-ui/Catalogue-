@@ -3,11 +3,13 @@ import * as XLSX from 'xlsx';
 import {
   getEffectiveUser,
   isUserAdmin,
+  isStrictSuperAdmin,
   canUserModifyMortgage,
   canUserImportMortgages,
   resolveBranchMeta,
   extractMissingColumnFromError,
 } from '../lib/supabase';
+import { isSuperAdminOnlyBank } from '../components/mortgages/banks/bankConfigs';
 import { showCleanMessage } from '../utils/notification';
 
 async function buildMortgageAuthHeaders(userProfile?: any): Promise<Record<string, string>> {
@@ -41,6 +43,11 @@ export const DEFAULT_BANKS = [
   'Bank of Baroda',
   'KCB',
 ];
+
+export const getVisibleBanksForUser = (userProfile?: any): string[] => {
+  const canSeeRestricted = isStrictSuperAdmin(getEffectiveUser(userProfile));
+  return canSeeRestricted ? DEFAULT_BANKS : DEFAULT_BANKS.filter((b) => !isSuperAdminOnlyBank(b));
+};
 
 export const isCentenaryBankName = (bank?: string | null): boolean =>
   String(bank || '').trim().toLowerCase() === 'centenary bank';
@@ -962,9 +969,22 @@ export const MortgageService = {
   ): Promise<{ success: boolean; count: number; error?: string; cloudSaved?: boolean; cloudError?: string }> {
     try {
       const effectiveUser = getEffectiveUser(userProfile);
+      const isStrictSuper = isStrictSuperAdmin(effectiveUser);
       if (!canUserImportMortgages(effectiveUser, userPermissions)) {
         const msg =
           'Permission Denied: Bulk Excel mortgage import requires a Super Admin role or explicit can_import_mortgages permission.';
+        showCleanMessage(msg, 'warning');
+        return { success: false, count: 0, error: msg };
+      }
+
+      if (
+        !isStrictSuper &&
+        (isSuperAdminOnlyBank(bankName) ||
+          (Array.isArray(records) &&
+            records.some((r) => isSuperAdminOnlyBank(r?.bank_name || r?.client_bank_name))))
+      ) {
+        const msg =
+          'Restricted: Importing mortgages for I&M Bank, Bank of Baroda, or KCB is currently limited to Super Admin users.';
         showCleanMessage(msg, 'warning');
         return { success: false, count: 0, error: msg };
       }
@@ -1159,6 +1179,12 @@ export const MortgageService = {
         showCleanMessage(msg, 'warning');
         return { success: false, count: 0, error: msg };
       }
+      if (!isStrictSuperAdmin(effectiveUser) && isSuperAdminOnlyBank(bankName)) {
+        const msg =
+          'Restricted: Importing mortgages for I&M Bank, Bank of Baroda, or KCB is currently limited to Super Admin users.';
+        showCleanMessage(msg, 'warning');
+        return { success: false, count: 0, error: msg };
+      }
       if (onProgress) onProgress('Reading Excel file...');
       const wb = await this.readExcelWorkbook(file);
       const targetMonth = monthSheet || MONTHS[new Date().getMonth()];
@@ -1180,15 +1206,23 @@ export const MortgageService = {
   },
   /**
    * Fetches bank portfolio summaries for a specific financial year.
-   * Guarantees all 4 designated lending institutions are always returned.
+   * Guarantees designated lending institutions visible to the current user are returned.
    */
-  async fetchBankSummaries(year: number = 2026): Promise<{
+  async fetchBankSummaries(
+    year: number = 2026,
+    userProfile?: any
+  ): Promise<{
     summaries: BankSummary[];
     hasCloudTable: boolean;
     errorNotice?: string;
   }> {
+    const canSeeRestrictedBanks = isStrictSuperAdmin(getEffectiveUser(userProfile));
+    const visibleBanks = canSeeRestrictedBanks
+      ? DEFAULT_BANKS
+      : DEFAULT_BANKS.filter((b) => !isSuperAdminOnlyBank(b));
+
     const grouped: { [key: string]: { count: number; totalLoan: number } } = {};
-    DEFAULT_BANKS.forEach((b) => {
+    visibleBanks.forEach((b) => {
       grouped[b] = { count: 0, totalLoan: 0 };
     });
 
@@ -1205,8 +1239,9 @@ export const MortgageService = {
 
       if (Array.isArray(mData)) {
         mData.forEach((item) => {
-          if (item.id) seenIds.add(String(item.id));
           const bank = item.client_bank_name || 'Centenary Bank';
+          if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(bank)) return;
+          if (item.id) seenIds.add(String(item.id));
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
           grouped[bank].totalLoan += Number(item.loan_amount || 0);
@@ -1221,9 +1256,10 @@ export const MortgageService = {
       if (Array.isArray(mcData) && mcData.length > 0) {
         mcData.forEach((item) => {
           if (item.record_year && Number(item.record_year) !== year) return;
+          const bank = item.bank_name || item.client_bank_name || 'Centenary Bank';
+          if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(bank)) return;
           if (item.id && seenIds.has(String(item.id))) return;
           if (item.id) seenIds.add(String(item.id));
-          const bank = item.bank_name || item.client_bank_name || 'Centenary Bank';
           if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
           grouped[bank].count += 1;
           grouped[bank].totalLoan += Number(item.loan_amount || 0);
@@ -1235,14 +1271,16 @@ export const MortgageService = {
 
     // 2. Always merge local server API (/api/mortgages) deduplicating by id
     try {
-      const res = await fetch(`/api/mortgages?record_year=${year}`);
+      const authHeaders = await buildMortgageAuthHeaders(userProfile);
+      const res = await fetch(`/api/mortgages?record_year=${year}`, { headers: authHeaders });
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
           json.data.forEach((item: any) => {
+            const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
+            if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(bank)) return;
             if (item.id && seenIds.has(String(item.id))) return;
             if (item.id) seenIds.add(String(item.id));
-            const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
             if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
             grouped[bank].count += 1;
             grouped[bank].totalLoan += Number(item.loan_amount || 0);
@@ -1256,9 +1294,10 @@ export const MortgageService = {
     // 3. Also merge browser localStorage mirror deduplicating by id
     readLocalMortgages().forEach((item: any) => {
       if (item.record_year && Number(item.record_year) !== year) return;
+      const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
+      if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(bank)) return;
       if (item.id && seenIds.has(String(item.id))) return;
       if (item.id) seenIds.add(String(item.id));
-      const bank = item.client_bank_name || item.bank_name || 'Centenary Bank';
       if (!grouped[bank]) grouped[bank] = { count: 0, totalLoan: 0 };
       grouped[bank].count += 1;
       grouped[bank].totalLoan += Number(item.loan_amount || 0);
@@ -1279,7 +1318,12 @@ export const MortgageService = {
    * Fetches mortgage registers for a specific bank.
    * Seamlessly unifies records from 'mortgage_cases', 'mortgages', local backend, and localStorage.
    */
-  async fetchMortgages(bankName: string): Promise<any[]> {
+  async fetchMortgages(bankName: string, userProfile?: any): Promise<any[]> {
+    const canSeeRestrictedBanks = isStrictSuperAdmin(getEffectiveUser(userProfile));
+    if (!canSeeRestrictedBanks && isSuperAdminOnlyBank(bankName)) {
+      return [];
+    }
+
     const combined: any[] = [];
     const indexById = new Map<string, number>();
     const safeBank = bankName.replace(/[,()]/g, '').trim();
@@ -1346,7 +1390,10 @@ export const MortgageService = {
 
     // 3. Fallback / dual-sync merge from local workstation backend (/api/mortgages)
     try {
-      const res = await fetch(`/api/mortgages?client_bank_name=${encodeURIComponent(bankName)}`);
+      const authHeaders = await buildMortgageAuthHeaders(userProfile);
+      const res = await fetch(`/api/mortgages?client_bank_name=${encodeURIComponent(bankName)}`, {
+        headers: authHeaders,
+      });
       if (res.ok) {
         const json = await res.json();
         if (json.data && Array.isArray(json.data)) {
@@ -1391,10 +1438,18 @@ export const MortgageService = {
     cloudError?: string;
   }> {
     const effectiveUser = getEffectiveUser(userProfile);
+    const isStrictSuper = isStrictSuperAdmin(effectiveUser);
     const isGlobalAdmin = isUserAdmin(effectiveUser);
     const userFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
     const targetBankName = payload?.bank_name || payload?.client_bank_name || 'Centenary Bank';
     const isCentenary = isCentenaryBankName(targetBankName);
+
+    if (!isStrictSuper && isSuperAdminOnlyBank(targetBankName)) {
+      const msg =
+        'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.';
+      showCleanMessage(msg, 'warning');
+      return { success: false, error: msg };
+    }
 
     const rawBankBranch =
       payload?.bank_branch_station ??
@@ -1569,6 +1624,18 @@ export const MortgageService = {
     existingRecord?: any
   ): Promise<{ success: boolean; data?: any; error?: string; cloudSaved?: boolean; cloudError?: string }> {
     const effectiveUser = getEffectiveUser(userProfile);
+    const cachedRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
+    const existingBankName = cachedRecord?.bank_name || cachedRecord?.client_bank_name;
+    const requestedBankName = updates?.bank_name || updates?.client_bank_name;
+    if (
+      !isStrictSuperAdmin(effectiveUser) &&
+      (isSuperAdminOnlyBank(existingBankName) || isSuperAdminOnlyBank(requestedBankName))
+    ) {
+      const msg =
+        'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.';
+      showCleanMessage(msg, 'warning');
+      return { success: false, error: msg };
+    }
     if (!isUserAdmin(effectiveUser)) {
       const cachedRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
       const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'your station';
@@ -1897,8 +1964,18 @@ export const MortgageService = {
    */
   async deleteMortgage(id: string, userProfile?: any, existingRecord?: any): Promise<boolean> {
     const effectiveUser = getEffectiveUser(userProfile);
+    const targetRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
+    if (
+      !isStrictSuperAdmin(effectiveUser) &&
+      isSuperAdminOnlyBank(targetRecord?.bank_name || targetRecord?.client_bank_name)
+    ) {
+      showCleanMessage(
+        'Restricted: This lending institution (I&M Bank, Bank of Baroda, KCB) is currently limited to Super Admin access.',
+        'warning'
+      );
+      return false;
+    }
     if (!isUserAdmin(effectiveUser)) {
-      const targetRecord = existingRecord || readLocalMortgages().find((item) => String(item.id) === String(id));
       const userBranchName = effectiveUser.branchName || resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName).name || 'your station';
       if (!targetRecord || !canUserModifyMortgage(effectiveUser, targetRecord)) {
         showCleanMessage(

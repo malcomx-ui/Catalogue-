@@ -25,6 +25,7 @@ import { MortgageFilterBar, MortgageFilters } from './MortgageFilterBar';
 import {
   getEffectiveUser,
   isUserAdmin,
+  isStrictSuperAdmin,
   isAdminFinanceAssistant,
   canUserModifyMortgage,
   canUserImportMortgages,
@@ -38,6 +39,7 @@ import { RowActionMenu } from './common/RowActionMenu';
 import {
   isCentenaryBank,
   hasIndependentModule,
+  isSuperAdminOnlyBank,
   isIMBank,
   isBarodaBank,
   isKCBBank,
@@ -115,6 +117,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const [selectedRecordForView, setSelectedRecordForView] = useState<any | null>(null);
   const { userPermissions } = useApp();
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isStrictSuper = isStrictSuperAdmin(effectiveUser);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
   const canImportMortgages = canUserImportMortgages(effectiveUser, userPermissions);
   const isFinanceAssistant = isAdminFinanceAssistant(effectiveUser);
@@ -127,6 +130,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const isCentenary = isCentenaryBank(bankName);
   const isDedicatedBank = hasIndependentModule(bankName);
+  const isRestrictedBankForUser = isSuperAdminOnlyBank(bankName) && !isStrictSuper;
 
   const handleEditRequest = (record: any) => {
     if (!canUserModifyMortgage(effectiveUser, record)) {
@@ -189,7 +193,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   useEffect(() => {
     setWorkspaceTab('register');
     loadBankData();
-  }, [bankName]);
+  }, [bankName, effectiveUser?.id, effectiveUser?.roleId, isRestrictedBankForUser]);
 
   useEffect(() => {
     if (!externalActionNonce) return;
@@ -244,9 +248,14 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   }, []);
 
   const loadBankData = async () => {
+    if (isRestrictedBankForUser) {
+      setMortgages([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const data = await MortgageService.fetchMortgages(bankName);
+      const data = await MortgageService.fetchMortgages(bankName, effectiveUser);
       setMortgages(data || []);
     } catch (err) {
       console.error('Error loading bank data:', err);
@@ -475,6 +484,33 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
     const found = lawyersList.find((l) => String(l.id) === String(filters.lawyerId));
     return found?.full_name || found?.name || found?.email || 'Selected Advocate';
   }, [filters.lawyerId, lawyersList]);
+
+  if (isRestrictedBankForUser) {
+    return (
+      <div className="p-6 max-w-3xl mx-auto w-full min-h-[400px] flex items-center justify-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-8 text-center shadow-sm space-y-4 w-full">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              Portfolio Module Under Construction
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Access to {bankName} is currently restricted to Super Admin users while its dedicated workflows and reporting modules are being finalized.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition cursor-pointer"
+          >
+            Back to Mortgage Portfolios
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mortgage-print-root p-3 sm:p-5 lg:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-5 w-full min-w-0 h-full min-h-[500px]">

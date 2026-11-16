@@ -41,8 +41,23 @@ export const isKCBBank = (bank?: string | null): boolean => {
   return clean === 'kcb' || clean === 'kcb bank' || clean === 'kcb bank uganda';
 };
 
+export const SUPERADMIN_ONLY_BANKS = ['I&M Bank', 'Bank of Baroda', 'KCB'] as const;
+
 export const hasIndependentModule = (bank?: string | null): boolean =>
   isIMBank(bank) || isBarodaBank(bank) || isKCBBank(bank);
+
+export const isSuperAdminOnlyBank = (bank?: string | null): boolean => {
+  if (hasIndependentModule(bank)) return true;
+  const clean = String(bank || '').trim().toLowerCase();
+  if (!clean) return false;
+  return (
+    clean.includes('i&m') ||
+    clean.includes('i & m') ||
+    clean.includes('baroda') ||
+    clean === 'kcb' ||
+    clean.startsWith('kcb ')
+  );
+};
 
 export const IM_SECURITY_TYPES = [
   'Registered Legal Mortgage',

@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BankHubPage } from './BankHubPage';
 import { BankWorkspace } from './BankWorkspace';
+import { getEffectiveUser, isStrictSuperAdmin } from '../lib/supabase';
+import { isSuperAdminOnlyBank } from './mortgages/banks/bankConfigs';
 
 export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.ReactNode }> = ({ currentUser, children }) => {
   // 1. State for active navigation tab and selected bank drill-down
   const [activeTab, setActiveTab] = useState<'dashboard' | 'mortgages' | 'settings'>('dashboard');
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const canSeeRestrictedBanks = isStrictSuperAdmin(getEffectiveUser(currentUser));
+
+  useEffect(() => {
+    if (selectedBank && isSuperAdminOnlyBank(selectedBank) && !canSeeRestrictedBanks) {
+      setSelectedBank(null);
+    }
+  }, [selectedBank, canSeeRestrictedBanks]);
 
   // Handle clicking Mortgages in sidebar
   const handleNavClick = (tab: 'dashboard' | 'mortgages' | 'settings') => {
@@ -65,7 +74,7 @@ export const DashboardLayout: React.FC<{ currentUser?: any; children?: React.Rea
             {!selectedBank ? (
               <BankHubPage 
                 onSelectBank={(bankName) => {
-                  console.log('Selected bank:', bankName);
+                  if (isSuperAdminOnlyBank(bankName) && !canSeeRestrictedBanks) return;
                   setSelectedBank(bankName);
                 }} 
               />

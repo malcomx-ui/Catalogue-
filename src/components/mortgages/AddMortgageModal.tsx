@@ -4,6 +4,7 @@ import { MortgageService, DEFAULT_BANKS } from '../../services/mortgageService';
 import {
   getEffectiveUser,
   isUserAdmin,
+  isStrictSuperAdmin,
   canUserModifyMortgage,
   resolveBranchMeta,
 } from '../../lib/supabase';
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 import {
   isCentenaryBank,
+  isSuperAdminOnlyBank,
   isIMBank,
   isBarodaBank,
   isKCBBank,
@@ -67,7 +69,12 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   onSuccess,
 }) => {
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isStrictSuper = isStrictSuperAdmin(effectiveUser);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const visibleBanks = useMemo(
+    () => DEFAULT_BANKS.filter((b) => isStrictSuper || !isSuperAdminOnlyBank(b)),
+    [isStrictSuper]
+  );
   const assignedBranchMeta = useMemo(
     () =>
       resolveBranchMeta(
@@ -89,8 +96,12 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
     return Array.from(map.values());
   }, [assignedBranchLabel, assignedBranchMeta.id]);
 
-  const [selectedBank, setSelectedBank] = useState<string>(bankName);
-  const isCentenary = isCentenaryBank(selectedBank);
+  const [selectedBank, setSelectedBank] = useState<string>(() =>
+    !isStrictSuper && isSuperAdminOnlyBank(bankName) ? 'Centenary Bank' : bankName
+  );
+  const effectiveSelectedBank =
+    !isStrictSuper && isSuperAdminOnlyBank(selectedBank) ? 'Centenary Bank' : selectedBank;
+  const isCentenary = isCentenaryBank(effectiveSelectedBank);
 
   // Reporting Period (defaults to selected month if provided, else current year and current month)
   const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
@@ -240,8 +251,8 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
 
     // Exact live database column mapping with strict separation of bank_branch_station and firm_branch_station:
     const payload = {
-      bank_name: selectedBank,
-      client_bank_name: selectedBank,
+      bank_name: effectiveSelectedBank,
+      client_bank_name: effectiveSelectedBank,
       date_of_receipt: dateOfReceipt || new Date().toISOString().slice(0, 10),
       bank_branch_station: trimmedBankBranch,
       bank_branch: trimmedBankBranch,
@@ -307,7 +318,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
     }
   };
 
-  if (isIMBank(selectedBank)) {
+  if (isStrictSuper && isIMBank(effectiveSelectedBank)) {
     return (
       <IMBankMortgageForm
         allowBankSelection={allowBankSelection}
@@ -319,7 +330,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       />
     );
   }
-  if (isBarodaBank(selectedBank)) {
+  if (isStrictSuper && isBarodaBank(effectiveSelectedBank)) {
     return (
       <BarodaMortgageForm
         allowBankSelection={allowBankSelection}
@@ -331,7 +342,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       />
     );
   }
-  if (isKCBBank(selectedBank)) {
+  if (isStrictSuper && isKCBBank(effectiveSelectedBank)) {
     return (
       <KCBMortgageForm
         allowBankSelection={allowBankSelection}
@@ -357,7 +368,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                  {selectedBank}
+                  {effectiveSelectedBank}
                 </span>
                 <span className="text-[11px] text-slate-300">19-Column Tracker Register</span>
               </div>
@@ -402,11 +413,11 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 <select
                   name="bank_name"
                   required
-                  value={selectedBank}
+                  value={effectiveSelectedBank}
                   onChange={(e) => setSelectedBank(e.target.value)}
                   className="w-full bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-sm text-blue-950 dark:text-blue-100 font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
-                  {DEFAULT_BANKS.map((b) => (
+                  {visibleBanks.map((b) => (
                     <option key={b} value={b}>
                       {b}
                     </option>

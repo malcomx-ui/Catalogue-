@@ -11,8 +11,14 @@ import {
   Lock,
 } from 'lucide-react';
 import { MortgageService, DEFAULT_BANKS, MONTHS } from '../../services/mortgageService';
-import { getEffectiveUser, isUserAdmin, canUserImportMortgages, resolveBranchMeta } from '../../lib/supabase';
-import { isCentenaryBank } from './banks/bankConfigs';
+import {
+  getEffectiveUser,
+  isUserAdmin,
+  isStrictSuperAdmin,
+  canUserImportMortgages,
+  resolveBranchMeta,
+} from '../../lib/supabase';
+import { isCentenaryBank, isSuperAdminOnlyBank } from './banks/bankConfigs';
 
 const DEFAULT_FIRM_BRANCHES = [
   { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
@@ -49,6 +55,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
       : MONTHS[new Date().getMonth()];
 
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isStrictSuper = isStrictSuperAdmin(effectiveUser);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
   const canImportMortgages = useMemo(
     () => canUserImportMortgages(effectiveUser, userPermissions),
@@ -71,7 +78,9 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     return Array.from(map.values());
   }, [assignedBranchMeta]);
 
-  const [selectedBank, setSelectedBank] = useState<string>(defaultBank);
+  const [selectedBank, setSelectedBank] = useState<string>(() =>
+    !isStrictSuper && isSuperAdminOnlyBank(defaultBank) ? 'Centenary Bank' : defaultBank
+  );
   const isCentenary = isCentenaryBank(selectedBank);
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [recordYear, setRecordYear] = useState<number>(
@@ -104,8 +113,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     if (defaultBank && !list.includes(defaultBank)) {
       list.unshift(defaultBank);
     }
-    return list;
-  }, [defaultBank]);
+    return list.filter((b) => isStrictSuper || !isSuperAdminOnlyBank(b));
+  }, [defaultBank, isStrictSuper]);
 
   // Live parsed records whenever bank, month, year, firm branch, or sheet changes
   const parsedRecords = useMemo(() => {

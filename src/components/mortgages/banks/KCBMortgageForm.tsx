@@ -10,11 +10,13 @@ import {
   Clock,
   Loader2,
   Briefcase,
+  Lock,
 } from 'lucide-react';
 import { MortgageService, DEFAULT_BANKS } from '../../../services/mortgageService';
 import {
   getEffectiveUser,
   isUserAdmin,
+  isStrictSuperAdmin,
   canUserModifyMortgage,
   resolveBranchMeta,
 } from '../../../lib/supabase';
@@ -26,6 +28,7 @@ import {
   KCB_PERFECTION_STAGES,
   KCB_STATUSES,
   DedicatedBankFormProps,
+  isSuperAdminOnlyBank,
 } from './bankConfigs';
 import { computeTurnaroundDays } from './bankReportUtils';
 
@@ -59,7 +62,12 @@ export const KCBMortgageForm: React.FC<DedicatedBankFormProps> = ({
   const bsd = initialRecord?.bank_specific_data || {};
 
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isStrictSuper = isStrictSuperAdmin(effectiveUser);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const visibleBanks = useMemo(
+    () => DEFAULT_BANKS.filter((b) => isStrictSuper || !isSuperAdminOnlyBank(b)),
+    [isStrictSuper]
+  );
   const canModifyRecord = useMemo(
     () => (isEdit ? canUserModifyMortgage(effectiveUser, initialRecord) : true),
     [isEdit, effectiveUser, initialRecord]
@@ -220,6 +228,13 @@ export const KCBMortgageForm: React.FC<DedicatedBankFormProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    if (!isStrictSuper) {
+      const msg = 'Restricted: KCB is currently limited to Super Admin access.';
+      setErrorMessage(msg);
+      showCleanMessage(msg, 'warning');
+      return;
+    }
+
     if (!canModifyRecord) {
       const msg = `View-Only Access: You can only modify mortgages assigned to ${assignedBranchLabel}.`;
       setErrorMessage(msg);
@@ -354,6 +369,31 @@ export const KCBMortgageForm: React.FC<DedicatedBankFormProps> = ({
     }
   };
 
+  if (!isStrictSuper) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 max-w-md w-full p-8 text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Access Restricted</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              KCB Bank Uganda is currently restricted to Super Admin users while its module is being finalized.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition"
+          >
+            Close Window
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 w-full max-w-4xl max-h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
@@ -418,7 +458,7 @@ export const KCBMortgageForm: React.FC<DedicatedBankFormProps> = ({
                     onChange={(e) => onBankChange?.(e.target.value)}
                     className="w-full bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded-lg px-3 py-2 text-sm text-emerald-950 dark:text-emerald-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
-                    {DEFAULT_BANKS.map((b) => (
+                    {visibleBanks.map((b) => (
                       <option key={b} value={b}>
                         {b}
                       </option>
