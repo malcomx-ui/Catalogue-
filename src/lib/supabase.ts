@@ -279,6 +279,91 @@ export function generateUuid(): string {
   });
 }
 
+export function isMissingBranchTriggerError(err: any): boolean {
+  const code = String(err?.code || '').trim();
+  const msg = String(err?.message || err?.details || '').toLowerCase();
+  return (
+    (code === 'P0001' && (msg.includes('assigned branch') || msg.includes('branch') || msg.includes('configuration error'))) ||
+    msg.includes('user profile does not have an assigned branch') ||
+    msg.includes('configuration error: your user profile does not have an assigned branch')
+  );
+}
+
+/**
+ * Ensures the active Supabase Auth user has a non-empty branch_id and branch_name
+ * on their public.profiles row (and user_metadata) so legacy DB triggers can resolve it.
+ */
+export async function ensureAuthUserProfileBranch(
+  preferredBranchId?: string,
+  preferredBranchName?: string
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const authUser = sessionData?.session?.user;
+    if (!authUser?.id) return false;
+
+    const cached = getCachedUserProfile();
+    const email = String(authUser.email || cached?.email || '').trim().toLowerCase();
+    const branchMeta = resolveBranchMeta(
+      preferredBranchId ||
+        cached?.branchId ||
+        (cached as any)?.branch_id ||
+        (authUser.user_metadata as any)?.branch_id ||
+        'kla-hq',
+      preferredBranchName ||
+        cached?.branchName ||
+        (cached as any)?.branch_name ||
+        (authUser.user_metadata as any)?.branch_name ||
+        (authUser.user_metadata as any)?.branch
+    );
+
+    const roleMeta = resolveUserRoleMeta(
+      cached?.role || (authUser.user_metadata as any)?.role,
+      cached?.roleId || (authUser.user_metadata as any)?.role_id,
+      Boolean(cached?.isSuperAdmin ?? (authUser.user_metadata as any)?.is_super_admin),
+      email
+    );
+
+    const profilePatch: Record<string, any> = {
+      id: authUser.id,
+      email,
+      full_name:
+        cached?.name ||
+        (authUser.user_metadata as any)?.full_name ||
+        (email ? email.split('@')[0] : 'Firm Staff'),
+      role: roleMeta.role,
+      role_id: roleMeta.roleId,
+      role_title: roleMeta.roleTitle,
+      is_super_admin: roleMeta.isSuperAdmin,
+      is_branch_admin: roleMeta.isBranchAdmin,
+      branch_id: branchMeta.id,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      updated_at: new Date().toISOString(),
+    };
+
+    const byId = await safeProfilesUpdate(profilePatch, 'id', authUser.id);
+    if (!byId.data || byId.data.length === 0) {
+      await safeProfilesUpsert(profilePatch);
+    }
+
+    supabase.auth
+      .updateUser({
+        data: {
+          branch_id: branchMeta.id,
+          branch_name: branchMeta.name,
+          branch: branchMeta.name,
+        },
+      })
+      .catch(() => {});
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function safeProfilesUpsert(
   row: Record<string, any>
 ): Promise<{ data: any[] | null; error: any }> {
@@ -688,8 +773,9 @@ async function safeCasesMutation(
     if (cleanPayload[k] === undefined) delete cleanPayload[k];
   });
   const strippedColumns: string[] = [];
+  let branchHealRetried = false;
 
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 22; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
 
     let res: { data: any[] | null; error: any };
@@ -703,6 +789,17 @@ async function safeCasesMutation(
 
     if (!res.error) {
       return { data: res.data, error: null, strippedColumns };
+    }
+
+    if (isMissingBranchTriggerError(res.error) && !branchHealRetried) {
+      branchHealRetried = true;
+      const healed = await ensureAuthUserProfileBranch(
+        cleanPayload.branch_id,
+        cleanPayload.branch_name || cleanPayload.branch
+      );
+      if (healed) {
+        continue;
+      }
     }
 
     const missingCol = extractMissingColumnFromError(res.error);
@@ -868,8 +965,9 @@ export const SupabaseService = {
       try {
         let batchInserted = false;
         let lastBatchErr: any = null;
+        let batchBranchHealRetried = false;
 
-        for (let attempt = 0; attempt < 15; attempt++) {
+        for (let attempt = 0; attempt < 16; attempt++) {
           const { data, error } = await supabase.from('cases').insert(batch).select('*');
           if (!error) {
             if (data) insertedRows.push(...data);
@@ -877,6 +975,14 @@ export const SupabaseService = {
             break;
           }
           lastBatchErr = error;
+          if (isMissingBranchTriggerError(error) && !batchBranchHealRetried) {
+            batchBranchHealRetried = true;
+            const healed = await ensureAuthUserProfileBranch(
+              batch[0]?.branch_id,
+              batch[0]?.branch_name || batch[0]?.branch
+            );
+            if (healed) continue;
+          }
           const missingCol = extractMissingColumnFromError(error);
           if (missingCol && batch.some((r) => missingCol in r)) {
             knownMissingCols.add(missingCol);

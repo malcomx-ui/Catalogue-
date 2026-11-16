@@ -381,7 +381,7 @@ export const AccessRolesManager: React.FC = () => {
     deletes: auditLogs.filter((l) => l.action === 'DELETE').length,
   };
 
-  const rlsSqlSnippet = `-- Super Admin Governance & Staff Provisioning Policy (public.profiles + public.firm_users)
+  const rlsSqlSnippet = `-- Super Admin Governance, Case Branch Trigger Fix & Staff Provisioning Policy
 ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS can_import_mortgages BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false,
@@ -399,6 +399,14 @@ ALTER TABLE IF EXISTS public.profiles
 ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
 ALTER TABLE IF EXISTS public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
+-- Backfill any empty branch assignments so staff never hit missing-branch trigger errors
+UPDATE public.profiles
+SET
+  branch_id = COALESCE(NULLIF(TRIM(branch_id), ''), 'kla-hq'),
+  branch_name = COALESCE(NULLIF(TRIM(branch_name), ''), NULLIF(TRIM(branch), ''), 'Kampala Central (Head Office)'),
+  branch = COALESCE(NULLIF(TRIM(branch), ''), NULLIF(TRIM(branch_name), ''), 'Kampala Central (Head Office)')
+WHERE branch_id IS NULL OR TRIM(branch_id) = '';
+
 CREATE OR REPLACE FUNCTION public.is_partner_or_superadmin()
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
 DECLARE v_email TEXT;
@@ -414,12 +422,47 @@ BEGIN
 END;
 $$;
 
+-- Replace legacy set_case_branch() trigger so missing auth/profile branch defaults cleanly instead of throwing P0001
+CREATE OR REPLACE FUNCTION public.set_case_branch()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  user_branch TEXT;
+  user_branch_name TEXT;
+  caller_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
+BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL THEN
+    SELECT NULLIF(TRIM(branch_id), ''), COALESCE(NULLIF(TRIM(branch_name), ''), NULLIF(TRIM(branch), ''))
+    INTO user_branch, user_branch_name
+    FROM public.profiles
+    WHERE (auth.uid() IS NOT NULL AND id::text = auth.uid()::text)
+       OR (caller_email <> '' AND LOWER(email) = caller_email)
+    LIMIT 1;
+  END IF;
+
+  IF NEW.branch_id IS NULL OR TRIM(NEW.branch_id) = '' THEN
+    NEW.branch_id := COALESCE(NULLIF(user_branch, ''), NULLIF(TRIM(auth.jwt()->'user_metadata'->>'branch_id'), ''), 'kla-hq');
+  END IF;
+  IF NEW.branch_name IS NULL OR TRIM(NEW.branch_name) = '' THEN
+    NEW.branch_name := COALESCE(NULLIF(user_branch_name, ''), 'Kampala Central (Head Office)');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS tr_set_case_branch ON public.cases;
+CREATE TRIGGER tr_set_case_branch
+  BEFORE INSERT ON public.cases
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_case_branch();
+
 DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
 CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated, anon USING (true);
 DROP POLICY IF EXISTS "Allow authenticated insert profiles" ON public.profiles;
 CREATE POLICY "Allow authenticated insert profiles" ON public.profiles FOR INSERT TO authenticated, anon WITH CHECK (true);
 DROP POLICY IF EXISTS "Allow authenticated update profiles" ON public.profiles;
-CREATE POLICY "Allow authenticated update profiles" ON public.profiles FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);`;
+CREATE POLICY "Allow authenticated update profiles" ON public.profiles FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);
+
+NOTIFY pgrst, 'reload schema';`;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

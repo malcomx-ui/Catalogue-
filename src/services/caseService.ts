@@ -5,6 +5,8 @@ import {
   canUserModifyCase,
   resolveBranchId,
   resolveBranchMeta,
+  isMissingBranchTriggerError,
+  ensureAuthUserProfileBranch,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 
@@ -110,6 +112,17 @@ export async function handleSecureInsert(newCaseData: any, userProfile?: any): P
       .insert([payload])
       .select('*');
 
+    if (error && isMissingBranchTriggerError(error)) {
+      const healed = await ensureAuthUserProfileBranch(branchId, payload.branch_name);
+      if (healed) {
+        const retry = await supabase
+          .from('cases')
+          .insert([payload])
+          .select('*');
+        error = retry.error;
+      }
+    }
+
     if (error && error.message?.includes('suit_no')) {
       const retryPayload = { ...payload };
       delete retryPayload.suit_no;
@@ -118,6 +131,26 @@ export async function handleSecureInsert(newCaseData: any, userProfile?: any): P
         .insert([retryPayload])
         .select('*');
       error = retry.error;
+    }
+
+    if (error && isMissingBranchTriggerError(error)) {
+      try {
+        const apiRes = await fetch('/api/cases', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...newCaseData,
+            branchId,
+            branchName: payload.branch_name,
+            branch_id: branchId,
+            branch_name: payload.branch_name,
+          }),
+        });
+        if (apiRes.ok) {
+          showCleanMessage('Case saved in workstation database (run Supabase RLS SQL update to restore cloud sync).', 'warning');
+          return true;
+        }
+      } catch {}
     }
 
     if (error) {
@@ -187,6 +220,18 @@ export async function handleSecureUpdate(caseId: string, updates: any, userProfi
       .update(payload)
       .eq('id', caseId)
       .select('*');
+
+    if (error && isMissingBranchTriggerError(error)) {
+      const healed = await ensureAuthUserProfileBranch(branchId, branchName);
+      if (healed) {
+        const retry = await supabase
+          .from('cases')
+          .update(payload)
+          .eq('id', caseId)
+          .select('*');
+        error = retry.error;
+      }
+    }
 
     if (error && error.message?.includes('suit_no')) {
       const retryPayload = { ...payload };

@@ -618,8 +618,10 @@ app.get('/api/cases', async (req: Request, res: Response) => {
         if (lc?.id) localById.set(String(lc.id), lc);
       });
 
+      const remoteIds = new Set<string>(data.map((r: any) => String(r?.id || '')).filter(Boolean));
+
       // Preserve newer local progressiveNotes / fileMovementHistory / transferHistory if DB lacks those columns
-      const merged = data.map((row: any) => {
+      const mergedRemote = data.map((row: any) => {
         const local = row?.id ? localById.get(String(row.id)) : null;
         if (!local) return row;
         return {
@@ -635,6 +637,12 @@ app.get('/api/cases', async (req: Request, res: Response) => {
             : (local.transferHistory || []),
         };
       });
+
+      // Retain unsynced workstation-only cases (e.g. saved locally when remote Supabase trigger blocked direct insert)
+      const unsyncedLocal = localCases.filter(
+        (lc: any) => lc?.id && String(lc.id).startsWith('case-') && !remoteIds.has(String(lc.id))
+      );
+      const merged = [...unsyncedLocal, ...mergedRemote];
 
       if (merged.length > 0) {
         (db as any).cases = merged;
@@ -657,7 +665,20 @@ app.post('/api/cases', (req: Request, res: Response) => {
     const payload = { ...(req.body || {}) };
     const id = payload.id || `case-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const nowIso = new Date().toISOString();
-    const record = { ...payload, id, lastUpdated: payload.lastUpdated || nowIso };
+    const branchMeta = resolveCanonicalBranch(
+      payload.branchId || payload.branch_id,
+      payload.branchName || payload.branch_name || payload.branch
+    );
+    const record = {
+      ...payload,
+      id,
+      branchId: branchMeta.id,
+      branch_id: branchMeta.id,
+      branchName: branchMeta.name,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      lastUpdated: payload.lastUpdated || nowIso,
+    };
 
     const list: any[] = Array.isArray(db.cases) ? db.cases : [];
     const idx = list.findIndex((c: any) => String(c.id) === String(id));
@@ -671,6 +692,55 @@ app.post('/api/cases', (req: Request, res: Response) => {
     return res.json({ success: true, data: record });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Failed to save case in workstation DB.' });
+  }
+});
+
+app.post('/api/cases/batch', (req: Request, res: Response) => {
+  try {
+    const incoming = Array.isArray(req.body?.cases) ? req.body.cases : Array.isArray(req.body) ? req.body : [];
+    if (incoming.length === 0) {
+      return res.status(400).json({ success: false, error: 'Cases array is required.' });
+    }
+    const db = readDatabase();
+    const existing: any[] = Array.isArray(db.cases) ? db.cases : [];
+    const byId = new Map<string, number>();
+    existing.forEach((c: any, idx: number) => {
+      if (c?.id) byId.set(String(c.id), idx);
+    });
+    const nowIso = new Date().toISOString();
+    const saved: any[] = [];
+    const newItems: any[] = [];
+
+    incoming.forEach((item: any, idx: number) => {
+      const id = item?.id || `case-imp-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`;
+      const branchMeta = resolveCanonicalBranch(
+        item?.branchId || item?.branch_id,
+        item?.branchName || item?.branch_name || item?.branch
+      );
+      const normalized = {
+        ...item,
+        id,
+        branchId: branchMeta.id,
+        branch_id: branchMeta.id,
+        branchName: branchMeta.name,
+        branch_name: branchMeta.name,
+        branch: branchMeta.name,
+        lastUpdated: item?.lastUpdated || nowIso,
+      };
+      saved.push(normalized);
+      const existingIdx = byId.get(String(id));
+      if (existingIdx !== undefined) {
+        existing[existingIdx] = { ...existing[existingIdx], ...normalized };
+      } else {
+        newItems.push(normalized);
+      }
+    });
+
+    (db as any).cases = [...newItems, ...existing];
+    writeDatabase(db);
+    return res.json({ success: true, count: saved.length, data: saved });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Failed to batch save cases.' });
   }
 });
 

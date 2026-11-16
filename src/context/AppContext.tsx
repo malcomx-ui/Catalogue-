@@ -51,6 +51,8 @@ import {
   clearCachedUserProfile,
   getCachedUserProfile,
   getEffectiveUser,
+  isMissingBranchTriggerError,
+  ensureAuthUserProfileBranch,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 
@@ -1020,6 +1022,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         },
       });
 
+      if (!resolvedProfile?.branch_id || !resolvedProfile?.branch_name) {
+        ensureAuthUserProfileBranch(loggedInUser.branchId, loggedInUser.branchName).catch(() => {});
+      }
+
       return {
         success: true,
         user: loggedInUser,
@@ -1395,10 +1401,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (liveCases && isMounted) {
-          setCases(liveCases);
-          try {
-            localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(liveCases));
-          } catch (e) {}
+          setCases((prev) => {
+            const remoteIds = new Set(liveCases!.map((lc) => String(lc.id)));
+            const unsyncedLocal = prev.filter(
+              (c) => c?.id && String(c.id).startsWith('case-') && !remoteIds.has(String(c.id))
+            );
+            const combined = [...unsyncedLocal, ...liveCases!];
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(combined));
+            } catch (e) {}
+            return combined;
+          });
           setIsServerConnected(true);
           setLastGlobalSync(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
@@ -2674,9 +2687,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch {}
 
     if (cloudInsertError && !serverSaved) {
-      const errMsg = cloudInsertError?.message || 'Failed to save case to database.';
-      showCleanMessage(`Case save error: ${errMsg}`, 'error');
-      throw new Error(errMsg);
+      if (isMissingBranchTriggerError(cloudInsertError)) {
+        console.warn('[addCase] Remote Supabase trigger P0001 bypassed to local storage until SQL trigger migration is applied:', cloudInsertError);
+        showCleanMessage(
+          'Case saved locally. Apply the Super Admin → Supabase RLS SQL update in Supabase to enable direct cloud sync.',
+          'warning'
+        );
+      } else {
+        const errMsg = cloudInsertError?.message || 'Failed to save case to database.';
+        showCleanMessage(`Case save error: ${errMsg}`, 'error');
+        throw new Error(errMsg);
+      }
+    } else if (cloudInsertError && serverSaved && isMissingBranchTriggerError(cloudInsertError)) {
+      console.warn('[addCase] Saved to workstation DB; remote Supabase trigger P0001 pending SQL update:', cloudInsertError);
     }
 
     setCases((prev) => {
@@ -3087,7 +3110,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (liveCases) {
         setCases((prev) => {
           const prevById = new Map(prev.map((p) => [p.id, p]));
-          const merged = liveCases!.map((lc) => {
+          const remoteIds = new Set(liveCases!.map((lc) => String(lc.id)));
+          const unsyncedLocal = prev.filter(
+            (c) => c?.id && String(c.id).startsWith('case-') && !remoteIds.has(String(c.id))
+          );
+          const mergedRemote = liveCases!.map((lc) => {
             const old = prevById.get(lc.id);
             if (!old) return lc;
             return {
@@ -3100,6 +3127,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               verdict: lc.verdict || old.verdict || '',
             };
           });
+          const merged = [...unsyncedLocal, ...mergedRemote];
           try {
             localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(merged));
           } catch (e) {}
@@ -3638,12 +3666,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       insertedCount = result.insertedCount;
 
       if (!result.success && insertedCount === 0 && result.errors.length > 0) {
-        const errorMsg = result.errors[0]?.message || 'Failed to insert cases into Supabase';
-        return { success: false, count: 0, error: errorMsg };
+        const firstErr = result.errors[0];
+        if (isMissingBranchTriggerError(firstErr)) {
+          let batchSavedCount = 0;
+          try {
+            const apiRes = await fetch('/api/cases/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cases: formattedCases }),
+            });
+            if (apiRes.ok) {
+              const apiJson = await apiRes.json().catch(() => null);
+              batchSavedCount = Number(apiJson?.count || formattedCases.length);
+            }
+          } catch {}
+
+          setCases((prev) => {
+            const nextList = [...formattedCases, ...prev];
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
+            } catch {}
+            return nextList;
+          });
+          insertedCount = batchSavedCount || formattedCases.length;
+        } else {
+          const errorMsg = firstErr?.message || 'Failed to insert cases into Supabase';
+          return { success: false, count: 0, error: errorMsg };
+        }
       }
     } catch (err: any) {
-      console.error('Error during bulkInsertCases to Supabase:', err);
-      return { success: false, count: 0, error: err.message || 'Supabase insertion failed' };
+      if (isMissingBranchTriggerError(err)) {
+        try {
+          await fetch('/api/cases/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cases: formattedCases }),
+          });
+        } catch {}
+        setCases((prev) => {
+          const nextList = [...formattedCases, ...prev];
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(nextList));
+          } catch {}
+          return nextList;
+        });
+        insertedCount = formattedCases.length;
+      } else {
+        console.error('Error during bulkInsertCases to Supabase:', err);
+        return { success: false, count: 0, error: err.message || 'Supabase insertion failed' };
+      }
     }
 
     // 3. Immediately trigger a fresh database fetch from Supabase
