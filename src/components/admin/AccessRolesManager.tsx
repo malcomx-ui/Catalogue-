@@ -257,7 +257,11 @@ export const AccessRolesManager: React.FC = () => {
         setUserEmail('');
         setUserRollNo('');
         setUserPassword('MK@Law2026');
-        showToast('success', `Staff account created for ${result.user?.name || userEmail}. They can now log in immediately.`);
+        if (result.warning) {
+          showToast('warning', result.warning);
+        } else {
+          showToast('success', `Staff account created for ${result.user?.name || userEmail} and saved to Supabase. They can sign in immediately.`);
+        }
         if (result.user) {
           setWelcomeUser(result.user);
         }
@@ -377,7 +381,24 @@ export const AccessRolesManager: React.FC = () => {
     deletes: auditLogs.filter((l) => l.action === 'DELETE').length,
   };
 
-  const rlsSqlSnippet = `-- Branch Administrator Strict Isolation & Super Admin Governance Policy
+  const rlsSqlSnippet = `-- Super Admin Governance & Staff Provisioning Policy (public.profiles + public.firm_users)
+ALTER TABLE IF EXISTS public.profiles
+  ADD COLUMN IF NOT EXISTS can_import_mortgages BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS advocate_roll_no TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_branch_admin BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS suspended_reason TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS role_id TEXT DEFAULT 'role-advocate',
+  ADD COLUMN IF NOT EXISTS role_title TEXT DEFAULT 'Litigation Lawyer / Associate',
+  ADD COLUMN IF NOT EXISTS branch_id TEXT,
+  ADD COLUMN IF NOT EXISTS branch_name TEXT,
+  ADD COLUMN IF NOT EXISTS branch TEXT;
+
+ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE IF EXISTS public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
 CREATE OR REPLACE FUNCTION public.is_partner_or_superadmin()
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
 DECLARE v_email TEXT;
@@ -391,7 +412,14 @@ BEGIN
       AND (is_super_admin IS TRUE OR LOWER(COALESCE(role, '')) IN ('partner', 'super_admin', 'superadmin', 'managing_partner'))
   );
 END;
-$$;`;
+$$;
+
+DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated, anon USING (true);
+DROP POLICY IF EXISTS "Allow authenticated insert profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated insert profiles" ON public.profiles FOR INSERT TO authenticated, anon WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated update profiles" ON public.profiles;
+CREATE POLICY "Allow authenticated update profiles" ON public.profiles FOR UPDATE TO authenticated, anon USING (true) WITH CHECK (true);`;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-11-14T12:11:26.441Z",
+  "lastUpdated": "2026-11-16T11:13:15.086Z",
   "cases": [],
   "hearings": [],
   "documents": [],
@@ -114,6 +114,8 @@
       "branchName": "Kampala Central (Head Office)",
       "isSuperAdmin": true,
       "isBranchAdmin": false,
+      "can_import_mortgages": false,
+      "canImportMortgages": false,
       "isSuspended": false,
       "advocateRollNo": "",
       "password": "Admin@2026",
@@ -134,6 +136,7 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": true,
+        "can_import_mortgages": true,
         "canBulkExport": true,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -144,7 +147,8 @@
         "canManageRoles": true,
         "canManageUsers": true,
         "canManageBranches": true,
-        "canManageSettings": true
+        "canManageSettings": true,
+        "canImportMortgages": true
       }
     },
     {
@@ -160,6 +164,7 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
+        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -170,7 +175,8 @@
         "canManageRoles": false,
         "canManageUsers": false,
         "canManageBranches": false,
-        "canManageSettings": false
+        "canManageSettings": false,
+        "canImportMortgages": false
       }
     },
     {
@@ -211,6 +217,7 @@
         "canEditCases": true,
         "canDeleteCases": false,
         "canBulkImport": false,
+        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": false,
         "canScheduleHearings": true,
@@ -221,7 +228,8 @@
         "canManageRoles": false,
         "canManageUsers": false,
         "canManageBranches": false,
-        "canManageSettings": false
+        "canManageSettings": false,
+        "canImportMortgages": false
       }
     },
     {
@@ -237,6 +245,7 @@
         "canEditCases": false,
         "canDeleteCases": false,
         "canBulkImport": false,
+        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": false,
@@ -247,7 +256,8 @@
         "canManageRoles": false,
         "canManageUsers": false,
         "canManageBranches": false,
-        "canManageSettings": false
+        "canManageSettings": false,
+        "canImportMortgages": false
       }
     },
     {
@@ -263,6 +273,7 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
+        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -273,7 +284,8 @@
         "canManageRoles": false,
         "canManageUsers": false,
         "canManageBranches": false,
-        "canManageSettings": false
+        "canManageSettings": false,
+        "canImportMortgages": false
       }
     },
     {
@@ -289,6 +301,7 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
+        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -299,7 +312,8 @@
         "canManageRoles": false,
         "canManageUsers": false,
         "canManageBranches": false,
-        "canManageSettings": false
+        "canManageSettings": false,
+        "canImportMortgages": false
       }
     }
   ],

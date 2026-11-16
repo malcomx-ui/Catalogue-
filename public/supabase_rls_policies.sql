@@ -332,7 +332,7 @@ CREATE POLICY "Users Insert Audit Logs" ON public.audit_logs
   WITH CHECK (true);
 
 -- ==============================================================================
--- RLS POLICIES FOR 'profiles' TABLE
+-- RLS POLICIES FOR 'profiles' TABLE & STAFF PROVISIONING
 -- ==============================================================================
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS branch_id TEXT;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS branch_name TEXT;
@@ -342,9 +342,15 @@ ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS role_id TEXT;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS role_title TEXT;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN DEFAULT false;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS is_branch_admin BOOLEAN DEFAULT false;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS can_import_mortgages BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN DEFAULT false;
+ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS suspended_reason TEXT DEFAULT '';
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS advocate_roll_no TEXT DEFAULT '';
 ALTER TABLE IF EXISTS public.profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now());
+
+ALTER TABLE IF EXISTS public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+ALTER TABLE IF EXISTS public.profiles ALTER COLUMN id SET DEFAULT gen_random_uuid();
 ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
@@ -372,6 +378,77 @@ ON public.profiles
 FOR INSERT
 TO authenticated, anon
 WITH CHECK (true);
+
+CREATE OR REPLACE FUNCTION public.admin_upsert_staff_profile(
+  p_id UUID,
+  p_email TEXT,
+  p_full_name TEXT,
+  p_role TEXT DEFAULT 'lawyer',
+  p_role_id TEXT DEFAULT 'role-advocate',
+  p_role_title TEXT DEFAULT 'Litigation Lawyer / Associate',
+  p_branch_id TEXT DEFAULT 'kla-hq',
+  p_branch_name TEXT DEFAULT 'Kampala Central (Head Office)',
+  p_is_super_admin BOOLEAN DEFAULT false,
+  p_is_branch_admin BOOLEAN DEFAULT false,
+  p_can_import_mortgages BOOLEAN DEFAULT false,
+  p_must_change_password BOOLEAN DEFAULT true,
+  p_advocate_roll_no TEXT DEFAULT ''
+)
+RETURNS SETOF public.profiles
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_clean_email TEXT := LOWER(TRIM(COALESCE(p_email, '')));
+  v_existing_id UUID;
+  v_target_id UUID;
+BEGIN
+  IF v_clean_email = '' THEN
+    RAISE EXCEPTION 'Email is required for staff provisioning';
+  END IF;
+
+  SELECT id INTO v_existing_id FROM public.profiles WHERE LOWER(email) = v_clean_email LIMIT 1;
+  v_target_id := COALESCE(v_existing_id, p_id, gen_random_uuid());
+
+  IF v_existing_id IS NOT NULL THEN
+    UPDATE public.profiles
+    SET
+      full_name = COALESCE(NULLIF(TRIM(p_full_name), ''), full_name),
+      email = v_clean_email,
+      role = COALESCE(p_role, role),
+      role_id = COALESCE(p_role_id, role_id),
+      role_title = COALESCE(p_role_title, role_title),
+      branch = COALESCE(p_branch_name, branch),
+      branch_id = COALESCE(p_branch_id, branch_id),
+      branch_name = COALESCE(p_branch_name, branch_name),
+      is_super_admin = COALESCE(p_is_super_admin, is_super_admin),
+      is_branch_admin = COALESCE(p_is_branch_admin, is_branch_admin),
+      can_import_mortgages = COALESCE(p_can_import_mortgages, can_import_mortgages),
+      must_change_password = COALESCE(p_must_change_password, must_change_password),
+      advocate_roll_no = COALESCE(NULLIF(p_advocate_roll_no, ''), advocate_roll_no),
+      updated_at = timezone('utc'::text, now())
+    WHERE id = v_existing_id;
+  ELSE
+    INSERT INTO public.profiles (
+      id, full_name, email, role, role_id, role_title,
+      branch, branch_id, branch_name,
+      is_super_admin, is_branch_admin, can_import_mortgages,
+      must_change_password, is_suspended, advocate_roll_no, updated_at
+    ) VALUES (
+      v_target_id, TRIM(p_full_name), v_clean_email, p_role, p_role_id, p_role_title,
+      p_branch_name, p_branch_id, p_branch_name,
+      COALESCE(p_is_super_admin, false), COALESCE(p_is_branch_admin, false), COALESCE(p_can_import_mortgages, false),
+      COALESCE(p_must_change_password, true), false, COALESCE(p_advocate_roll_no, ''), timezone('utc'::text, now())
+    );
+  END IF;
+
+  RETURN QUERY SELECT * FROM public.profiles WHERE id = v_target_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_upsert_staff_profile(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_upsert_staff_profile(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, TEXT) TO authenticated, anon, service_role;
 
 -- ==============================================================================
 -- RLS POLICIES FOR 'mortgages', 'mortgage_cases', & 'litigation_cases' TABLES

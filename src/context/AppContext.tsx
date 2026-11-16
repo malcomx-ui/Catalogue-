@@ -33,6 +33,8 @@ import {
   isSupabaseConfigured,
   supabase,
   mapRowToCase,
+  mapRowToUser,
+  generateUuid,
   resolveBranchId,
   resolveBranchMeta,
   resolveUserRoleMeta,
@@ -183,7 +185,7 @@ interface AppContextType {
   assignUserRole: (userId: string, roleId: string) => Promise<{ success: boolean; error?: string; warning?: string }>;
   
   // User Management (Super Admin)
-  addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; user?: User }>;
+  addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string; warning?: string; supabaseSynced?: boolean; user?: User }>;
   updateUser: (userId: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string; warning?: string }>;
   handleSaveStaff: (userId: string, newName: string, newRole: string, newBranchId?: string, options?: any) => Promise<{ success: boolean; error?: string }>;
   updateUserPassword: (userId: string, newPass: string) => Promise<{ success: boolean; error?: string }>;
@@ -829,7 +831,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: cleanEmail, password: cleanPass }),
           });
-          const apiJson = await apiRes.json().catch(() => null);
+          const contentType = apiRes.headers.get('content-type') || '';
+          const apiJson = contentType.includes('application/json') ? await apiRes.json().catch(() => null) : null;
           if (apiRes.ok && apiJson?.success && apiJson?.user) {
             if (apiJson.user.isSuspended) {
               return {
@@ -846,7 +849,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               user: loggedInUser,
               requirePasswordChange: Boolean(loggedInUser.mustChangePassword),
             };
-          } else if (apiRes.status === 401 || apiRes.status === 403) {
+          } else if (apiRes.status === 403 || (apiRes.status === 401 && apiJson?.invalidCredentials && !apiJson?.accountNotFound)) {
             return {
               success: false,
               error: apiJson?.error || 'Invalid email or password. Please verify your credentials.',
@@ -856,18 +859,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn('[Auth] Backend login endpoint unreachable, trying directory verification:', apiErr);
         }
 
-        // 3. Offline / sandbox directory fallback if both Supabase Auth and backend endpoint didn't match
+        // 3. Direct Supabase profiles & browser directory fallback (handles Vercel SPA or freshly provisioned local accounts)
         let liveDirectory = availableUsers;
         try {
           const fetched = await SupabaseService.fetchStaff();
           if (Array.isArray(fetched) && fetched.length > 0) {
-            liveDirectory = fetched;
+            const merged = [...fetched];
+            availableUsers.forEach((localU) => {
+              const idx = merged.findIndex((f) => f.email.toLowerCase() === localU.email.toLowerCase());
+              if (idx < 0) {
+                merged.push(localU);
+              } else if (!merged[idx].password && (localU.password || localU.temporaryPassword)) {
+                merged[idx] = {
+                  ...merged[idx],
+                  password: localU.password || localU.temporaryPassword,
+                  temporaryPassword: localU.temporaryPassword,
+                };
+              }
+            });
+            liveDirectory = merged;
           }
         } catch (e) {}
 
-        const matchedUser = liveDirectory.find(
+        let matchedUser = liveDirectory.find(
           (u) => u.email.toLowerCase() === cleanEmail || u.name.toLowerCase() === cleanEmail
         );
+
+        // If still not found, query Supabase public.profiles directly by email
+        if (!matchedUser && isSupabaseConfigured) {
+          try {
+            const { data: directProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .ilike('email', cleanEmail)
+              .maybeSingle();
+            if (directProfile) {
+              matchedUser = mapRowToUser(directProfile);
+            }
+          } catch {}
+        }
+
         if (matchedUser && (matchedUser.password === cleanPass || matchedUser.temporaryPassword === cleanPass)) {
           if (matchedUser.isSuspended) {
             return {
@@ -888,6 +919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               branch_name: matchedUser.branchName,
               is_super_admin: matchedUser.isSuperAdmin,
               is_branch_admin: matchedUser.isBranchAdmin,
+              can_import_mortgages: matchedUser.can_import_mortgages,
               must_change_password: matchedUser.mustChangePassword,
             },
           });
@@ -1730,10 +1762,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const liveStaff = await SupabaseService.fetchStaff();
       if (Array.isArray(liveStaff) && liveStaff.length > 0) {
-        setAvailableUsers(liveStaff);
-        try {
-          localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(liveStaff));
-        } catch (e) {}
+        setAvailableUsers((prev) => {
+          const merged = liveStaff.map((u) => {
+            const existing = prev.find((p) => p.email.toLowerCase() === u.email.toLowerCase());
+            if (existing && !u.password && (existing.password || existing.temporaryPassword)) {
+              return {
+                ...u,
+                password: existing.password || existing.temporaryPassword,
+                temporaryPassword: existing.temporaryPassword,
+              };
+            }
+            return u;
+          });
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
 
         // Keep current logged-in user in sync with fresh database profile
         setCurrentUser((current) => {
@@ -1820,7 +1865,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // User Management Methods (Super Admin: Add, Edit, Suspend, Delete)
-  const addUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string; user?: User }> => {
+  const addUser = async (userData: Partial<User>): Promise<{ success: boolean; error?: string; warning?: string; supabaseSynced?: boolean; user?: User }> => {
     if (!userPermissions.canManageUsers && !isUserAdmin(currentUser)) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
@@ -1846,7 +1891,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initialPass = userData.password?.trim() || 'MK@Law2026';
 
     const newUser: User = {
-      id: `user-${Date.now()}`,
+      id: generateUuid(),
       name: userData.name.trim(),
       email: cleanEmail,
       role: (assignedRole.id.startsWith('role-custom-') ? assignedRole.id : roleMeta.role) as any,
@@ -1867,6 +1912,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 1. Provision via backend API (/api/users/create) -> handles Auth user, Supabase profiles/firm_users, & server DB
     let provisionedUser = newUser;
+    let backendSaved = false;
+    let authUserCreated = false;
+    let profileSynced = false;
+    let supabaseErrorReason: string | undefined;
+
     try {
       const session = (await supabase.auth.getSession())?.data?.session;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -1895,8 +1945,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }),
       });
 
-      const json = await apiRes.json().catch(() => null);
+      const contentType = apiRes.headers.get('content-type') || '';
+      const json = contentType.includes('application/json') ? await apiRes.json().catch(() => null) : null;
+
       if (apiRes.ok && json?.success && json.user) {
+        backendSaved = true;
+        authUserCreated = Boolean(json.authUserCreated);
+        profileSynced = Boolean(json.profileSynced || json.firmUserSynced);
+        if (!profileSynced && json.profileError) {
+          supabaseErrorReason = json.profileError;
+        } else if (!authUserCreated && json.authError) {
+          supabaseErrorReason = json.authError;
+        }
         provisionedUser = {
           ...newUser,
           ...json.user,
@@ -1911,14 +1971,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn('[addUser] Backend createUser notice:', apiErr);
     }
 
-    // 2. Ensure profiles & firm_users tables also receive the record directly from client if permitted
-    try {
-      await SupabaseService.insertStaff(provisionedUser);
-    } catch (err: any) {
-      console.warn('Direct Supabase insertStaff notice:', err);
+    // 2. If Auth user was not created by server (e.g. Vercel static SPA), attempt non-persisting signUp
+    if (!authUserCreated && isSupabaseConfigured) {
+      const authFallback = await SupabaseService.provisionAuthUserNonPersisting({
+        name: provisionedUser.name,
+        email: cleanEmail,
+        password: initialPass,
+        role: provisionedUser.role,
+        roleId: provisionedUser.roleId,
+        roleTitle: provisionedUser.roleTitle,
+        branchId: provisionedUser.branchId,
+        branchName: provisionedUser.branchName,
+        isSuperAdmin: provisionedUser.isSuperAdmin,
+        isBranchAdmin: provisionedUser.isBranchAdmin,
+        canImportMortgages: provisionedUser.can_import_mortgages,
+        mustChangePassword: provisionedUser.mustChangePassword,
+        advocateRollNo: provisionedUser.advocateRollNo,
+      });
+      if (authFallback.authUserId) {
+        provisionedUser = { ...provisionedUser, id: authFallback.authUserId };
+        authUserCreated = authFallback.authCreated;
+      } else if (authFallback.error && !supabaseErrorReason) {
+        supabaseErrorReason = authFallback.error;
+      }
     }
 
-    // 3. Update local state & merge with live staff directory
+    // 3. Ensure profiles & firm_users tables receive the record directly from authenticated client
+    if (!profileSynced) {
+      try {
+        const directRes = await SupabaseService.insertStaff(provisionedUser);
+        if (directRes.success && (directRes.profileSaved || directRes.firmUsersSaved)) {
+          profileSynced = true;
+          supabaseErrorReason = undefined;
+          if (directRes.data?.id) {
+            provisionedUser = { ...provisionedUser, id: String(directRes.data.id) };
+          }
+        } else if (directRes.error || directRes.warning) {
+          supabaseErrorReason = directRes.error || directRes.warning || supabaseErrorReason;
+        }
+      } catch (err: any) {
+        console.warn('Direct Supabase insertStaff notice:', err);
+        supabaseErrorReason = err?.message || supabaseErrorReason;
+      }
+    }
+
+    const supabaseSynced = Boolean(authUserCreated || profileSynced);
+
+    // 4. Update local state & merge with live staff directory
     setAvailableUsers((prev) => {
       const filtered = prev.filter((u) => u.id !== provisionedUser.id && u.email.toLowerCase() !== cleanEmail);
       const updated = [provisionedUser, ...filtered];
@@ -1930,17 +2029,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await refreshStaffFromSupabase();
 
-    // Guarantee newly provisioned user remains present if backend/Supabase haven't propagated yet
+    // Guarantee newly provisioned user remains present with initial password in browser directory
     setAvailableUsers((prev) => {
-      if (prev.some((u) => u.email.toLowerCase() === cleanEmail)) return prev;
-      const updated = [provisionedUser, ...prev];
+      const existingIdx = prev.findIndex((u) => u.email.toLowerCase() === cleanEmail);
+      let updated: User[];
+      if (existingIdx >= 0) {
+        updated = prev.map((u, i) =>
+          i === existingIdx
+            ? {
+                ...u,
+                password: u.password || initialPass,
+                temporaryPassword: u.temporaryPassword || initialPass,
+              }
+            : u
+        );
+      } else {
+        updated = [provisionedUser, ...prev];
+      }
       try {
         localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(updated));
       } catch (e) {}
       return updated;
     });
 
-    return { success: true, user: provisionedUser };
+    if (!backendSaved && !supabaseSynced) {
+      return {
+        success: false,
+        supabaseSynced: false,
+        error:
+          supabaseErrorReason ||
+          'Could not save staff account to Supabase or central server. Please configure SUPABASE_SERVICE_ROLE_KEY or apply the Supabase RLS SQL migration.',
+      };
+    }
+
+    const warning = !supabaseSynced
+      ? `Saved in firm portal database (${provisionedUser.email} can sign in here), but Supabase cloud sync was blocked${supabaseErrorReason ? `: ${supabaseErrorReason}` : ''}. Configure SUPABASE_SERVICE_ROLE_KEY or run the updated Supabase RLS SQL in the RLS tab for cross-device Supabase persistence.`
+      : undefined;
+
+    return { success: true, supabaseSynced, warning, user: provisionedUser };
   };
 
   // Super Admin can edit/change user details including name, email, password, role, branch
@@ -2168,8 +2294,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const target = availableUsers.find((u) => u.id === userId) || (currentUser.id === userId ? currentUser : undefined);
 
-    setAvailableUsers((prev) =>
-      prev.map((u) => {
+    setAvailableUsers((prev) => {
+      const next = prev.map((u) => {
         if (u.id === userId) {
           const updated: User = {
             ...u,
@@ -2184,8 +2310,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return updated;
         }
         return u;
-      })
-    );
+      });
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
 
     try {
       await SupabaseService.updateStaff(userId, {

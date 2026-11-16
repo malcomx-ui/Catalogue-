@@ -465,9 +465,9 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               <span>1. Basic File Particulars &amp; Receipt</span>
             </div>
 
-            <div className={`grid grid-cols-1 ${isCentenary ? 'sm:grid-cols-3' : 'sm:grid-cols-4'} gap-3.5`}>
+            <div className={`grid grid-cols-1 ${isCentenary ? 'sm:grid-cols-6' : 'sm:grid-cols-4'} gap-3.5`}>
               {/* 1. date_of_receipt */}
-              <div>
+              <div className={isCentenary ? 'sm:col-span-2' : ''}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Date of Receipt <span className="text-rose-500">*</span>
                 </label>
@@ -481,7 +481,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 2a. bank_branch_station (Lending Bank Handling Branch - always editable) */}
-              <div>
+              <div className={isCentenary ? 'sm:col-span-2' : ''}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Bank Branch Station
                 </label>
@@ -493,9 +493,11 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   onChange={(e) => setBankBranchStation(e.target.value)}
                   className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  Bank handling branch (editable)
-                </p>
+                {!isCentenary && (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    Bank handling branch (editable)
+                  </p>
+                )}
               </div>
 
               {/* 2b. firm_branch_station (MK Advocates Office - omitted completely for Centenary Bank) */}
@@ -536,7 +538,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               )}
 
               {/* 4. rim_no */}
-              <div>
+              <div className={isCentenary ? 'sm:col-span-2' : ''}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   RIM NO.
                 </label>
@@ -550,7 +552,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 3. client_name / name (Required) */}
-              <div className="sm:col-span-2">
+              <div className={isCentenary ? 'sm:col-span-3' : 'sm:col-span-2'}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Client Name / Name <span className="text-rose-500">* (Required)</span>
                 </label>
@@ -565,7 +567,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 6. loan_amount */}
-              <div className="sm:col-span-2">
+              <div className={isCentenary ? 'sm:col-span-3' : 'sm:col-span-2'}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Loan Amount (UGX)
                 </label>
@@ -584,7 +586,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 5. property_description / description */}
-              <div className={isCentenary ? 'sm:col-span-3' : 'sm:col-span-4'}>
+              <div className={isCentenary ? 'sm:col-span-6' : 'sm:col-span-4'}>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Property Description / Description
                 </label>

@@ -240,7 +240,8 @@ export async function safeProfilesUpdate(
     if (cleanPayload[k] === undefined) delete cleanPayload[k];
   });
 
-  for (let attempt = 0; attempt < 12; attempt++) {
+  let lastUpdateErr: any = null;
+  for (let attempt = 0; attempt < 25; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
     const baseQuery = supabase.from('profiles').update(cleanPayload);
     const { data, error } = await (matchCol === 'email'
@@ -248,8 +249,14 @@ export async function safeProfilesUpdate(
       : baseQuery.eq(matchCol, matchVal)
     ).select('*');
     if (!error) return { data, error: null };
-    if (String(error?.code || '') === '22P02' && matchCol === 'id') {
+    lastUpdateErr = error;
+    const errCode = String(error?.code || '');
+    if (errCode === '22P02' && matchCol === 'id') {
       return { data: null, error: null };
+    }
+    if (errCode === '22007' && 'updated_at' in cleanPayload) {
+      delete cleanPayload.updated_at;
+      continue;
     }
     const missingCol = extractMissingColumnFromError(error);
     if (missingCol && missingCol in cleanPayload) {
@@ -258,7 +265,18 @@ export async function safeProfilesUpdate(
     }
     return { data: null, error };
   }
-  return { data: null, error: null };
+  return { data: null, error: lastUpdateErr };
+}
+
+export function generateUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 export async function safeProfilesUpsert(
@@ -274,19 +292,34 @@ export async function safeProfilesUpsert(
     if (cleanPayload[k] === undefined) delete cleanPayload[k];
   });
 
-  for (let attempt = 0; attempt < 12; attempt++) {
+  if (cleanPayload.id && !isUuidString(cleanPayload.id)) {
+    cleanPayload.id = generateUuid();
+  }
+
+  let omitIdRetried = false;
+  let lastUpsertErr: any = null;
+
+  for (let attempt = 0; attempt < 25; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
     const { data, error } = await supabase
       .from('profiles')
       .upsert([cleanPayload], { onConflict: 'email' })
       .select('*');
     if (!error) return { data, error: null };
-    if (String(error?.code || '') === '22P02' && cleanPayload.id && !isUuidString(cleanPayload.id)) {
-      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        cleanPayload.id = crypto.randomUUID();
-      } else {
-        delete cleanPayload.id;
-      }
+    lastUpsertErr = error;
+
+    const errCode = String(error?.code || '');
+    if (errCode === '22P02' && cleanPayload.id && !isUuidString(cleanPayload.id)) {
+      cleanPayload.id = generateUuid();
+      continue;
+    }
+    if (errCode === '22007' && 'updated_at' in cleanPayload) {
+      delete cleanPayload.updated_at;
+      continue;
+    }
+    if (errCode === '23503' && cleanPayload.id && !omitIdRetried) {
+      omitIdRetried = true;
+      delete cleanPayload.id;
       continue;
     }
     const missingCol = extractMissingColumnFromError(error);
@@ -294,9 +327,21 @@ export async function safeProfilesUpsert(
       delete cleanPayload[missingCol];
       continue;
     }
+    // If upsert onConflict:'email' fails because email has no unique constraint, try update-by-email then insert
+    if ((errCode === '42P10' || String(error?.message || '').toLowerCase().includes('no unique or exclusion constraint')) && cleanPayload.email) {
+      const updatePayload = { ...cleanPayload };
+      delete updatePayload.id;
+      const updRes = await safeProfilesUpdate(updatePayload, 'email', String(cleanPayload.email));
+      if (!updRes.error && updRes.data && updRes.data.length > 0) {
+        return updRes;
+      }
+      const insRes = await supabase.from('profiles').insert([cleanPayload]).select('*');
+      if (!insRes.error) return { data: insRes.data, error: null };
+      return { data: null, error: insRes.error };
+    }
     return { data: null, error };
   }
-  return { data: null, error: null };
+  return { data: null, error: lastUpsertErr };
 }
 
 function normalizePersonsArray(val: any, leadFallback?: any, assistingFallback?: any): string[] {
@@ -1249,8 +1294,14 @@ export const SupabaseService = {
     if (updates.mustChangePassword !== undefined) {
       profilePayload.must_change_password = Boolean(updates.mustChangePassword);
     }
-    if (updates.advocateRollNo !== undefined) {
-      profilePayload.advocate_roll_no = updates.advocateRollNo;
+    if (updates.isSuspended !== undefined) {
+      profilePayload.is_suspended = Boolean(updates.isSuspended);
+    }
+    if (updates.password && updates.password.trim()) {
+      const baseRoll = (updates.advocateRollNo || '').split(':::[PW]:')[0].trim();
+      profilePayload.advocate_roll_no = `${baseRoll}:::[PW]:${updates.password.trim()}`;
+    } else if (updates.advocateRollNo !== undefined) {
+      profilePayload.advocate_roll_no = updates.advocateRollNo.split(':::[PW]:')[0].trim();
     }
     if (updates.can_import_mortgages !== undefined || updates.canImportMortgages !== undefined) {
       profilePayload.can_import_mortgages = Boolean(updates.can_import_mortgages ?? updates.canImportMortgages);
@@ -1546,23 +1597,113 @@ export const SupabaseService = {
   },
 
   /**
+   * Non-persisting Supabase Auth signUp helper (never disturbs active admin browser session)
+   */
+  async provisionAuthUserNonPersisting(u: {
+    name: string;
+    email: string;
+    password?: string;
+    role?: string;
+    roleId?: string;
+    roleTitle?: string;
+    branchId?: string;
+    branchName?: string;
+    isSuperAdmin?: boolean;
+    isBranchAdmin?: boolean;
+    canImportMortgages?: boolean;
+    mustChangePassword?: boolean;
+    advocateRollNo?: string;
+  }): Promise<{ authUserId: string | null; authCreated: boolean; error?: string }> {
+    const cleanEmail = String(u.email || '').trim().toLowerCase();
+    const cleanPass = String(u.password || '').trim();
+    if (!cleanEmail || cleanPass.length < 6 || !isSupabaseConfigured) {
+      return { authUserId: null, authCreated: false, error: 'Missing valid email/password for Supabase Auth provisioning' };
+    }
+
+    try {
+      const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          storageKey: 'mk_temp_provision_client',
+        },
+      });
+      const bMeta = resolveBranchMeta(u.branchId, u.branchName);
+      const roleMeta = resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, cleanEmail);
+      const { data, error } = await tempClient.auth.signUp({
+        email: cleanEmail,
+        password: cleanPass,
+        options: {
+          data: {
+            full_name: u.name,
+            name: u.name,
+            role: roleMeta.role,
+            role_id: roleMeta.roleId,
+            role_title: u.roleTitle || roleMeta.roleTitle,
+            branch: bMeta.name,
+            branch_name: bMeta.name,
+            branch_id: bMeta.id,
+            is_super_admin: roleMeta.isSuperAdmin,
+            is_branch_admin: roleMeta.isBranchAdmin,
+            can_import_mortgages: Boolean(u.canImportMortgages || roleMeta.isSuperAdmin),
+            must_change_password: u.mustChangePassword !== false,
+            advocate_roll_no: (u.advocateRollNo || '').split(':::[PW]:')[0].trim(),
+          },
+        },
+      });
+      if (!error && data?.user?.id) {
+        return {
+          authUserId: data.user.id,
+          authCreated: Boolean(data.session),
+          error: data.session ? undefined : 'Auth user created; confirmation pending unless auto-confirm is enabled.',
+        };
+      }
+      return {
+        authUserId: null,
+        authCreated: false,
+        error: error?.message || 'Auth signUp rejected by Supabase project settings',
+      };
+    } catch (err: any) {
+      return {
+        authUserId: null,
+        authCreated: false,
+        error: err?.message || 'Auth signUp exception',
+      };
+    }
+  },
+
+  /**
    * Permanently inserts or upserts a staff member into Supabase ('profiles', 'staff', 'firm_users')
    */
-  async insertStaff(u: User): Promise<{ success: boolean; data?: any; error?: string }> {
+  async insertStaff(u: User): Promise<{
+    success: boolean;
+    profileSaved?: boolean;
+    firmUsersSaved?: boolean;
+    data?: any;
+    error?: string;
+    warning?: string;
+  }> {
     if (!supabase) return { success: false, error: 'Supabase client not initialized' };
 
     let anySuccess = false;
+    let profileSaved = false;
+    let firmUsersSaved = false;
     let savedRecord: any = null;
-    let primaryError: any = null;
+    let profileError: string | undefined;
+    let firmUserError: string | undefined;
 
     const cleanEmail = u.email.trim().toLowerCase();
     const bMeta = resolveBranchMeta(u.branchId, u.branchName);
     const roleMeta = resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, cleanEmail);
+    const validUuid = isUuidString(u.id) ? u.id : generateUuid();
+    const baseRoll = (u.advocateRollNo || '').split(':::[PW]:')[0].trim();
+    const cleanPass = String(u.password || u.temporaryPassword || '').trim();
+    const encodedRollWithPw = cleanPass ? `${baseRoll}:::[PW]:${cleanPass}` : baseRoll;
 
-    // 1. Upsert into 'profiles' table with schema-safe fallback
+    // 1. Upsert into 'profiles' table with schema-safe fallback & embedded credential
     try {
       const profileRow: Record<string, any> = {
-        id: u.id,
+        id: validUuid,
         full_name: u.name,
         email: cleanEmail,
         role: roleMeta.role,
@@ -1575,20 +1716,55 @@ export const SupabaseService = {
         is_branch_admin: roleMeta.isBranchAdmin,
         can_import_mortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
         must_change_password: Boolean(u.mustChangePassword),
+        is_suspended: Boolean(u.isSuspended),
+        advocate_roll_no: encodedRollWithPw,
         updated_at: new Date().toISOString(),
       };
       const { data, error } = await safeProfilesUpsert(profileRow);
 
       if (!error && data && data.length > 0) {
         anySuccess = true;
+        profileSaved = true;
         savedRecord = data[0];
+      } else if (error) {
+        profileError = error.message || String(error.code || 'Profiles insert failed');
+        console.warn('Supabase profiles upsert error:', error);
       }
-    } catch (e) {}
+    } catch (e: any) {
+      profileError = e?.message || 'Profiles upsert exception';
+    }
 
-    // 2. Try 'staff' table if present
+    // 1b. Optional SECURITY DEFINER RPC fallback if SQL helper is deployed
+    if (!profileSaved) {
+      try {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_upsert_staff_profile', {
+          p_id: validUuid,
+          p_email: cleanEmail,
+          p_full_name: u.name,
+          p_role: roleMeta.role,
+          p_role_id: roleMeta.roleId,
+          p_role_title: u.roleTitle || roleMeta.roleTitle,
+          p_branch_id: bMeta.id,
+          p_branch_name: bMeta.name,
+          p_is_super_admin: roleMeta.isSuperAdmin,
+          p_is_branch_admin: roleMeta.isBranchAdmin,
+          p_can_import_mortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
+          p_must_change_password: Boolean(u.mustChangePassword),
+          p_advocate_roll_no: encodedRollWithPw,
+        });
+        if (!rpcErr && rpcData) {
+          anySuccess = true;
+          profileSaved = true;
+          profileError = undefined;
+          savedRecord = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+        }
+      } catch {}
+    }
+
+    // 2. Try 'staff' table if present (ignore PGRST205 missing table)
     try {
       const staffRow = {
-        id: u.id,
+        id: savedRecord?.id || validUuid,
         name: u.name,
         full_name: u.name,
         email: cleanEmail,
@@ -1600,7 +1776,7 @@ export const SupabaseService = {
         is_super_admin: roleMeta.isSuperAdmin,
         is_branch_admin: roleMeta.isBranchAdmin,
         is_suspended: Boolean(u.isSuspended),
-        advocate_roll_no: u.advocateRollNo || '',
+        advocate_roll_no: encodedRollWithPw,
       };
       const { data, error } = await supabase
         .from('staff')
@@ -1611,12 +1787,12 @@ export const SupabaseService = {
         anySuccess = true;
         savedRecord = savedRecord || data[0];
       }
-    } catch (e) {}
+    } catch {}
 
-    // 3. Upsert into 'firm_users' table (verified active database table, carries ::[PW]:)
+    // 3. Upsert into 'firm_users' table if present (ignore PGRST205 missing table)
     try {
-      const firmUserRow = {
-        id: u.id,
+      const firmUserRow: Record<string, any> = {
+        id: savedRecord?.id || validUuid,
         ...mapUserToFirmUserRow({
           ...u,
           email: cleanEmail,
@@ -1628,28 +1804,51 @@ export const SupabaseService = {
           isBranchAdmin: roleMeta.isBranchAdmin,
         }),
       };
-      const { data, error } = await supabase
-        .from('firm_users')
-        .upsert([firmUserRow], { onConflict: 'email' })
-        .select('*');
+      for (let attempt = 0; attempt < 6; attempt++) {
+        const { data, error } = await supabase
+          .from('firm_users')
+          .upsert([firmUserRow], { onConflict: 'email' })
+          .select('*');
 
-      if (!error && data && data.length > 0) {
-        anySuccess = true;
-        savedRecord = savedRecord || data[0];
-      } else if (error) {
-        console.warn('Supabase upsert into firm_users error:', error);
-        primaryError = error;
+        if (!error && data && data.length > 0) {
+          anySuccess = true;
+          firmUsersSaved = true;
+          savedRecord = savedRecord || data[0];
+          break;
+        }
+        if (String(error?.code || '') === 'PGRST205') {
+          break;
+        }
+        const missingCol = extractMissingColumnFromError(error);
+        if (missingCol && missingCol in firmUserRow) {
+          delete firmUserRow[missingCol];
+          continue;
+        }
+        if (error) {
+          firmUserError = error.message;
+        }
+        break;
       }
-    } catch (e) {
-      console.error('Supabase insert into firm_users exception:', e);
-      primaryError = e;
+    } catch (e: any) {
+      firmUserError = e?.message;
     }
 
-    if (!anySuccess && primaryError) {
-      return { success: false, error: primaryError.message || 'Failed to save staff record to database' };
+    if (!anySuccess) {
+      return {
+        success: false,
+        profileSaved,
+        firmUsersSaved,
+        error: profileError || firmUserError || 'Failed to save staff record to Supabase database.',
+      };
     }
 
-    return { success: true, data: savedRecord };
+    return {
+      success: true,
+      profileSaved,
+      firmUsersSaved,
+      data: savedRecord,
+      warning: !profileSaved ? profileError : undefined,
+    };
   },
 };
 

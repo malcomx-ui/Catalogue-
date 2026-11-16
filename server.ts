@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 
@@ -535,27 +536,42 @@ app.post('/api/database', (req: Request, res: Response) => {
   const { cases, hearings, documents, mortgages, branches, users, roles, systemSettings } = req.body;
   const current = readDatabase();
 
-  // Protect newer server-persisted staff edits against stale client overwrites
-  let mergedUsers = current.users;
+  // Protect server-persisted staff records and credentials against stale client /api/database overwrites
+  let mergedUsers: any[] = Array.isArray(current.users) ? [...current.users] : [];
   if (Array.isArray(users)) {
-    const existingByKey = new Map<string, any>();
+    const mergedByEmail = new Map<string, any>();
     (current.users || []).forEach((u: any) => {
-      if (u?.id) existingByKey.set(`id:${u.id}`, u);
-      if (u?.email) existingByKey.set(`email:${String(u.email).trim().toLowerCase()}`, u);
+      const em = String(u?.email || '').trim().toLowerCase();
+      const key = em || (u?.id ? `id:${u.id}` : '');
+      if (key) mergedByEmail.set(key, u);
     });
-    mergedUsers = users.map((incoming: any) => {
-      const existing =
-        (incoming?.id && existingByKey.get(`id:${incoming.id}`)) ||
-        (incoming?.email && existingByKey.get(`email:${String(incoming.email).trim().toLowerCase()}`));
+    users.forEach((incoming: any) => {
+      const em = String(incoming?.email || '').trim().toLowerCase();
+      const key = em || (incoming?.id ? `id:${incoming.id}` : '');
+      if (!key) return;
+      const existing = mergedByEmail.get(key);
       if (existing) {
         const exTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
         const inTime = incoming?.updatedAt ? new Date(incoming.updatedAt).getTime() : 0;
-        if (exTime > inTime) {
-          return { ...incoming, ...existing };
+        if (exTime >= inTime) {
+          mergedByEmail.set(key, {
+            ...incoming,
+            ...existing,
+            password: existing.password || incoming.password,
+            temporaryPassword: existing.temporaryPassword ?? incoming.temporaryPassword,
+          });
+        } else {
+          mergedByEmail.set(key, {
+            ...existing,
+            ...incoming,
+            password: incoming.password || existing.password,
+          });
         }
+      } else {
+        mergedByEmail.set(key, incoming);
       }
-      return incoming;
     });
+    mergedUsers = Array.from(mergedByEmail.values());
   }
 
   const updated = {
@@ -1468,6 +1484,10 @@ function getSupabaseClientForRequest(req?: Request) {
   });
 }
 
+function isUuidString(val?: string | null): boolean {
+  return Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val).trim()));
+}
+
 // Schema-resilient profiles update/upsert helper
 async function safeProfileMutation(
   mode: 'update-id' | 'update-email' | 'upsert',
@@ -1478,29 +1498,132 @@ async function safeProfileMutation(
   const workingPayload = { ...payload };
   // Public profiles table uses full_name (never 'name')
   delete workingPayload.name;
+  delete workingPayload.password;
+  delete workingPayload.temporaryPassword;
+  Object.keys(workingPayload).forEach((k) => {
+    if (workingPayload[k] === undefined) delete workingPayload[k];
+  });
 
-  for (let attempt = 0; attempt < 6; attempt++) {
+  if (mode === 'update-id' && (!matchValue || !isUuidString(matchValue))) {
+    return { data: null, error: null };
+  }
+
+  if (mode === 'upsert' && workingPayload.id && !isUuidString(workingPayload.id)) {
+    workingPayload.id = randomUUID();
+  }
+
+  let omitIdFallbackAttempted = false;
+  let lastError: any = null;
+
+  for (let attempt = 0; attempt < 25; attempt++) {
+    if (Object.keys(workingPayload).length === 0) break;
     let res: any;
     if (mode === 'update-id' && matchValue) {
       res = await sbClient.from('profiles').update(workingPayload).eq('id', matchValue).select('*');
     } else if (mode === 'update-email' && matchValue) {
       res = await sbClient.from('profiles').update(workingPayload).ilike('email', matchValue).select('*');
     } else {
+      const conflictCol = matchValue === 'id' && workingPayload.id ? 'id' : 'email';
       res = await sbClient
         .from('profiles')
-        .upsert([workingPayload], { onConflict: matchValue === 'id' ? 'id' : 'email' })
+        .upsert([workingPayload], { onConflict: conflictCol })
         .select('*');
     }
 
     if (!res.error) return res;
-    const missingCol = extractMissingColumn(res.error.message);
+    lastError = res.error;
+
+    const errCode = String(res.error?.code || '');
+    const errMsg = String(res.error?.message || res.error?.details || '');
+
+    // Handle invalid UUID syntax by assigning a valid UUID or omitting id
+    if (errCode === '22P02') {
+      if (mode === 'update-id') {
+        return { data: null, error: null };
+      }
+      if (workingPayload.id && !isUuidString(workingPayload.id)) {
+        workingPayload.id = randomUUID();
+        continue;
+      }
+    }
+
+    // Handle time-with-timezone column mismatch (e.g. updated_at defined as timetz in live schema)
+    if (errCode === '22007' && 'updated_at' in workingPayload) {
+      delete workingPayload.updated_at;
+      continue;
+    }
+
+    // Handle foreign-key violation (profiles.id references auth.users.id) on email upsert if id can be auto-generated
+    if (errCode === '23503' && mode === 'upsert' && workingPayload.id && !omitIdFallbackAttempted) {
+      omitIdFallbackAttempted = true;
+      delete workingPayload.id;
+      continue;
+    }
+
+    const missingCol = extractMissingColumn(errMsg);
     if (missingCol && missingCol in workingPayload) {
       delete workingPayload[missingCol];
       continue;
     }
+
+    const pgColMatch = errMsg.match(/column\s+(?:[a-z_]+\.)?([a-z0-9_]+)\s+does not exist/i);
+    if (pgColMatch?.[1] && pgColMatch[1] in workingPayload) {
+      delete workingPayload[pgColMatch[1]];
+      continue;
+    }
+
+    // If upsert onConflict:'email' fails because profiles.email has no unique constraint (42P10), fall back to update-by-email then insert
+    if (
+      mode === 'upsert' &&
+      (errCode === '42P10' || errMsg.toLowerCase().includes('no unique or exclusion constraint')) &&
+      workingPayload.email
+    ) {
+      const updateFields = { ...workingPayload };
+      delete updateFields.id;
+      const updRes = await sbClient
+        .from('profiles')
+        .update(updateFields)
+        .ilike('email', String(workingPayload.email))
+        .select('*');
+      if (!updRes.error && Array.isArray(updRes.data) && updRes.data.length > 0) {
+        return updRes;
+      }
+      const insRes = await sbClient.from('profiles').insert([workingPayload]).select('*');
+      if (!insRes.error) return insRes;
+      return insRes;
+    }
+
     return res;
   }
-  return { data: null, error: { message: 'Max schema retry attempts reached' } };
+  return { data: null, error: lastError || { message: 'Max schema retry attempts reached' } };
+}
+
+async function safeFirmUsersUpsert(
+  row: Record<string, any>,
+  sbClient: any = supabaseAdmin
+): Promise<{ data: any; error: any; tableMissing?: boolean }> {
+  const workingPayload = { ...row };
+  Object.keys(workingPayload).forEach((k) => {
+    if (workingPayload[k] === undefined) delete workingPayload[k];
+  });
+  if (workingPayload.id && !isUuidString(workingPayload.id)) {
+    workingPayload.id = randomUUID();
+  }
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const res = await sbClient.from('firm_users').upsert([workingPayload], { onConflict: 'email' }).select('*');
+    if (!res.error) return { data: res.data, error: null };
+    if (String(res.error?.code || '') === 'PGRST205') {
+      return { data: null, error: res.error, tableMissing: true };
+    }
+    const missingCol = extractMissingColumn(String(res.error?.message || ''));
+    if (missingCol && missingCol in workingPayload) {
+      delete workingPayload[missingCol];
+      continue;
+    }
+    return { data: null, error: res.error };
+  }
+  return { data: null, error: { message: 'Max firm_users retry attempts reached' } };
 }
 
 function extractPasswordFromRollNo(rawRollNo?: string): { rollNo: string; password?: string } {
@@ -1728,6 +1851,16 @@ const handleUserUpdate = async (req: Request, res: Response) => {
 
     // 4. Update public 'profiles' table atomically & schema-resiliently
     const nowIso = new Date().toISOString();
+    const baseRollForProfile = (
+      advocateRollNo ||
+      advocate_roll_no ||
+      extractPasswordFromRollNo(existingDbUser?.advocateRollNo).rollNo ||
+      ''
+    )
+      .split(':::[PW]:')[0]
+      .trim();
+    const effectivePwForProfile = trimmedPassword || existingDbUser?.password;
+
     const profileRow: Record<string, any> = {
       role: roleMeta.role,
       role_id: roleMeta.roleId,
@@ -1743,6 +1876,14 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     if (finalFullName) profileRow.full_name = finalFullName;
     if (finalEmail) profileRow.email = finalEmail;
     if (finalMustChange !== undefined) profileRow.must_change_password = finalMustChange;
+    if (isSuspended !== undefined || is_suspended !== undefined) {
+      profileRow.is_suspended = Boolean(isSuspended ?? is_suspended);
+    }
+    if (effectivePwForProfile) {
+      profileRow.advocate_roll_no = `${baseRollForProfile}:::[PW]:${effectivePwForProfile}`;
+    } else if (advocateRollNo !== undefined || advocate_roll_no !== undefined) {
+      profileRow.advocate_roll_no = baseRollForProfile;
+    }
 
     let profileUpdated = false;
     let profileError: string | null = null;
@@ -1750,7 +1891,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
 
     try {
       const idForProfile = authUserId || targetId;
-      if (idForProfile) {
+      if (idForProfile && isUuidString(idForProfile)) {
         const { data: pData, error: pErr } = await safeProfileMutation('update-id', profileRow, idForProfile, sbClient);
         if (!pErr && pData && pData.length > 0) {
           profileUpdated = true;
@@ -1783,9 +1924,14 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       }
 
       if (!profileUpdated && (authUserId || targetId || finalEmail)) {
+        const validUpsertId = isUuidString(authUserId)
+          ? authUserId
+          : isUuidString(targetId)
+          ? targetId
+          : randomUUID();
         const upsertRow: any = {
           ...profileRow,
-          id: authUserId || targetId || `user-${Date.now()}`,
+          id: validUpsertId,
           email: finalEmail || undefined,
         };
         const { data: insData, error: insErr } = await safeProfileMutation(
@@ -1809,16 +1955,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
 
     // 5. Keep public 'firm_users' table synchronized (including embedded password if updated)
     try {
-      const baseRoll = (
-        advocateRollNo ||
-        advocate_roll_no ||
-        extractPasswordFromRollNo(existingDbUser?.advocateRollNo).rollNo ||
-        ''
-      )
-        .split(':::[PW]:')[0]
-        .trim();
-
-      const effectivePw = trimmedPassword || existingDbUser?.password;
+      const baseRoll = baseRollForProfile;
+      const effectivePw = effectivePwForProfile;
       const firmUserUpdates: any = {
         role: roleMeta.role,
         role_title: roleMeta.roleTitle,
@@ -1856,16 +1994,14 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         if (!r4.error && r4.data && r4.data.length > 0) fuUpdated = true;
       }
       if (!fuUpdated && finalEmail) {
-        await sbClient.from('firm_users').upsert(
-          [
-            {
-              id: authUserId || targetId || `user-${Date.now()}`,
-              name: finalFullName || finalEmail.split('@')[0],
-              email: finalEmail,
-              ...firmUserUpdates,
-            },
-          ],
-          { onConflict: 'email' }
+        await safeFirmUsersUpsert(
+          {
+            id: isUuidString(authUserId) ? authUserId : isUuidString(targetId) ? targetId : randomUUID(),
+            name: finalFullName || finalEmail.split('@')[0],
+            email: finalEmail,
+            ...firmUserUpdates,
+          },
+          sbClient
         );
       }
     } catch (fuErr) {
@@ -1873,7 +2009,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
     }
 
     // 6. Update in-memory and server_data/firm_database.json
-    const finalRecordId = authUserId || targetId || existingDbUser?.id || `user-${Date.now()}`;
+    const finalRecordId = completeProfile?.id || authUserId || (isUuidString(targetId) ? targetId : existingDbUser?.id) || randomUUID();
     let foundInDb = false;
     db.users = (db.users || []).map((u: any) => {
       if (
@@ -1900,6 +2036,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           isSuspended: isSuspended !== undefined ? Boolean(isSuspended) : is_suspended !== undefined ? Boolean(is_suspended) : u.isSuspended,
           suspendedReason: suspendedReason !== undefined ? suspendedReason : suspended_reason !== undefined ? suspended_reason : u.suspendedReason,
           password: trimmedPassword || u.password,
+          temporaryPassword: trimmedPassword ? undefined : u.temporaryPassword,
           mustChangePassword: finalMustChange !== undefined ? finalMustChange : u.mustChangePassword,
           advocateRollNo: advocateRollNo || advocate_roll_no || u.advocateRollNo,
           updatedAt: nowIso,
@@ -2140,11 +2277,12 @@ const handleUserCreate = async (req: Request, res: Response) => {
       }
     }
 
-    const targetUserId = authUserId || `user-${Date.now()}`;
+    const baseRoll = (advocateRollNo || advocate_roll_no || '').split(':::[PW]:')[0].trim();
+    const targetUserId = authUserId || randomUUID();
     const sbClient = getSupabaseClientForRequest(req);
     const nowIso = new Date().toISOString();
 
-    // 2. Prepare profileRow and upsert into public.profiles cleanly (no unsupported columns)
+    // 2. Prepare profileRow (with valid UUID and embedded credential for cross-device sign-in)
     const profileRow: Record<string, any> = {
       id: targetUserId,
       full_name: resolvedName,
@@ -2159,24 +2297,60 @@ const handleUserCreate = async (req: Request, res: Response) => {
       is_branch_admin: roleMeta.isBranchAdmin,
       can_import_mortgages: finalCanImportMortgages,
       must_change_password: Boolean(mustChangePassword ?? true),
+      is_suspended: false,
+      advocate_roll_no: `${baseRoll}:::[PW]:${rawPassword}`,
       updated_at: nowIso,
     };
 
     let profileData: any = null;
+    let profileSynced = false;
+    let profileError: string | null = null;
     try {
-      const { data: pData } = await safeProfileMutation('upsert', profileRow, 'email', sbClient);
-      if (pData && pData.length > 0) {
+      const { data: pData, error: pErr } = await safeProfileMutation('upsert', profileRow, 'email', sbClient);
+      if (!pErr && pData && pData.length > 0) {
         profileData = pData[0];
+        profileSynced = true;
+      } else if (pErr) {
+        profileError = pErr.message || String(pErr.code || 'Profiles table rejected write');
+        console.warn('[handleUserCreate] Profiles table upsert error:', pErr.message, pErr.code);
       }
-    } catch (pe) {
+    } catch (pe: any) {
+      profileError = pe?.message || 'Profiles table upsert exception';
       console.warn('[handleUserCreate] Profiles table upsert notice:', pe);
     }
 
-    // 3. Keep public.firm_users table synchronized (with embedded credential for cross-device login fallback)
-    const baseRoll = (advocateRollNo || advocate_roll_no || '').split(':::[PW]:')[0].trim();
+    // 2b. Optional RPC fallback if admin_upsert_staff_profile SQL helper was deployed
+    if (!profileSynced) {
+      try {
+        const { data: rpcData, error: rpcErr } = await sbClient.rpc('admin_upsert_staff_profile', {
+          p_id: targetUserId,
+          p_email: resolvedEmail,
+          p_full_name: resolvedName,
+          p_role: roleMeta.role,
+          p_role_id: roleMeta.roleId,
+          p_role_title: roleMeta.roleTitle,
+          p_branch_id: branchMeta.id,
+          p_branch_name: branchMeta.name,
+          p_is_super_admin: roleMeta.isSuperAdmin,
+          p_is_branch_admin: roleMeta.isBranchAdmin,
+          p_can_import_mortgages: finalCanImportMortgages,
+          p_must_change_password: Boolean(mustChangePassword ?? true),
+          p_advocate_roll_no: `${baseRoll}:::[PW]:${rawPassword}`,
+        });
+        if (!rpcErr && rpcData) {
+          profileData = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+          profileSynced = true;
+          profileError = null;
+        }
+      } catch {}
+    }
+
+    // 3. Keep public.firm_users table synchronized if provisioned
+    let firmUserSynced = false;
+    let firmUserError: string | null = null;
     try {
       const firmUserRow: Record<string, any> = {
-        id: targetUserId,
+        id: profileData?.id || targetUserId,
         name: resolvedName,
         email: resolvedEmail,
         role: roleMeta.role,
@@ -2188,13 +2362,23 @@ const handleUserCreate = async (req: Request, res: Response) => {
         is_suspended: false,
         advocate_roll_no: `${baseRoll}:::[PW]:${rawPassword}`,
       };
-      await sbClient.from('firm_users').upsert([firmUserRow], { onConflict: 'email' });
-    } catch (fe) {}
+      const fuRes = await safeFirmUsersUpsert(firmUserRow, sbClient);
+      if (!fuRes.error && fuRes.data && fuRes.data.length > 0) {
+        firmUserSynced = true;
+      } else if (fuRes.error && !fuRes.tableMissing) {
+        firmUserError = fuRes.error.message;
+      }
+    } catch (fe: any) {
+      firmUserError = fe?.message || null;
+    }
+
+    const finalRecordId = String(profileData?.id || targetUserId);
+    const supabaseSynced = Boolean(authUserCreated || profileSynced || firmUserSynced);
 
     // 4. Update in-memory server database
     const db = readDatabase();
     const newUserRecord = {
-      id: targetUserId,
+      id: finalRecordId,
       name: resolvedName,
       email: resolvedEmail,
       role: roleMeta.role,
@@ -2212,7 +2396,7 @@ const handleUserCreate = async (req: Request, res: Response) => {
       mustChangePassword: Boolean(mustChangePassword ?? true),
       advocateRollNo: baseRoll,
       updatedAt: nowIso,
-      profileSynced: Boolean(profileData),
+      profileSynced,
     };
 
     const existingIdx = (db.users || []).findIndex((u: any) => u.email?.toLowerCase() === resolvedEmail);
@@ -2225,14 +2409,21 @@ const handleUserCreate = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      message: 'Staff account provisioned successfully across firm database and directory.',
+      message: supabaseSynced
+        ? 'Staff account provisioned successfully across Supabase and firm directory.'
+        : 'Staff account provisioned in central firm database (Supabase cloud sync pending configuration).',
       user: {
         ...newUserRecord,
-        id: targetUserId,
+        id: finalRecordId,
       },
       authUserCreated,
       authUserId,
       authError,
+      profileSynced,
+      profileError,
+      firmUserSynced,
+      firmUserError,
+      supabaseSynced,
       profile: profileData,
     });
   } catch (err: any) {
@@ -2260,7 +2451,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       const { data } = await supabaseAdmin
         .from('firm_users')
         .select('*')
-        .eq('email', cleanEmail)
+        .ilike('email', cleanEmail)
         .maybeSingle();
       if (data) sbFirmUser = data;
     } catch {}
@@ -2270,23 +2461,29 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       const { data } = await supabaseAdmin
         .from('profiles')
         .select('*')
-        .eq('email', cleanEmail)
+        .ilike('email', cleanEmail)
         .maybeSingle();
       if (data) sbProfile = data;
     } catch {}
 
     const sourceRecord = sbProfile || sbFirmUser || dbUser;
     if (!sourceRecord) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password. Account not found in firm directory.' });
-    }
-
-    if (Boolean(sbFirmUser?.is_suspended ?? dbUser?.isSuspended)) {
-      return res.status(403).json({
+      return res.status(401).json({
         success: false,
-        error: `This account is SUSPENDED: ${dbUser?.suspendedReason || 'Access restricted by Super Admin. Contact Managing Partner.'}`,
+        accountNotFound: true,
+        error: 'Invalid email or password. Account not found in firm directory.',
       });
     }
 
+    if (Boolean(sbProfile?.is_suspended ?? sbFirmUser?.is_suspended ?? dbUser?.isSuspended)) {
+      return res.status(403).json({
+        success: false,
+        isSuspended: true,
+        error: `This account is SUSPENDED: ${sbProfile?.suspended_reason || dbUser?.suspendedReason || 'Access restricted by Super Admin. Contact Managing Partner.'}`,
+      });
+    }
+
+    const { password: profilePw } = extractPasswordFromRollNo(sbProfile?.advocate_roll_no);
     const { password: firmPw } = extractPasswordFromRollNo(sbFirmUser?.advocate_roll_no);
     const roleMeta = resolveCanonicalRole(
       sbProfile?.role_id || sbProfile?.role || sbFirmUser?.role || dbUser?.roleId || dbUser?.role,
@@ -2302,6 +2499,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     const expectedPasswords = [
       dbUser?.password,
       dbUser?.temporaryPassword,
+      profilePw,
       firmPw,
     ].filter((p): p is string => Boolean(p && String(p).trim()));
 
@@ -2312,10 +2510,14 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 
     const passwordMatched = expectedPasswords.some((p) => p === cleanPass);
     if (!passwordMatched) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password. Please verify your credentials.' });
+      return res.status(401).json({
+        success: false,
+        invalidCredentials: true,
+        error: 'Invalid email or password. Please verify your credentials.',
+      });
     }
 
-    const resolvedId = String(sbProfile?.id || sbFirmUser?.id || dbUser?.id || `user-${Date.now()}`);
+    const resolvedId = String(sbProfile?.id || sbFirmUser?.id || dbUser?.id || randomUUID());
     const resolvedName = String(sbProfile?.full_name || sbFirmUser?.name || dbUser?.name || cleanEmail.split('@')[0]);
 
     const canImportMortgagesFlag = Boolean(
@@ -2367,7 +2569,7 @@ app.post('/api/auth/update-password', async (req: Request, res: Response) => {
   try {
     const cleanEmail = String(req.body?.email || '').trim().toLowerCase();
     const userId = String(req.body?.userId || '').trim();
-    const newPassword = String(req.body?.password || '').trim();
+    const newPassword = String(req.body?.password || req.body?.newPassword || '').trim();
 
     if (!cleanEmail && !userId) {
       return res.status(400).json({ success: false, error: 'User identifier is required.' });
@@ -2378,9 +2580,11 @@ app.post('/api/auth/update-password', async (req: Request, res: Response) => {
 
     const db = readDatabase();
     let targetEmail = cleanEmail;
+    let existingRoll = '';
     db.users = (db.users || []).map((u: any) => {
       if ((userId && u.id === userId) || (cleanEmail && u.email?.toLowerCase() === cleanEmail)) {
         targetEmail = targetEmail || u.email?.toLowerCase();
+        existingRoll = extractPasswordFromRollNo(u.advocateRollNo).rollNo;
         return {
           ...u,
           password: newPassword,
@@ -2392,27 +2596,36 @@ app.post('/api/auth/update-password', async (req: Request, res: Response) => {
     });
     writeDatabase(db);
 
+    const sbClient = getSupabaseClientForRequest(req);
     if (targetEmail) {
       try {
-        const { data: fu } = await supabaseAdmin.from('firm_users').select('*').eq('email', targetEmail).maybeSingle();
+        const { data: fu } = await sbClient.from('firm_users').select('*').ilike('email', targetEmail).maybeSingle();
         if (fu) {
           const { rollNo } = extractPasswordFromRollNo(fu.advocate_roll_no);
-          await supabaseAdmin
+          await sbClient
             .from('firm_users')
-            .update({ advocate_roll_no: `${rollNo}:::[PW]:${newPassword}` })
-            .eq('email', targetEmail);
+            .update({ advocate_roll_no: `${rollNo || existingRoll}:::[PW]:${newPassword}` })
+            .ilike('email', targetEmail);
         }
       } catch {}
 
       try {
-        await safeProfileMutation('update-email', {
-          must_change_password: false,
-          updated_at: new Date().toISOString(),
-        }, targetEmail);
+        const { data: prof } = await sbClient.from('profiles').select('advocate_roll_no').ilike('email', targetEmail).maybeSingle();
+        const { rollNo: profRoll } = extractPasswordFromRollNo(prof?.advocate_roll_no);
+        await safeProfileMutation(
+          'update-email',
+          {
+            must_change_password: false,
+            advocate_roll_no: `${profRoll || existingRoll}:::[PW]:${newPassword}`,
+            updated_at: new Date().toISOString(),
+          },
+          targetEmail,
+          sbClient
+        );
       } catch {}
     }
 
-    if (hasRealServiceRoleKey() && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+    if (hasRealServiceRoleKey() && isUuidString(userId)) {
       try {
         await supabaseAdmin.auth.admin.updateUserById(userId, {
           password: newPassword,

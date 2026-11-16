@@ -799,7 +799,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   </div>
                 )}
 
-                <div>
+                <div className={isCentenary ? 'sm:col-span-2' : ''}>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Firm Department *</label>
                   <select
                     value={department}
