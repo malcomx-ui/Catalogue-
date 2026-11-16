@@ -459,6 +459,11 @@ export const CaseDetailModal: React.FC = () => {
       effectiveUser
     );
 
+    if (!selectedBranchMeta.branchId?.trim() || !selectedBranchMeta.branchName?.trim()) {
+      setEditError('Active Branch Required: Please assign a valid branch before saving case changes.');
+      return;
+    }
+
     setIsSavingEdit(true);
     setEditError(null);
     try {

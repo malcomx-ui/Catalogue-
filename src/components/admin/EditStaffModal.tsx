@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, Branch, CustomRole } from '../../types';
-import { resolveUserRoleMeta } from '../../lib/supabase';
+import { resolveUserRoleMeta, resolveBranchMeta } from '../../lib/supabase';
 import {
   UserCheck,
   Building2,
@@ -47,7 +47,10 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
     }
     return user.roleId || roles.find((r) => r.id === 'role-advocate')?.id || 'role-advocate';
   });
-  const [branchId, setBranchId] = useState(user.branchId || branches[0]?.id || 'kla-hq');
+  const [branchId, setBranchId] = useState(() => {
+    const matched = branches.find((b) => b.id === user.branchId || b.name === user.branchName);
+    return matched?.id || resolveBranchMeta(user.branchId, user.branchName).id || branches[0]?.id || 'kla-hq';
+  });
   const [rollNo, setRollNo] = useState(user.advocateRollNo || '');
   const [mustChangePassword, setMustChangePassword] = useState(user.mustChangePassword ?? false);
   const [canImportMortgagesFlag, setCanImportMortgagesFlag] = useState<boolean>(
@@ -71,7 +74,8 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
     }
 
     const selectedRole = roles.find((r) => r.id === roleId);
-    const selectedBranch = branches.find((b) => b.id === branchId);
+    const selectedBranch = branches.find((b) => b.id === branchId) || branches[0];
+    const resolvedBranchMeta = resolveBranchMeta(selectedBranch?.id || branchId, selectedBranch?.name || user.branchName);
 
     const updates: Partial<User> = {
       name: name.trim(),
@@ -83,8 +87,8 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
       isBranchAdmin: roleId === 'role-admin',
       can_import_mortgages: isRoleSuperAdmin ? true : canImportMortgagesFlag,
       canImportMortgages: isRoleSuperAdmin ? true : canImportMortgagesFlag,
-      branchId,
-      branchName: selectedBranch?.name || user.branchName,
+      branchId: resolvedBranchMeta.id,
+      branchName: selectedBranch?.name || resolvedBranchMeta.name || user.branchName,
       advocateRollNo: rollNo.trim() || undefined,
       mustChangePassword,
     };

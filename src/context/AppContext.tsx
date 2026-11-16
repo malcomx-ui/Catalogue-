@@ -1898,8 +1898,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       roles.find((r) => r.id === userData.roleId) ||
       roles.find((r) => r.id === 'role-advocate') ||
       roles[0];
-    const selectedBranch = branches.find((b) => b.id === userData.branchId) || branches[0];
-    const branchMeta = resolveBranchMeta(selectedBranch?.id || userData.branchId, selectedBranch?.name);
+    const requestedBranchId = String(userData.branchId || (userData as any).branch_id || '').trim();
+    const requestedBranchName = String(userData.branchName || (userData as any).branch_name || '').trim();
+    const selectedBranch =
+      branches.find(
+        (b) =>
+          (requestedBranchId && (b.id === requestedBranchId || b.name.toLowerCase() === requestedBranchId.toLowerCase())) ||
+          (requestedBranchName && (b.name.toLowerCase() === requestedBranchName.toLowerCase() || b.city.toLowerCase() === requestedBranchName.toLowerCase()))
+      ) ||
+      branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
+      branches[0];
+    const branchMeta = resolveBranchMeta(
+      selectedBranch?.id || requestedBranchId || 'kla-hq',
+      selectedBranch?.name || requestedBranchName
+    );
     const roleMeta = resolveUserRoleMeta(assignedRole.id, assignedRole.id, Boolean(assignedRole.isSuperAdmin), cleanEmail);
     const initialPass = userData.password?.trim() || 'MK@Law2026';
 
@@ -1970,10 +1982,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (!authUserCreated && json.authError) {
           supabaseErrorReason = json.authError;
         }
+        const apiBranchMeta = resolveBranchMeta(
+          json.user.branchId || json.user.branch_id || newUser.branchId,
+          json.user.branchName || json.user.branch_name || json.user.branch || newUser.branchName
+        );
         provisionedUser = {
           ...newUser,
           ...json.user,
           id: json.user.id || newUser.id,
+          branchId: apiBranchMeta.id,
+          branchName: apiBranchMeta.name,
           password: initialPass,
           temporaryPassword: initialPass,
         };
@@ -1985,6 +2003,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // 2. If Auth user was not created by server (e.g. Vercel static SPA), attempt non-persisting signUp
+    let authUserIdAssigned = false;
     if (!authUserCreated && isSupabaseConfigured) {
       const authFallback = await SupabaseService.provisionAuthUserNonPersisting({
         name: provisionedUser.name,
@@ -2004,13 +2023,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (authFallback.authUserId) {
         provisionedUser = { ...provisionedUser, id: authFallback.authUserId };
         authUserCreated = authFallback.authCreated;
+        authUserIdAssigned = true;
       } else if (authFallback.error && !supabaseErrorReason) {
         supabaseErrorReason = authFallback.error;
       }
     }
 
-    // 3. Ensure profiles & firm_users tables receive the record directly from authenticated client
-    if (!profileSynced) {
+    // 3. Ensure profiles & firm_users tables receive the record directly with authoritative branch_id
+    if (!profileSynced || authUserIdAssigned) {
       try {
         const directRes = await SupabaseService.insertStaff(provisionedUser);
         if (directRes.success && (directRes.profileSaved || directRes.firmUsersSaved)) {
@@ -2042,7 +2062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await refreshStaffFromSupabase();
 
-    // Guarantee newly provisioned user remains present with initial password in browser directory
+    // Guarantee newly provisioned user remains present with initial password & valid branch_id in browser directory
     setAvailableUsers((prev) => {
       const existingIdx = prev.findIndex((u) => u.email.toLowerCase() === cleanEmail);
       let updated: User[];
@@ -2051,6 +2071,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           i === existingIdx
             ? {
                 ...u,
+                branchId: u.branchId || provisionedUser.branchId,
+                branchName: u.branchName || provisionedUser.branchName,
                 password: u.password || initialPass,
                 temporaryPassword: u.temporaryPassword || initialPass,
               }
@@ -2557,6 +2579,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ) ||
       branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
       branches[0];
+
+    if (!branch || !String(branch.id || '').trim() || !String(branch.name || '').trim()) {
+      showCleanMessage(
+        'Active Branch Required: Cannot create a case because no active branch station is configured.',
+        'error'
+      );
+      return null;
+    }
 
     const branchCode = (branch.city || 'KLA').substring(0, 3).toUpperCase();
     const caseNumber = cleanCaseNumber(caseData.case_number || caseData.suitNumber || '');

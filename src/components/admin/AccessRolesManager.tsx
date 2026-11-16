@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isUserAdmin, resolveUserRoleMeta } from '../../lib/supabase';
+import { isUserAdmin, resolveUserRoleMeta, resolveBranchId, resolveBranchMeta } from '../../lib/supabase';
 import {
   Shield,
   ShieldCheck,
@@ -240,6 +240,20 @@ export const AccessRolesManager: React.FC = () => {
       return;
     }
 
+    const selectedBranchObj =
+      branches.find((b) => b.id === userBranchId) ||
+      branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters) ||
+      branches[0];
+    const resolvedBranchMeta = resolveBranchMeta(
+      selectedBranchObj?.id || resolveBranchId(userBranchId),
+      selectedBranchObj?.name
+    );
+
+    if (!resolvedBranchMeta.id) {
+      setUserError('Active Branch Required: Please assign a valid branch station for this user.');
+      return;
+    }
+
     setIsSubmittingUser(true);
     try {
       const result = await addUser({
@@ -247,7 +261,8 @@ export const AccessRolesManager: React.FC = () => {
         email: userEmail.trim(),
         password: userPassword.trim(),
         roleId: userRoleId,
-        branchId: userBranchId,
+        branchId: resolvedBranchMeta.id,
+        branchName: resolvedBranchMeta.name,
         advocateRollNo: userRollNo.trim() || undefined,
       });
 
@@ -601,6 +616,13 @@ NOTIFY pgrst, 'reload schema';`;
                 type="button"
                 onClick={() => {
                   setUserError(null);
+                  setUserBranchId((prev) =>
+                    branches.some((b) => b.id === prev)
+                      ? prev
+                      : branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters)?.id ||
+                        branches[0]?.id ||
+                        'kla-hq'
+                  );
                   setIsUserModalOpen(true);
                 }}
                 className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors"
@@ -1132,7 +1154,8 @@ NOTIFY pgrst, 'reload schema';`;
                 <div>
                   <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Station *</label>
                   <select
-                    value={userBranchId}
+                    required
+                    value={branches.some((b) => b.id === userBranchId) ? userBranchId : branches[0]?.id || 'kla-hq'}
                     onChange={(e) => setUserBranchId(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-2 text-xs"
                   >

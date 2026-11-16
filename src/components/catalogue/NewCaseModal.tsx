@@ -120,10 +120,13 @@ export const NewCaseModal: React.FC = () => {
             : userDisplayName
             ? [userDisplayName]
             : [''];
+        const hasValidPrevBranch = Boolean(prev.branch && branches.some((b) => b.name === prev.branch || b.id === prev.branch));
 
         return {
           ...prev,
-          branch: !isAdminOrSuper ? initialBranchName : (prev.branch || initialBranchName),
+          branch: !isAdminOrSuper
+            ? initialBranchName
+            : (hasValidPrevBranch ? prev.branch : initialBranchName),
           district: prev.district || initialDistrict,
           file_location: prev.file_location || `${initialDistrict.toUpperCase()} OFFICE`,
           person_in_conduct: prev.person_in_conduct || userDisplayName,
@@ -135,7 +138,21 @@ export const NewCaseModal: React.FC = () => {
 
   if (!isNewCaseModalOpen) return null;
 
-  const currentBranchObj = branches.find((b) => b.name === form.branch) || branches[0];
+  const hasActiveBranches = Array.isArray(branches) && branches.length > 0;
+  const activeBranchRecord = isAdminOrSuper
+    ? branches.find((b) => b.name === form.branch || b.id === form.branch)
+    : branches.find(
+        (b) =>
+          b.id === effectiveUser?.branchId ||
+          b.name.toLowerCase() === String(effectiveUser?.branchName || '').toLowerCase()
+      ) || hqBranch;
+  const currentBranchObj = activeBranchRecord || hqBranch || branches[0];
+  const isActiveBranchValid = Boolean(
+    hasActiveBranches &&
+      activeBranchRecord &&
+      String(activeBranchRecord.id || '').trim() &&
+      String(activeBranchRecord.name || '').trim()
+  );
   const canCreateForSelectedBranch =
     isAdminOrSuper ||
     canUserModifyCase(effectiveUser, {
@@ -213,6 +230,48 @@ export const NewCaseModal: React.FC = () => {
       return;
     }
 
+    if (!hasActiveBranches) {
+      const msg = 'Active Branch Required: No active firm branches are available. Please configure an active branch before creating a case.';
+      setError(msg);
+      showCleanMessage(msg, 'error');
+      return;
+    }
+
+    if (!isActiveBranchValid || !activeBranchRecord) {
+      const msg = isAdminOrSuper
+        ? 'Active Branch Required: Please select a valid active branch station before submitting.'
+        : 'Configuration Error: Your user profile does not have an active assigned branch. Please contact your administrator.';
+      setError(msg);
+      showCleanMessage(msg, 'error');
+      return;
+    }
+
+    const { branchId: resolvedBranchId, branchName: resolvedBranchName } = resolveCaseBranchForSave(
+      {
+        branch: activeBranchRecord.name,
+        branchName: activeBranchRecord.name,
+        branchId: activeBranchRecord.id,
+      },
+      effectiveUser
+    );
+
+    if (!resolvedBranchId?.trim() || !resolvedBranchName?.trim()) {
+      const msg = 'Active Branch Required: Unable to resolve an active branch ID for this case.';
+      setError(msg);
+      showCleanMessage(msg, 'error');
+      return;
+    }
+
+    if (
+      !isAdminOrSuper &&
+      !canUserModifyCase(effectiveUser, { branchId: resolvedBranchId, branchName: resolvedBranchName })
+    ) {
+      const msg = `Permission Denied: You can only add new cases belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`;
+      showCleanMessage(msg, 'warning');
+      setError(msg);
+      return;
+    }
+
     setSaving(true);
     try {
       const validPersons = form.persons_in_conduct.map((p) => p.trim()).filter(Boolean);
@@ -220,27 +279,6 @@ export const NewCaseModal: React.FC = () => {
         validPersons[0] || form.person_in_conduct.trim() || effectiveUser?.name || currentUser?.name || '';
       const assistingAdvocates = validPersons.slice(1);
       const combinedPersons = validPersons.length > 0 ? validPersons.join(', ') : primaryLead;
-
-      const matchedSelectedBranch = branches.find((b) => b.name === form.branch);
-      const { branchId: resolvedBranchId, branchName: resolvedBranchName } = resolveCaseBranchForSave(
-        {
-          branch: form.branch,
-          branchName: form.branch,
-          branchId: matchedSelectedBranch?.id || resolveBranchId(undefined, form.branch),
-        },
-        effectiveUser
-      );
-
-      if (
-        !isAdminOrSuper &&
-        !canUserModifyCase(effectiveUser, { branchId: resolvedBranchId, branchName: resolvedBranchName })
-      ) {
-        const msg = `Permission Denied: You can only add new cases belonging to your assigned branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`;
-        showCleanMessage(msg, 'warning');
-        setError(msg);
-        setSaving(false);
-        return;
-      }
 
       const payload = {
         case_number: finalCaseNumber,
@@ -378,9 +416,20 @@ export const NewCaseModal: React.FC = () => {
                 )}
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {isAdminOrSuper
-                    ? "Admin Override: You can assign this case to any branch (defaults to Kampala Central Head Office)."
-                    : "Cases are automatically locked and registered to your assigned branch."}
+                    ? "Admin Override: You can assign this case to any active branch (defaults to Kampala Central Head Office)."
+                    : "Cases are automatically locked and registered to your active assigned branch."}
                 </p>
+                {!isActiveBranchValid ? (
+                  <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-1">
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Active branch selection required before saving.</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Active branch verified: {activeBranchRecord?.name}</span>
+                  </p>
+                )}
               </div>
 
               {/* 2. MK Case No. */}
@@ -687,9 +736,11 @@ export const NewCaseModal: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={saving || !canCreateForSelectedBranch}
+                disabled={saving || !canCreateForSelectedBranch || !isActiveBranchValid}
                 title={
-                  !canCreateForSelectedBranch
+                  !isActiveBranchValid
+                    ? 'Active Branch Required: Select or configure an active branch before creating a case.'
+                    : !canCreateForSelectedBranch
                     ? `View-Only Mode: Creating cases is restricted to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
                     : 'Register new case'
                 }
@@ -697,7 +748,9 @@ export const NewCaseModal: React.FC = () => {
               >
                 <Save className="w-4 h-4 text-amber-400" />
                 <span>
-                  {!canCreateForSelectedBranch
+                  {!isActiveBranchValid
+                    ? 'Active Branch Required'
+                    : !canCreateForSelectedBranch
                     ? 'Restricted to Assigned Branch'
                     : saving
                     ? 'Saving to Supabase...'

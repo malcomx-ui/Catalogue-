@@ -89,6 +89,13 @@ export async function handleSecureInsert(newCaseData: any, userProfile?: any): P
   try {
     const effectiveUser = getEffectiveUser(userProfile);
     const { branchId, branchName, isGlobalBypass } = resolveCaseBranchForSave(newCaseData, effectiveUser);
+    if (!branchId?.trim() || !branchName?.trim()) {
+      showCleanMessage(
+        'Active Branch Required: Unable to resolve an active branch for this case.',
+        'error'
+      );
+      return false;
+    }
     if (!isGlobalBypass && (newCaseData?.branch_id || newCaseData?.branchId || newCaseData?.branch_name || newCaseData?.branchName || newCaseData?.branch)) {
       if (!canUserModifyCase(effectiveUser, newCaseData)) {
         showCleanMessage(
