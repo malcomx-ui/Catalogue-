@@ -239,13 +239,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </p>
         </div>
 
-        {/* Footer Security Badge */}
-        <footer className="relative z-10 pt-6 border-t border-white/10">
-          <div className="flex items-center gap-2.5 text-xs text-slate-300 tracking-wide">
-            <Lock className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
-            <span>256-Bit Encrypted Portal — Authorized Personnel Only</span>
+        <div className="relative z-10 space-y-6">
+          {/* Bottom Practice Pillars & Regional Chambers */}
+          <div className="pt-8 border-t border-white/10">
+            <div className="grid grid-cols-3 gap-6">
+              <div>
+                <p className="text-xs font-semibold text-white">Litigation &amp; Cause Lists</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Real-time court diaries, pleadings &amp; progressive matter trails
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Banking &amp; Securities</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Perfected mortgage custody, disbursements &amp; billing ledgers
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-white">Regional Chambers</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Kampala HQ · Fort Portal · Mbarara · Masaka · Jinja
+                </p>
+              </div>
+            </div>
           </div>
-        </footer>
+
+          {/* Footer Security Badge */}
+          <footer className="pt-4 border-t border-white/10">
+            <div className="flex items-center gap-2.5 text-xs text-slate-300 tracking-wide">
+              <Lock className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+              <span>256-Bit Encrypted Portal — Authorized Personnel Only</span>
+            </div>
+          </footer>
+        </div>
       </aside>
 
       {/* Right Panel: High-Contrast Authentication Form */}
