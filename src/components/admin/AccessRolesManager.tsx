@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isUserAdmin, resolveUserRoleMeta, resolveBranchId, resolveBranchMeta } from '../../lib/supabase';
+import { isUserAdmin, resolveUserRoleMeta, resolveBranchId, resolveBranchMeta, supabase } from '../../lib/supabase';
 import {
   Shield,
   ShieldCheck,
@@ -41,6 +41,7 @@ export const AccessRolesManager: React.FC = () => {
     roles,
     availableUsers,
     branches,
+    cases = [],
     addCustomRole,
     deleteCustomRole,
     addUser,
@@ -53,11 +54,42 @@ export const AccessRolesManager: React.FC = () => {
     auditLogs = [],
     refreshAuditLogs,
     refreshStaffFromSupabase,
+    syncPendingCasesToCloud,
     setActiveTab,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'users' | 'roles' | 'branches' | 'rls' | 'audit'>('users');
   const [copiedSql, setCopiedSql] = useState(false);
+  const [isCheckingRls, setIsCheckingRls] = useState(false);
+  const [isSyncingPending, setIsSyncingPending] = useState(false);
+  const [rlsCheckState, setRlsCheckState] = useState<{
+    checked: boolean;
+    sqlApplied: boolean;
+    hasAuthSession: boolean;
+    authEmail?: string;
+    detail?: string;
+  }>({ checked: false, sqlApplied: false, hasAuthSession: false });
+
+  useEffect(() => {
+    if (activeSubTab !== 'rls') return;
+    let mounted = true;
+    Promise.all([supabase.auth.getSession(), supabase.rpc('get_auth_user_branch_id')])
+      .then(([sessRes, rpcRes]) => {
+        if (!mounted) return;
+        const authUser = sessRes?.data?.session?.user;
+        setRlsCheckState({
+          checked: true,
+          sqlApplied: !rpcRes.error,
+          hasAuthSession: Boolean(authUser?.id),
+          authEmail: authUser?.email || undefined,
+          detail: rpcRes.error?.message || (typeof rpcRes.data === 'string' ? `Resolved branch: ${rpcRes.data}` : 'Active'),
+        });
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [activeSubTab]);
   const [isRefreshingStaff, setIsRefreshingStaff] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [statusBanner, setStatusBanner] = useState<{ type: 'success' | 'warning' | 'error'; message: string } | null>(null);
@@ -974,33 +1006,137 @@ NOTIFY pgrst, 'reload schema';`;
       )}
 
       {/* TAB 4: SUPABASE RLS */}
-      {activeSubTab === 'rls' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Supabase Row Level Security (RLS)</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Branch Administrators are strictly scoped to rows matching their assigned <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded">branch_id</code>. Only Managing Partners / Super Admins have cross-branch privileges.
-              </p>
+      {activeSubTab === 'rls' && (() => {
+        const pendingLocalCount = cases.filter((c) => c?.id && String(c.id).startsWith('case-')).length;
+        const runVerifyRls = async (autoSyncPending = false) => {
+          setIsCheckingRls(true);
+          try {
+            const [{ data: sess }, rpcRes] = await Promise.all([
+              supabase.auth.getSession(),
+              supabase.rpc('get_auth_user_branch_id'),
+            ]);
+            const authUser = sess?.session?.user;
+            const sqlApplied = !rpcRes.error;
+            setRlsCheckState({
+              checked: true,
+              sqlApplied,
+              hasAuthSession: Boolean(authUser?.id),
+              authEmail: authUser?.email || undefined,
+              detail: rpcRes.error?.message || (typeof rpcRes.data === 'string' ? `Resolved branch: ${rpcRes.data}` : 'Active'),
+            });
+            if (autoSyncPending && sqlApplied && pendingLocalCount > 0) {
+              setIsSyncingPending(true);
+              const syncRes = await syncPendingCasesToCloud();
+              setIsSyncingPending(false);
+              setStatusBanner({
+                type: syncRes.failed === 0 ? 'success' : 'warning',
+                message:
+                  syncRes.failed === 0
+                    ? `Supabase SQL verified and ${syncRes.synced} pending local case(s) synced to cloud.`
+                    : `Synced ${syncRes.synced} case(s); ${syncRes.failed} failed${syncRes.error ? ` (${syncRes.error})` : ''}.`,
+              });
+            } else if (autoSyncPending) {
+              setStatusBanner({
+                type: sqlApplied ? 'success' : 'warning',
+                message: sqlApplied
+                  ? 'Supabase RLS & trigger functions are active. Direct cloud sync is enabled.'
+                  : 'SQL update not detected in Supabase yet. Copy the SQL below, paste it into Supabase Dashboard → SQL Editor, and click Run.',
+              });
+            }
+          } catch (err: any) {
+            setRlsCheckState({
+              checked: true,
+              sqlApplied: false,
+              hasAuthSession: false,
+              detail: err?.message || 'Verification failed',
+            });
+          } finally {
+            setIsCheckingRls(false);
+          }
+        };
+
+        return (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-shadow space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Supabase Row Level Security (RLS)</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Branch Administrators are strictly scoped to rows matching their assigned <code className="bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 px-1.5 py-0.5 rounded">branch_id</code>. Only Managing Partners / Super Admins have cross-branch privileges.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => runVerifyRls(true)}
+                  disabled={isCheckingRls || isSyncingPending}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  {isCheckingRls || isSyncingPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>{pendingLocalCount > 0 ? `Verify & Sync (${pendingLocalCount})` : 'Verify Cloud Sync'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(rlsSqlSnippet);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedSql ? 'Copied SQL' : 'Copy Isolation SQL'}</span>
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(rlsSqlSnippet);
-                setCopiedSql(true);
-                setTimeout(() => setCopiedSql(false), 2000);
-              }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-semibold shrink-0 transition-colors"
-            >
-              {copiedSql ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedSql ? 'Copied SQL' : 'Copy Isolation SQL'}</span>
-            </button>
+
+            {/* Live Cloud Sync Readiness & Setup Steps */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                !rlsCheckState.checked
+                  ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                  : rlsCheckState.sqlApplied
+                  ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
+                  : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
+              }`}>
+                {rlsCheckState.sqlApplied ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <div className="font-bold">
+                    {!rlsCheckState.checked
+                      ? 'Click "Verify Cloud Sync" to check Supabase status'
+                      : rlsCheckState.sqlApplied
+                      ? 'Supabase Trigger & RLS SQL Active'
+                      : 'SQL Update Not Applied in Supabase Yet'}
+                  </div>
+                  <div className="text-[11px] opacity-85 mt-0.5">
+                    {rlsCheckState.checked
+                      ? (rlsCheckState.sqlApplied
+                          ? 'Direct cloud inserts and branch resolution are active.'
+                          : 'Copy the SQL below, open Supabase Dashboard → SQL Editor → New Query, paste, and click Run.')
+                      : `${pendingLocalCount} pending local case(s) waiting for cloud sync.`}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300">
+                <div className="font-bold text-slate-900 dark:text-slate-100">How to Apply (One-Time Setup)</div>
+                <ol className="list-decimal list-inside text-[11px] space-y-0.5 mt-1 text-slate-600 dark:text-slate-400">
+                  <li>Click <strong>Copy Isolation SQL</strong> above.</li>
+                  <li>Open your <strong>Supabase Dashboard → SQL Editor → New query</strong>.</li>
+                  <li>Paste the SQL, click <strong>Run</strong>, then return here and click <strong>Verify Cloud Sync</strong>.</li>
+                </ol>
+              </div>
+            </div>
+
+            <pre className="bg-slate-950 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
+              {rlsSqlSnippet}
+            </pre>
           </div>
-          <pre className="bg-slate-950 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed border border-slate-800">
-            {rlsSqlSnippet}
-          </pre>
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB 5: AUDIT TRAIL */}
       {activeSubTab === 'audit' && (

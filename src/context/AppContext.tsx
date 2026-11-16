@@ -262,6 +262,7 @@ interface AppContextType {
   triggerManualSync: (branchId?: string) => Promise<void>;
   refreshCasesFromSupabase: () => Promise<void>;
   fetchFreshDataFromSupabase: () => Promise<void>;
+  syncPendingCasesToCloud: () => Promise<{ synced: number; failed: number; error?: string }>;
   addCase: (caseData: any) => Promise<CaseItem | null>;
   updateCase: (caseId: string, updatedData: Partial<CaseItem>) => Promise<CaseItem | null>;
   deleteCase: (caseId: string) => Promise<boolean>;
@@ -2512,6 +2513,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   });
 
+  // Push any locally cached cases (case-...) up to Supabase once RLS/trigger migration is active
+  const syncPendingCasesToCloud = async (): Promise<{ synced: number; failed: number; error?: string }> => {
+    const pending = cases.filter((c) => c?.id && String(c.id).startsWith('case-'));
+    if (pending.length === 0) {
+      return { synced: 0, failed: 0 };
+    }
+    if (!isSupabaseConfigured) {
+      return { synced: 0, failed: pending.length, error: 'Supabase is not configured.' };
+    }
+    let synced = 0;
+    let failed = 0;
+    let lastError: string | undefined;
+    const idReplacements = new Map<string, CaseItem>();
+
+    for (const item of pending) {
+      try {
+        const persisted = await SupabaseService.insertCase(item);
+        if (persisted?.id && !String(persisted.id).startsWith('case-')) {
+          synced++;
+          idReplacements.set(String(item.id), { ...item, ...persisted });
+        } else {
+          failed++;
+        }
+      } catch (err: any) {
+        failed++;
+        lastError = err?.message || 'Cloud sync failed';
+      }
+    }
+
+    if (idReplacements.size > 0) {
+      setCases((prev) => {
+        const updated = prev.map((c) => idReplacements.get(String(c.id)) || c);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY_CASES, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
+    }
+
+    return { synced, failed, error: lastError };
+  };
+
   // Manual Trigger Sync Simulation
   const triggerManualSync = async (targetBranchId?: string) => {
     setIsSyncing(true);
@@ -2731,9 +2774,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           _userEmail: currentUser?.email,
         }),
       });
-      if (apiRes.ok) {
+      const contentType = apiRes.headers.get('content-type') || '';
+      const apiJson = contentType.includes('application/json') ? await apiRes.json().catch(() => null) : null;
+      if (apiRes.ok && apiJson?.success) {
         serverSaved = true;
-        const apiJson = await apiRes.json().catch(() => null);
         if (apiJson?.supabaseSynced && apiJson?.data?.id) {
           cloudInsertError = null;
           savedCase = {
@@ -2749,7 +2793,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('[addCase] Remote Supabase trigger P0001 bypassed to local storage until SQL trigger migration is applied:', cloudInsertError);
         (savedCase as any)._cloudSyncPending = true;
         showCleanMessage(
-          'Case saved locally. Apply the Super Admin → Supabase RLS SQL update in Supabase to enable direct cloud sync.',
+          'Case saved locally. Copy the SQL from Super Admin → Supabase RLS and run it in Supabase Dashboard → SQL Editor to enable cloud sync.',
           'warning'
         );
       } else {
@@ -3988,6 +4032,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCase,
         refreshCasesFromSupabase,
         fetchFreshDataFromSupabase,
+        syncPendingCasesToCloud,
         refreshStaffFromSupabase,
         fetchUsers: refreshStaffFromSupabase,
         fetchUserProfile,

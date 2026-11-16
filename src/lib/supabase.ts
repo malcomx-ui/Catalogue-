@@ -363,7 +363,18 @@ export async function ensureAuthUserProfileBranch(
       }
     }
 
-    // 3. Fall back to full upsert if no existing profile row was updated
+    // 3. Fall back to upsert (try onConflict:'id' first so auth.uid() = id RLS policies allow insert/update, then email fallback)
+    if (!profileUpdated) {
+      try {
+        const { data: idUpData, error: idUpErr } = await supabase
+          .from('profiles')
+          .upsert([profilePatch], { onConflict: 'id' })
+          .select('*');
+        if (!idUpErr && Array.isArray(idUpData) && idUpData.length > 0) {
+          profileUpdated = true;
+        }
+      } catch {}
+    }
     if (!profileUpdated) {
       const upRes = await safeProfilesUpsert(profilePatch);
       if (!upRes.error && Array.isArray(upRes.data) && upRes.data.length > 0) {
