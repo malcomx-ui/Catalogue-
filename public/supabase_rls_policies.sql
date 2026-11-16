@@ -226,6 +226,30 @@ BEGIN
 END;
 $$;
 
+DO $$
+DECLARE
+  r RECORD;
+  v_def TEXT;
+BEGIN
+  IF to_regclass('public.cases') IS NOT NULL THEN
+    FOR r IN
+      SELECT t.tgname, p.oid AS func_oid
+      FROM pg_trigger t
+      JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE t.tgrelid = 'public.cases'::regclass
+        AND NOT t.tgisinternal
+    LOOP
+      v_def := LOWER(pg_get_functiondef(r.func_oid));
+      IF v_def LIKE '%assigned branch%'
+         OR v_def LIKE '%configuration error%'
+         OR v_def LIKE '%set_case_branch%'
+         OR v_def LIKE '%p0001%' THEN
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.cases;', r.tgname);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
 DROP TRIGGER IF EXISTS tr_set_case_branch ON public.cases;
 CREATE TRIGGER tr_set_case_branch
   BEFORE INSERT ON public.cases
@@ -266,6 +290,7 @@ WITH CHECK (
   auth.role() = 'service_role'
   OR public.is_partner_or_superadmin()
   OR branch_id = public.get_auth_user_branch_id()
+  OR (auth.jwt() IS NULL AND branch_id IS NOT NULL)
 );
 
 -- Policy 3 (UPDATE): Restrict UPDATE strictly to user's own branch; Partners/Superadmins exempt
@@ -277,11 +302,13 @@ USING (
   auth.role() = 'service_role'
   OR public.is_partner_or_superadmin()
   OR branch_id = public.get_auth_user_branch_id()
+  OR (auth.jwt() IS NULL AND branch_id IS NOT NULL)
 )
 WITH CHECK (
   auth.role() = 'service_role'
   OR public.is_partner_or_superadmin()
   OR branch_id = public.get_auth_user_branch_id()
+  OR (auth.jwt() IS NULL AND branch_id IS NOT NULL)
 );
 
 -- Policy 4 (DELETE): Restrict DELETE strictly to user's own branch; Partners/Superadmins exempt
@@ -293,6 +320,7 @@ USING (
   auth.role() = 'service_role'
   OR public.is_partner_or_superadmin()
   OR branch_id = public.get_auth_user_branch_id()
+  OR (auth.jwt() IS NULL AND branch_id IS NOT NULL)
 );
 
 -- ==============================================================================

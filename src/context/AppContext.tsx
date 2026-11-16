@@ -801,6 +801,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     cacheUserProfile(loggedInUser);
 
+    if (isSupabaseConfigured) {
+      ensureAuthUserProfileBranch(branchMeta.id, branchMeta.name).catch(() => {});
+    }
+
     return loggedInUser;
   };
 
@@ -1882,7 +1886,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!userPermissions.canManageUsers && !isUserAdmin(currentUser)) {
       return { success: false, error: 'Permission denied: Super Admin authorization required.' };
     }
-    if (!userData.name?.trim() || !userData.email?.trim()) {
+    const resolvedFullName = String(userData.name || (userData as any).full_name || '').trim();
+    if (!resolvedFullName || !userData.email?.trim()) {
       return { success: false, error: 'Full name and email address are required.' };
     }
 
@@ -1894,12 +1899,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'A staff member with this email address already exists.' };
     }
 
+    const requestedRoleId = String(userData.roleId || (userData as any).role_id || userData.role || '').trim();
     const assignedRole =
-      roles.find((r) => r.id === userData.roleId) ||
+      roles.find((r) => r.id === requestedRoleId) ||
       roles.find((r) => r.id === 'role-advocate') ||
       roles[0];
     const requestedBranchId = String(userData.branchId || (userData as any).branch_id || '').trim();
-    const requestedBranchName = String(userData.branchName || (userData as any).branch_name || '').trim();
+    const requestedBranchName = String(userData.branchName || (userData as any).branch_name || (userData as any).branch || '').trim();
     const selectedBranch =
       branches.find(
         (b) =>
@@ -1917,7 +1923,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newUser: User = {
       id: generateUuid(),
-      name: userData.name.trim(),
+      name: resolvedFullName,
       email: cleanEmail,
       role: (assignedRole.id.startsWith('role-custom-') ? assignedRole.id : roleMeta.role) as any,
       roleId: assignedRole.id,
@@ -1932,7 +1938,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       password: initialPass,
       temporaryPassword: initialPass,
       mustChangePassword: userData.mustChangePassword !== false,
-      advocateRollNo: userData.advocateRollNo?.trim() || undefined,
+      advocateRollNo: (userData.advocateRollNo || (userData as any).advocate_roll_no || '').trim() || undefined,
     };
 
     // 1. Provision via backend API (/api/users/create) -> handles Auth user, Supabase profiles/firm_users, & server DB
@@ -2705,20 +2711,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Also mirror to workstation server API (/api/cases)
+    // Also mirror to workstation server API (/api/cases) with auth Bearer token so server can assist cloud sync
     let serverSaved = false;
     try {
+      const { data: sessData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
+      const accessToken = sessData?.session?.access_token;
+      const apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (accessToken) {
+        apiHeaders['Authorization'] = `Bearer ${accessToken}`;
+      }
+      const alreadySyncedToCloud = Boolean(!cloudInsertError && savedCase.id && !String(savedCase.id).startsWith('case-'));
       const apiRes = await fetch('/api/cases', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(savedCase),
+        headers: apiHeaders,
+        body: JSON.stringify({
+          ...savedCase,
+          _skipSupabaseSync: alreadySyncedToCloud,
+          _userId: currentUser?.id,
+          _userEmail: currentUser?.email,
+        }),
       });
-      if (apiRes.ok) serverSaved = true;
+      if (apiRes.ok) {
+        serverSaved = true;
+        const apiJson = await apiRes.json().catch(() => null);
+        if (apiJson?.supabaseSynced && apiJson?.data?.id) {
+          cloudInsertError = null;
+          savedCase = {
+            ...savedCase,
+            id: String(apiJson.data.id),
+          };
+        }
+      }
     } catch {}
 
     if (cloudInsertError && !serverSaved) {
       if (isMissingBranchTriggerError(cloudInsertError)) {
         console.warn('[addCase] Remote Supabase trigger P0001 bypassed to local storage until SQL trigger migration is applied:', cloudInsertError);
+        (savedCase as any)._cloudSyncPending = true;
         showCleanMessage(
           'Case saved locally. Apply the Super Admin → Supabase RLS SQL update in Supabase to enable direct cloud sync.',
           'warning'

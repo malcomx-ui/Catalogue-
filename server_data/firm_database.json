@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-11-16T12:11:57.341Z",
+  "lastUpdated": "2026-11-16T12:29:43.107Z",
   "cases": [],
   "hearings": [],
   "documents": [],
@@ -136,7 +136,6 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": true,
-        "can_import_mortgages": true,
         "canBulkExport": true,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -148,13 +147,14 @@
         "canManageUsers": true,
         "canManageBranches": true,
         "canManageSettings": true,
+        "can_import_mortgages": true,
         "canImportMortgages": true
       }
     },
     {
       "id": "role-admin",
       "name": "Branch Administrator",
-      "description": "Branch administrative custody: authorized to print daily cause sheets, manage physical file registries, verify intake, and coordinate branch operations.",
+      "description": "Branch staff operations: full management custody (create, read, update, delete) for cases belonging specifically to their assigned branch.",
       "isSuperAdmin": false,
       "isSystem": true,
       "badgeColor": "bg-indigo-100 text-indigo-800 border-indigo-200",
@@ -164,7 +164,6 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
-        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -176,6 +175,7 @@
         "canManageUsers": false,
         "canManageBranches": false,
         "canManageSettings": false,
+        "can_import_mortgages": false,
         "canImportMortgages": false
       }
     },
@@ -206,8 +206,8 @@
     },
     {
       "id": "role-advocate",
-      "name": "Litigation Lawyer / Associate",
-      "description": "Enters daily case notes, registers court appearances, drafts pleadings, and attends scheduled division hearings.",
+      "name": "Litigation Advocate",
+      "description": "Litigation Lawyer: global cross-branch access to conduct hearings, draft pleadings, register filings, and update matter proceedings.",
       "isSuperAdmin": false,
       "isSystem": true,
       "badgeColor": "bg-emerald-100 text-emerald-800 border-emerald-200",
@@ -217,7 +217,6 @@
         "canEditCases": true,
         "canDeleteCases": false,
         "canBulkImport": false,
-        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": false,
         "canScheduleHearings": true,
@@ -229,13 +228,14 @@
         "canManageUsers": false,
         "canManageBranches": false,
         "canManageSettings": false,
+        "can_import_mortgages": false,
         "canImportMortgages": false
       }
     },
     {
       "id": "role-clerk",
       "name": "Court & Registry Clerk",
-      "description": "Manages physical file custody, logs cabinet movements, delivers court pleadings, and registers cause diary fixtures.",
+      "description": "Branch staff registry: full management custody (create, read, update, delete) for cases belonging specifically to their assigned branch.",
       "isSuperAdmin": false,
       "isSystem": true,
       "badgeColor": "bg-slate-100 text-slate-800 border-slate-200",
@@ -245,7 +245,6 @@
         "canEditCases": false,
         "canDeleteCases": false,
         "canBulkImport": false,
-        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": false,
@@ -257,13 +256,14 @@
         "canManageUsers": false,
         "canManageBranches": false,
         "canManageSettings": false,
+        "can_import_mortgages": false,
         "canImportMortgages": false
       }
     },
     {
       "id": "role-team-lead",
       "name": "Regional Team Lead",
-      "description": "Supervises branch advocates, reviews pleadings, conducts high-value trials, and assigns regional litigation briefs.",
+      "description": "Litigation Lawyer: global cross-branch access to supervise dockets, conduct court hearings, manage pleadings, and review matters.",
       "isSuperAdmin": false,
       "isSystem": true,
       "badgeColor": "bg-blue-100 text-blue-800 border-blue-200",
@@ -273,7 +273,6 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
-        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -285,13 +284,14 @@
         "canManageUsers": false,
         "canManageBranches": false,
         "canManageSettings": false,
+        "can_import_mortgages": false,
         "canImportMortgages": false
       }
     },
     {
       "id": "role-admin-finance-assistant",
       "name": "Admin & Finance Assistant",
-      "description": "Firm-wide read visibility across all branches with full create, edit, and delete authority strictly within their assigned branch station.",
+      "description": "Branch-scoped finance & operations assistant: views cases and mortgages across all branches, with full create, edit, and delete permissions strictly on their assigned branch.",
       "isSuperAdmin": false,
       "isSystem": true,
       "badgeColor": "bg-teal-100 text-teal-800 border-teal-200",
@@ -301,7 +301,6 @@
         "canEditCases": true,
         "canDeleteCases": true,
         "canBulkImport": false,
-        "can_import_mortgages": false,
         "canBulkExport": false,
         "canPrintCauseList": true,
         "canScheduleHearings": true,
@@ -313,6 +312,7 @@
         "canManageUsers": false,
         "canManageBranches": false,
         "canManageSettings": false,
+        "can_import_mortgages": false,
         "canImportMortgages": false
       }
     }

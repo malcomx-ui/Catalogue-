@@ -323,7 +323,9 @@ export const NewCaseModal: React.FC = () => {
         return;
       }
 
-      showCleanMessage('Success! Case record saved securely.', 'success');
+      if (!(savedCase as any)._cloudSyncPending) {
+        showCleanMessage('Success! Case record saved securely.', 'success');
+      }
       setIsNewCaseModalOpen(false);
       const resetUserDisplayName = effectiveUser?.name || currentUser?.name || '';
       setForm({

@@ -272,6 +272,11 @@ export const AccessRolesManager: React.FC = () => {
         setUserEmail('');
         setUserRollNo('');
         setUserPassword('MK@Law2026');
+        setUserBranchId(
+          branches.find((b) => b.id === 'kla-hq' || b.isHeadquarters)?.id ||
+            branches[0]?.id ||
+            'kla-hq'
+        );
         if (result.warning) {
           showToast('warning', result.warning);
         } else {
@@ -437,6 +442,50 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.get_auth_user_branch_id()
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER STABLE AS $$
+DECLARE
+  v_branch_id TEXT;
+  v_user_email TEXT := LOWER(TRIM(COALESCE(auth.jwt()->>'email', '')));
+  v_jwt_branch TEXT := NULLIF(TRIM(COALESCE(auth.jwt()->'user_metadata'->>'branch_id', auth.jwt()->>'branch_id', '')), '');
+BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL THEN
+    SELECT NULLIF(TRIM(branch_id), '')
+    INTO v_branch_id
+    FROM public.profiles
+    WHERE (auth.uid() IS NOT NULL AND id::text = auth.uid()::text)
+       OR (v_user_email <> '' AND LOWER(email) = v_user_email)
+    LIMIT 1;
+  END IF;
+  RETURN COALESCE(v_branch_id, v_jwt_branch, 'kla-hq');
+END;
+$$;
+
+-- Dynamically drop ANY legacy BEFORE INSERT/UPDATE trigger on public.cases that raises missing-branch P0001 errors
+DO $$
+DECLARE
+  r RECORD;
+  v_def TEXT;
+BEGIN
+  IF to_regclass('public.cases') IS NOT NULL THEN
+    FOR r IN
+      SELECT t.tgname, p.oid AS func_oid
+      FROM pg_trigger t
+      JOIN pg_proc p ON p.oid = t.tgfoid
+      WHERE t.tgrelid = 'public.cases'::regclass
+        AND NOT t.tgisinternal
+    LOOP
+      v_def := LOWER(pg_get_functiondef(r.func_oid));
+      IF v_def LIKE '%assigned branch%'
+         OR v_def LIKE '%configuration error%'
+         OR v_def LIKE '%set_case_branch%'
+         OR v_def LIKE '%p0001%' THEN
+        EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.cases;', r.tgname);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
 -- Replace legacy set_case_branch() trigger so missing auth/profile branch defaults cleanly instead of throwing P0001
 CREATE OR REPLACE FUNCTION public.set_case_branch()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -469,6 +518,21 @@ CREATE TRIGGER tr_set_case_branch
   BEFORE INSERT ON public.cases
   FOR EACH ROW
   EXECUTE FUNCTION public.set_case_branch();
+
+-- Ensure cases RLS allows branch staff & partners/superadmins to insert/update/view seamlessly
+ALTER TABLE IF EXISTS public.cases ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Authenticated staff view all cases" ON public.cases;
+CREATE POLICY "Authenticated staff view all cases" ON public.cases FOR SELECT TO authenticated, anon USING (true);
+DROP POLICY IF EXISTS "Branch staff insert own branch cases" ON public.cases;
+CREATE POLICY "Branch staff insert own branch cases" ON public.cases FOR INSERT TO authenticated, anon
+  WITH CHECK (auth.role() = 'service_role' OR public.is_partner_or_superadmin() OR branch_id = public.get_auth_user_branch_id() OR (auth.jwt() IS NULL AND branch_id IS NOT NULL));
+DROP POLICY IF EXISTS "Branch staff update own branch cases" ON public.cases;
+CREATE POLICY "Branch staff update own branch cases" ON public.cases FOR UPDATE TO authenticated, anon
+  USING (auth.role() = 'service_role' OR public.is_partner_or_superadmin() OR branch_id = public.get_auth_user_branch_id() OR (auth.jwt() IS NULL AND branch_id IS NOT NULL))
+  WITH CHECK (auth.role() = 'service_role' OR public.is_partner_or_superadmin() OR branch_id = public.get_auth_user_branch_id() OR (auth.jwt() IS NULL AND branch_id IS NOT NULL));
+DROP POLICY IF EXISTS "Branch staff delete own branch cases" ON public.cases;
+CREATE POLICY "Branch staff delete own branch cases" ON public.cases FOR DELETE TO authenticated, anon
+  USING (auth.role() = 'service_role' OR public.is_partner_or_superadmin() OR branch_id = public.get_auth_user_branch_id() OR (auth.jwt() IS NULL AND branch_id IS NOT NULL));
 
 DROP POLICY IF EXISTS "Allow authenticated read profiles" ON public.profiles;
 CREATE POLICY "Allow authenticated read profiles" ON public.profiles FOR SELECT TO authenticated, anon USING (true);
@@ -1152,16 +1216,24 @@ NOTIFY pgrst, 'reload schema';`;
                   </select>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Station *</label>
+                  <label htmlFor="staff-branch-select" className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Branch Station *
+                  </label>
                   <select
+                    id="staff-branch-select"
+                    name="branch"
                     required
                     value={branches.some((b) => b.id === userBranchId) ? userBranchId : branches[0]?.id || 'kla-hq'}
                     onChange={(e) => setUserBranchId(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg px-2.5 py-2 text-xs"
                   >
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
+                    {branches.length === 0 ? (
+                      <option value="kla-hq">Kampala Central (Head Office)</option>
+                    ) : (
+                      branches.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>

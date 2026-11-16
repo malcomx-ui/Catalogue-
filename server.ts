@@ -659,29 +659,146 @@ app.get('/api/cases', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/cases', (req: Request, res: Response) => {
+app.post('/api/cases', async (req: Request, res: Response) => {
   try {
     const db = readDatabase();
-    const payload = { ...(req.body || {}) };
-    const id = payload.id || `case-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const rawBody = { ...(req.body || {}) };
+    const skipSupabaseSync = Boolean(rawBody._skipSupabaseSync);
+    const callerUserId = String(rawBody._userId || '').trim();
+    const callerEmail = String(rawBody._userEmail || '').trim().toLowerCase();
+    delete rawBody._skipSupabaseSync;
+    delete rawBody._userId;
+    delete rawBody._userEmail;
+
+    const id = rawBody.id || `case-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const nowIso = new Date().toISOString();
     const branchMeta = resolveCanonicalBranch(
-      payload.branchId || payload.branch_id,
-      payload.branchName || payload.branch_name || payload.branch
+      rawBody.branchId || rawBody.branch_id,
+      rawBody.branchName || rawBody.branch_name || rawBody.branch
     );
-    const record = {
-      ...payload,
+    let record: any = {
+      ...rawBody,
       id,
       branchId: branchMeta.id,
       branch_id: branchMeta.id,
       branchName: branchMeta.name,
       branch_name: branchMeta.name,
       branch: branchMeta.name,
-      lastUpdated: payload.lastUpdated || nowIso,
+      lastUpdated: rawBody.lastUpdated || nowIso,
     };
 
+    let supabaseSynced = !skipSupabaseSync ? false : true;
+    let supabaseError: string | null = null;
+
+    if (!skipSupabaseSync) {
+      try {
+        const sbClient = getSupabaseClientForRequest(req);
+        // Proactively ensure caller's profile branch_id is populated when possible
+        if (callerUserId && isUuidString(callerUserId)) {
+          await safeProfileMutation(
+            'update-id',
+            { branch_id: branchMeta.id, branch_name: branchMeta.name, branch: branchMeta.name, updated_at: nowIso },
+            callerUserId,
+            sbClient
+          ).catch(() => {});
+        } else if (callerEmail) {
+          await safeProfileMutation(
+            'update-email',
+            { branch_id: branchMeta.id, branch_name: branchMeta.name, branch: branchMeta.name, updated_at: nowIso },
+            callerEmail,
+            sbClient
+          ).catch(() => {});
+        }
+
+        const rawCaseNo = String(record.suitNumber || record.case_number || '').trim();
+        const clientVal = String(record.clientName || record.client || record.client_name || '').trim();
+        const summaryVal = String(record.subject_matter || record.briefSummary || '').trim();
+        const instDate = record.date_of_instructions || record.filingDate || nowIso.split('T')[0];
+        const hearDate = record.hearing_date || record.nextHearingDate || null;
+
+        const sbRow: Record<string, any> = {
+          case_number: rawCaseNo,
+          suit_number: rawCaseNo,
+          suit_no: record.suit_no || '',
+          firm_ref_number: record.firmRefNumber || '',
+          title: record.title || '',
+          client_name: clientVal,
+          client: clientVal,
+          court: record.court || 'High Court of Uganda',
+          division: record.division || (record.case_type ? `${record.case_type} Division` : 'High Court (Civil Division)'),
+          presiding_judge: record.presidingJudge || '',
+          court_station: record.courtStation || record.district || '',
+          district: record.district || record.courtStation || '',
+          stage: record.stage || 'Pleadings & Defense',
+          priority: record.priority || 'Standard',
+          branch_id: branchMeta.id,
+          branch_name: branchMeta.name,
+          branch: branchMeta.name,
+          lead_advocate: record.leadAdvocate || record.person_in_conduct || '',
+          person_in_conduct: record.person_in_conduct || record.leadAdvocate || '',
+          persons_in_conduct: Array.isArray(record.persons_in_conduct) ? record.persons_in_conduct : [],
+          assisting_advocates: Array.isArray(record.assistingAdvocates) ? record.assistingAdvocates : [],
+          parties: Array.isArray(record.parties) ? record.parties : [],
+          opposing_firm: record.opposingFirm || '',
+          opposing_counsel: record.opposingCounsel || '',
+          claim_value_ugx: Number(record.claimValueUGX) || 0,
+          filing_date: instDate,
+          date_of_instructions: instDate,
+          hearing_date: hearDate || null,
+          next_hearing_date: hearDate || null,
+          next_hearing_purpose: record.nextHearingPurpose || '',
+          status: record.status || 'Active',
+          year_of_closure: record.year_of_closure || null,
+          case_type: record.case_type || 'Civil',
+          billing_status: record.billing_status || '',
+          payment_status: record.payment_status || '',
+          brief_summary: summaryVal,
+          subject_matter: summaryVal,
+          notes: record.notes || '',
+          target: record.target || '',
+          verdict: record.verdict || '',
+          file_location: record.file_location || 'Central Registry Safe',
+          progressive_notes: Array.isArray(record.progressiveNotes) ? record.progressiveNotes : [],
+          file_movement_history: Array.isArray(record.fileMovementHistory) ? record.fileMovementHistory : [],
+          transfer_history: Array.isArray(record.transferHistory) ? record.transferHistory : [],
+          updated_at: nowIso,
+        };
+
+        for (let attempt = 0; attempt < 25; attempt++) {
+          if (Object.keys(sbRow).length === 0) break;
+          const { data: sbData, error: sbErr } = await sbClient.from('cases').insert([sbRow]).select('*');
+          if (!sbErr && sbData && sbData.length > 0) {
+            supabaseSynced = true;
+            record = {
+              ...record,
+              ...sbData[0],
+              id: sbData[0].id || record.id,
+              progressiveNotes: record.progressiveNotes,
+              fileMovementHistory: record.fileMovementHistory,
+              transferHistory: record.transferHistory,
+            };
+            break;
+          }
+          const missingColMatch = String(sbErr?.message || sbErr?.details || '').match(
+            /Could not find the '([^']+)' column|column "([^"]+)" of relation "[^"]+" does not exist/i
+          );
+          const missingCol = missingColMatch?.[1] || missingColMatch?.[2];
+          if (missingCol && missingCol in sbRow) {
+            delete sbRow[missingCol];
+            continue;
+          }
+          if (sbErr) {
+            supabaseError = sbErr.message || String(sbErr.code || 'Supabase insert error');
+          }
+          break;
+        }
+      } catch (sbEx: any) {
+        supabaseError = sbEx?.message || 'Supabase cloud write exception';
+      }
+    }
+
     const list: any[] = Array.isArray(db.cases) ? db.cases : [];
-    const idx = list.findIndex((c: any) => String(c.id) === String(id));
+    const idx = list.findIndex((c: any) => String(c.id) === String(record.id) || String(c.id) === String(id));
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...record };
     } else {
@@ -689,7 +806,7 @@ app.post('/api/cases', (req: Request, res: Response) => {
     }
     (db as any).cases = list;
     writeDatabase(db);
-    return res.json({ success: true, data: record });
+    return res.json({ success: true, data: record, supabaseSynced, supabaseError });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || 'Failed to save case in workstation DB.' });
   }

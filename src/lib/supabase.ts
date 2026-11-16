@@ -325,6 +325,13 @@ export async function ensureAuthUserProfileBranch(
       email
     );
 
+    const branchOnlyPatch: Record<string, any> = {
+      branch_id: branchMeta.id,
+      branch_name: branchMeta.name,
+      branch: branchMeta.name,
+      updated_at: new Date().toISOString(),
+    };
+
     const profilePatch: Record<string, any> = {
       id: authUser.id,
       email,
@@ -337,28 +344,50 @@ export async function ensureAuthUserProfileBranch(
       role_title: roleMeta.roleTitle,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
-      branch_id: branchMeta.id,
-      branch_name: branchMeta.name,
-      branch: branchMeta.name,
-      updated_at: new Date().toISOString(),
+      ...branchOnlyPatch,
     };
 
-    const byId = await safeProfilesUpdate(profilePatch, 'id', authUser.id);
-    if (!byId.data || byId.data.length === 0) {
-      await safeProfilesUpsert(profilePatch);
+    let profileUpdated = false;
+
+    // 1. Try minimal branch-only update by id (avoids RLS blocks on role/is_super_admin columns)
+    const minById = await safeProfilesUpdate(branchOnlyPatch, 'id', authUser.id);
+    if (!minById.error && Array.isArray(minById.data) && minById.data.length > 0) {
+      profileUpdated = true;
     }
 
-    supabase.auth
-      .updateUser({
+    // 2. If id row wasn't matched/updated, try minimal branch-only update by email
+    if (!profileUpdated && email) {
+      const minByEmail = await safeProfilesUpdate(branchOnlyPatch, 'email', email);
+      if (!minByEmail.error && Array.isArray(minByEmail.data) && minByEmail.data.length > 0) {
+        profileUpdated = true;
+      }
+    }
+
+    // 3. Fall back to full upsert if no existing profile row was updated
+    if (!profileUpdated) {
+      const upRes = await safeProfilesUpsert(profilePatch);
+      if (!upRes.error && Array.isArray(upRes.data) && upRes.data.length > 0) {
+        profileUpdated = true;
+      }
+    }
+
+    // 4. Sync auth user_metadata and refresh JWT so triggers/policies reading auth.jwt() see branch_id immediately
+    let authUpdated = false;
+    try {
+      const { error: metaErr } = await supabase.auth.updateUser({
         data: {
           branch_id: branchMeta.id,
           branch_name: branchMeta.name,
           branch: branchMeta.name,
         },
-      })
-      .catch(() => {});
+      });
+      if (!metaErr) {
+        authUpdated = true;
+        await supabase.auth.refreshSession().catch(() => {});
+      }
+    } catch {}
 
-    return true;
+    return profileUpdated || authUpdated;
   } catch {
     return false;
   }
@@ -775,7 +804,7 @@ async function safeCasesMutation(
   const strippedColumns: string[] = [];
   let branchHealRetried = false;
 
-  for (let attempt = 0; attempt < 22; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     if (Object.keys(cleanPayload).length === 0) break;
 
     let res: { data: any[] | null; error: any };
@@ -1706,19 +1735,29 @@ export const SupabaseService = {
    * Non-persisting Supabase Auth signUp helper (never disturbs active admin browser session)
    */
   async provisionAuthUserNonPersisting(u: {
-    name: string;
+    name?: string;
+    full_name?: string;
     email: string;
     password?: string;
     role?: string;
     roleId?: string;
+    role_id?: string;
     roleTitle?: string;
+    role_title?: string;
     branchId?: string;
+    branch_id?: string;
     branchName?: string;
+    branch_name?: string;
+    branch?: string;
     isSuperAdmin?: boolean;
+    is_super_admin?: boolean;
     isBranchAdmin?: boolean;
+    is_branch_admin?: boolean;
     canImportMortgages?: boolean;
+    can_import_mortgages?: boolean;
     mustChangePassword?: boolean;
     advocateRollNo?: string;
+    advocate_roll_no?: string;
   }): Promise<{ authUserId: string | null; authCreated: boolean; error?: string }> {
     const cleanEmail = String(u.email || '').trim().toLowerCase();
     const cleanPass = String(u.password || '').trim();
@@ -1734,30 +1773,67 @@ export const SupabaseService = {
           storageKey: 'mk_temp_provision_client',
         },
       });
-      const bMeta = resolveBranchMeta(u.branchId, u.branchName);
-      const roleMeta = resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, cleanEmail);
+      const cleanName = String(u.name || u.full_name || '').trim() || cleanEmail.split('@')[0];
+      const bMeta = resolveBranchMeta(u.branchId || u.branch_id, u.branchName || u.branch_name || u.branch);
+      const roleMeta = resolveUserRoleMeta(u.role, u.roleId || u.role_id, u.isSuperAdmin ?? u.is_super_admin, cleanEmail);
+      const baseRoll = String(u.advocateRollNo || u.advocate_roll_no || '').split(':::[PW]:')[0].trim();
+      const encodedRollWithPw = cleanPass ? `${baseRoll}:::[PW]:${cleanPass}` : baseRoll;
+      const effectiveRoleTitle = u.roleTitle || u.role_title || roleMeta.roleTitle;
+      const effectiveCanImport = Boolean(u.canImportMortgages || u.can_import_mortgages || roleMeta.isSuperAdmin);
+      const effectiveIsBranchAdmin =
+        u.isBranchAdmin !== undefined
+          ? Boolean(u.isBranchAdmin)
+          : u.is_branch_admin !== undefined
+          ? Boolean(u.is_branch_admin)
+          : roleMeta.isBranchAdmin;
+
       const { data, error } = await tempClient.auth.signUp({
         email: cleanEmail,
         password: cleanPass,
         options: {
           data: {
-            full_name: u.name,
-            name: u.name,
+            full_name: cleanName,
+            name: cleanName,
             role: roleMeta.role,
             role_id: roleMeta.roleId,
-            role_title: u.roleTitle || roleMeta.roleTitle,
+            role_title: effectiveRoleTitle,
             branch: bMeta.name,
             branch_name: bMeta.name,
             branch_id: bMeta.id,
             is_super_admin: roleMeta.isSuperAdmin,
-            is_branch_admin: roleMeta.isBranchAdmin,
-            can_import_mortgages: Boolean(u.canImportMortgages || roleMeta.isSuperAdmin),
+            is_branch_admin: effectiveIsBranchAdmin,
+            can_import_mortgages: effectiveCanImport,
             must_change_password: u.mustChangePassword !== false,
-            advocate_roll_no: (u.advocateRollNo || '').split(':::[PW]:')[0].trim(),
+            advocate_roll_no: baseRoll,
           },
         },
       });
       if (!error && data?.user?.id) {
+        const profilePayload: Record<string, any> = {
+          id: data.user.id,
+          full_name: cleanName,
+          email: cleanEmail,
+          role: roleMeta.role,
+          role_id: roleMeta.roleId,
+          role_title: effectiveRoleTitle,
+          branch: bMeta.name,
+          branch_name: bMeta.name,
+          branch_id: bMeta.id,
+          is_super_admin: roleMeta.isSuperAdmin,
+          is_branch_admin: effectiveIsBranchAdmin,
+          can_import_mortgages: effectiveCanImport,
+          must_change_password: u.mustChangePassword !== false,
+          is_suspended: false,
+          advocate_roll_no: encodedRollWithPw,
+          updated_at: new Date().toISOString(),
+        };
+        if (data.session) {
+          try {
+            await tempClient.from('profiles').upsert([profilePayload], { onConflict: 'id' });
+          } catch {}
+        }
+        await safeProfilesUpsert(profilePayload).catch(() => {});
+
         return {
           authUserId: data.user.id,
           authCreated: Boolean(data.session),
@@ -1799,10 +1875,14 @@ export const SupabaseService = {
     let firmUserError: string | undefined;
 
     const cleanEmail = u.email.trim().toLowerCase();
-    const bMeta = resolveBranchMeta(u.branchId, u.branchName);
-    const roleMeta = resolveUserRoleMeta(u.role, u.roleId, u.isSuperAdmin, cleanEmail);
+    const cleanName = String(u.name || (u as any).full_name || '').trim() || cleanEmail.split('@')[0];
+    const bMeta = resolveBranchMeta(
+      u.branchId || (u as any).branch_id,
+      u.branchName || (u as any).branch_name || (u as any).branch
+    );
+    const roleMeta = resolveUserRoleMeta(u.role, u.roleId || (u as any).role_id, u.isSuperAdmin ?? (u as any).is_super_admin, cleanEmail);
     const validUuid = isUuidString(u.id) ? u.id : generateUuid();
-    const baseRoll = (u.advocateRollNo || '').split(':::[PW]:')[0].trim();
+    const baseRoll = String(u.advocateRollNo || (u as any).advocate_roll_no || '').split(':::[PW]:')[0].trim();
     const cleanPass = String(u.password || u.temporaryPassword || '').trim();
     const encodedRollWithPw = cleanPass ? `${baseRoll}:::[PW]:${cleanPass}` : baseRoll;
 
@@ -1810,11 +1890,11 @@ export const SupabaseService = {
     try {
       const profileRow: Record<string, any> = {
         id: validUuid,
-        full_name: u.name,
+        full_name: cleanName,
         email: cleanEmail,
         role: roleMeta.role,
         role_id: roleMeta.roleId,
-        role_title: u.roleTitle || roleMeta.roleTitle,
+        role_title: u.roleTitle || (u as any).role_title || roleMeta.roleTitle,
         branch: bMeta.name,
         branch_name: bMeta.name,
         branch_id: bMeta.id,
@@ -1846,10 +1926,10 @@ export const SupabaseService = {
         const { data: rpcData, error: rpcErr } = await supabase.rpc('admin_upsert_staff_profile', {
           p_id: validUuid,
           p_email: cleanEmail,
-          p_full_name: u.name,
+          p_full_name: cleanName,
           p_role: roleMeta.role,
           p_role_id: roleMeta.roleId,
-          p_role_title: u.roleTitle || roleMeta.roleTitle,
+          p_role_title: u.roleTitle || (u as any).role_title || roleMeta.roleTitle,
           p_branch_id: bMeta.id,
           p_branch_name: bMeta.name,
           p_is_super_admin: roleMeta.isSuperAdmin,
@@ -1871,11 +1951,11 @@ export const SupabaseService = {
     try {
       const staffRow = {
         id: savedRecord?.id || validUuid,
-        name: u.name,
-        full_name: u.name,
+        name: cleanName,
+        full_name: cleanName,
         email: cleanEmail,
         role: roleMeta.role,
-        role_title: u.roleTitle || roleMeta.roleTitle,
+        role_title: u.roleTitle || (u as any).role_title || roleMeta.roleTitle,
         branch: bMeta.name,
         branch_id: bMeta.id,
         branch_name: bMeta.name,
@@ -1901,9 +1981,10 @@ export const SupabaseService = {
         id: savedRecord?.id || validUuid,
         ...mapUserToFirmUserRow({
           ...u,
+          name: cleanName,
           email: cleanEmail,
           role: roleMeta.role as any,
-          roleTitle: u.roleTitle || roleMeta.roleTitle,
+          roleTitle: u.roleTitle || (u as any).role_title || roleMeta.roleTitle,
           branchId: bMeta.id,
           branchName: bMeta.name,
           isSuperAdmin: roleMeta.isSuperAdmin,

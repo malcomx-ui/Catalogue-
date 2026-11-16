@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { showCleanMessage } from '../../utils/notification';
+import { resolveBranchMeta } from '../../lib/supabase';
 
 export interface UserEditFormProps {
   initialData: {
@@ -21,9 +22,18 @@ export interface UserEditFormProps {
 }
 
 export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branches, onSave, onCancel }) => {
+  const defaultBranch =
+    branches.find((b) => b.id === initialData.branch_id) ||
+    branches.find((b) => b.id === 'kla-hq') ||
+    branches[0];
+  const defaultBranchMeta = resolveBranchMeta(
+    defaultBranch?.id || initialData.branch_id || 'kla-hq',
+    defaultBranch?.name
+  );
+
   const [formData, setFormData] = useState({
     full_name: initialData.full_name || '',
-    branch_id: initialData.branch_id || '',
+    branch_id: defaultBranchMeta.id,
     can_manage_cases: initialData.can_manage_cases ?? true,
     can_manage_clients: initialData.can_manage_clients ?? true,
     can_manage_finances: initialData.can_manage_finances ?? false,
@@ -40,13 +50,34 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg(null);
+
+    const selectedBranch =
+      branches.find((b) => b.id === formData.branch_id) ||
+      branches.find((b) => b.id === 'kla-hq') ||
+      branches[0];
+    const resolvedBranch = resolveBranchMeta(
+      selectedBranch?.id || formData.branch_id || 'kla-hq',
+      selectedBranch?.name
+    );
+    const canonicalBranchName = selectedBranch?.name || resolvedBranch.name;
+
+    if (!resolvedBranch.id || !canonicalBranchName) {
+      setErrorMsg('Active Branch Required: Please select an assigned branch.');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       await onSave({
         id: initialData.id,
         ...formData,
+        branch_id: resolvedBranch.id,
+        branch_name: canonicalBranchName,
+        branchId: resolvedBranch.id,
+        branchName: canonicalBranchName,
+        branch: canonicalBranchName,
       });
       showCleanMessage('Staff permissions updated.', 'success');
     } catch (error: any) {
@@ -74,16 +105,24 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
 
       {/* Branch Assignment */}
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Branch</label>
+        <label htmlFor="user-edit-branch" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Assigned Branch *
+        </label>
         <select
+          id="user-edit-branch"
+          name="branch"
+          required
           value={formData.branch_id}
           onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
           className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
         >
-          <option value="">-- Select Branch --</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
+          {branches.length === 0 ? (
+            <option value="kla-hq">Kampala Central (Head Office)</option>
+          ) : (
+            branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))
+          )}
         </select>
       </div>
 

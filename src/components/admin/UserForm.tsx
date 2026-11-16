@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { showCleanMessage } from '../../utils/notification';
+import { resolveBranchMeta } from '../../lib/supabase';
 
 export interface UserFormProps {
   initialData?: {
@@ -16,12 +17,33 @@ export interface UserFormProps {
 }
 
 export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSave, onCancel }) => {
+  const defaultBranch =
+    branches.find((b) => b.id === initialData?.branch_id) ||
+    branches.find((b) => b.id === 'kla-hq') ||
+    branches[0];
+  const defaultBranchMeta = resolveBranchMeta(
+    defaultBranch?.id || initialData?.branch_id || 'kla-hq',
+    defaultBranch?.name || initialData?.branch_name
+  );
+
   const [fullName, setFullName] = useState(initialData?.full_name || '');
   const [email, setEmail] = useState(initialData?.email || '');
   const [roleId, setRoleId] = useState(initialData?.roleId || 'branch_admin');
-  const [branchId, setBranchId] = useState(initialData?.branch_id || '');
+  const [branchId, setBranchId] = useState(defaultBranchMeta.id);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!branchId || (branches.length > 0 && !branches.some((b) => b.id === branchId))) {
+      const nextDefault =
+        branches.find((b) => b.id === initialData?.branch_id) ||
+        branches.find((b) => b.id === 'kla-hq') ||
+        branches[0];
+      if (nextDefault?.id) {
+        setBranchId(nextDefault.id);
+      }
+    }
+  }, [branches, branchId, initialData?.branch_id]);
 
   // Determine role flags based on the selected roleId
   const isSystemAdmin = roleId === 'system_admin' || roleId === 'super_admin' || roleId === 'role-super-admin';
@@ -29,21 +51,41 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg(null);
 
-    try {
-      const selectedBranch = branches.find((b) => b.id === branchId);
+    const selectedBranch =
+      branches.find((b) => b.id === branchId) ||
+      branches.find((b) => b.id === 'kla-hq') ||
+      branches[0];
+    const resolvedBranch = resolveBranchMeta(
+      selectedBranch?.id || branchId || 'kla-hq',
+      selectedBranch?.name
+    );
 
+    if (!resolvedBranch.id || !resolvedBranch.name) {
+      const msg = 'Active Branch Required: Please select a valid branch station before saving this user.';
+      setErrorMsg(msg);
+      showCleanMessage(msg, 'error');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const canonicalBranchName = selectedBranch?.name || resolvedBranch.name;
       const payload = {
         ...(initialData?.id ? { id: initialData.id } : {}),
-        full_name: fullName,
-        email: email,
+        full_name: fullName.trim(),
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
         roleId: roleId,
         role: isSystemAdmin ? 'super_admin' : isFinanceAssistant ? 'admin_finance_assistant' : 'branch_admin',
-        // System Admins don't need a specific branch restriction
-        branch_id: isSystemAdmin ? null : branchId || null,
-        branch_name: isSystemAdmin ? 'All Branches (Global)' : selectedBranch?.name || null,
+        // Always assign a valid branch_id & matching branch_name from the mandatory branch selector
+        branch_id: resolvedBranch.id,
+        branch_name: canonicalBranchName,
+        branchId: resolvedBranch.id,
+        branchName: canonicalBranchName,
+        branch: canonicalBranchName,
         is_super_admin: isSystemAdmin,
         is_branch_admin: !isSystemAdmin && !isFinanceAssistant,
       };
@@ -112,32 +154,40 @@ export const UserForm: React.FC<UserFormProps> = ({ initialData, branches, onSav
         </select>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
           {isSystemAdmin
-            ? 'Grants global control over all branches, firm settings, and user management.'
+            ? 'Grants global control over all branches while assigning a home station branch_id for database integrity.'
             : isFinanceAssistant
             ? 'Allows viewing across all branches while restricting create, edit, and delete operations to the assigned branch.'
             : 'Restricts user operations strictly to their selected branch.'}
         </p>
       </div>
 
-      {/* Branch Selector (Only shown for Branch Admins / Standard Staff) */}
-      {!isSystemAdmin && (
-        <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Assigned Branch</label>
-          <select
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-            required={!isSystemAdmin}
-            className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-          >
-            <option value="">-- Select Branch --</option>
-            {branches.map((branch) => (
+      {/* Mandatory Branch Selector (always active & defaulted so profile branch_id is never null) */}
+      <div>
+        <label htmlFor="user-form-branch" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Assigned Branch *
+        </label>
+        <select
+          id="user-form-branch"
+          name="branch"
+          value={branchId}
+          onChange={(e) => setBranchId(e.target.value)}
+          required
+          className="mt-1 block w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 shadow-xs focus:border-blue-500 focus:outline-none bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+        >
+          {branches.length === 0 ? (
+            <option value="kla-hq">Kampala Central (Head Office)</option>
+          ) : (
+            branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
                 {branch.name}
               </option>
-            ))}
-          </select>
-        </div>
-      )}
+            ))
+          )}
+        </select>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Required home branch station written directly to the Supabase user profile.
+        </p>
+      </div>
 
       {/* Actions */}
       <div className="flex justify-end space-x-3 pt-4 border-t border-slate-200 dark:border-slate-800">
