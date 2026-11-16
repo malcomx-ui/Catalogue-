@@ -129,9 +129,12 @@ export function isStrictSuperAdmin(user: UserProfile | null | undefined): boolea
   );
 }
 
+export const IMPORT_MORTGAGES_AUTHORIZED_EMAILS = ['phionaadoch@mkadvocates.ug'];
+
 /**
  * Permission guard for Bulk Mortgage Import:
- * Allowed ONLY for `super_admin` or users with explicit `can_import_mortgages` permission.
+ * Allowed ONLY for `super_admin` or users with explicit `can_import_mortgages` permission
+ * (explicitly including authorized staff email phionaadoch@mkadvocates.ug).
  */
 export function canImportMortgages(
   user: UserProfile | null | undefined,
@@ -139,6 +142,11 @@ export function canImportMortgages(
 ): boolean {
   if (!user) return false;
   if (isStrictSuperAdmin(user)) return true;
+
+  const cleanEmail = String(user.email || '').trim().toLowerCase();
+  if (IMPORT_MORTGAGES_AUTHORIZED_EMAILS.includes(cleanEmail)) {
+    return true;
+  }
 
   const explicitUserPerm = Boolean(
     user.can_import_mortgages ||

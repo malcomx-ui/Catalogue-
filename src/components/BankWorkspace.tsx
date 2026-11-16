@@ -35,6 +35,16 @@ import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
 import { StatusBadge } from './common/StatusBadge';
 import { RowActionMenu } from './common/RowActionMenu';
+import {
+  isCentenaryBank,
+  hasIndependentModule,
+  isIMBank,
+  isBarodaBank,
+  isKCBBank,
+} from './mortgages/banks/bankConfigs';
+import { IMBankReportModule } from './mortgages/banks/IMBankReportModule';
+import { BarodaReportModule } from './mortgages/banks/BarodaReportModule';
+import { KCBReportModule } from './mortgages/banks/KCBReportModule';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -113,7 +123,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const [cloudRlsNotice, setCloudRlsNotice] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [workspaceTab, setWorkspaceTab] = useState<'register' | 'report'>('register');
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const isCentenary = isCentenaryBank(bankName);
+  const isDedicatedBank = hasIndependentModule(bankName);
 
   const handleEditRequest = (record: any) => {
     if (!canUserModifyMortgage(effectiveUser, record)) {
@@ -174,6 +187,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   }, [bankName]);
 
   useEffect(() => {
+    setWorkspaceTab('register');
     loadBankData();
   }, [bankName]);
 
@@ -303,7 +317,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         m.source_sheet?.toLowerCase().includes(searchQ) ||
         m.department?.toLowerCase().includes(searchQ) ||
         m.assigned_lawyer_name?.toLowerCase().includes(searchQ) ||
-        m.comments?.toLowerCase().includes(searchQ);
+        m.comments?.toLowerCase().includes(searchQ) ||
+        m.customer_cif?.toLowerCase().includes(searchQ) ||
+        m.facility_reference?.toLowerCase().includes(searchQ) ||
+        m.relationship_manager?.toLowerCase().includes(searchQ) ||
+        m.baroda_account_no?.toLowerCase().includes(searchQ) ||
+        m.sanction_letter_ref?.toLowerCase().includes(searchQ) ||
+        m.ura_prn?.toLowerCase().includes(searchQ) ||
+        m.kcb_customer_id?.toLowerCase().includes(searchQ) ||
+        m.panel_instruction_no?.toLowerCase().includes(searchQ) ||
+        m.instrument_number?.toLowerCase().includes(searchQ);
 
       const matchesMonth = (() => {
         if (!filters.month) return true;
@@ -715,6 +738,39 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         </div>
       </div>
 
+      {/* Dedicated Bank Module Switcher for I&M Bank, Bank of Baroda, and KCB */}
+      {isDedicatedBank && (
+        <div className="no-print flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+          <div className="inline-flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 p-1">
+            <button
+              type="button"
+              onClick={() => setWorkspaceTab('register')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                workspaceTab === 'register'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-2xs border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              Portfolio Register ({mortgages.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setWorkspaceTab('report')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                workspaceTab === 'report'
+                  ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-2xs border border-slate-200/80 dark:border-slate-700'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              {bankName} Dedicated Report Module
+            </button>
+          </div>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Independent form &amp; analytics module active for {bankName}
+          </span>
+        </div>
+      )}
+
       {!isGlobalAdmin && (
         <div className="no-print bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -779,6 +835,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         </div>
       )}
 
+      {isDedicatedBank && workspaceTab === 'report' ? (
+        isIMBank(bankName) ? (
+          <IMBankReportModule records={mortgages} onInspectRecord={setSelectedRecordForView} />
+        ) : isBarodaBank(bankName) ? (
+          <BarodaReportModule records={mortgages} onInspectRecord={setSelectedRecordForView} />
+        ) : (
+          <KCBReportModule records={mortgages} onInspectRecord={setSelectedRecordForView} />
+        )
+      ) : (
+      <>
       {/* Mortgage Filter Bar */}
       <div className="no-print">
         <MortgageFilterBar
@@ -950,7 +1016,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       >
                         {m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || 'No Bank Branch'}
                       </span>
-                      {(m.firm_branch_station || m.branch_name) && (
+                      {!isCentenary && (m.firm_branch_station || m.branch_name) && (
                         <span
                           className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium border border-indigo-200/80 dark:border-indigo-800/80"
                           title="Firm Branch Station (MK Office)"
@@ -1198,7 +1264,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       <td
                         className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 truncate whitespace-nowrap"
                         title={
-                          `${branchText}${firmOfficeText ? ` · MK Office: ${firmOfficeText}` : ''}${
+                          `${branchText}${!isCentenary && firmOfficeText ? ` · MK Office: ${firmOfficeText}` : ''}${
                             canModifyRow ? '' : ' (View-only)'
                           }`
                         }
@@ -1214,7 +1280,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                             </span>
                           )}
                         </div>
-                        {firmOfficeText && (
+                        {!isCentenary && firmOfficeText && (
                           <div className="print:hidden text-[10px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
                             MK: {firmOfficeText}
                           </div>
@@ -1330,6 +1396,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
           </>
         )}
       </div>
+      </>
+      )}
 
       {/* Full Record Detail View Modal (All Fields) */}
       {selectedRecordForView && (
@@ -1386,14 +1454,16 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         '-'}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400 block">Firm Branch Station (MK Office)</span>
-                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">
-                      {selectedRecordForView.firm_branch_station ||
-                        selectedRecordForView.branch_name ||
-                        '-'}
-                    </span>
-                  </div>
+                  {!isCentenary && (
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Firm Branch Station (MK Office)</span>
+                      <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                        {selectedRecordForView.firm_branch_station ||
+                          selectedRecordForView.branch_name ||
+                          '-'}
+                      </span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-slate-500 dark:text-slate-400 block">Record Year &amp; Month</span>
                     <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
@@ -1438,6 +1508,114 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Dedicated Bank-Specific Particulars when viewing I&M Bank, Bank of Baroda, or KCB */}
+              {isDedicatedBank && (() => {
+                const bsd = selectedRecordForView.bank_specific_data || {};
+                if (isIMBank(bankName)) {
+                  return (
+                    <div className="bg-sky-50/70 dark:bg-sky-950/30 p-4 rounded-xl border border-sky-200/80 dark:border-sky-900/50 space-y-2.5">
+                      <h3 className="font-bold text-sky-900 dark:text-sky-200 uppercase tracking-wider text-[11px]">
+                        I&amp;M Bank Security &amp; Valuation Particulars
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Customer CIF</span>
+                          <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.customer_cif || bsd.customer_cif || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Facility Reference</span>
+                          <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.facility_reference || bsd.facility_reference || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Relationship Manager</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.relationship_manager || bsd.relationship_manager || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Security Type</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.security_type || bsd.security_type || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Title Tenure</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.title_type || bsd.title_type || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Forced Sale Value (FSV)</span>
+                          <span className="font-mono tabular-nums font-bold text-sky-700 dark:text-sky-400">{formatUGX(selectedRecordForView.forced_sale_value ?? bsd.forced_sale_value, false)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                if (isBarodaBank(bankName)) {
+                  return (
+                    <div className="bg-orange-50/70 dark:bg-orange-950/30 p-4 rounded-xl border border-orange-200/80 dark:border-orange-900/50 space-y-2.5">
+                      <h3 className="font-bold text-orange-900 dark:text-orange-200 uppercase tracking-wider text-[11px]">
+                        Bank of Baroda Sanction &amp; URA Compliance
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Baroda Account No.</span>
+                          <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.baroda_account_no || bsd.baroda_account_no || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Scheme / SOL Code</span>
+                          <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.scheme_code || bsd.scheme_code || '-'} / {selectedRecordForView.baroda_branch_code || bsd.baroda_branch_code || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Sanction Letter Ref</span>
+                          <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.sanction_letter_ref || bsd.sanction_letter_ref || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Security Nature</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.security_nature || bsd.security_nature || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">Title Custody Status</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.title_custody_status || bsd.title_custody_status || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-400 block">URA Stamp Duty PRN</span>
+                          <span className="font-mono tabular-nums font-bold text-orange-700 dark:text-orange-400">{selectedRecordForView.ura_prn || bsd.ura_prn || '-'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-4 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 space-y-2.5">
+                    <h3 className="font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider text-[11px]">
+                      KCB Panel Instruction &amp; Perfection Tracking
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">KCB Customer ID</span>
+                        <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.kcb_customer_id || bsd.kcb_customer_id || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">Panel Instruction No.</span>
+                        <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.panel_instruction_no || bsd.panel_instruction_no || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">Facility Type</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.facility_type || bsd.facility_type || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">Perfection Stage</span>
+                        <span className="font-medium text-slate-900 dark:text-slate-100">{selectedRecordForView.perfection_stage || bsd.perfection_stage || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">Instrument Number</span>
+                        <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">{selectedRecordForView.instrument_number || bsd.instrument_number || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 dark:text-slate-400 block">SLA Target Date</span>
+                        <span className="font-mono tabular-nums font-bold text-emerald-700 dark:text-emerald-400">{formatDate(selectedRecordForView.sla_target_date || bsd.sla_target_date)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Section 2: Disbursements & Legal Fees */}
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">

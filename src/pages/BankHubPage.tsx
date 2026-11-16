@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, AlertTriangle, Copy, Check, X, Plus } from 'lucide-react';
-import { MortgageService, BankSummary, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
+import { MortgageService, BankSummary, DEFAULT_BANKS, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../services/mortgageService';
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
 import { AddMortgageModal } from '../components/AddMortgageModal';
+import { hasIndependentModule } from '../components/mortgages/banks/bankConfigs';
 import { useApp, MortgageViewAction } from '../context/AppContext';
 import { getEffectiveUser, canUserImportMortgages } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
@@ -14,12 +15,9 @@ export const BankHubPage: React.FC<{
 }> = ({ onSelectBank, externalAction, externalActionNonce }) => {
   const { currentUser, userPermissions } = useApp();
   const canBulkImportMortgages = canUserImportMortgages(getEffectiveUser(currentUser), userPermissions);
-  const [banksSummary, setBanksSummary] = useState<BankSummary[]>([
-    { bank_name: 'Centenary Bank', file_count: 0, total_loan: 0 },
-    { bank_name: 'Finance Trust', file_count: 0, total_loan: 0 },
-    { bank_name: 'Rushere SACCO', file_count: 0, total_loan: 0 },
-    { bank_name: 'Opportunity Bank', file_count: 0, total_loan: 0 },
-  ]);
+  const [banksSummary, setBanksSummary] = useState<BankSummary[]>(() =>
+    DEFAULT_BANKS.map((bank_name) => ({ bank_name, file_count: 0, total_loan: 0 }))
+  );
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState<number>(() => new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => MONTHS[new Date().getMonth()]);
@@ -177,21 +175,29 @@ export const BankHubPage: React.FC<{
       {loading ? (
         <div className="text-center py-12 text-slate-500 text-sm">Loading bank portfolios for {selectedYear}...</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {banksSummary.map((b) => (
-            <div
-              key={b.bank_name}
-              onClick={() => onSelectBank(b.bank_name)}
-              className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
-            >
-              <div>
-                <span className="text-xs font-medium px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60 transition">
-                  Lending Partner
-                </span>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-3 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition">
-                  {b.bank_name}
-                </h3>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {banksSummary.map((b) => {
+            const hasDedicated = hasIndependentModule(b.bank_name);
+            return (
+              <div
+                key={b.bank_name}
+                onClick={() => onSelectBank(b.bank_name)}
+                className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+              >
+                <div>
+                  <span
+                    className={`text-xs font-medium px-2.5 py-0.5 rounded-full border transition ${
+                      hasDedicated
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800/80'
+                        : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/80 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/60'
+                    }`}
+                  >
+                    {hasDedicated ? 'Dedicated Form & Report' : 'Lending Partner'}
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-3 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition">
+                    {b.bank_name}
+                  </h3>
+                </div>
               <div className="border-t border-slate-100 dark:border-slate-800 pt-4 grid grid-cols-2 gap-2">
                 <div>
                   <span className="text-xs text-slate-500 dark:text-slate-400 block">Active Files ({selectedYear})</span>
@@ -205,7 +211,8 @@ export const BankHubPage: React.FC<{
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

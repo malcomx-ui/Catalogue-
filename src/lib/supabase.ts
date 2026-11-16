@@ -1789,15 +1789,27 @@ export function isStrictSuperAdmin(u: any): boolean {
   );
 }
 
+export const IMPORT_MORTGAGES_EXPLICIT_EMAILS = ['phionaadoch@mkadvocates.ug'];
+
+export function isExplicitMortgageImportEmail(email?: string | null): boolean {
+  const clean = String(email || '').trim().toLowerCase();
+  return IMPORT_MORTGAGES_EXPLICIT_EMAILS.includes(clean);
+}
+
 /**
  * Strict Mortgage Bulk Import Permission Check:
- * Returns TRUE only for users with the `super_admin` role OR explicit `can_import_mortgages` permissions.
+ * Returns TRUE only for users with the `super_admin` role OR explicit `can_import_mortgages` permissions
+ * (including explicitly authorized staff emails such as phionaadoch@mkadvocates.ug).
  */
 export function canUserImportMortgages(u: any, rolePermissions?: any): boolean {
   const effective = getEffectiveUser(u);
   if (!effective) return false;
 
   if (isStrictSuperAdmin(effective)) {
+    return true;
+  }
+
+  if (isExplicitMortgageImportEmail(effective.email)) {
     return true;
   }
 
@@ -2006,6 +2018,17 @@ export function canUserModifyMortgage(u: any, record: any): boolean {
       record.branchName ||
       ''
   ).toLowerCase().trim();
+
+  const recordBank = String(record.bank_name || record.client_bank_name || '').toLowerCase().trim();
+  const isCentenaryWithoutFirmBranch =
+    recordBank === 'centenary bank' && !recFirmBranchId && !recFirmBranchName;
+
+  if (isCentenaryWithoutFirmBranch) {
+    // Centenary Bank forms capture only Bank Branch Station (no Firm Branch); allow authorized non-clerk staff
+    const r = String(effective.role || '').toLowerCase().trim();
+    const rId = String(effective.roleId || (effective as any).role_id || '').toLowerCase().trim();
+    return r !== 'clerk' && rId !== 'role-clerk';
+  }
 
   // Only fall back to legacy `branch` when no explicit firm branch columns exist on the record
   const legacyFallbackBranch =
@@ -2217,8 +2240,12 @@ export function mapRowToUser(u: any): User {
     branchName,
     isSuperAdmin: roleMeta.isSuperAdmin,
     isBranchAdmin: roleMeta.isBranchAdmin,
-    can_import_mortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
-    canImportMortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
+    can_import_mortgages: Boolean(
+      u.can_import_mortgages ?? u.canImportMortgages ?? (roleMeta.isSuperAdmin || isExplicitMortgageImportEmail(email))
+    ),
+    canImportMortgages: Boolean(
+      u.can_import_mortgages ?? u.canImportMortgages ?? (roleMeta.isSuperAdmin || isExplicitMortgageImportEmail(email))
+    ),
     isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
     suspendedReason: u.suspended_reason || u.suspendedReason || undefined,
     advocateRollNo: rawRollNo,

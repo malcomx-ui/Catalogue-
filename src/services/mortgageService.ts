@@ -37,7 +37,13 @@ export const DEFAULT_BANKS = [
   'Finance Trust',
   'Rushere SACCO',
   'Opportunity Bank',
+  'I&M Bank',
+  'Bank of Baroda',
+  'KCB',
 ];
+
+export const isCentenaryBankName = (bank?: string | null): boolean =>
+  String(bank || '').trim().toLowerCase() === 'centenary bank';
 
 export const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -387,18 +393,23 @@ const extractRecordsFromWorkbook = (
       const commentsVal = getVal(['Comments', 'Comment', 'comments', 'Remarks', 'Notes'], ['comment', 'remark', 'note']);
 
       const bankBranchStr = bankBranchVal ? String(bankBranchVal).trim() : '';
-      const rawFirmBranchStr = firmBranchVal
+      const isCentenary = isCentenaryBankName(options.bankName);
+      const rawFirmBranchStr = isCentenary
+        ? ''
+        : firmBranchVal
         ? String(firmBranchVal).trim()
         : options.firmBranchStation
         ? String(options.firmBranchStation).trim()
         : '';
-      const rawFirmBranchId = firmBranchIdVal
+      const rawFirmBranchId = isCentenary
+        ? ''
+        : firmBranchIdVal
         ? String(firmBranchIdVal).trim()
         : options.branchId
         ? String(options.branchId).trim()
         : '';
       const firmBranchMeta =
-        rawFirmBranchStr || rawFirmBranchId
+        !isCentenary && (rawFirmBranchStr || rawFirmBranchId)
           ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchStr || undefined)
           : null;
       const descStr = descVal ? String(descVal).trim() : '';
@@ -414,9 +425,9 @@ const extractRecordsFromWorkbook = (
         bank_branch: bankBranchStr,
         branch: bankBranchStr,
         client_branch_location: bankBranchStr,
-        firm_branch_station: rawFirmBranchStr || firmBranchMeta?.name || '',
-        branch_name: rawFirmBranchStr || firmBranchMeta?.name || '',
-        branch_id: firmBranchMeta?.id || rawFirmBranchId || '',
+        firm_branch_station: isCentenary ? '' : rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_name: isCentenary ? '' : rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_id: isCentenary ? '' : firmBranchMeta?.id || rawFirmBranchId || '',
         client_name: clientName,
         mortgagor_name: clientName,
         name: clientName,
@@ -452,12 +463,62 @@ const extractRecordsFromWorkbook = (
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const buildBankSpecificData = (r: any): Record<string, any> => {
+  const existingMeta =
+    r?.bank_specific_data && typeof r.bank_specific_data === 'object' ? r.bank_specific_data : {};
+  const fields: Record<string, any> = {
+    ...existingMeta,
+    // I&M Bank fields
+    customer_cif: r.customer_cif ?? existingMeta.customer_cif,
+    facility_reference: r.facility_reference ?? existingMeta.facility_reference,
+    relationship_manager: r.relationship_manager ?? existingMeta.relationship_manager,
+    security_type: r.security_type ?? existingMeta.security_type,
+    title_type: r.title_type ?? existingMeta.title_type,
+    forced_sale_value:
+      r.forced_sale_value !== undefined ? Number(r.forced_sale_value) || 0 : existingMeta.forced_sale_value,
+    search_fee: r.search_fee !== undefined ? Number(r.search_fee) || 0 : existingMeta.search_fee,
+    valuation_fee: r.valuation_fee !== undefined ? Number(r.valuation_fee) || 0 : existingMeta.valuation_fee,
+    date_instructed: r.date_instructed ?? existingMeta.date_instructed,
+    date_sent_registration: r.date_sent_registration ?? existingMeta.date_sent_registration,
+    date_registered: r.date_registered ?? existingMeta.date_registered,
+    // Bank of Baroda fields
+    baroda_account_no: r.baroda_account_no ?? existingMeta.baroda_account_no,
+    scheme_code: r.scheme_code ?? existingMeta.scheme_code,
+    sanction_letter_ref: r.sanction_letter_ref ?? existingMeta.sanction_letter_ref,
+    sanction_date: r.sanction_date ?? existingMeta.sanction_date,
+    security_nature: r.security_nature ?? existingMeta.security_nature,
+    ura_prn: r.ura_prn ?? existingMeta.ura_prn,
+    title_custody_status: r.title_custody_status ?? existingMeta.title_custody_status,
+    baroda_branch_code: r.baroda_branch_code ?? existingMeta.baroda_branch_code,
+    // KCB fields
+    kcb_customer_id: r.kcb_customer_id ?? existingMeta.kcb_customer_id,
+    panel_instruction_no: r.panel_instruction_no ?? existingMeta.panel_instruction_no,
+    facility_type: r.facility_type ?? existingMeta.facility_type,
+    perfection_stage: r.perfection_stage ?? existingMeta.perfection_stage,
+    instrument_number: r.instrument_number ?? existingMeta.instrument_number,
+    sla_target_date: r.sla_target_date ?? existingMeta.sla_target_date,
+    turnaround_days:
+      r.turnaround_days !== undefined && r.turnaround_days !== null && r.turnaround_days !== ''
+        ? Number(r.turnaround_days)
+        : existingMeta.turnaround_days,
+    courier_fee: r.courier_fee !== undefined ? Number(r.courier_fee) || 0 : existingMeta.courier_fee,
+  };
+
+  Object.keys(fields).forEach((k) => {
+    if (fields[k] === undefined || fields[k] === '') delete fields[k];
+  });
+  return fields;
+};
+
 /**
  * Builds a clean payload matching the exact columns of live `public.mortgage_cases`
  * so PostgREST never rejects inserts/updates with PGRST204 unknown column errors.
  * Keeps `bank_branch_station` (bank handling branch) and `firm_branch_station` / `branch_id` (MK office) strictly separate.
  */
 export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean }) => {
+  const resolvedBankName = r.bank_name || r.client_bank_name || 'Centenary Bank';
+  const isCentenary = isCentenaryBankName(resolvedBankName);
+
   const bankBranchVal =
     r.bank_branch_station ??
     r.bankBranchStation ??
@@ -465,16 +526,18 @@ export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean })
     r.client_branch_location ??
     r.branch ??
     '';
-  const rawFirmBranchName =
-    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
-  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
-  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  const rawFirmBranchName = isCentenary
+    ? ''
+    : r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = isCentenary ? '' : r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
   const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
-  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
-  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
+  const resolvedFirmName = isCentenary ? '' : rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = isCentenary ? '' : firmMeta?.id || rawFirmBranchId || undefined;
+  const bankSpecificData = buildBankSpecificData(r);
 
   const row: Record<string, any> = {
-    bank_name: r.bank_name || r.client_bank_name || 'Centenary Bank',
+    bank_name: resolvedBankName,
     client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
     record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
     month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
@@ -499,14 +562,45 @@ export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean })
     bank_charges: Number(r.bank_charges) || 0,
     transport: Number(r.transport) || 0,
     linkage_fees: Number(r.linkage_fees) || 0,
+    search_fee: Number(r.search_fee) || 0,
+    valuation_fee: Number(r.valuation_fee) || 0,
+    courier_fee: Number(r.courier_fee) || 0,
     total_disbursements: Number(r.total_disbursements) || 0,
     legal_fees: Number(r.legal_fees) || 0,
     vat_18: Number(r.vat_18 ?? r.vat ?? 0),
     grand_total: Number(r.grand_total) || 0,
     date_of_payment: r.date_of_payment || null,
     date_of_return: r.date_of_return || null,
+    date_instructed: r.date_instructed || null,
+    date_sent_registration: r.date_sent_registration || null,
+    date_registered: r.date_registered || null,
     comments: r.comments || '',
     status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
+    bank_specific_data: Object.keys(bankSpecificData).length > 0 ? bankSpecificData : undefined,
+    customer_cif: r.customer_cif || undefined,
+    facility_reference: r.facility_reference || undefined,
+    relationship_manager: r.relationship_manager || undefined,
+    security_type: r.security_type || undefined,
+    title_type: r.title_type || undefined,
+    forced_sale_value: r.forced_sale_value !== undefined ? Number(r.forced_sale_value) || 0 : undefined,
+    baroda_account_no: r.baroda_account_no || undefined,
+    scheme_code: r.scheme_code || undefined,
+    sanction_letter_ref: r.sanction_letter_ref || undefined,
+    sanction_date: r.sanction_date || null,
+    security_nature: r.security_nature || undefined,
+    ura_prn: r.ura_prn || undefined,
+    title_custody_status: r.title_custody_status || undefined,
+    baroda_branch_code: r.baroda_branch_code || undefined,
+    kcb_customer_id: r.kcb_customer_id || undefined,
+    panel_instruction_no: r.panel_instruction_no || undefined,
+    facility_type: r.facility_type || undefined,
+    perfection_stage: r.perfection_stage || undefined,
+    instrument_number: r.instrument_number || undefined,
+    sla_target_date: r.sla_target_date || null,
+    turnaround_days:
+      r.turnaround_days !== undefined && r.turnaround_days !== null && r.turnaround_days !== ''
+        ? Number(r.turnaround_days)
+        : undefined,
   };
 
   if (options?.includeId && r.id && UUID_REGEX.test(String(r.id))) {
@@ -524,6 +618,9 @@ export const buildMortgagesRow = (r: any) => {
     typeof r.assigned_lawyer_id === 'string' &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.assigned_lawyer_id);
 
+  const resolvedBankName = r.client_bank_name || r.bank_name || 'Centenary Bank';
+  const isCentenary = isCentenaryBankName(resolvedBankName);
+
   const bankBranchVal =
     r.bank_branch_station ??
     r.bankBranchStation ??
@@ -531,16 +628,18 @@ export const buildMortgagesRow = (r: any) => {
     r.client_branch_location ??
     r.branch ??
     '';
-  const rawFirmBranchName =
-    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
-  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
-  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  const rawFirmBranchName = isCentenary
+    ? ''
+    : r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = isCentenary ? '' : r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
   const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
-  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
-  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
+  const resolvedFirmName = isCentenary ? '' : rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = isCentenary ? '' : firmMeta?.id || rawFirmBranchId || undefined;
+  const bankSpecificData = buildBankSpecificData(r);
 
   const row: Record<string, any> = {
-    client_bank_name: r.client_bank_name || r.bank_name || 'Centenary Bank',
+    client_bank_name: resolvedBankName,
     record_year: r.record_year ? parseInt(String(r.record_year), 10) : new Date().getFullYear(),
     month_sheet: r.month_sheet || MONTHS[new Date().getMonth()],
     date_of_receipt: r.date_of_receipt || new Date().toISOString().slice(0, 10),
@@ -557,6 +656,9 @@ export const buildMortgagesRow = (r: any) => {
     registration_fee: Number(r.registration_fee ?? r.registration ?? 0),
     bank_charges: Number(r.bank_charges) || 0,
     transport: Number(r.transport) || 0,
+    search_fee: Number(r.search_fee) || 0,
+    valuation_fee: Number(r.valuation_fee) || 0,
+    courier_fee: Number(r.courier_fee) || 0,
     other_disbursements: Number(r.other_disbursements ?? r.other_fees ?? r.other ?? 0),
     total_disbursements: Number(r.total_disbursements) || 0,
     legal_fees: Number(r.legal_fees) || 0,
@@ -564,10 +666,38 @@ export const buildMortgagesRow = (r: any) => {
     grand_total: Number(r.grand_total) || 0,
     date_of_payment: r.date_of_payment || null,
     date_of_return: r.date_of_return || null,
+    date_instructed: r.date_instructed || null,
+    date_sent_registration: r.date_sent_registration || null,
+    date_registered: r.date_registered || null,
     comments: r.comments || '',
     status: r.status || (r.date_of_return ? 'Completed / Cleared' : 'Active / Processing'),
     department: r.department || 'Banking & Securities',
     assigned_lawyer_id: isUUID ? r.assigned_lawyer_id : null,
+    bank_specific_data: Object.keys(bankSpecificData).length > 0 ? bankSpecificData : undefined,
+    customer_cif: r.customer_cif || undefined,
+    facility_reference: r.facility_reference || undefined,
+    relationship_manager: r.relationship_manager || undefined,
+    security_type: r.security_type || undefined,
+    title_type: r.title_type || undefined,
+    forced_sale_value: r.forced_sale_value !== undefined ? Number(r.forced_sale_value) || 0 : undefined,
+    baroda_account_no: r.baroda_account_no || undefined,
+    scheme_code: r.scheme_code || undefined,
+    sanction_letter_ref: r.sanction_letter_ref || undefined,
+    sanction_date: r.sanction_date || null,
+    security_nature: r.security_nature || undefined,
+    ura_prn: r.ura_prn || undefined,
+    title_custody_status: r.title_custody_status || undefined,
+    baroda_branch_code: r.baroda_branch_code || undefined,
+    kcb_customer_id: r.kcb_customer_id || undefined,
+    panel_instruction_no: r.panel_instruction_no || undefined,
+    facility_type: r.facility_type || undefined,
+    perfection_stage: r.perfection_stage || undefined,
+    instrument_number: r.instrument_number || undefined,
+    sla_target_date: r.sla_target_date || null,
+    turnaround_days:
+      r.turnaround_days !== undefined && r.turnaround_days !== null && r.turnaround_days !== ''
+        ? Number(r.turnaround_days)
+        : undefined,
   };
 
   if (r.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(r.id))) {
@@ -654,6 +784,12 @@ async function safeMortgageTableMutation(
 }
 
 const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
+  const bankSpecificMeta =
+    row?.bank_specific_data && typeof row.bank_specific_data === 'object' ? row.bank_specific_data : {};
+  const resolvedBank =
+    row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank';
+  const isCentenary = isCentenaryBankName(resolvedBank);
+
   // Bank Branch Station (lending bank's handling branch, e.g. Centenary Bank Kamwenge Branch)
   const resolvedBankBranch =
     row.bank_branch_station ??
@@ -664,15 +800,17 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     '';
 
   // Firm Branch Station (MK Advocates office processing instructions, e.g. Kampala Central (Head Office))
-  const rawFirmBranchName =
-    row.firm_branch_station || row.firmBranchStation || row.branch_name || row.branchName || '';
-  const rawFirmBranchId = row.branch_id || row.branchId || '';
-  const hasExplicitFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
+  // Centenary Bank strictly omits internal Firm Branch details
+  const rawFirmBranchName = isCentenary
+    ? ''
+    : row.firm_branch_station || row.firmBranchStation || row.branch_name || row.branchName || '';
+  const rawFirmBranchId = isCentenary ? '' : row.branch_id || row.branchId || '';
+  const hasExplicitFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
   const resolvedFirmMeta = hasExplicitFirmBranch
     ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
     : null;
-  const resolvedFirmBranch = rawFirmBranchName || resolvedFirmMeta?.name || '';
-  const resolvedFirmBranchId = rawFirmBranchId || resolvedFirmMeta?.id || '';
+  const resolvedFirmBranch = isCentenary ? '' : rawFirmBranchName || resolvedFirmMeta?.name || '';
+  const resolvedFirmBranchId = isCentenary ? '' : rawFirmBranchId || resolvedFirmMeta?.id || '';
 
   const resolvedClient =
     row.client_name || row.mortgagor_name || row.borrower_name || row.name || '';
@@ -683,8 +821,20 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
   const bankCharges = Number(row.bank_charges || 0);
   const transportVal = Number(row.transport || 0);
   const linkageFees = Number(row.linkage_fees || 0);
+  const searchFee = Number(row.search_fee ?? bankSpecificMeta.search_fee ?? 0);
+  const valuationFee = Number(row.valuation_fee ?? bankSpecificMeta.valuation_fee ?? 0);
+  const courierFee = Number(row.courier_fee ?? bankSpecificMeta.courier_fee ?? 0);
   const computedDisbursements =
-    stampDuty + extraCopies + registrationFee + otherFees + bankCharges + transportVal + linkageFees;
+    stampDuty +
+    extraCopies +
+    registrationFee +
+    otherFees +
+    bankCharges +
+    transportVal +
+    linkageFees +
+    searchFee +
+    valuationFee +
+    courierFee;
   const totalDisbursements =
     row.total_disbursements !== null &&
     row.total_disbursements !== undefined &&
@@ -699,8 +849,13 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
       ? Number(row.grand_total)
       : computedGrandTotal;
 
-  return {
+  const mergedWithSpecifics = {
+    ...bankSpecificMeta,
     ...row,
+  };
+
+  return {
+    ...mergedWithSpecifics,
     id: row.id || `mc-${row.rim_no || Math.random()}`,
     client_bank_name: row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank',
     bank_name: row.bank_name || row.client_bank_name || fallbackBankName || 'Centenary Bank',
@@ -744,6 +899,9 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     bank_charges: bankCharges,
     transport: transportVal,
     linkage_fees: linkageFees,
+    search_fee: searchFee,
+    valuation_fee: valuationFee,
+    courier_fee: courierFee,
     total_disbursements: totalDisbursements,
     legal_fees: legalFees,
     vat_18: vat18,
@@ -820,17 +978,21 @@ export const MortgageService = {
       const defaultFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
 
       const preparedRecords = records.map((r, idx) => {
-        const rowFirmName = r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || defaultFirmMeta.name;
-        const rowFirmId = r.branch_id || r.branchId || defaultFirmMeta.id;
-        const firmMeta = resolveBranchMeta(rowFirmId, rowFirmName);
+        const targetRecBank = r.bank_name || r.client_bank_name || bankName;
+        const isCentenary = isCentenaryBankName(targetRecBank);
+        const rowFirmName = isCentenary
+          ? ''
+          : r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || defaultFirmMeta.name;
+        const rowFirmId = isCentenary ? '' : r.branch_id || r.branchId || defaultFirmMeta.id;
+        const firmMeta = isCentenary ? null : resolveBranchMeta(rowFirmId, rowFirmName);
         const normalized = normalizeMortgageRecord(
           {
             ...r,
-            firm_branch_station: rowFirmName || firmMeta.name,
-            branch_name: rowFirmName || firmMeta.name,
-            branch_id: firmMeta.id,
+            firm_branch_station: isCentenary ? '' : rowFirmName || firmMeta?.name || '',
+            branch_name: isCentenary ? '' : rowFirmName || firmMeta?.name || '',
+            branch_id: isCentenary ? '' : firmMeta?.id || '',
           },
-          r.bank_name || bankName
+          targetRecBank
         );
         const hasUuid = Boolean(r.id && UUID_REGEX.test(String(r.id)));
         return {
@@ -1231,6 +1393,8 @@ export const MortgageService = {
     const effectiveUser = getEffectiveUser(userProfile);
     const isGlobalAdmin = isUserAdmin(effectiveUser);
     const userFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
+    const targetBankName = payload?.bank_name || payload?.client_bank_name || 'Centenary Bank';
+    const isCentenary = isCentenaryBankName(targetBankName);
 
     const rawBankBranch =
       payload?.bank_branch_station ??
@@ -1240,16 +1404,18 @@ export const MortgageService = {
       payload?.branch ??
       '';
 
-    const rawFirmBranchName =
-      payload?.firm_branch_station || payload?.firmBranchStation || payload?.branch_name || payload?.branchName || '';
-    const rawFirmBranchId = payload?.branch_id || payload?.branchId || '';
+    const rawFirmBranchName = isCentenary
+      ? ''
+      : payload?.firm_branch_station || payload?.firmBranchStation || payload?.branch_name || payload?.branchName || '';
+    const rawFirmBranchId = isCentenary ? '' : payload?.branch_id || payload?.branchId || '';
 
-    const targetFirmMeta =
-      rawFirmBranchName || rawFirmBranchId
-        ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
-        : userFirmMeta;
+    const targetFirmMeta = isCentenary
+      ? { id: '', name: '' }
+      : rawFirmBranchName || rawFirmBranchId
+      ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
+      : userFirmMeta;
 
-    if (!isGlobalAdmin) {
+    if (!isGlobalAdmin && !isCentenary) {
       if (
         (rawFirmBranchName || rawFirmBranchId) &&
         !canUserModifyMortgage(effectiveUser, {
@@ -1264,10 +1430,12 @@ export const MortgageService = {
       }
     }
 
-    const effectiveFirmName = isGlobalAdmin
+    const effectiveFirmName = isCentenary
+      ? ''
+      : isGlobalAdmin
       ? rawFirmBranchName || targetFirmMeta.name
       : effectiveUser.branchName || userFirmMeta.name;
-    const effectiveFirmId = isGlobalAdmin ? targetFirmMeta.id : userFirmMeta.id;
+    const effectiveFirmId = isCentenary ? '' : isGlobalAdmin ? targetFirmMeta.id : userFirmMeta.id;
 
     const effectivePayload = {
       ...payload,
@@ -1518,6 +1686,40 @@ export const MortgageService = {
         if (updates.transfer_reason !== undefined) mcPayload.transfer_reason = updates.transfer_reason;
         if (updates.comments !== undefined) mcPayload.comments = updates.comments;
         if (updates.status !== undefined) mcPayload.status = updates.status;
+
+        // Bank-specific optional columns & JSONB extension
+        const specificFields = buildBankSpecificData({ ...(existingRecord || {}), ...updates });
+        if (Object.keys(specificFields).length > 0) {
+          mcPayload.bank_specific_data = specificFields;
+        }
+        [
+          'customer_cif',
+          'facility_reference',
+          'relationship_manager',
+          'security_type',
+          'title_type',
+          'baroda_account_no',
+          'scheme_code',
+          'sanction_letter_ref',
+          'security_nature',
+          'ura_prn',
+          'title_custody_status',
+          'baroda_branch_code',
+          'kcb_customer_id',
+          'panel_instruction_no',
+          'facility_type',
+          'perfection_stage',
+          'instrument_number',
+        ].forEach((k) => {
+          if (updates[k] !== undefined) mcPayload[k] = updates[k];
+        });
+        ['sanction_date', 'sla_target_date'].forEach((k) => {
+          if (updates[k] !== undefined) mcPayload[k] = updates[k] || null;
+        });
+        if (updates.forced_sale_value !== undefined) mcPayload.forced_sale_value = Number(updates.forced_sale_value) || 0;
+        if (updates.turnaround_days !== undefined && updates.turnaround_days !== '') {
+          mcPayload.turnaround_days = Number(updates.turnaround_days);
+        }
 
         const { data: mcData, error: mcErr } = await safeMortgageTableMutation(
           'mortgage_cases',

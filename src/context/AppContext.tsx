@@ -601,9 +601,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Effective role permissions calculation based on current user
   const userPermissions: RolePermissions = useMemo(() => {
     const strictSuper = isStrictSuperAdmin(currentUser);
+    const cleanEmail = String(currentUser?.email || '').trim().toLowerCase();
     const explicitUserMortgageImport = Boolean(
       currentUser?.can_import_mortgages ||
-      currentUser?.canImportMortgages
+      currentUser?.canImportMortgages ||
+      cleanEmail === 'phionaadoch@mkadvocates.ug'
     );
 
     // 1. Managing Partner / Super Admin -> Global access across all branches + administrative authority
@@ -750,12 +752,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     const canImportMortgagesFlag = Boolean(
-      profile?.can_import_mortgages ??
-      profile?.canImportMortgages ??
-      user?.can_import_mortgages ??
-      user?.canImportMortgages ??
-      user?.user_metadata?.can_import_mortgages ??
-      false
+      roleMeta.isSuperAdmin ||
+      email === 'phionaadoch@mkadvocates.ug' ||
+      profile?.can_import_mortgages ||
+      profile?.canImportMortgages ||
+      user?.can_import_mortgages ||
+      user?.canImportMortgages ||
+      user?.user_metadata?.can_import_mortgages
     );
 
     const loggedInUser: User = {

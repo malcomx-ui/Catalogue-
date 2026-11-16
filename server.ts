@@ -721,6 +721,13 @@ app.get('/api/mortgages', (req: Request, res: Response) => {
   }
 });
 
+const IMPORT_MORTGAGES_AUTHORIZED_EMAILS = ['phionaadoch@mkadvocates.ug'];
+
+function isExplicitMortgageImportEmail(email?: string | null): boolean {
+  const clean = String(email || '').trim().toLowerCase();
+  return IMPORT_MORTGAGES_AUTHORIZED_EMAILS.includes(clean);
+}
+
 function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
   let tokenPayload: any = null;
   const authHeader = String(req.headers.authorization || (req.headers as any)['Authorization'] || '');
@@ -741,11 +748,12 @@ function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
   );
 
   const hasActor = Boolean(hdrId || hdrEmail || hdrRole || hdrBranch || matchedDbUser);
+  const actorEmail = hdrEmail || String(matchedDbUser?.email || '').toLowerCase();
   const roleMeta = resolveCanonicalRole(
     matchedDbUser?.roleId || matchedDbUser?.role || hdrRole,
     matchedDbUser?.roleTitle,
     matchedDbUser?.isSuperAdmin,
-    hdrEmail || matchedDbUser?.email
+    actorEmail
   );
   const branchMeta = resolveCanonicalBranch(
     matchedDbUser?.branchId || hdrBranch,
@@ -754,6 +762,7 @@ function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
   const matchedRole = (db.roles || []).find((r: any) => r.id === roleMeta.roleId);
   const canImportMortgages = Boolean(
     roleMeta.isSuperAdmin ||
+      isExplicitMortgageImportEmail(actorEmail) ||
       matchedDbUser?.can_import_mortgages ||
       matchedDbUser?.canImportMortgages ||
       matchedRole?.permissions?.can_import_mortgages ||
@@ -765,7 +774,7 @@ function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
   return {
     hasActor,
     id: hdrId || matchedDbUser?.id || '',
-    email: hdrEmail || String(matchedDbUser?.email || '').toLowerCase(),
+    email: actorEmail,
     roleId: roleMeta.roleId,
     role: roleMeta.role,
     isSuperAdmin: roleMeta.isSuperAdmin,
@@ -785,6 +794,10 @@ function getRecordBranchId(record: any): string | null {
   if (rawFirmId || rawFirmName) {
     return resolveCanonicalBranch(rawFirmId, rawFirmName).id;
   }
+  const bankLower = String(record.bank_name || record.client_bank_name || '').trim().toLowerCase();
+  if (bankLower === 'centenary bank') {
+    return null;
+  }
   // Legacy fallback only when no firm branch columns exist
   const legacyName = String(record.branch || record.client_branch_location || '').trim();
   if (!legacyName) return null;
@@ -793,6 +806,13 @@ function getRecordBranchId(record: any): string | null {
 
 function canActorModifyMortgage(actor: ReturnType<typeof resolveRequestActor>, record: any): boolean {
   if (!actor.hasActor || actor.isSuperAdmin) return true;
+  const bankLower = String(record?.bank_name || record?.client_bank_name || '').trim().toLowerCase();
+  const hasFirmBranch = Boolean(
+    String(record?.branch_id || record?.branchId || record?.firm_branch_station || record?.firmBranchStation || record?.branch_name || record?.branchName || '').trim()
+  );
+  if (bankLower === 'centenary bank' && !hasFirmBranch) {
+    return actor.roleId !== 'role-clerk' && actor.role !== 'clerk';
+  }
   const recordBranchId = getRecordBranchId(record);
   if (!recordBranchId) return false;
   return recordBranchId === actor.branchId;
@@ -805,14 +825,21 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     const currentList: any[] = (db as any).mortgages || [];
     const payload = { ...(req.body || {}) };
 
-    // 1. Firm Branch Station (MK Advocates Office) - governs branch custody & RBAC
-    const rawFirmBranchId = String(payload.branch_id || payload.branchId || '').trim();
-    const rawFirmBranchName = String(
-      payload.firm_branch_station || payload.firmBranchStation || payload.branch_name || payload.branchName || ''
-    ).trim();
+    const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
+    const isCentenary = String(targetBank).trim().toLowerCase() === 'centenary bank';
+
+    // 1. Firm Branch Station (MK Advocates Office) - omitted for Centenary Bank
+    const rawFirmBranchId = isCentenary ? '' : String(payload.branch_id || payload.branchId || '').trim();
+    const rawFirmBranchName = isCentenary
+      ? ''
+      : String(
+          payload.firm_branch_station || payload.firmBranchStation || payload.branch_name || payload.branchName || ''
+        ).trim();
 
     let resolvedFirmBranch: { id: string; name: string };
-    if (!rawFirmBranchId && !rawFirmBranchName) {
+    if (isCentenary) {
+      resolvedFirmBranch = { id: '', name: '' };
+    } else if (!rawFirmBranchId && !rawFirmBranchName) {
       resolvedFirmBranch = actor.hasActor
         ? { id: actor.branchId, name: actor.branchName }
         : { id: 'kla-hq', name: 'Kampala Central (Head Office)' };
@@ -820,7 +847,7 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
       resolvedFirmBranch = resolveCanonicalBranch(rawFirmBranchId, rawFirmBranchName);
     }
 
-    if (actor.hasActor && !actor.isSuperAdmin && resolvedFirmBranch.id !== actor.branchId) {
+    if (!isCentenary && actor.hasActor && !actor.isSuperAdmin && resolvedFirmBranch.id !== actor.branchId) {
       return res.status(403).json({
         success: false,
         error: `Branch restriction: You can only create mortgage files assigned to ${actor.branchName}.`,
@@ -838,9 +865,8 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
     ).trim();
 
     const id = payload.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const targetBank = payload.client_bank_name || payload.bank_name || 'Centenary Bank';
     const clientName = payload.client_name || payload.mortgagor_name || payload.borrower_name || payload.name || '';
-    const firmBranchLabel = rawFirmBranchName || resolvedFirmBranch.name;
+    const firmBranchLabel = isCentenary ? '' : rawFirmBranchName || resolvedFirmBranch.name;
 
     const newRecord = {
       ...payload,
@@ -855,7 +881,7 @@ app.post('/api/mortgages', (req: Request, res: Response) => {
       client_branch_location: rawBankBranch,
       branch: rawBankBranch,
       firm_branch_station: firmBranchLabel,
-      branch_id: resolvedFirmBranch.id,
+      branch_id: isCentenary ? '' : resolvedFirmBranch.id,
       branch_name: firmBranchLabel,
       created_at: payload.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1031,6 +1057,7 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
           );
           isAuthorizedForImport = Boolean(
             profRoleMeta.isSuperAdmin ||
+              isExplicitMortgageImportEmail(prof.email || actor.email) ||
               prof.can_import_mortgages === true ||
               matchedDbUser?.can_import_mortgages === true ||
               matchedDbUser?.canImportMortgages === true ||
@@ -1066,14 +1093,19 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
     records.forEach((r: any) => {
       const id = r.id || `mort-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const clientName = r.client_name || r.borrower_name || r.name || 'Unknown Client';
+      const targetBank = r.bank_name || r.client_bank_name || bank_name || 'Centenary Bank';
+      const isCentenary = String(targetBank).trim().toLowerCase() === 'centenary bank';
       const bankBranchName = String(
         r.bank_branch_station ?? r.bankBranchStation ?? r.bank_branch ?? r.client_branch_location ?? r.branch ?? ''
       ).trim();
-      const rawFirmBranchName = String(
-        r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || (actor.hasActor ? actor.branchName : 'Kampala Central (Head Office)')
-      ).trim();
-      const resolvedFirmBranch = resolveCanonicalBranch(r.branch_id || r.branchId, rawFirmBranchName);
-      const targetBank = r.bank_name || r.client_bank_name || bank_name || 'Centenary Bank';
+      const rawFirmBranchName = isCentenary
+        ? ''
+        : String(
+            r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || (actor.hasActor ? actor.branchName : 'Kampala Central (Head Office)')
+          ).trim();
+      const resolvedFirmBranch = isCentenary
+        ? { id: '', name: '' }
+        : resolveCanonicalBranch(r.branch_id || r.branchId, rawFirmBranchName);
       const loanAmount = Number(r.loan_amount) || 0;
       const grandTotal = Number(r.grand_total) || 0;
       const rimNo = String(r.rim_no || '');
@@ -1086,13 +1118,14 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
       const otherVal = Number(r.other_fees ?? r.other_disbursements ?? r.other ?? 0);
 
       normalizedCentenary.push({
+        ...r,
         id,
         bank_name: targetBank,
         bank_branch_station: bankBranchName,
         branch: bankBranchName,
-        firm_branch_station: rawFirmBranchName || resolvedFirmBranch.name,
-        branch_id: resolvedFirmBranch.id,
-        branch_name: rawFirmBranchName || resolvedFirmBranch.name,
+        firm_branch_station: isCentenary ? '' : rawFirmBranchName || resolvedFirmBranch.name,
+        branch_id: isCentenary ? '' : resolvedFirmBranch.id,
+        branch_name: isCentenary ? '' : rawFirmBranchName || resolvedFirmBranch.name,
         client_name: clientName,
         rim_no: rimNo,
         property_description: propDesc,
@@ -1108,6 +1141,7 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
 
       // Also register into central mortgages table under the selected bank
       normalizedNewMortgages.push({
+        ...r,
         id,
         client_bank_name: targetBank,
         bank_name: targetBank,
@@ -1119,9 +1153,9 @@ app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
         bank_branch: bankBranchName,
         branch: bankBranchName,
         client_branch_location: bankBranchName,
-        firm_branch_station: rawFirmBranchName || resolvedFirmBranch.name,
-        branch_id: resolvedFirmBranch.id,
-        branch_name: rawFirmBranchName || resolvedFirmBranch.name,
+        firm_branch_station: isCentenary ? '' : rawFirmBranchName || resolvedFirmBranch.name,
+        branch_id: isCentenary ? '' : resolvedFirmBranch.id,
+        branch_name: isCentenary ? '' : rawFirmBranchName || resolvedFirmBranch.name,
         file_number: rimNo || `MORT-${Date.now().toString().slice(-5)}`,
         rim_no: rimNo,
         borrower_name: clientName,
@@ -1567,7 +1601,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         ? Boolean(must_change_password)
         : existingDbUser?.mustChangePassword;
 
-    const finalCanImportMortgages = roleMeta.isSuperAdmin
+    const finalCanImportMortgages = roleMeta.isSuperAdmin || isExplicitMortgageImportEmail(finalEmail)
       ? true
       : can_import_mortgages !== undefined
       ? Boolean(can_import_mortgages)
@@ -1947,7 +1981,10 @@ const handleUserCreate = async (req: Request, res: Response) => {
     }
 
     const finalCanImportMortgages = Boolean(
-      roleMeta.isSuperAdmin || can_import_mortgages || canImportMortgages
+      roleMeta.isSuperAdmin ||
+      isExplicitMortgageImportEmail(resolvedEmail) ||
+      can_import_mortgages ||
+      canImportMortgages
     );
 
     const userMetadata: Record<string, any> = {
@@ -2215,6 +2252,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 
     const canImportMortgagesFlag = Boolean(
       roleMeta.isSuperAdmin ||
+        isExplicitMortgageImportEmail(cleanEmail) ||
         sbProfile?.can_import_mortgages ||
         dbUser?.can_import_mortgages ||
         dbUser?.canImportMortgages
@@ -2435,10 +2473,10 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
             is_branch_admin: rMeta.isBranchAdmin,
             isBranchAdmin: rMeta.isBranchAdmin,
             can_import_mortgages: Boolean(
-              rMeta.isSuperAdmin || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
+              rMeta.isSuperAdmin || isExplicitMortgageImportEmail(em) || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
             ),
             canImportMortgages: Boolean(
-              rMeta.isSuperAdmin || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
+              rMeta.isSuperAdmin || isExplicitMortgageImportEmail(em) || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
             ),
             is_suspended: prev.is_suspended ?? prev.isSuspended ?? false,
             advocate_roll_no: p.advocate_roll_no || prev.advocate_roll_no || prev.advocateRollNo,
@@ -2466,10 +2504,10 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
             is_branch_admin: rMeta.isBranchAdmin,
             isBranchAdmin: rMeta.isBranchAdmin,
             can_import_mortgages: Boolean(
-              rMeta.isSuperAdmin || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
+              rMeta.isSuperAdmin || isExplicitMortgageImportEmail(em) || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
             ),
             canImportMortgages: Boolean(
-              rMeta.isSuperAdmin || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
+              rMeta.isSuperAdmin || isExplicitMortgageImportEmail(em) || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
             ),
             is_suspended: prev.is_suspended ?? prev.isSuspended ?? false,
             advocate_roll_no: p.advocate_roll_no || prev.advocate_roll_no || prev.advocateRollNo,
