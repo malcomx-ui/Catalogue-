@@ -250,15 +250,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-white">Banking &amp; Securities</p>
+                <p className="text-xs font-semibold text-white">Mortgages</p>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Perfected mortgage custody, disbursements &amp; billing ledgers
+                  Mortgage custody, disbursements &amp; billing ledgers
                 </p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">Regional Chambers</p>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Kampala HQ · Fort Portal · Mbarara · Masaka · Jinja
+                  Kampala HQ · Fort Portal · Mbarara · Masaka · Jinja · Masindi · Gulu
                 </p>
               </div>
             </div>
