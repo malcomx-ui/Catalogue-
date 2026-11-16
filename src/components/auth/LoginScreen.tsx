@@ -220,45 +220,30 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         </header>
 
         {/* Center Editorial Brand Statement */}
-        <div className="relative z-10 max-w-xl my-auto py-12 space-y-6">
-          <p className="text-xs font-medium tracking-widest uppercase text-amber-400/90">
-            Chambers &amp; Practice Operations
-          </p>
-
-          <h1
-            className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-[1.18]"
-            style={{ textWrap: 'balance' }}
-          >
-            Secure Centralized Practice Management &amp; Legal Intelligence
-          </h1>
+        <div className="relative z-10 max-w-xl my-auto py-12 space-y-5">
+          <div className="space-y-2">
+            <h1
+              className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-[1.15]"
+              style={{ textWrap: 'balance' }}
+            >
+              MK Case Catalogue
+            </h1>
+            <p className="text-base xl:text-lg font-medium text-amber-300/95 tracking-tight">
+              Centralized Practice Management Hub
+            </p>
+          </div>
 
           <p className="text-sm xl:text-base text-slate-300 leading-relaxed max-w-lg">
-            Unified governance for litigation dockets, court cause lists, institutional mortgage
-            registers, and regional chambers coordination across Uganda.
+            Secure, role-based workflow administration for modern legal practice management,
+            litigation tracking, and mortgage portfolio registry.
           </p>
         </div>
 
-        {/* Bottom Practice Pillars & Regional Chambers */}
-        <footer className="relative z-10 pt-8 border-t border-white/10">
-          <div className="grid grid-cols-3 gap-6">
-            <div>
-              <p className="text-xs font-semibold text-white">Litigation &amp; Cause Lists</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Real-time court diaries, pleadings &amp; progressive matter trails
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">Banking &amp; Securities</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Perfected mortgage custody, disbursements &amp; billing ledgers
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">Regional Chambers</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Kampala HQ · Fort Portal · Mbarara · Masaka · Jinja
-              </p>
-            </div>
+        {/* Footer Security Badge */}
+        <footer className="relative z-10 pt-6 border-t border-white/10">
+          <div className="flex items-center gap-2.5 text-xs text-slate-300 tracking-wide">
+            <Lock className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+            <span>256-Bit Encrypted Portal — Authorized Personnel Only</span>
           </div>
         </footer>
       </aside>
@@ -282,10 +267,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-              Muhumuza - Kiiza Advocates
+              MK Case Catalogue
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-              Legal Practice Portal
+              Centralized Practice Management Hub
             </p>
           </div>
         </div>
@@ -294,14 +279,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <div className="w-full max-w-[420px] mx-auto my-auto py-8 lg:py-0">
           <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xs">
             <div className="space-y-1.5 mb-7">
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                Counsel &amp; Chambers Portal
-              </p>
               <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Sign in to your workspace
+                Welcome Back
               </h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                Enter your firm-issued credentials to access matter files and registers.
+                Please sign in to your branch workspace to continue.
               </p>
             </div>
 
@@ -335,7 +317,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="counsel@mkadvocates.ug"
+                    placeholder="name@mkadvocates.ug"
                     className="w-full bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-300 focus:border-slate-900 dark:focus:border-slate-300 transition-shadow"
                   />
                 </div>
@@ -359,7 +341,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder="••••••••••••"
                     className="w-full bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 rounded-xl pl-10 pr-11 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-300 focus:border-slate-900 dark:focus:border-slate-300 transition-shadow"
                   />
                   <button
@@ -373,7 +355,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
+              {/* Remember this device & Forgot password? */}
               <div className="flex items-center justify-between gap-3 pt-0.5">
                 <label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer select-none min-h-[28px]">
                   <input
@@ -382,7 +364,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-slate-900 focus:ring-2 focus:ring-slate-900 focus:ring-offset-0 cursor-pointer accent-slate-900"
                   />
-                  <span>Remember me</span>
+                  <span>Remember this device</span>
                 </label>
 
                 <button
@@ -395,7 +377,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                   }}
                   className="text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 rounded px-1 py-0.5 cursor-pointer whitespace-nowrap"
                 >
-                  Forgot Password?
+                  Forgot password?
                 </button>
               </div>
 
@@ -413,7 +395,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                     </>
                   ) : (
                     <>
-                      <span>Sign In to Chambers Portal</span>
+                      <span>Sign In to Workspace</span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -423,22 +405,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
               {/* Enterprise Security Assurance Line */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 text-center">
                 <ShieldCheck className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
-                <span>256-Bit Encrypted Portal · Restricted Access — Authorized Personnel Only</span>
+                <span>256-Bit Encrypted Portal — Authorized Personnel Only</span>
               </div>
             </form>
           </div>
         </div>
 
         {/* Institutional Compliance & Copyright Footer */}
-        <footer className="pt-6 border-t border-slate-200/70 dark:border-slate-800/80 text-center lg:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-            <p className="tabular-nums">
-              &copy; {currentYear} Muhumuza - Kiiza Advocates &amp; Legal Consultants. All rights reserved.
-            </p>
-            <p className="text-slate-400 dark:text-slate-500">
-              Confidential Attorney-Client Workspace · TLS Protected
-            </p>
-          </div>
+        <footer className="pt-6 border-t border-slate-200/70 dark:border-slate-800/80 text-center">
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+            &copy; {currentYear} MK Advocates. All rights reserved.
+          </p>
         </footer>
       </main>
 
