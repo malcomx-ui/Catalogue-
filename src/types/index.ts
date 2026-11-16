@@ -81,6 +81,8 @@ export interface RolePermissions {
   canManageUsers: boolean; // Super Admin: add, suspend, or delete users
   canManageBranches: boolean; // Super Admin: add, edit, or remove branches
   canManageSettings?: boolean; // Super Admin: configure dynamic system features and entry requirements
+  can_import_mortgages?: boolean; // Super Admin or explicit permission to bulk import mortgages
+  canImportMortgages?: boolean;
 }
 
 export interface CustomRole {
@@ -114,6 +116,8 @@ export interface User {
   password?: string;
   mustChangePassword?: boolean;
   temporaryPassword?: string;
+  can_import_mortgages?: boolean;
+  canImportMortgages?: boolean;
 }
 
 export interface BranchStaffMember {
@@ -519,13 +523,15 @@ export interface StaffDiaryEntry {
 export { 
   type UserProfile,
   isSystemAdmin,
+  isStrictSuperAdmin,
   isSuperAdmin, 
   isBranchAdmin, 
   isAdminFinanceAssistant,
   canViewAllBranches,
   canModifyRecordInBranch,
   canAccessGlobalSettings,
-  canManageFirm 
+  canManageFirm,
+  canImportMortgages,
 } from '../utils/permissions';
 
 

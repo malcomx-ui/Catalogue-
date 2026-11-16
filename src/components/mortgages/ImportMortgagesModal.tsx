@@ -8,9 +8,10 @@ import {
   Building2,
   Calendar,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { MortgageService, DEFAULT_BANKS, MONTHS } from '../../services/mortgageService';
-import { getEffectiveUser, isUserAdmin, resolveBranchMeta } from '../../lib/supabase';
+import { getEffectiveUser, isUserAdmin, canUserImportMortgages, resolveBranchMeta } from '../../lib/supabase';
 
 const DEFAULT_FIRM_BRANCHES = [
   { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
@@ -27,6 +28,7 @@ export interface ImportMortgagesModalProps {
   defaultMonth?: string;
   defaultYear?: number;
   currentUser?: any;
+  userPermissions?: any;
   onClose: () => void;
   onSuccess: (meta?: { count?: number; cloudSaved?: boolean; cloudError?: string }) => void;
 }
@@ -36,6 +38,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
   defaultMonth,
   defaultYear,
   currentUser,
+  userPermissions,
   onClose,
   onSuccess,
 }) => {
@@ -46,6 +49,10 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
 
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const canImportMortgages = useMemo(
+    () => canUserImportMortgages(effectiveUser, userPermissions),
+    [effectiveUser, userPermissions]
+  );
   const assignedBranchMeta = useMemo(
     () =>
       resolveBranchMeta(
@@ -177,6 +184,11 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    if (!canImportMortgages) {
+      setErrorMsg('Access Denied: Bulk mortgage import requires a Super Admin role or explicit can_import_mortgages permission.');
+      return;
+    }
+
     if (!workbookExtractor) {
       setErrorMsg('Please select an Excel file (.xlsx, .xls, or .csv) first.');
       return;
@@ -195,7 +207,8 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
         parsedRecords,
         selectedBank,
         (msg) => setProgressMsg(msg),
-        currentUser
+        currentUser,
+        userPermissions
       );
 
       if (result.success) {
@@ -254,6 +267,27 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
         </div>
 
         {/* Body */}
+        {!canImportMortgages ? (
+          <div className="p-8 text-center space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center justify-center text-rose-600 dark:text-rose-400">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Access Restricted</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                Bulk Excel mortgage imports are strictly restricted to Super Admins and staff granted the{' '}
+                <code className="font-mono text-[11px]">can_import_mortgages</code> permission.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold transition"
+            >
+              Close Window
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleImport} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs">
           {/* Feedback Banners */}
           {errorMsg && (
@@ -516,6 +550,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

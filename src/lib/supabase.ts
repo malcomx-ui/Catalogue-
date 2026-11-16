@@ -119,6 +119,12 @@ export function getEffectiveUser(user?: Partial<User> | null): Partial<User> {
         : (user as any).is_branch_admin !== undefined
         ? Boolean((user as any).is_branch_admin)
         : Boolean(source?.isBranchAdmin);
+    const canImportMortgagesFlag =
+      user.can_import_mortgages !== undefined
+        ? Boolean(user.can_import_mortgages)
+        : user.canImportMortgages !== undefined
+        ? Boolean(user.canImportMortgages)
+        : Boolean(source?.can_import_mortgages ?? source?.canImportMortgages);
 
     return {
       ...(source || {}),
@@ -130,6 +136,8 @@ export function getEffectiveUser(user?: Partial<User> | null): Partial<User> {
       branchName: rawBranchName || branchMeta.name || 'Kampala Central (Head Office)',
       isSuperAdmin,
       isBranchAdmin,
+      can_import_mortgages: canImportMortgagesFlag,
+      canImportMortgages: canImportMortgagesFlag,
     };
   }
 
@@ -1111,6 +1119,14 @@ export const SupabaseService = {
             branchId: user.branchId || existing.branchId,
             isSuperAdmin: user.isSuperAdmin,
             isBranchAdmin: user.isBranchAdmin,
+            can_import_mortgages:
+              row.can_import_mortgages !== undefined || row.canImportMortgages !== undefined
+                ? Boolean(row.can_import_mortgages ?? row.canImportMortgages)
+                : existing.can_import_mortgages,
+            canImportMortgages:
+              row.can_import_mortgages !== undefined || row.canImportMortgages !== undefined
+                ? Boolean(row.can_import_mortgages ?? row.canImportMortgages)
+                : existing.canImportMortgages,
             isSuspended: row.is_suspended !== undefined || row.isSuspended !== undefined ? Boolean(user.isSuspended) : existing.isSuspended,
             suspendedReason: user.suspendedReason || existing.suspendedReason,
             mustChangePassword: row.must_change_password !== undefined || row.mustChangePassword !== undefined ? Boolean(user.mustChangePassword) : existing.mustChangePassword,
@@ -1120,6 +1136,8 @@ export const SupabaseService = {
         } else {
           staffList[existingIndex] = {
             ...existing,
+            can_import_mortgages: existing.can_import_mortgages ?? user.can_import_mortgages,
+            canImportMortgages: existing.canImportMortgages ?? user.canImportMortgages,
             isSuspended: existing.isSuspended || Boolean(user.isSuspended),
             suspendedReason: existing.suspendedReason || user.suspendedReason,
             advocateRollNo: existing.advocateRollNo || user.advocateRollNo,
@@ -1234,6 +1252,9 @@ export const SupabaseService = {
     if (updates.advocateRollNo !== undefined) {
       profilePayload.advocate_roll_no = updates.advocateRollNo;
     }
+    if (updates.can_import_mortgages !== undefined || updates.canImportMortgages !== undefined) {
+      profilePayload.can_import_mortgages = Boolean(updates.can_import_mortgages ?? updates.canImportMortgages);
+    }
 
     const firmUserPayload: Record<string, any> = {};
     if (updates.name !== undefined) firmUserPayload.name = updates.name.trim();
@@ -1344,6 +1365,7 @@ export const SupabaseService = {
           }
           if (profilePayload.is_super_admin !== undefined) authMeta.is_super_admin = profilePayload.is_super_admin;
           if (profilePayload.is_branch_admin !== undefined) authMeta.is_branch_admin = profilePayload.is_branch_admin;
+          if (profilePayload.can_import_mortgages !== undefined) authMeta.can_import_mortgages = profilePayload.can_import_mortgages;
           await supabase.auth.updateUser({ data: authMeta }).catch(() => {});
         }
       } catch {}
@@ -1405,6 +1427,14 @@ export const SupabaseService = {
           advocateRollNo: updates.advocateRollNo,
           mustChangePassword: updates.mustChangePassword,
           isSuspended: updates.isSuspended,
+          can_import_mortgages:
+            updates.can_import_mortgages !== undefined || updates.canImportMortgages !== undefined
+              ? Boolean(updates.can_import_mortgages ?? updates.canImportMortgages)
+              : undefined,
+          canImportMortgages:
+            updates.can_import_mortgages !== undefined || updates.canImportMortgages !== undefined
+              ? Boolean(updates.can_import_mortgages ?? updates.canImportMortgages)
+              : undefined,
         };
         if (roleMeta) {
           apiBody.roleId = roleMeta.roleId;
@@ -1543,6 +1573,7 @@ export const SupabaseService = {
         branch_id: bMeta.id,
         is_super_admin: roleMeta.isSuperAdmin,
         is_branch_admin: roleMeta.isBranchAdmin,
+        can_import_mortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
         must_change_password: Boolean(u.mustChangePassword),
         updated_at: new Date().toISOString(),
       };
@@ -1731,6 +1762,58 @@ export function isUserAdmin(u: any): boolean {
   if (explicitBranchAdmin) return false;
 
   return role === 'admin';
+}
+
+/**
+ * Strictly identifies Managing Partners / Super Administrators only.
+ * Excludes generic non-super 'admin', 'branch_admin', and 'admin_finance_assistant'.
+ */
+export function isStrictSuperAdmin(u: any): boolean {
+  const effective = getEffectiveUser(u);
+  if (!effective) return false;
+  const role = String(effective.role || '').toLowerCase().trim();
+  const roleId = String(effective.roleId || (effective as any).role_id || '').toLowerCase().trim();
+  const email = String(effective.email || '').toLowerCase().trim();
+
+  return Boolean(
+    effective.isSuperAdmin ||
+    (effective as any).is_super_admin ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'system_admin' ||
+    role === 'partner' ||
+    role === 'managing_partner' ||
+    roleId === 'role-super-admin' ||
+    roleId === 'system_admin' ||
+    email === 'infosightug@gmail.com'
+  );
+}
+
+/**
+ * Strict Mortgage Bulk Import Permission Check:
+ * Returns TRUE only for users with the `super_admin` role OR explicit `can_import_mortgages` permissions.
+ */
+export function canUserImportMortgages(u: any, rolePermissions?: any): boolean {
+  const effective = getEffectiveUser(u);
+  if (!effective) return false;
+
+  if (isStrictSuperAdmin(effective)) {
+    return true;
+  }
+
+  const explicitUserFlag = Boolean(
+    effective.can_import_mortgages ||
+    effective.canImportMortgages ||
+    (effective as any).user_metadata?.can_import_mortgages ||
+    (effective as any).permissions?.can_import_mortgages ||
+    (effective as any).permissions?.canImportMortgages
+  );
+  if (explicitUserFlag) return true;
+
+  return Boolean(
+    rolePermissions?.can_import_mortgages ||
+    rolePermissions?.canImportMortgages
+  );
 }
 
 export const isUserSuperAdmin = isUserAdmin;
@@ -2134,6 +2217,8 @@ export function mapRowToUser(u: any): User {
     branchName,
     isSuperAdmin: roleMeta.isSuperAdmin,
     isBranchAdmin: roleMeta.isBranchAdmin,
+    can_import_mortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
+    canImportMortgages: Boolean(u.can_import_mortgages ?? u.canImportMortgages),
     isSuspended: Boolean(u.is_suspended ?? u.isSuspended),
     suspendedReason: u.suspended_reason || u.suspendedReason || undefined,
     advocateRollNo: rawRollNo,

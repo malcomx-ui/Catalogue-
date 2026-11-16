@@ -4,10 +4,27 @@ import {
   getEffectiveUser,
   isUserAdmin,
   canUserModifyMortgage,
+  canUserImportMortgages,
   resolveBranchMeta,
   extractMissingColumnFromError,
 } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
+
+async function buildMortgageAuthHeaders(userProfile?: any): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  } catch {}
+  const effective = getEffectiveUser(userProfile);
+  if (effective?.id) headers['x-user-id'] = String(effective.id);
+  if (effective?.email) headers['x-user-email'] = String(effective.email);
+  const roleVal = effective?.roleId || effective?.role;
+  if (roleVal) headers['x-user-role'] = String(roleVal);
+  if (effective?.branchId) headers['x-user-branch-id'] = String(effective.branchId);
+  return headers;
+}
 
 export interface BankSummary {
   bank_name: string;
@@ -782,12 +799,14 @@ export const MortgageService = {
     records: any[],
     bankName: string,
     onProgress?: (msg: string) => void,
-    userProfile?: any
+    userProfile?: any,
+    userPermissions?: any
   ): Promise<{ success: boolean; count: number; error?: string; cloudSaved?: boolean; cloudError?: string }> {
     try {
       const effectiveUser = getEffectiveUser(userProfile);
-      if (!isUserAdmin(effectiveUser)) {
-        const msg = 'Permission Denied: Only Firm / Super Administrators may perform bulk Excel mortgage imports.';
+      if (!canUserImportMortgages(effectiveUser, userPermissions)) {
+        const msg =
+          'Permission Denied: Bulk Excel mortgage import requires a Super Admin role or explicit can_import_mortgages permission.';
         showCleanMessage(msg, 'warning');
         return { success: false, count: 0, error: msg };
       }
@@ -915,13 +934,23 @@ export const MortgageService = {
 
       // Persist additively to central workstation server (merge by id without wiping existing rows)
       try {
+        const authHeaders = await buildMortgageAuthHeaders(effectiveUser);
         const apiBatchRes = await fetch('/api/mortgages/batch', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ records: persistedRecords, bank_name: bankName }),
         });
         if (!apiBatchRes.ok) {
           const apiErrJson = await apiBatchRes.json().catch(() => null);
+          if (apiBatchRes.status === 401 || apiBatchRes.status === 403) {
+            return {
+              success: false,
+              count: 0,
+              error:
+                apiErrJson?.error ||
+                'Forbidden: Bulk Excel mortgage import requires a Super Admin role or explicit can_import_mortgages permission.',
+            };
+          }
           console.warn('[MortgageService] /api/mortgages/batch warning:', apiErrJson?.error || apiBatchRes.status);
         }
       } catch (apiBatchErr) {
@@ -956,9 +985,18 @@ export const MortgageService = {
     onProgress?: (msg: string) => void,
     bankName: string = 'Centenary Bank',
     monthSheet?: string,
-    recordYear: number = new Date().getFullYear()
+    recordYear: number = new Date().getFullYear(),
+    userProfile?: any,
+    userPermissions?: any
   ): Promise<{ success: boolean; count: number; error?: string }> {
     try {
+      const effectiveUser = getEffectiveUser(userProfile);
+      if (!canUserImportMortgages(effectiveUser, userPermissions)) {
+        const msg =
+          'Permission Denied: Bulk Excel mortgage import requires a Super Admin role or explicit can_import_mortgages permission.';
+        showCleanMessage(msg, 'warning');
+        return { success: false, count: 0, error: msg };
+      }
       if (onProgress) onProgress('Reading Excel file...');
       const wb = await this.readExcelWorkbook(file);
       const targetMonth = monthSheet || MONTHS[new Date().getMonth()];
@@ -968,7 +1006,7 @@ export const MortgageService = {
         recordYear,
         sheetSelection: 'ALL',
       });
-      return await this.importExcelMortgages(allRecords, bankName, onProgress);
+      return await this.importExcelMortgages(allRecords, bankName, onProgress, userProfile, userPermissions);
     } catch (err: any) {
       console.error('Error processing file:', err);
       return {
@@ -1311,9 +1349,10 @@ export const MortgageService = {
 
     // 3. Persist to local workstation backend (/api/mortgages)
     try {
+      const authHeaders = await buildMortgageAuthHeaders(effectiveUser);
       const res = await fetch('/api/mortgages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify(localBody),
       });
 
@@ -1590,9 +1629,10 @@ export const MortgageService = {
     // 3. Update local workstation backend (and upsert via POST if PUT returns 404 for cloud-originating row)
     let localServerSaved = false;
     try {
+      const authHeaders = await buildMortgageAuthHeaders(effectiveUser);
       const res = await fetch(`/api/mortgages/${encodeURIComponent(id)}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify(updates),
       });
 
@@ -1603,7 +1643,7 @@ export const MortgageService = {
       } else if (res.status === 404) {
         const upsertRes = await fetch('/api/mortgages', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders,
           body: JSON.stringify({ ...(existingRecord || {}), ...updates, id }),
         });
         if (upsertRes.ok) {
@@ -1677,7 +1717,8 @@ export const MortgageService = {
     deleteLocalMortgage(id);
 
     try {
-      await fetch(`/api/mortgages/${id}`, { method: 'DELETE' });
+      const authHeaders = await buildMortgageAuthHeaders(effectiveUser);
+      await fetch(`/api/mortgages/${id}`, { method: 'DELETE', headers: authHeaders });
       return true;
     } catch (e) {
       return true;
@@ -1690,9 +1731,11 @@ export const MortgageService = {
    */
   async batchInsertCentenaryCases(
     records: any[],
-    _chunkSize: number = 50
+    _chunkSize: number = 50,
+    userProfile?: any,
+    userPermissions?: any
   ): Promise<{ success: boolean; insertedCount: number; error?: string }> {
-    const res = await this.importExcelMortgages(records, 'Centenary Bank');
+    const res = await this.importExcelMortgages(records, 'Centenary Bank', undefined, userProfile, userPermissions);
     return {
       success: res.success,
       insertedCount: res.count,

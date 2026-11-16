@@ -27,9 +27,11 @@ import {
   isUserAdmin,
   isAdminFinanceAssistant,
   canUserModifyMortgage,
+  canUserImportMortgages,
   resolveBranchId,
   isFirmBranchName,
 } from '../lib/supabase';
+import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
 import { StatusBadge } from './common/StatusBadge';
 import { RowActionMenu } from './common/RowActionMenu';
@@ -101,8 +103,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<any | null>(null);
   const [selectedRecordForView, setSelectedRecordForView] = useState<any | null>(null);
+  const { userPermissions } = useApp();
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isGlobalAdmin = isUserAdmin(effectiveUser);
+  const canImportMortgages = canUserImportMortgages(effectiveUser, userPermissions);
   const isFinanceAssistant = isAdminFinanceAssistant(effectiveUser);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -183,17 +187,21 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         showCleanMessage(addDisabledTooltip, 'warning');
       }
     } else if (externalAction === 'import') {
-      if (isGlobalAdmin) {
+      if (canImportMortgages) {
         setIsModalOpen(false);
         setIsImportModalOpen(true);
       } else {
-        showCleanMessage('Bulk mortgage import is restricted to Firm Administrators and Super Admins.', 'warning');
+        setIsImportModalOpen(false);
+        showCleanMessage(
+          'Access Denied: Bulk mortgage import requires a Super Admin role or explicit Mortgage Import permission.',
+          'warning'
+        );
       }
     } else if (externalAction === 'workspace') {
       setIsModalOpen(false);
       setIsImportModalOpen(false);
     }
-  }, [externalAction, externalActionNonce]);
+  }, [externalAction, externalActionNonce, canImportMortgages]);
 
   useEffect(() => {
     async function loadLawyers() {
@@ -683,7 +691,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             <span>Print Monthly Report</span>
           </button>
 
-          {isGlobalAdmin && (
+          {canImportMortgages && (
             <button
               type="button"
               onClick={() => setIsImportModalOpen(true)}
@@ -895,7 +903,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
               There are currently no mortgage or security files recorded under {bankName} matching your search filter.
             </p>
             <div className="no-print flex items-center justify-center gap-2.5 mt-2">
-              {isGlobalAdmin && (
+              {canImportMortgages && (
                 <button
                   type="button"
                   onClick={() => setIsImportModalOpen(true)}
@@ -1670,14 +1678,15 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         </div>
       )}
 
-      {/* Conditionally rendered ImportMortgagesModal (Super Admin / Firm Admin only) */}
-      {isGlobalAdmin && isImportModalOpen && (
+      {/* Conditionally rendered ImportMortgagesModal (Super Admin or explicit can_import_mortgages only) */}
+      {canImportMortgages && isImportModalOpen && (
         <div className="no-print">
           <ImportMortgagesModal
             defaultBank={bankName}
             defaultMonth={filters.month || MONTHS[new Date().getMonth()]}
             defaultYear={new Date().getFullYear()}
             currentUser={effectiveUser}
+            userPermissions={userPermissions}
             onClose={() => setIsImportModalOpen(false)}
             onSuccess={(meta) => {
               if (meta && meta.cloudSaved === false && meta.cloudError) {

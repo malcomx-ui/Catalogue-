@@ -38,6 +38,7 @@ import {
   resolveUserRoleMeta,
   handleSaveStaff,
   isUserAdmin,
+  isStrictSuperAdmin,
   isUserBranchAdmin,
   isAdminFinanceAssistant,
   isUserLawyer,
@@ -336,6 +337,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               mergedPerms.canManageUsers = false;
               mergedPerms.canManageBranches = false;
               mergedPerms.canManageSettings = false;
+              mergedPerms.can_import_mortgages = false;
+              mergedPerms.canImportMortgages = false;
             }
             return {
               ...r,
@@ -597,15 +600,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Effective role permissions calculation based on current user
   const userPermissions: RolePermissions = useMemo(() => {
+    const strictSuper = isStrictSuperAdmin(currentUser);
+    const explicitUserMortgageImport = Boolean(
+      currentUser?.can_import_mortgages ||
+      currentUser?.canImportMortgages
+    );
+
     // 1. Managing Partner / Super Admin -> Global access across all branches + administrative authority
     if (isUserAdmin(currentUser)) {
+      const canImportMortgagesFlag = strictSuper || explicitUserMortgageImport;
       return {
         canViewAllBranches: true,
         canCreateCases: true,
         canEditCases: true,
         canDeleteCases: true,
-        canBulkImport: true, // Only Super Admin
-        canBulkExport: true, // Only Super Admin
+        canBulkImport: strictSuper, // Strictly Super Admin
+        canBulkExport: true,
         canPrintCauseList: true,
         canScheduleHearings: true,
         canRecordOutcomes: true,
@@ -616,6 +626,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canManageUsers: true, // Only Super Admin
         canManageBranches: true, // Only Super Admin
         canManageSettings: true, // Only Super Admin
+        can_import_mortgages: canImportMortgagesFlag,
+        canImportMortgages: canImportMortgagesFlag,
       };
     }
 
@@ -624,6 +636,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       (r) => r.id === currentUser.roleId && !r.isSystem && !r.isSuperAdmin
     );
     if (matchedCustomRole) {
+      const canImportMortgagesFlag = Boolean(
+        matchedCustomRole.permissions?.can_import_mortgages ||
+        matchedCustomRole.permissions?.canImportMortgages ||
+        explicitUserMortgageImport
+      );
       return {
         ...matchedCustomRole.permissions,
         canBulkImport: false,
@@ -632,6 +649,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canManageUsers: false,
         canManageBranches: false,
         canManageSettings: false,
+        can_import_mortgages: canImportMortgagesFlag,
+        canImportMortgages: canImportMortgagesFlag,
       };
     }
 
@@ -654,6 +673,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canManageUsers: false,
         canManageBranches: false,
         canManageSettings: false,
+        can_import_mortgages: explicitUserMortgageImport,
+        canImportMortgages: explicitUserMortgageImport,
       };
     }
 
@@ -676,6 +697,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canManageUsers: false,
         canManageBranches: false,
         canManageSettings: false,
+        can_import_mortgages: explicitUserMortgageImport,
+        canImportMortgages: explicitUserMortgageImport,
       };
     }
 
@@ -698,6 +721,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: explicitUserMortgageImport,
+      canImportMortgages: explicitUserMortgageImport,
     };
   }, [currentUser, roles]);
 
@@ -724,6 +749,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       false
     );
 
+    const canImportMortgagesFlag = Boolean(
+      profile?.can_import_mortgages ??
+      profile?.canImportMortgages ??
+      user?.can_import_mortgages ??
+      user?.canImportMortgages ??
+      user?.user_metadata?.can_import_mortgages ??
+      false
+    );
+
     const loggedInUser: User = {
       id: user?.id || String(profile?.id || 'user-auth'),
       email,
@@ -735,6 +769,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
+      can_import_mortgages: canImportMortgagesFlag,
+      canImportMortgages: canImportMortgagesFlag,
       mustChangePassword,
       advocateRollNo: profile?.advocate_roll_no || profile?.advocateRollNo || undefined,
     };
@@ -1240,6 +1276,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           false
         );
 
+        const canImportMortgagesFlag = Boolean(
+          freshProfile?.can_import_mortgages ??
+          freshProfile?.canImportMortgages ??
+          authUser.user_metadata?.can_import_mortgages ??
+          cachedUser?.can_import_mortgages ??
+          cachedUser?.canImportMortgages ??
+          false
+        );
+
         const freshUser: User = {
           id: authUser.id,
           email,
@@ -1251,6 +1296,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           branchName: branchMeta.name,
           isSuperAdmin: roleMeta.isSuperAdmin,
           isBranchAdmin: roleMeta.isBranchAdmin,
+          can_import_mortgages: canImportMortgagesFlag,
+          canImportMortgages: canImportMortgagesFlag,
           mustChangePassword,
         };
 
@@ -1746,6 +1793,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           branchName: bMeta.name,
           isSuperAdmin: rMeta.isSuperAdmin,
           isBranchAdmin: rMeta.isBranchAdmin,
+          can_import_mortgages: Boolean(freshProfile.can_import_mortgages ?? freshProfile.canImportMortgages),
+          canImportMortgages: Boolean(freshProfile.can_import_mortgages ?? freshProfile.canImportMortgages),
           advocateRollNo: freshProfile.advocate_roll_no,
         };
 
@@ -1804,6 +1853,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branchName: branchMeta.name,
       isSuperAdmin: assignedRole.id.startsWith('role-custom-') ? false : roleMeta.isSuperAdmin,
       isBranchAdmin: assignedRole.id.startsWith('role-custom-') ? false : roleMeta.isBranchAdmin,
+      can_import_mortgages: Boolean(userData.can_import_mortgages ?? userData.canImportMortgages ?? assignedRole.permissions?.can_import_mortgages),
+      canImportMortgages: Boolean(userData.can_import_mortgages ?? userData.canImportMortgages ?? assignedRole.permissions?.can_import_mortgages),
       isSuspended: false,
       password: initialPass,
       temporaryPassword: initialPass,
@@ -1834,6 +1885,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           branchName: newUser.branchName,
           isSuperAdmin: newUser.isSuperAdmin,
           isBranchAdmin: newUser.isBranchAdmin,
+          can_import_mortgages: newUser.can_import_mortgages,
+          canImportMortgages: newUser.canImportMortgages,
           advocateRollNo: newUser.advocateRollNo,
           mustChangePassword: newUser.mustChangePassword,
         }),
@@ -1938,6 +1991,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newPassword = updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : target.password;
     const nowIso = new Date().toISOString();
 
+    const nextCanImportMortgages =
+      updates.can_import_mortgages !== undefined || updates.canImportMortgages !== undefined
+        ? Boolean(updates.can_import_mortgages ?? updates.canImportMortgages)
+        : Boolean(target.can_import_mortgages ?? target.canImportMortgages);
+
     const mergedUpdates: Partial<User> & { previousEmail?: string; updatedAt?: string } = {
       ...updates,
       previousEmail: target.email,
@@ -1951,6 +2009,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta ? roleMeta.isSuperAdmin : (updates.isSuperAdmin !== undefined ? Boolean(updates.isSuperAdmin) : Boolean(target.isSuperAdmin)),
       isBranchAdmin: roleMeta ? roleMeta.isBranchAdmin : (updates.isBranchAdmin !== undefined ? Boolean(updates.isBranchAdmin) : Boolean(target.isBranchAdmin)),
+      can_import_mortgages: nextCanImportMortgages,
+      canImportMortgages: nextCanImportMortgages,
       password: updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : undefined,
       mustChangePassword: updates.mustChangePassword !== undefined ? updates.mustChangePassword : target.mustChangePassword,
       advocateRollNo: updates.advocateRollNo !== undefined ? updates.advocateRollNo.trim() : target.advocateRollNo,
@@ -1971,6 +2031,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       advocateRollNo: mergedUpdates.advocateRollNo,
       isSuperAdmin: mergedUpdates.isSuperAdmin,
       isBranchAdmin: mergedUpdates.isBranchAdmin,
+      can_import_mortgages: nextCanImportMortgages,
+      canImportMortgages: nextCanImportMortgages,
       updatedAt: nowIso,
     };
 
@@ -2007,6 +2069,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? { roleId: p.role_id, role: p.role_id, roleTitle: p.role_title || mergedUpdates.roleTitle || 'Custom Role', isSuperAdmin: false, isBranchAdmin: false }
           : resolveUserRoleMeta(p.role, p.role_id || mergedUpdates.roleId, Boolean(p.is_super_admin), p.email || cleanUpdatedEmail);
 
+        const resolvedCanImportMortgages =
+          p.can_import_mortgages !== undefined || p.canImportMortgages !== undefined
+            ? Boolean(p.can_import_mortgages ?? p.canImportMortgages)
+            : optimisticUpdatedUser.can_import_mortgages;
+
         authoritativeUser = {
           ...optimisticUpdatedUser,
           id: p.id || optimisticUpdatedUser.id,
@@ -2019,6 +2086,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           branchName: res.profileUpdated ? bMeta.name : optimisticUpdatedUser.branchName,
           isSuperAdmin: res.profileUpdated ? rMeta.isSuperAdmin : optimisticUpdatedUser.isSuperAdmin,
           isBranchAdmin: res.profileUpdated ? rMeta.isBranchAdmin : optimisticUpdatedUser.isBranchAdmin,
+          can_import_mortgages: resolvedCanImportMortgages,
+          canImportMortgages: resolvedCanImportMortgages,
           updatedAt: nowIso,
         };
 

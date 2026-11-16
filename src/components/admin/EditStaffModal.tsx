@@ -50,11 +50,16 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
   const [branchId, setBranchId] = useState(user.branchId || branches[0]?.id || 'kla-hq');
   const [rollNo, setRollNo] = useState(user.advocateRollNo || '');
   const [mustChangePassword, setMustChangePassword] = useState(user.mustChangePassword ?? false);
+  const [canImportMortgagesFlag, setCanImportMortgagesFlag] = useState<boolean>(
+    Boolean(user.can_import_mortgages ?? user.canImportMortgages)
+  );
   const [error, setError] = useState<string | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const isPrimaryOwner = user.email?.trim().toLowerCase() === 'infosightug@gmail.com';
+  const selectedRoleObj = roles.find((r) => r.id === roleId);
+  const isRoleSuperAdmin = Boolean(selectedRoleObj?.isSuperAdmin || isPrimaryOwner);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +81,8 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
       roleTitle: selectedRole?.name || user.roleTitle,
       isSuperAdmin: Boolean(selectedRole?.isSuperAdmin),
       isBranchAdmin: roleId === 'role-admin',
+      can_import_mortgages: isRoleSuperAdmin ? true : canImportMortgagesFlag,
+      canImportMortgages: isRoleSuperAdmin ? true : canImportMortgagesFlag,
       branchId,
       branchName: selectedBranch?.name || user.branchName,
       advocateRollNo: rollNo.trim() || undefined,
@@ -296,6 +303,33 @@ export const EditStaffModal: React.FC<EditStaffModalProps> = ({
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-900 dark:focus:border-slate-400 focus:bg-white dark:focus:bg-slate-800 font-mono tabular-nums"
               />
             </div>
+          </div>
+
+          {/* Explicit Feature Permission: Mortgage Bulk Import */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-3.5 rounded-xl space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-200">
+              <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Special Portfolio Permission</span>
+            </div>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none text-[11px] text-slate-700 dark:text-slate-300 pt-0.5">
+              <input
+                type="checkbox"
+                disabled={isRoleSuperAdmin}
+                checked={isRoleSuperAdmin ? true : canImportMortgagesFlag}
+                onChange={(e) => setCanImportMortgagesFlag(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-600 disabled:opacity-60"
+              />
+              <div>
+                <span className="font-semibold text-slate-900 dark:text-slate-100 block">
+                  Allow Bulk Mortgage Import (<code className="font-mono text-[10px]">can_import_mortgages</code>)
+                </span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  {isRoleSuperAdmin
+                    ? 'Automatically granted to Managing Partner / Super Admin accounts.'
+                    : 'Explicitly grants this staff member access to bulk Excel mortgage import tools.'}
+                </span>
+              </div>
+            </label>
           </div>
 
           {/* Footer Buttons */}

@@ -4,7 +4,7 @@ import { MortgageService, BankSummary, MONTHS, MORTGAGE_RLS_FIX_SQL } from '../s
 import { ImportMortgagesModal } from '../components/ImportMortgagesModal';
 import { AddMortgageModal } from '../components/AddMortgageModal';
 import { useApp, MortgageViewAction } from '../context/AppContext';
-import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
+import { getEffectiveUser, canUserImportMortgages } from '../lib/supabase';
 import { showCleanMessage } from '../utils/notification';
 
 export const BankHubPage: React.FC<{
@@ -13,7 +13,7 @@ export const BankHubPage: React.FC<{
   externalActionNonce?: number;
 }> = ({ onSelectBank, externalAction, externalActionNonce }) => {
   const { currentUser, userPermissions } = useApp();
-  const canBulkImportMortgages = isUserAdmin(getEffectiveUser(currentUser)) || Boolean(userPermissions.canBulkImport);
+  const canBulkImportMortgages = canUserImportMortgages(getEffectiveUser(currentUser), userPermissions);
   const [banksSummary, setBanksSummary] = useState<BankSummary[]>([
     { bank_name: 'Centenary Bank', file_count: 0, total_loan: 0 },
     { bank_name: 'Finance Trust', file_count: 0, total_loan: 0 },
@@ -42,7 +42,11 @@ export const BankHubPage: React.FC<{
         setIsAddModalOpen(false);
         setIsImportModalOpen(true);
       } else {
-        showCleanMessage('Bulk mortgage import is restricted to Firm Administrators and Super Admins.', 'warning');
+        setIsImportModalOpen(false);
+        showCleanMessage(
+          'Access Denied: Bulk mortgage import requires a Super Admin role or explicit Mortgage Import permission.',
+          'warning'
+        );
       }
     } else if (externalAction === 'workspace') {
       setIsAddModalOpen(false);
@@ -229,6 +233,7 @@ export const BankHubPage: React.FC<{
           defaultMonth={selectedMonth}
           defaultYear={selectedYear}
           currentUser={currentUser}
+          userPermissions={userPermissions}
           onClose={() => setIsImportModalOpen(false)}
           onSuccess={(meta) => {
             if (meta && meta.cloudSaved === false && meta.cloudError) {

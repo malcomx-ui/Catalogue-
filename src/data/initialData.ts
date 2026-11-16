@@ -161,6 +161,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: true, // Only Super Admin: add, suspend, delete users
       canManageBranches: true, // Only Super Admin: add/update branches
       canManageSettings: true, // Only Super Admin: configure dynamic system features & entry requirements
+      can_import_mortgages: true,
+      canImportMortgages: true,
     },
   },
   {
@@ -187,6 +189,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: false,
+      canImportMortgages: false,
     },
   },
   {
@@ -213,6 +217,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: false,
+      canImportMortgages: false,
     },
   },
   {
@@ -239,6 +245,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: false,
+      canImportMortgages: false,
     },
   },
   {
@@ -265,6 +273,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: false,
+      canImportMortgages: false,
     },
   },
   {
@@ -291,6 +301,8 @@ export const DEFAULT_ROLES: CustomRole[] = [
       canManageUsers: false,
       canManageBranches: false,
       canManageSettings: false,
+      can_import_mortgages: false,
+      canImportMortgages: false,
     },
   },
 ];
@@ -308,6 +320,8 @@ export const INITIAL_USERS: User[] = [
     branchName: 'Kampala Central (Head Office)',
     isSuperAdmin: true,
     isBranchAdmin: true,
+    can_import_mortgages: true,
+    canImportMortgages: true,
     password: 'Admin@2026',
     advocateRollNo: 'MK/ADV/001',
   },

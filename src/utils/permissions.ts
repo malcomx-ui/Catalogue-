@@ -9,6 +9,13 @@ export interface UserProfile {
   branchName?: string;
   isSuperAdmin?: boolean;
   isBranchAdmin?: boolean;
+  can_import_mortgages?: boolean;
+  canImportMortgages?: boolean;
+  permissions?: {
+    can_import_mortgages?: boolean;
+    canImportMortgages?: boolean;
+    canBulkImport?: boolean;
+  };
 }
 
 const CANONICAL_BRANCH_NAMES: Record<string, string> = {
@@ -96,6 +103,56 @@ export function isSystemAdmin(user: UserProfile | null | undefined): boolean {
   if (explicitBranchAdmin) return false;
 
   return role === 'admin';
+}
+
+/**
+ * Strictly identifies Managing Partners / Super Administrators only
+ * (excludes non-super 'admin' / 'branch_admin' / 'admin_finance_assistant').
+ */
+export function isStrictSuperAdmin(user: UserProfile | null | undefined): boolean {
+  if (!user) return false;
+  const role = String(user.role || '').toLowerCase().trim();
+  const roleId = String(user.roleId || (user as any).role_id || '').toLowerCase().trim();
+  const email = String(user.email || '').toLowerCase().trim();
+
+  return Boolean(
+    email === 'infosightug@gmail.com' ||
+    user.isSuperAdmin ||
+    (user as any).is_super_admin ||
+    roleId === 'system_admin' ||
+    roleId === 'role-super-admin' ||
+    role === 'super_admin' ||
+    role === 'superadmin' ||
+    role === 'system_admin' ||
+    role === 'partner' ||
+    role === 'managing_partner'
+  );
+}
+
+/**
+ * Permission guard for Bulk Mortgage Import:
+ * Allowed ONLY for `super_admin` or users with explicit `can_import_mortgages` permission.
+ */
+export function canImportMortgages(
+  user: UserProfile | null | undefined,
+  rolePermissions?: { can_import_mortgages?: boolean; canImportMortgages?: boolean; canBulkImport?: boolean } | null
+): boolean {
+  if (!user) return false;
+  if (isStrictSuperAdmin(user)) return true;
+
+  const explicitUserPerm = Boolean(
+    user.can_import_mortgages ||
+    user.canImportMortgages ||
+    (user as any).user_metadata?.can_import_mortgages ||
+    user.permissions?.can_import_mortgages ||
+    user.permissions?.canImportMortgages
+  );
+  if (explicitUserPerm) return true;
+
+  return Boolean(
+    rolePermissions?.can_import_mortgages ||
+    rolePermissions?.canImportMortgages
+  );
 }
 
 /**

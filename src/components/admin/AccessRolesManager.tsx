@@ -90,6 +90,7 @@ export const AccessRolesManager: React.FC = () => {
     canManageRoles: false,
     canManageUsers: false,
     canManageBranches: false,
+    can_import_mortgages: false,
   });
 
   // New User Form State
@@ -219,6 +220,8 @@ export const AccessRolesManager: React.FC = () => {
         canManageRoles: false,
         canManageUsers: false,
         canManageBranches: false,
+        can_import_mortgages: Boolean(roleFormPerms.can_import_mortgages),
+        canImportMortgages: Boolean(roleFormPerms.can_import_mortgages),
       },
     });
 
@@ -745,6 +748,11 @@ $$;`;
                     {role.permissions.canManageUsers && <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 font-medium">Manage Users &amp; Roles</span>}
                     {role.permissions.canManageSettings && <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 font-medium">System Settings</span>}
                     {role.permissions.canBulkImport && <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 font-medium">Bulk Import/Export</span>}
+                    {(role.isSuperAdmin || role.permissions.can_import_mortgages || role.permissions.canImportMortgages) && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 font-medium">
+                        Import Mortgages
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -1138,6 +1146,7 @@ $$;`;
                   ['canScheduleHearings', 'Schedule Hearings'],
                   ['canManageDocuments', 'Manage Documents'],
                   ['canViewFinancials', 'View Financials'],
+                  ['can_import_mortgages', 'Import Mortgages'],
                 ].map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-slate-300">
                     <input

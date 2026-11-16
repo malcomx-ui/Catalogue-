@@ -158,6 +158,8 @@ const DEFAULT_DATABASE = {
       branchName: 'Kampala Central (Head Office)',
       isSuperAdmin: true,
       isBranchAdmin: true,
+      can_import_mortgages: true,
+      canImportMortgages: true,
       isSuspended: false,
       suspendedReason: '',
       password: 'Admin@2026',
@@ -176,6 +178,8 @@ const DEFAULT_DATABASE = {
     branchName: string;
     isSuperAdmin: boolean;
     isBranchAdmin: boolean;
+    can_import_mortgages?: boolean;
+    canImportMortgages?: boolean;
     isSuspended?: boolean;
     suspendedReason?: string;
     password?: string;
@@ -197,6 +201,7 @@ const DEFAULT_DATABASE = {
         canEditCases: true,
         canDeleteCases: true,
         canBulkImport: true,
+        can_import_mortgages: true,
         canBulkExport: true,
         canPrintCauseList: true,
         canScheduleHearings: true,
@@ -222,6 +227,7 @@ const DEFAULT_DATABASE = {
         canEditCases: true,
         canDeleteCases: false,
         canBulkImport: false,
+        can_import_mortgages: false,
         canBulkExport: false,
         canPrintCauseList: true,
         canScheduleHearings: true,
@@ -247,6 +253,7 @@ const DEFAULT_DATABASE = {
         canEditCases: true,
         canDeleteCases: true,
         canBulkImport: false,
+        can_import_mortgages: false,
         canBulkExport: false,
         canPrintCauseList: true,
         canScheduleHearings: true,
@@ -272,6 +279,7 @@ const DEFAULT_DATABASE = {
         canEditCases: true,
         canDeleteCases: true,
         canBulkImport: false,
+        can_import_mortgages: false,
         canBulkExport: false,
         canPrintCauseList: true,
         canScheduleHearings: true,
@@ -297,6 +305,7 @@ const DEFAULT_DATABASE = {
         canEditCases: true,
         canDeleteCases: false,
         canBulkImport: false,
+        can_import_mortgages: false,
         canBulkExport: false,
         canPrintCauseList: false,
         canScheduleHearings: true,
@@ -322,6 +331,7 @@ const DEFAULT_DATABASE = {
         canEditCases: false,
         canDeleteCases: false,
         canBulkImport: false,
+        can_import_mortgages: false,
         canBulkExport: false,
         canPrintCauseList: true,
         canScheduleHearings: false,
@@ -363,6 +373,7 @@ function readDatabase(): typeof DEFAULT_DATABASE {
               ...(r.permissions || {}),
               canViewAllBranches: false,
               canBulkImport: false,
+              can_import_mortgages: false,
               canBulkExport: false,
               canManageRoles: false,
               canManageUsers: false,
@@ -740,13 +751,26 @@ function resolveRequestActor(req: Request, db: typeof DEFAULT_DATABASE) {
     matchedDbUser?.branchId || hdrBranch,
     matchedDbUser?.branchName
   );
+  const matchedRole = (db.roles || []).find((r: any) => r.id === roleMeta.roleId);
+  const canImportMortgages = Boolean(
+    roleMeta.isSuperAdmin ||
+      matchedDbUser?.can_import_mortgages ||
+      matchedDbUser?.canImportMortgages ||
+      matchedRole?.permissions?.can_import_mortgages ||
+      (matchedRole?.permissions as any)?.canImportMortgages ||
+      tokenPayload?.user_metadata?.can_import_mortgages ||
+      tokenPayload?.user_metadata?.canImportMortgages
+  );
 
   return {
     hasActor,
+    id: hdrId || matchedDbUser?.id || '',
     email: hdrEmail || String(matchedDbUser?.email || '').toLowerCase(),
     roleId: roleMeta.roleId,
     role: roleMeta.role,
     isSuperAdmin: roleMeta.isSuperAdmin,
+    canImportMortgages,
+    hasMatchedDbUser: Boolean(matchedDbUser),
     branchId: branchMeta.id,
     branchName: branchMeta.name,
   };
@@ -973,14 +997,57 @@ app.delete('/api/mortgages/:id', (req: Request, res: Response) => {
 });
 
 // Bulk batch insert endpoint for centenary_mortgage_cases / mortgages
-app.post('/api/mortgages/batch', (req: Request, res: Response) => {
+app.post('/api/mortgages/batch', async (req: Request, res: Response) => {
   try {
     const db = readDatabase();
     const actor = resolveRequestActor(req, db);
-    if (actor.hasActor && !actor.isSuperAdmin) {
+    let isAuthorizedForImport = Boolean(actor.hasActor && (actor.isSuperAdmin || actor.canImportMortgages));
+
+    // Verify authoritative Supabase profile when an actor identity is provided
+    if (actor.hasActor && (actor.id || actor.email)) {
+      try {
+        const sbClient = getSupabaseClientForRequest(req);
+        let prof: any = null;
+        if (actor.id && /^[0-9a-f-]{36}$/i.test(actor.id)) {
+          const { data } = await sbClient.from('profiles').select('*').eq('id', actor.id).maybeSingle();
+          if (data) prof = data;
+        }
+        if (!prof && actor.email) {
+          const { data } = await sbClient.from('profiles').select('*').ilike('email', actor.email).maybeSingle();
+          if (data) prof = data;
+        }
+        if (prof) {
+          const profRoleMeta = resolveCanonicalRole(
+            prof.role_id || prof.role,
+            prof.role_title,
+            prof.is_super_admin,
+            prof.email || actor.email
+          );
+          const matchedRole = (db.roles || []).find((r: any) => r.id === profRoleMeta.roleId);
+          const matchedDbUser = (db.users || []).find(
+            (u: any) =>
+              (actor.id && u.id === actor.id) ||
+              (actor.email && String(u.email || '').trim().toLowerCase() === actor.email)
+          );
+          isAuthorizedForImport = Boolean(
+            profRoleMeta.isSuperAdmin ||
+              prof.can_import_mortgages === true ||
+              matchedDbUser?.can_import_mortgages === true ||
+              matchedDbUser?.canImportMortgages === true ||
+              matchedRole?.permissions?.can_import_mortgages === true ||
+              (matchedRole?.permissions as any)?.canImportMortgages === true
+          );
+        }
+      } catch (authCheckErr) {
+        console.warn('[POST /api/mortgages/batch] Profile RBAC verification notice:', authCheckErr);
+      }
+    }
+
+    if (!actor.hasActor || !isAuthorizedForImport) {
       return res.status(403).json({
         success: false,
-        error: 'Bulk Excel mortgage import is restricted strictly to Managing Partners / Super Administrators.',
+        error:
+          'Forbidden: Bulk mortgage import requires a Super Admin role or explicit can_import_mortgages permission.',
       });
     }
 
@@ -1387,6 +1454,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       password,
       mustChangePassword,
       must_change_password,
+      can_import_mortgages,
+      canImportMortgages,
     } = req.body;
 
     const resolvedEmail = (email || '').trim().toLowerCase();
@@ -1498,6 +1567,16 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         ? Boolean(must_change_password)
         : existingDbUser?.mustChangePassword;
 
+    const finalCanImportMortgages = roleMeta.isSuperAdmin
+      ? true
+      : can_import_mortgages !== undefined
+      ? Boolean(can_import_mortgages)
+      : canImportMortgages !== undefined
+      ? Boolean(canImportMortgages)
+      : existingProfile?.can_import_mortgages !== undefined
+      ? Boolean(existingProfile.can_import_mortgages)
+      : Boolean(existingDbUser?.can_import_mortgages ?? existingDbUser?.canImportMortgages ?? false);
+
     // 2. Prepare user_metadata for Supabase Auth
     const userMetadata: Record<string, any> = {
       role: roleMeta.role,
@@ -1508,6 +1587,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       branch: branchMeta.name,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
     };
     if (finalFullName) {
       userMetadata.full_name = finalFullName;
@@ -1555,6 +1635,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       branch: branchMeta.name,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
       updated_at: nowIso,
     };
     if (finalFullName) profileRow.full_name = finalFullName;
@@ -1712,6 +1793,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
           branchId: branchMeta.id,
           isSuperAdmin: roleMeta.isSuperAdmin,
           isBranchAdmin: roleMeta.isBranchAdmin,
+          can_import_mortgages: finalCanImportMortgages,
+          canImportMortgages: finalCanImportMortgages,
           isSuspended: isSuspended !== undefined ? Boolean(isSuspended) : is_suspended !== undefined ? Boolean(is_suspended) : u.isSuspended,
           suspendedReason: suspendedReason !== undefined ? suspendedReason : suspended_reason !== undefined ? suspended_reason : u.suspendedReason,
           password: trimmedPassword || u.password,
@@ -1736,6 +1819,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
         branchName: branchMeta.name,
         isSuperAdmin: roleMeta.isSuperAdmin,
         isBranchAdmin: roleMeta.isBranchAdmin,
+        can_import_mortgages: finalCanImportMortgages,
+        canImportMortgages: finalCanImportMortgages,
         isSuspended: Boolean(isSuspended ?? is_suspended),
         password: trimmedPassword || defaultRolePassword(roleMeta.roleId),
         mustChangePassword: Boolean(finalMustChange),
@@ -1758,6 +1843,7 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       branch: branchMeta.name,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
       updated_at: nowIso,
     };
 
@@ -1772,6 +1858,8 @@ const handleUserUpdate = async (req: Request, res: Response) => {
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
+      canImportMortgages: finalCanImportMortgages,
       isSuspended: Boolean(isSuspended ?? is_suspended ?? existingDbUser?.isSuspended),
       advocateRollNo: advocateRollNo || advocate_roll_no || existingDbUser?.advocateRollNo || '',
       updatedAt: nowIso,
@@ -1823,6 +1911,8 @@ const handleUserCreate = async (req: Request, res: Response) => {
       advocateRollNo,
       advocate_roll_no,
       mustChangePassword,
+      can_import_mortgages,
+      canImportMortgages,
     } = req.body;
 
     const resolvedEmail = (email || '').trim().toLowerCase();
@@ -1856,6 +1946,10 @@ const handleUserCreate = async (req: Request, res: Response) => {
       }
     }
 
+    const finalCanImportMortgages = Boolean(
+      roleMeta.isSuperAdmin || can_import_mortgages || canImportMortgages
+    );
+
     const userMetadata: Record<string, any> = {
       full_name: resolvedName,
       name: resolvedName,
@@ -1867,6 +1961,7 @@ const handleUserCreate = async (req: Request, res: Response) => {
       branch_id: branchMeta.id,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
       must_change_password: Boolean(mustChangePassword ?? true),
       advocate_roll_no: advocateRollNo || advocate_roll_no || '',
     };
@@ -1957,6 +2052,7 @@ const handleUserCreate = async (req: Request, res: Response) => {
       branch_id: branchMeta.id,
       is_super_admin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
       must_change_password: Boolean(mustChangePassword ?? true),
       updated_at: nowIso,
     };
@@ -2003,6 +2099,8 @@ const handleUserCreate = async (req: Request, res: Response) => {
       branchName: branchMeta.name,
       isSuperAdmin: roleMeta.isSuperAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
+      can_import_mortgages: finalCanImportMortgages,
+      canImportMortgages: finalCanImportMortgages,
       isSuspended: false,
       password: rawPassword,
       temporaryPassword: rawPassword,
@@ -2115,6 +2213,13 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
     const resolvedId = String(sbProfile?.id || sbFirmUser?.id || dbUser?.id || `user-${Date.now()}`);
     const resolvedName = String(sbProfile?.full_name || sbFirmUser?.name || dbUser?.name || cleanEmail.split('@')[0]);
 
+    const canImportMortgagesFlag = Boolean(
+      roleMeta.isSuperAdmin ||
+        sbProfile?.can_import_mortgages ||
+        dbUser?.can_import_mortgages ||
+        dbUser?.canImportMortgages
+    );
+
     const userPayload = {
       id: resolvedId,
       email: cleanEmail,
@@ -2134,6 +2239,8 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       isSuperAdmin: roleMeta.isSuperAdmin,
       is_branch_admin: roleMeta.isBranchAdmin,
       isBranchAdmin: roleMeta.isBranchAdmin,
+      can_import_mortgages: canImportMortgagesFlag,
+      canImportMortgages: canImportMortgagesFlag,
       must_change_password: Boolean(sbProfile?.must_change_password ?? dbUser?.mustChangePassword ?? false),
       mustChangePassword: Boolean(sbProfile?.must_change_password ?? dbUser?.mustChangePassword ?? false),
     };
@@ -2327,6 +2434,12 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
             isSuperAdmin: rMeta.isSuperAdmin,
             is_branch_admin: rMeta.isBranchAdmin,
             isBranchAdmin: rMeta.isBranchAdmin,
+            can_import_mortgages: Boolean(
+              rMeta.isSuperAdmin || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
+            ),
+            canImportMortgages: Boolean(
+              rMeta.isSuperAdmin || prev.can_import_mortgages || prev.canImportMortgages || p.can_import_mortgages
+            ),
             is_suspended: prev.is_suspended ?? prev.isSuspended ?? false,
             advocate_roll_no: p.advocate_roll_no || prev.advocate_roll_no || prev.advocateRollNo,
           });
@@ -2352,6 +2465,12 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
             isSuperAdmin: rMeta.isSuperAdmin,
             is_branch_admin: rMeta.isBranchAdmin,
             isBranchAdmin: rMeta.isBranchAdmin,
+            can_import_mortgages: Boolean(
+              rMeta.isSuperAdmin || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
+            ),
+            canImportMortgages: Boolean(
+              rMeta.isSuperAdmin || p.can_import_mortgages || prev.can_import_mortgages || prev.canImportMortgages
+            ),
             is_suspended: prev.is_suspended ?? prev.isSuspended ?? false,
             advocate_roll_no: p.advocate_roll_no || prev.advocate_roll_no || prev.advocateRollNo,
           });

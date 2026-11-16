@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
-import { isUserAdmin, isAdminFinanceAssistant, getEffectiveUser } from '../../lib/supabase';
+import { isUserAdmin, isAdminFinanceAssistant, getEffectiveUser, canUserImportMortgages } from '../../lib/supabase';
 import { getUserRoleLabel, getUserRoleBadge } from '../../types';
 import { buildLegalTeamDirectory } from '../../utils/legalTeam';
 import RefreshSessionButton from '../auth/RefreshSessionButton';
@@ -57,7 +57,7 @@ export const Sidebar: React.FC = () => {
 
   const effectiveUser = getEffectiveUser(currentUser);
   const isAdmin = isUserAdmin(effectiveUser);
-  const canBulkImportMortgages = isAdmin || Boolean(userPermissions.canBulkImport);
+  const canBulkImportMortgages = canUserImportMortgages(effectiveUser, userPermissions);
 
   // Collapsible dropdown states (auto-expand when current route is inside that section)
   const [isLitigationOpen, setIsLitigationOpen] = useState<boolean>(
