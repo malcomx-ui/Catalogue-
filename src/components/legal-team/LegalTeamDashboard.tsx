@@ -90,6 +90,7 @@ interface StaffMemberCardData {
   annualAllowance: number;
   usedLeaveDays: number;
   pendingLeaveDays: number;
+  otherLeaveDays: number;
   leaveRemaining: number;
   leaveRemainingPercent: number;
   birthdayEligible: boolean;
@@ -288,9 +289,12 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   // Live Supabase profiles + HR employee DOB enrichment + individual leave balances
   const [supabaseProfiles, setSupabaseProfiles] = useState<any[]>([]);
   const [employeeDobMap, setEmployeeDobMap] = useState<Record<string, string>>({});
+  const [fetchedLeaveBalances, setFetchedLeaveBalances] = useState<StaffLeaveBalance[]>([]);
   const [leaveBalancesById, setLeaveBalancesById] = useState<Record<string, StaffLeaveBalance>>({});
   const [leaveBalancesByEmail, setLeaveBalancesByEmail] = useState<Record<string, StaffLeaveBalance>>({});
   const [loadingBalances, setLoadingBalances] = useState(false);
+  const [hasCloudLeavesLoaded, setHasCloudLeavesLoaded] = useState(false);
+  const [balanceFilter, setBalanceFilter] = useState<'all' | 'healthy' | 'low'>('all');
 
   // Birthday wishes inline composer state
   const [openWishStaffId, setOpenWishStaffId] = useState<string | null>(null);
@@ -382,6 +386,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     try {
       const res = await fetchStaffLeaveBalances({ defaultAnnualAllowance: 21 });
       if (res.success) {
+        setFetchedLeaveBalances(res.balances);
         setLeaveBalancesById(res.byEmployeeId);
         setLeaveBalancesByEmail(res.byEmail);
       }
@@ -475,6 +480,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           const localOnly = prev.filter((p) => !p.persistedInSupabase && !cloudIds.has(p.id));
           return [...cloudLeaves, ...localOnly];
         });
+        setHasCloudLeavesLoaded(true);
       }
     } catch {
       // gracefully rely on availableUsers + local storage
@@ -485,12 +491,14 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     loadLiveStaffMetadata();
   }, [loadLiveStaffMetadata]);
 
-  // Approved & pending leave days from local (unsynced) and live leave requests per staff member
+  // Approved annual, pending annual, and non-annual approved leave days from state per staff member
   const leaveUsageByKey = useMemo(() => {
     const usedAll = new Map<string, number>();
     const pendingAll = new Map<string, number>();
+    const otherUsedAll = new Map<string, number>();
     const usedLocalOnly = new Map<string, number>();
     const pendingLocalOnly = new Map<string, number>();
+    const otherUsedLocalOnly = new Map<string, number>();
 
     const addTo = (map: Map<string, number>, key: string, days: number) => {
       if (!key) return;
@@ -501,15 +509,26 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       const d = Number(l.days || calcCalendarDays(l.start_date, l.end_date));
       const idKey = l.employee_id ? l.employee_id.toLowerCase() : '';
       const emailKey = l.employeeEmail ? l.employeeEmail.trim().toLowerCase() : '';
+      const typeNorm = String(l.leave_type || '').trim().toLowerCase();
+      const isAnnual = !typeNorm || typeNorm.includes('annual');
 
       if (l.status === 'Approved') {
-        addTo(usedAll, idKey, d);
-        addTo(usedAll, emailKey, d);
-        if (!l.persistedInSupabase) {
-          addTo(usedLocalOnly, idKey, d);
-          addTo(usedLocalOnly, emailKey, d);
+        if (isAnnual) {
+          addTo(usedAll, idKey, d);
+          addTo(usedAll, emailKey, d);
+          if (!l.persistedInSupabase) {
+            addTo(usedLocalOnly, idKey, d);
+            addTo(usedLocalOnly, emailKey, d);
+          }
+        } else {
+          addTo(otherUsedAll, idKey, d);
+          addTo(otherUsedAll, emailKey, d);
+          if (!l.persistedInSupabase) {
+            addTo(otherUsedLocalOnly, idKey, d);
+            addTo(otherUsedLocalOnly, emailKey, d);
+          }
         }
-      } else if (l.status === 'Pending') {
+      } else if (l.status === 'Pending' && isAnnual) {
         addTo(pendingAll, idKey, d);
         addTo(pendingAll, emailKey, d);
         if (!l.persistedInSupabase) {
@@ -519,7 +538,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       }
     });
 
-    return { usedAll, pendingAll, usedLocalOnly, pendingLocalOnly };
+    return { usedAll, pendingAll, otherUsedAll, usedLocalOnly, pendingLocalOnly, otherUsedLocalOnly };
   }, [leaveRequests]);
 
   // Build unified Staff Directory & Attendance cards
@@ -560,6 +579,34 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           isSuspended: Boolean(u.isSuspended),
         });
       }
+    });
+
+    // Ensure any employees fetched via fetchStaffLeaveBalances are included even if not in profiles
+    const seenIds = new Set<string>([
+      ...Array.from(byEmail.values()).map((v) => String(v.id || '').toLowerCase()),
+      ...noEmail.map((v) => String(v.id || '').toLowerCase()),
+    ]);
+    fetchedLeaveBalances.forEach((bal) => {
+      const em = String(bal.email || '').trim().toLowerCase();
+      const idKey = String(bal.employee_id || '').trim().toLowerCase();
+      if (em && byEmail.has(em)) return;
+      if (idKey && seenIds.has(idKey)) return;
+      const entry = {
+        id: bal.employee_id,
+        name: bal.full_name || (em ? em.split('@')[0] : 'Firm Staff'),
+        email: bal.email || '',
+        role: 'lawyer',
+        roleTitle: bal.job_title || 'Legal Counsel',
+        branchId: '',
+        branchName: bal.department || 'Kampala Central (Head Office)',
+        isSuspended: false,
+      };
+      if (em) {
+        byEmail.set(em, entry);
+      } else {
+        noEmail.push(entry);
+      }
+      if (idKey) seenIds.add(idKey);
     });
 
     // Ensure current user is included
@@ -608,6 +655,10 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         leaveUsageByKey.pendingLocalOnly.get(idStr.toLowerCase()) || 0,
         em ? leaveUsageByKey.pendingLocalOnly.get(em) || 0 : 0
       );
+      const localOnlyOther = Math.max(
+        leaveUsageByKey.otherUsedLocalOnly.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.otherUsedLocalOnly.get(em) || 0 : 0
+      );
       const allUsedFromState = Math.max(
         leaveUsageByKey.usedAll.get(idStr.toLowerCase()) || 0,
         em ? leaveUsageByKey.usedAll.get(em) || 0 : 0
@@ -616,14 +667,29 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         leaveUsageByKey.pendingAll.get(idStr.toLowerCase()) || 0,
         em ? leaveUsageByKey.pendingAll.get(em) || 0 : 0
       );
+      const allOtherFromState = Math.max(
+        leaveUsageByKey.otherUsedAll.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.otherUsedAll.get(em) || 0 : 0
+      );
 
-      // Prefer live fetched Supabase balance + any local unsynced entries, while immediately reflecting optimistic UI updates
-      const usedLeaveDays = cloudBalance
-        ? Math.max(cloudBalance.used_days + localOnlyUsed, allUsedFromState)
+      // Use authoritative fetched balance merged with local entries; once cloud leaves are hydrated in state,
+      // reflect optimistic approvals/rejections immediately without stale counts sticking.
+      const usedLeaveDays = hasCloudLeavesLoaded
+        ? allUsedFromState
+        : cloudBalance
+        ? cloudBalance.used_days + localOnlyUsed
         : allUsedFromState;
-      const pendingLeaveDays = cloudBalance
-        ? Math.max(cloudBalance.pending_days + localOnlyPending, allPendingFromState)
+      const pendingLeaveDays = hasCloudLeavesLoaded
+        ? allPendingFromState
+        : cloudBalance
+        ? cloudBalance.pending_days + localOnlyPending
         : allPendingFromState;
+      const otherLeaveDays = hasCloudLeavesLoaded
+        ? allOtherFromState
+        : cloudBalance
+        ? (cloudBalance.other_used_days || 0) + localOnlyOther
+        : allOtherFromState;
+
       const leaveRemaining = Math.max(0, annualAllowance - usedLeaveDays);
       const leaveRemainingPercent = Math.min(
         100,
@@ -657,6 +723,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         annualAllowance,
         usedLeaveDays,
         pendingLeaveDays,
+        otherLeaveDays,
         leaveRemaining,
         leaveRemainingPercent,
         birthdayEligible,
@@ -667,11 +734,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   }, [
     supabaseProfiles,
     availableUsers,
+    fetchedLeaveBalances,
     effectiveUser,
     employeeDobMap,
     leaveBalancesById,
     leaveBalancesByEmail,
     leaveUsageByKey,
+    hasCloudLeavesLoaded,
     isClockedIn,
     clockInTime,
     hoursLogged,
@@ -1536,6 +1605,12 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         const totalUsedDays = filteredStaff.reduce((acc, s) => acc + s.usedLeaveDays, 0);
         const totalPendingDays = filteredStaff.reduce((acc, s) => acc + s.pendingLeaveDays, 0);
 
+        const displayedBalanceStaff = filteredStaff.filter((s) => {
+          if (balanceFilter === 'healthy') return s.leaveRemainingPercent >= 50;
+          if (balanceFilter === 'low') return s.leaveRemainingPercent < 50;
+          return true;
+        });
+
         return (
           <section className="space-y-6">
             {/* Leave Balance Summary Strip */}
@@ -1555,14 +1630,14 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                 <p className="mt-0.5 text-[11px] text-slate-400">Per staff member ({new Date().getFullYear()})</p>
               </div>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Approved Days Used</p>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Annual Days Used</p>
                 <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                   {totalUsedDays} <span className="text-xs font-semibold text-slate-400">Days</span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">Deducted from annual pool</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Approved annual leave</p>
               </div>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pending Approval</p>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pending Annual Leave</p>
                 <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                   {totalPendingDays} <span className="text-xs font-semibold text-slate-400">Days</span>
                 </p>
@@ -1575,30 +1650,77 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Annual Leave Allowances ({filteredStaff.length})
+                    Annual Leave Allowances ({displayedBalanceStaff.length})
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Individual remaining annual leave days calculated from live HR leave records
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void refreshLeaveBalances()}
-                  disabled={loadingBalances}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer disabled:opacity-60"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${loadingBalances ? 'animate-spin' : ''}`} />
-                  {loadingBalances ? 'Refreshing...' : 'Refresh Balances'}
-                </button>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-xs">
+                    {(
+                      [
+                        { id: 'all', label: 'All' },
+                        { id: 'healthy', label: 'Healthy ≥50%' },
+                        { id: 'low', label: 'Low <50%' },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBalanceFilter(opt.id)}
+                        className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                          balanceFilter === opt.id
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void refreshLeaveBalances()}
+                    disabled={loadingBalances}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingBalances ? 'animate-spin' : ''}`} />
+                    {loadingBalances ? 'Refreshing...' : 'Refresh Balances'}
+                  </button>
+                </div>
               </div>
 
-              {filteredStaff.length === 0 ? (
+              {loadingBalances && filteredStaff.length === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[0, 1, 2].map((skeleton) => (
+                    <div
+                      key={skeleton}
+                      className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/80 space-y-3 animate-pulse"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700" />
+                          <div className="space-y-1.5">
+                            <div className="h-3 w-28 rounded bg-slate-200 dark:bg-slate-700" />
+                            <div className="h-2.5 w-20 rounded bg-slate-200 dark:bg-slate-700" />
+                          </div>
+                        </div>
+                        <div className="h-4 w-12 rounded bg-slate-200 dark:bg-slate-700" />
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                  ))}
+                </div>
+              ) : displayedBalanceStaff.length === 0 ? (
                 <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                  No staff leave balances match the current branch or search filter.
+                  No staff leave balances match the current filter.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredStaff.map((s, idx) => {
+                  {displayedBalanceStaff.map((s, idx) => {
                     const pct = s.leaveRemainingPercent;
                     const barColor =
                       pct >= 50
@@ -1644,7 +1766,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               </span>
                             </p>
                             <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                              {pct}% left
+                              {pct}% remaining
                             </p>
                           </div>
                         </div>
@@ -1657,7 +1779,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                             aria-valuenow={s.leaveRemaining}
                             aria-valuemin={0}
                             aria-valuemax={s.annualAllowance}
-                            className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden"
+                            title={`${s.leaveRemaining} of ${s.annualAllowance} annual leave days remaining (${pct}%)`}
+                            className="h-2.5 w-full rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden"
                           >
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${barColor}`}
@@ -1665,8 +1788,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                             />
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                               <span>
                                 Used: <strong className="text-slate-700 dark:text-slate-200">{s.usedLeaveDays}d</strong>
                               </span>
@@ -1675,11 +1798,20 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                                 Pending:{' '}
                                 <strong className="text-amber-600 dark:text-amber-400">{s.pendingLeaveDays}d</strong>
                               </span>
+                              {s.otherLeaveDays > 0 && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>
+                                    Other:{' '}
+                                    <strong className="text-slate-600 dark:text-slate-300">{s.otherLeaveDays}d</strong>
+                                  </span>
+                                </>
+                              )}
                             </div>
                             <button
                               type="button"
                               onClick={() => openApplyLeaveModal(s.id)}
-                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
                             >
                               Apply
                             </button>

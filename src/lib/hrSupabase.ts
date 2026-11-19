@@ -411,8 +411,12 @@ export interface StaffLeaveBalance {
   department: string | null;
   year: number;
   annual_allowance: number;
+  /** Approved annual leave days deducted from annual_allowance */
   used_days: number;
+  /** Pending annual leave days awaiting approval */
   pending_days: number;
+  /** Approved non-annual leave days (e.g. Sick, Study, Compassionate) */
+  other_used_days: number;
   remaining_days: number;
   remaining_percent: number;
 }
@@ -432,6 +436,11 @@ export interface FetchStaffLeaveBalancesResult {
   byEmployeeId: Record<string, StaffLeaveBalance>;
   byEmail: Record<string, StaffLeaveBalance>;
   error: string | null;
+}
+
+function isAnnualLeaveCategory(leaveType?: string | null): boolean {
+  const normalized = String(leaveType || '').trim().toLowerCase();
+  return !normalized || normalized.includes('annual');
 }
 
 function calculateInclusiveLeaveDays(startDate?: string | null, endDate?: string | null): number {
@@ -551,9 +560,10 @@ export async function fetchStaffLeaveBalances(
       });
     });
 
-    // Aggregate approved (used) and pending leave days per employee_id
-    const usedByEmp = new Map<string, number>();
-    const pendingByEmp = new Map<string, number>();
+    // Aggregate approved annual, pending annual, and approved non-annual leave days per employee_id
+    const usedAnnualByEmp = new Map<string, number>();
+    const pendingAnnualByEmp = new Map<string, number>();
+    const otherUsedByEmp = new Map<string, number>();
 
     (leavesRes.data || []).forEach((lr: any) => {
       if (!lr?.employee_id) return;
@@ -563,11 +573,16 @@ export async function fetchStaffLeaveBalances(
 
       const statusNorm = String(lr.status || '').trim().toLowerCase();
       const days = calculateInclusiveLeaveDays(lr.start_date, lr.end_date);
+      const isAnnual = isAnnualLeaveCategory(lr.leave_type);
 
       if (statusNorm === 'approved') {
-        usedByEmp.set(empKey, (usedByEmp.get(empKey) || 0) + days);
-      } else if (statusNorm === 'pending') {
-        pendingByEmp.set(empKey, (pendingByEmp.get(empKey) || 0) + days);
+        if (isAnnual) {
+          usedAnnualByEmp.set(empKey, (usedAnnualByEmp.get(empKey) || 0) + days);
+        } else {
+          otherUsedByEmp.set(empKey, (otherUsedByEmp.get(empKey) || 0) + days);
+        }
+      } else if (statusNorm === 'pending' && isAnnual) {
+        pendingAnnualByEmp.set(empKey, (pendingAnnualByEmp.get(empKey) || 0) + days);
       }
 
       if (!staffMap.has(empKey)) {
@@ -588,8 +603,9 @@ export async function fetchStaffLeaveBalances(
 
     staffMap.forEach((member, empKey) => {
       const allowance = Math.max(1, member.annual_allowance);
-      const usedDays = usedByEmp.get(empKey) || 0;
-      const pendingDays = pendingByEmp.get(empKey) || 0;
+      const usedDays = usedAnnualByEmp.get(empKey) || 0;
+      const pendingDays = pendingAnnualByEmp.get(empKey) || 0;
+      const otherUsedDays = otherUsedByEmp.get(empKey) || 0;
       const remainingDays = Math.max(0, allowance - usedDays);
       const remainingPercent = Math.min(100, Math.max(0, Math.round((remainingDays / allowance) * 100)));
 
@@ -603,6 +619,7 @@ export async function fetchStaffLeaveBalances(
         annual_allowance: allowance,
         used_days: usedDays,
         pending_days: pendingDays,
+        other_used_days: otherUsedDays,
         remaining_days: remainingDays,
         remaining_percent: remainingPercent,
       };
@@ -632,6 +649,20 @@ export async function fetchStaffLeaveBalances(
       error: err?.message || 'Unexpected error while fetching staff leave balances.',
     };
   }
+}
+
+/**
+ * Convenience helper to fetch a single employee's annual leave balance by ID.
+ */
+export async function fetchEmployeeLeaveBalance(
+  employeeId: string,
+  options: Omit<FetchStaffLeaveBalancesOptions, 'employeeIds'> = {}
+): Promise<StaffLeaveBalance | null> {
+  const cleanId = String(employeeId || '').trim();
+  if (!cleanId) return null;
+  const res = await fetchStaffLeaveBalances({ ...options, employeeIds: [cleanId] });
+  if (!res.success) return null;
+  return res.byEmployeeId[cleanId.toLowerCase()] || res.balances[0] || null;
 }
 
 /**

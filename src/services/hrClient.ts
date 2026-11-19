@@ -4,6 +4,7 @@ export {
   syncFirmUsersToHrModule,
   submitLeaveRequest,
   fetchStaffLeaveBalances,
+  fetchEmployeeLeaveBalance,
 } from '../lib/hrSupabase';
 export type {
   ActiveUser,
