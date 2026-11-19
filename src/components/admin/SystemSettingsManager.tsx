@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { IntakeFieldConfig, CustomFieldDefinition, FieldRequirementLevel } from '../../types';
+import { IntakeFieldConfig, CustomFieldDefinition, FieldRequirementLevel, PublicHolidayConfig } from '../../types';
+import { DEFAULT_UGANDA_HOLIDAYS } from '../../utils/ugandaHolidays';
 import {
   Sliders,
   CheckCircle2,
@@ -26,6 +27,8 @@ import {
   Check,
   Hash,
   Lock,
+  CalendarDays,
+  Repeat,
 } from 'lucide-react';
 
 import { isUserAdmin } from '../../lib/supabase';
@@ -34,11 +37,29 @@ export const SystemSettingsManager: React.FC = () => {
   const { systemSettings, updateSystemSettings, currentUser, userPermissions, setActiveTab: setMainTab } = useApp();
   const isSuperAdmin = isUserAdmin(currentUser) || userPermissions.canManageSettings;
 
-  const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'firm'>('intake');
+  const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'holidays' | 'firm'>('intake');
   const [formData, setFormData] = useState(systemSettings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [newCourt, setNewCourt] = useState('');
   const [newPracticeArea, setNewPracticeArea] = useState('');
+
+  // Public Holidays configuration state
+  const [holidayCategoryFilter, setHolidayCategoryFilter] = useState<'All' | PublicHolidayConfig['category']>('All');
+  const [holidaySearch, setHolidaySearch] = useState('');
+  const [newHoliday, setNewHoliday] = useState<{
+    date: string;
+    name: string;
+    recurring: boolean;
+    category: PublicHolidayConfig['category'];
+  }>({
+    date: `${new Date().getFullYear()}-01-01`,
+    name: '',
+    recurring: false,
+    category: 'Custom',
+  });
+  const [holidayError, setHolidayError] = useState<string | null>(null);
+  const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
+  const [editingHolidayDraft, setEditingHolidayDraft] = useState<PublicHolidayConfig | null>(null);
 
   // New Custom Field Modal state
   const [isAddingCustomField, setIsAddingCustomField] = useState(false);
@@ -169,6 +190,99 @@ export const SystemSettingsManager: React.FC = () => {
       ...prev,
       customFields: prev.customFields.filter((f) => f.id !== id),
     }));
+  };
+
+  // Public Holidays CRUD handlers
+  const configuredHolidays: PublicHolidayConfig[] = Array.isArray(formData.publicHolidays)
+    ? formData.publicHolidays
+    : DEFAULT_UGANDA_HOLIDAYS;
+
+  const handleAddHoliday = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanDate = newHoliday.date.trim().slice(0, 10);
+    const cleanName = newHoliday.name.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate) || !cleanName) {
+      setHolidayError('Please select a valid date (YYYY-MM-DD) and enter a holiday name.');
+      return;
+    }
+
+    const duplicate = configuredHolidays.some(
+      (h) => h.date === cleanDate && h.name.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (duplicate) {
+      setHolidayError(`"${cleanName}" on ${cleanDate} is already in the public holidays list.`);
+      return;
+    }
+
+    const created: PublicHolidayConfig = {
+      id: `hol-${cleanDate}-${Date.now()}`,
+      date: cleanDate,
+      name: cleanName,
+      recurring: newHoliday.recurring,
+      category: newHoliday.category,
+    };
+
+    const nextList = [...configuredHolidays, created].sort((a, b) => a.date.localeCompare(b.date));
+    setFormData((prev) => ({ ...prev, publicHolidays: nextList }));
+    setNewHoliday((prev) => ({ ...prev, name: '' }));
+    setHolidayError(null);
+  };
+
+  const handleDeleteHoliday = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      publicHolidays: (prev.publicHolidays || DEFAULT_UGANDA_HOLIDAYS).filter((h) => h.id !== id),
+    }));
+    if (editingHolidayId === id) {
+      setEditingHolidayId(null);
+      setEditingHolidayDraft(null);
+    }
+  };
+
+  const handleToggleHolidayRecurring = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      publicHolidays: (prev.publicHolidays || DEFAULT_UGANDA_HOLIDAYS).map((h) =>
+        h.id === id ? { ...h, recurring: !h.recurring } : h
+      ),
+    }));
+  };
+
+  const handleStartEditHoliday = (holiday: PublicHolidayConfig) => {
+    setEditingHolidayId(holiday.id);
+    setEditingHolidayDraft({ ...holiday });
+    setHolidayError(null);
+  };
+
+  const handleSaveEditHoliday = () => {
+    if (!editingHolidayDraft) return;
+    const cleanDate = editingHolidayDraft.date.trim().slice(0, 10);
+    const cleanName = editingHolidayDraft.name.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate) || !cleanName) {
+      setHolidayError('Holiday date and name are required.');
+      return;
+    }
+    const nextList = configuredHolidays
+      .map((h) =>
+        h.id === editingHolidayDraft.id
+          ? { ...editingHolidayDraft, date: cleanDate, name: cleanName }
+          : h
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+    setFormData((prev) => ({ ...prev, publicHolidays: nextList }));
+    setEditingHolidayId(null);
+    setEditingHolidayDraft(null);
+    setHolidayError(null);
+  };
+
+  const handleResetDefaultHolidays = () => {
+    setFormData((prev) => ({
+      ...prev,
+      publicHolidays: DEFAULT_UGANDA_HOLIDAYS.map((h) => ({ ...h })),
+    }));
+    setEditingHolidayId(null);
+    setEditingHolidayDraft(null);
+    setHolidayError(null);
   };
 
   // Presets
@@ -310,6 +424,18 @@ export const SystemSettingsManager: React.FC = () => {
         >
           <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           <span>Practice Areas ({formData.practiceAreas.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('holidays')}
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap tabular-nums ${
+            activeTab === 'holidays'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <CalendarDays className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span>Public Holidays ({configuredHolidays.length})</span>
         </button>
 
         <button
@@ -947,6 +1073,336 @@ export const SystemSettingsManager: React.FC = () => {
       )}
 
       {/* TAB 5: FIRM PROFILE & METADATA */}
+      {/* TAB 5: PUBLIC HOLIDAYS CONFIGURATION */}
+      {activeTab === 'holidays' && (() => {
+        const filteredHolidays = [...configuredHolidays]
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .filter((h) => {
+            if (holidayCategoryFilter !== 'All' && h.category !== holidayCategoryFilter) return false;
+            const q = holidaySearch.trim().toLowerCase();
+            if (!q) return true;
+            return (
+              h.name.toLowerCase().includes(q) ||
+              h.date.includes(q) ||
+              h.category.toLowerCase().includes(q)
+            );
+          });
+
+        const getCategoryBadgeClass = (cat: PublicHolidayConfig['category']) => {
+          if (cat === 'Statutory') {
+            return 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+          }
+          if (cat === 'Religious') {
+            return 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+          }
+          return 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800';
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Header Info & Reset Action */}
+            <div className="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/70 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div>
+                <strong className="text-amber-950 dark:text-amber-100 block text-sm font-bold">
+                  Uganda Public Holidays &amp; Leave Exclusion Calendar
+                </strong>
+                <p className="text-amber-900 dark:text-amber-200/90 text-xs mt-0.5 leading-relaxed">
+                  Dates listed here — together with Saturdays and Sundays — are automatically skipped when staff apply for leave or when HR calculates net annual leave deductions. Mark fixed dates as <strong>Recurring</strong> to repeat every year; leave movable dates (e.g., Good Friday, Easter Monday, Eid) as one-off dates.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleResetDefaultHolidays}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-xs font-semibold transition cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Default Uganda Holidays</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold transition cursor-pointer shadow-2xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Holidays</span>
+                </button>
+              </div>
+            </div>
+
+            {holidayError && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{holidayError}</span>
+              </div>
+            )}
+
+            {/* Add Public Holiday Form */}
+            <form
+              onSubmit={handleAddHoliday}
+              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <span>Add Public Holiday or Gazetted Non-Working Day</span>
+                </h4>
+                <span className="text-[11px] text-slate-400">Applies immediately upon Save</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                <div className="lg:col-span-3">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Date (YYYY-MM-DD) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={newHoliday.date}
+                    onChange={(e) => setNewHoliday((p) => ({ ...p, date: e.target.value }))}
+                    className="w-full px-3 py-2 text-xs font-mono tabular-nums border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="lg:col-span-4">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Holiday Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newHoliday.name}
+                    onChange={(e) => setNewHoliday((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="e.g., Presidential Inauguration Day"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="lg:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={newHoliday.category}
+                    onChange={(e) =>
+                      setNewHoliday((p) => ({
+                        ...p,
+                        category: e.target.value as PublicHolidayConfig['category'],
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  >
+                    <option value="Statutory">Statutory</option>
+                    <option value="Religious">Religious</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+
+                <div className="lg:col-span-3 flex items-center justify-between gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 font-medium cursor-pointer select-none py-2">
+                    <input
+                      type="checkbox"
+                      checked={newHoliday.recurring}
+                      onChange={(e) =>
+                        setNewHoliday((p) => ({ ...p, recurring: e.target.checked }))
+                      }
+                      className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>Recurring yearly</span>
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold transition cursor-pointer shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Configured Holidays List */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
+              <div className="px-5 py-3.5 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(['All', 'Statutory', 'Religious', 'Custom'] as const).map((cat) => {
+                    const count =
+                      cat === 'All'
+                        ? configuredHolidays.length
+                        : configuredHolidays.filter((h) => h.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setHolidayCategoryFilter(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer tabular-nums ${
+                          holidayCategoryFilter === cat
+                            ? 'bg-purple-700 text-white shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <input
+                  type="text"
+                  value={holidaySearch}
+                  onChange={(e) => setHolidaySearch(e.target.value)}
+                  placeholder="Filter by holiday name or date..."
+                  className="px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500 focus:outline-none sm:w-64"
+                />
+              </div>
+
+              {filteredHolidays.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                  No configured public holidays match this filter. Add a holiday above or reset to defaults.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredHolidays.map((h) => {
+                    const isEditing = editingHolidayId === h.id && editingHolidayDraft;
+                    if (isEditing && editingHolidayDraft) {
+                      return (
+                        <div
+                          key={h.id}
+                          className="p-3.5 bg-purple-50/40 dark:bg-purple-950/20 flex flex-col lg:flex-row lg:items-center gap-2.5 text-xs"
+                        >
+                          <input
+                            type="date"
+                            value={editingHolidayDraft.date}
+                            onChange={(e) =>
+                              setEditingHolidayDraft((d) => (d ? { ...d, date: e.target.value } : d))
+                            }
+                            className="px-2.5 py-1.5 font-mono tabular-nums border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-slate-100"
+                          />
+                          <input
+                            type="text"
+                            value={editingHolidayDraft.name}
+                            onChange={(e) =>
+                              setEditingHolidayDraft((d) => (d ? { ...d, name: e.target.value } : d))
+                            }
+                            className="flex-1 px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-slate-100 font-semibold"
+                          />
+                          <select
+                            value={editingHolidayDraft.category}
+                            onChange={(e) =>
+                              setEditingHolidayDraft((d) =>
+                                d
+                                  ? {
+                                      ...d,
+                                      category: e.target.value as PublicHolidayConfig['category'],
+                                    }
+                                  : d
+                              )
+                            }
+                            className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="Statutory">Statutory</option>
+                            <option value="Religious">Religious</option>
+                            <option value="Custom">Custom</option>
+                          </select>
+                          <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              checked={editingHolidayDraft.recurring}
+                              onChange={(e) =>
+                                setEditingHolidayDraft((d) =>
+                                  d ? { ...d, recurring: e.target.checked } : d
+                                )
+                              }
+                            />
+                            <span>Recurring</span>
+                          </label>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={handleSaveEditHoliday}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Done</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingHolidayId(null);
+                                setEditingHolidayDraft(null);
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={h.id}
+                        className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors text-xs"
+                      >
+                        <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                          <span className="font-mono font-bold text-slate-800 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg tabular-nums shrink-0">
+                            {h.date}
+                          </span>
+                          <span className="font-semibold text-slate-900 dark:text-white truncate">
+                            {h.name}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md border text-[10px] font-semibold ${getCategoryBadgeClass(
+                              h.category
+                            )}`}
+                          >
+                            {h.category}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleHolidayRecurring(h.id)}
+                            title="Toggle recurring annual vs one-off date"
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition cursor-pointer ${
+                              h.recurring
+                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <Repeat className="w-3 h-3" />
+                            <span>{h.recurring ? 'Recurring Annual' : 'One-Off / Movable'}</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditHoliday(h)}
+                            className="p-1.5 text-slate-500 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition cursor-pointer"
+                            title="Edit holiday"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHoliday(h.id)}
+                            className="p-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition cursor-pointer"
+                            title="Remove holiday"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {activeTab === 'firm' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow space-y-4 text-xs">
           <div>

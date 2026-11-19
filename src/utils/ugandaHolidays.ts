@@ -1,12 +1,39 @@
 /**
  * Uganda Public Holidays & Working-Day Leave Calculator
- * Excludes Saturdays, Sundays, and gazetted Uganda Public Holidays
- * (fixed statutory dates, movable Easter dates, and Eid al-Fitr / Eid al-Adha).
+ * Reads the configurable Public Holidays list from System Settings (defaulting to
+ * Uganda's gazetted holidays) and excludes both weekends (Sat/Sun) and configured
+ * recurring or one-off public holidays when computing leave durations.
  */
+
+export interface PublicHolidayConfig {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  recurring: boolean; // true for fixed annual dates, false for movable/one-off dates
+  category: 'Statutory' | 'Religious' | 'Custom';
+}
+
+export const DEFAULT_UGANDA_HOLIDAYS: PublicHolidayConfig[] = [
+  { id: 'ug-01-01', date: '2026-01-01', name: "New Year's Day", recurring: true, category: 'Statutory' },
+  { id: 'ug-01-26', date: '2026-01-26', name: 'NRM Liberation Day', recurring: true, category: 'Statutory' },
+  { id: 'ug-02-16', date: '2026-02-16', name: 'Archbishop Janani Luwum Day', recurring: true, category: 'Statutory' },
+  { id: 'ug-03-08', date: '2026-03-08', name: "International Women's Day", recurring: true, category: 'Statutory' },
+  { id: 'ug-03-20', date: '2026-03-20', name: 'Eid al-Fitr (Tentative / Gazetted)', recurring: false, category: 'Religious' },
+  { id: 'ug-04-03', date: '2026-04-03', name: 'Good Friday', recurring: false, category: 'Religious' },
+  { id: 'ug-04-06', date: '2026-04-06', name: 'Easter Monday', recurring: false, category: 'Religious' },
+  { id: 'ug-05-01', date: '2026-05-01', name: 'Labour Day', recurring: true, category: 'Statutory' },
+  { id: 'ug-05-27', date: '2026-05-27', name: 'Eid al-Adha (Tentative / Gazetted)', recurring: false, category: 'Religious' },
+  { id: 'ug-06-03', date: '2026-06-03', name: "Uganda Martyrs' Day", recurring: true, category: 'Statutory' },
+  { id: 'ug-06-09', date: '2026-06-09', name: "National Heroes' Day", recurring: true, category: 'Statutory' },
+  { id: 'ug-10-09', date: '2026-10-09', name: 'Independence Day', recurring: true, category: 'Statutory' },
+  { id: 'ug-12-25', date: '2026-12-25', name: 'Christmas Day', recurring: true, category: 'Statutory' },
+  { id: 'ug-12-26', date: '2026-12-26', name: 'Boxing Day', recurring: true, category: 'Statutory' },
+];
 
 export interface UgandaPublicHoliday {
   date: string; // YYYY-MM-DD
   name: string;
+  category?: PublicHolidayConfig['category'];
 }
 
 export interface UgandaLeaveBreakdown {
@@ -17,37 +44,83 @@ export interface UgandaLeaveBreakdown {
   excludedHolidays: UgandaPublicHoliday[];
 }
 
-// Explicit gazetted / astronomical Uganda Islamic public holiday dates (Eid al-Fitr & Eid al-Adha)
-const UGANDA_ISLAMIC_HOLIDAYS_BY_YEAR: Record<number, Array<{ month: number; day: number; name: string }>> = {
-  2024: [
-    { month: 4, day: 10, name: 'Eid al-Fitr' },
-    { month: 6, day: 16, name: 'Eid al-Adha' },
-  ],
-  2025: [
-    { month: 3, day: 31, name: 'Eid al-Fitr' },
-    { month: 6, day: 6, name: 'Eid al-Adha' },
-  ],
-  2026: [
-    { month: 3, day: 20, name: 'Eid al-Fitr' },
-    { month: 5, day: 27, name: 'Eid al-Adha' },
-  ],
-  2027: [
-    { month: 3, day: 9, name: 'Eid al-Fitr' },
-    { month: 5, day: 16, name: 'Eid al-Adha' },
-  ],
-  2028: [
-    { month: 2, day: 26, name: 'Eid al-Fitr' },
-    { month: 5, day: 5, name: 'Eid al-Adha' },
-  ],
-  2029: [
-    { month: 2, day: 14, name: 'Eid al-Fitr' },
-    { month: 4, day: 24, name: 'Eid al-Adha' },
-  ],
-  2030: [
-    { month: 2, day: 4, name: 'Eid al-Fitr' },
-    { month: 4, day: 13, name: 'Eid al-Adha' },
-  ],
-};
+const SYSTEM_SETTINGS_STORAGE_KEY = 'mk_advocates_system_settings_v2';
+
+function sanitizeHolidayList(raw: unknown): PublicHolidayConfig[] | null {
+  if (!Array.isArray(raw)) return null;
+  const cleaned: PublicHolidayConfig[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Partial<PublicHolidayConfig>;
+    const date = String(rec.date || '').trim().slice(0, 10);
+    const name = String(rec.name || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !name) continue;
+    const category: PublicHolidayConfig['category'] =
+      rec.category === 'Religious' || rec.category === 'Custom' ? rec.category : 'Statutory';
+    cleaned.push({
+      id: String(rec.id || `hol-${date}-${cleaned.length}`),
+      date,
+      name,
+      recurring: Boolean(rec.recurring),
+      category,
+    });
+  }
+  return cleaned;
+}
+
+function readStoredPublicHolidays(): PublicHolidayConfig[] {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = window.localStorage.getItem(SYSTEM_SETTINGS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.publicHolidays)) {
+          const valid = sanitizeHolidayList(parsed.publicHolidays);
+          if (valid !== null) return valid;
+        }
+      }
+    } catch {
+      // fallback to defaults
+    }
+  }
+  return DEFAULT_UGANDA_HOLIDAYS;
+}
+
+let activeConfiguredHolidays: PublicHolidayConfig[] | null = null;
+const holidayListeners = new Set<() => void>();
+
+/**
+ * Returns the currently active Public Holidays list configured in System Settings
+ * (defaults to DEFAULT_UGANDA_HOLIDAYS).
+ */
+export function getConfiguredPublicHolidays(): PublicHolidayConfig[] {
+  if (activeConfiguredHolidays === null) {
+    activeConfiguredHolidays = readStoredPublicHolidays();
+  }
+  return activeConfiguredHolidays;
+}
+
+/**
+ * Updates the runtime Public Holidays list (called by AppContext when settings hydrate or save).
+ */
+export function setConfiguredPublicHolidays(holidays?: PublicHolidayConfig[] | null): void {
+  const valid = sanitizeHolidayList(holidays);
+  activeConfiguredHolidays = valid !== null ? valid : DEFAULT_UGANDA_HOLIDAYS;
+  holidayListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      // ignore subscriber errors
+    }
+  });
+}
+
+export function subscribeToPublicHolidays(listener: () => void): () => void {
+  holidayListeners.add(listener);
+  return () => {
+    holidayListeners.delete(listener);
+  };
+}
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
@@ -77,27 +150,6 @@ function parseLocalDate(raw?: string | null): Date | null {
   return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
 }
 
-/**
- * Anonymous Gregorian algorithm (Meeus/Jones/Butcher) for Easter Sunday.
- */
-function computeEasterSunday(year: number): Date {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31); // 3=March, 4=April
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(year, month - 1, day);
-}
-
 function addDays(base: Date, offset: number): Date {
   return new Date(base.getFullYear(), base.getMonth(), base.getDate() + offset);
 }
@@ -106,94 +158,67 @@ function formatDateIso(d: Date): string {
   return toIsoDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
 }
 
-const holidayCache = new Map<number, Map<string, string>>();
-
 /**
- * Returns a Map of YYYY-MM-DD -> Holiday Name for all official Uganda public holidays in `year`.
+ * Builds a Map of YYYY-MM-DD -> Holiday entry for `year` using the configured
+ * Public Holidays list (supports both recurring MM-DD annual holidays and
+ * exact YYYY-MM-DD movable/one-off dates).
  */
-export function getUgandaHolidayMap(year: number): Map<string, string> {
-  const cached = holidayCache.get(year);
-  if (cached) return cached;
-
+export function getUgandaHolidayMap(
+  year: number,
+  configuredHolidays?: PublicHolidayConfig[]
+): Map<string, string> {
+  const source = Array.isArray(configuredHolidays)
+    ? configuredHolidays
+    : getConfiguredPublicHolidays();
   const map = new Map<string, string>();
 
-  // 1. Fixed statutory Uganda public holidays
-  const fixed: Array<[number, number, string]> = [
-    [1, 1, "New Year's Day"],
-    [1, 26, 'NRM Liberation Day'],
-    [2, 16, 'Archbishop Janani Luwum Day'],
-    [3, 8, "International Women's Day"],
-    [5, 1, 'Labour Day'],
-    [6, 3, "Uganda Martyrs' Day"],
-    [6, 9, "National Heroes' Day"],
-    [10, 9, 'Independence Day'],
-    [12, 25, 'Christmas Day'],
-    [12, 26, 'Boxing Day'],
-  ];
-  fixed.forEach(([m, d, name]) => {
-    map.set(toIsoDate(year, m, d), name);
-  });
+  for (const h of source) {
+    const dt = parseLocalDate(h.date);
+    if (!dt) continue;
 
-  // 2. Movable Christian public holidays (Good Friday, Easter Sunday, Easter Monday)
-  const easterSunday = computeEasterSunday(year);
-  map.set(formatDateIso(addDays(easterSunday, -2)), 'Good Friday');
-  map.set(formatDateIso(easterSunday), 'Easter Sunday');
-  map.set(formatDateIso(addDays(easterSunday, 1)), 'Easter Monday');
-
-  // 3. Movable Islamic public holidays (Eid al-Fitr & Eid al-Adha)
-  const knownIslamic = UGANDA_ISLAMIC_HOLIDAYS_BY_YEAR[year];
-  if (knownIslamic) {
-    knownIslamic.forEach(({ month, day, name }) => {
-      map.set(toIsoDate(year, month, day), name);
-    });
-  } else {
-    // Dynamic fallback via Intl Islamic Umm al-Qura calendar for years beyond 2030
-    try {
-      const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', {
-        month: 'numeric',
-        day: 'numeric',
-      });
-      const start = new Date(year, 0, 1);
-      const end = new Date(year, 11, 31);
-      for (let dt = start; dt <= end; dt = addDays(dt, 1)) {
-        const parts = fmt.formatToParts(dt);
-        const mPart = Number(parts.find((p) => p.type === 'month')?.value);
-        const dPart = Number(parts.find((p) => p.type === 'day')?.value);
-        if (mPart === 10 && dPart === 1) {
-          map.set(formatDateIso(dt), 'Eid al-Fitr');
-        } else if (mPart === 12 && dPart === 10) {
-          map.set(formatDateIso(dt), 'Eid al-Adha');
-        }
+    if (h.recurring) {
+      const m = dt.getMonth() + 1;
+      const d = dt.getDate();
+      // Guard leap-day recurring entries on non-leap years
+      const candidate = new Date(year, m - 1, d);
+      if (candidate.getFullYear() === year && candidate.getMonth() === m - 1 && candidate.getDate() === d) {
+        map.set(toIsoDate(year, m, d), h.name);
       }
-    } catch {
-      // ignore if environment lacks islamic calendar ICU data
+    } else if (dt.getFullYear() === year) {
+      map.set(formatDateIso(dt), h.name);
     }
   }
 
-  holidayCache.set(year, map);
   return map;
 }
 
-export function getUgandaPublicHolidays(year: number): UgandaPublicHoliday[] {
-  const map = getUgandaHolidayMap(year);
+export function getUgandaPublicHolidays(
+  year: number,
+  configuredHolidays?: PublicHolidayConfig[]
+): UgandaPublicHoliday[] {
+  const map = getUgandaHolidayMap(year, configuredHolidays);
   return Array.from(map.entries())
     .map(([date, name]) => ({ date, name }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function isUgandaPublicHoliday(dateStr: string): string | null {
+export function isUgandaPublicHoliday(
+  dateStr: string,
+  configuredHolidays?: PublicHolidayConfig[]
+): string | null {
   const dt = parseLocalDate(dateStr);
   if (!dt) return null;
-  return getUgandaHolidayMap(dt.getFullYear()).get(formatDateIso(dt)) || null;
+  return getUgandaHolidayMap(dt.getFullYear(), configuredHolidays).get(formatDateIso(dt)) || null;
 }
 
 /**
  * Calculates working leave days between `startDate` and `endDate` (inclusive),
- * excluding Saturdays, Sundays, and Uganda Public Holidays.
+ * excluding Saturdays, Sundays, and all configured Public Holidays from System Settings.
  */
 export function calculateUgandaLeaveBreakdown(
   startDate?: string | null,
-  endDate?: string | null
+  endDate?: string | null,
+  configuredHolidays?: PublicHolidayConfig[]
 ): UgandaLeaveBreakdown {
   const start = parseLocalDate(startDate);
   const end = parseLocalDate(endDate);
@@ -213,6 +238,17 @@ export function calculateUgandaLeaveBreakdown(
   let weekendDays = 0;
   const excludedHolidays: UgandaPublicHoliday[] = [];
 
+  // Cache year maps per calculation call to keep multi-month ranges fast
+  const yearMapCache = new Map<number, Map<string, string>>();
+  const getYearMap = (y: number) => {
+    let m = yearMapCache.get(y);
+    if (!m) {
+      m = getUgandaHolidayMap(y, configuredHolidays);
+      yearMapCache.set(y, m);
+    }
+    return m;
+  };
+
   // Safety cap at 400 days so pathological date ranges never lock the UI
   const maxIterations = 400;
   let current = start;
@@ -220,7 +256,7 @@ export function calculateUgandaLeaveBreakdown(
     totalCalendarDays += 1;
     const dow = current.getDay(); // 0 = Sun, 6 = Sat
     const iso = formatDateIso(current);
-    const holidayName = getUgandaHolidayMap(current.getFullYear()).get(iso);
+    const holidayName = getYearMap(current.getFullYear()).get(iso);
 
     if (dow === 0 || dow === 6) {
       weekendDays += 1;
@@ -243,14 +279,15 @@ export function calculateUgandaLeaveBreakdown(
 }
 
 /**
- * Convenience helper returning the net billable/deductible Uganda working leave days
- * (excludes weekends and Uganda public holidays).
+ * Convenience helper returning the net deductible working leave days
+ * (excludes weekends and configured Public Holidays).
  */
 export function calculateUgandaWorkingDays(
   startDate?: string | null,
-  endDate?: string | null
+  endDate?: string | null,
+  configuredHolidays?: PublicHolidayConfig[]
 ): number {
-  return calculateUgandaLeaveBreakdown(startDate, endDate).workingDays;
+  return calculateUgandaLeaveBreakdown(startDate, endDate, configuredHolidays).workingDays;
 }
 
 /**

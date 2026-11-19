@@ -774,7 +774,8 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
   currentUser,
   gateForSuperAdmin = true,
 }) => {
-  const { availableUsers } = useApp();
+  const { availableUsers, systemSettings } = useApp();
+  const configuredHolidays = systemSettings?.publicHolidays;
   const isAuthorized = !gateForSuperAdmin || isSuperAdminUser(currentUser);
 
   const [activeSubTab, setActiveSubTab] = useState<'employees' | 'leaves' | 'birthdays'>('employees');
@@ -1173,7 +1174,11 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
       showCleanMessage('End date cannot be earlier than start date.', 'warning');
       return;
     }
-    const workingDays = calculateUgandaWorkingDays(leaveForm.start_date, leaveForm.end_date);
+    const workingDays = calculateUgandaWorkingDays(
+      leaveForm.start_date,
+      leaveForm.end_date,
+      configuredHolidays
+    );
     if (workingDays <= 0) {
       showCleanMessage(
         'Selected dates only fall on weekends or Uganda public holidays (0 working days). Please select at least one working day.',
@@ -1274,7 +1279,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
         leave_type: lr.leave_type || 'Annual Leave',
         start_date: lr.start_date,
         end_date: lr.end_date,
-        days: calculateUgandaWorkingDays(lr.start_date, lr.end_date),
+        days: calculateUgandaWorkingDays(lr.start_date, lr.end_date, configuredHolidays),
         reason: lr.reason || '',
         status:
           normStatus === 'approved'
@@ -1286,7 +1291,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
         persistedInSupabase: true,
       };
     });
-  }, [leaveRequests, employees]);
+  }, [leaveRequests, employees, configuredHolidays]);
 
   const selectedWorkspaceProfile: WorkspaceStaffProfile | null = useMemo(() => {
     if (!selectedEmployee) return null;
@@ -1863,7 +1868,11 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredLeaveRequests.map((leave) => {
                     const emp = employeeMap.get(leave.employee_id);
-                    const days = calcCalendarDays(leave.start_date, leave.end_date);
+                    const days = calculateUgandaWorkingDays(
+                      leave.start_date,
+                      leave.end_date,
+                      configuredHolidays
+                    );
                     const isPending = (leave.status || 'Pending').toLowerCase() === 'pending';
                     return (
                       <tr
@@ -2201,7 +2210,8 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
               {(() => {
                 const breakdown = calculateUgandaLeaveBreakdown(
                   leaveForm.start_date,
-                  leaveForm.end_date
+                  leaveForm.end_date,
+                  configuredHolidays
                 );
                 const zeroWorkingDays = breakdown.isValidRange && breakdown.workingDays === 0;
                 return (

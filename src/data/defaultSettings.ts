@@ -1,4 +1,5 @@
 import { SystemSettings } from '../types';
+import { DEFAULT_UGANDA_HOLIDAYS } from '../utils/ugandaHolidays';
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   version: '2.0',
@@ -182,4 +183,5 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
     'Corporate Governance & Compliance',
     'Intellectual Property & Technology',
   ],
+  publicHolidays: DEFAULT_UGANDA_HOLIDAYS,
 };

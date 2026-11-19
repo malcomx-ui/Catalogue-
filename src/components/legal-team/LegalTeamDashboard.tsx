@@ -271,7 +271,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   approvals = INITIAL_APPROVAL_ITEMS,
   onDecideApproval,
 }) => {
-  const { availableUsers, cases, branches, currentUser, selectedBranchFilter } = useApp();
+  const { availableUsers, cases, branches, currentUser, selectedBranchFilter, systemSettings } = useApp();
+  const configuredHolidays = systemSettings?.publicHolidays;
 
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isAdmin = isUserAdmin(effectiveUser);
@@ -527,7 +528,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     };
 
     leaveRequests.forEach((l) => {
-      const d = calculateUgandaWorkingDays(l.start_date, l.end_date);
+      const d = calculateUgandaWorkingDays(l.start_date, l.end_date, configuredHolidays);
       const idKey = l.employee_id ? l.employee_id.toLowerCase() : '';
       const emailKey = l.employeeEmail ? l.employeeEmail.trim().toLowerCase() : '';
       const typeNorm = String(l.leave_type || '').trim().toLowerCase();
@@ -560,7 +561,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     });
 
     return { usedAll, pendingAll, otherUsedAll, usedLocalOnly, pendingLocalOnly, otherUsedLocalOnly };
-  }, [leaveRequests]);
+  }, [leaveRequests, configuredHolidays]);
 
   // Build unified Staff Directory & Attendance cards
   const allStaffCards = useMemo<StaffMemberCardData[]>(() => {
@@ -969,7 +970,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       return;
     }
 
-    const days = calculateUgandaWorkingDays(leaveForm.startDate, leaveForm.endDate);
+    const days = calculateUgandaWorkingDays(leaveForm.startDate, leaveForm.endDate, configuredHolidays);
     if (days <= 0) {
       showCleanMessage(
         'Selected dates only fall on weekends or Uganda public holidays (0 working days). Please pick at least one working day.',
@@ -2003,8 +2004,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                           <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
                           <span aria-hidden="true">·</span>
                           <span className="text-slate-500 tabular-nums">
-                            {lr.start_date} to {lr.end_date} ({calculateUgandaWorkingDays(lr.start_date, lr.end_date)} working day
-                            {calculateUgandaWorkingDays(lr.start_date, lr.end_date) === 1 ? '' : 's'})
+                            {lr.start_date} to {lr.end_date} ({calculateUgandaWorkingDays(lr.start_date, lr.end_date, configuredHolidays)} working day
+                            {calculateUgandaWorkingDays(lr.start_date, lr.end_date, configuredHolidays) === 1 ? '' : 's'})
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400">{lr.reason}</p>
@@ -2158,7 +2159,11 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
               </div>
 
               {(() => {
-                const breakdown = calculateUgandaLeaveBreakdown(leaveForm.startDate, leaveForm.endDate);
+                const breakdown = calculateUgandaLeaveBreakdown(
+                  leaveForm.startDate,
+                  leaveForm.endDate,
+                  configuredHolidays
+                );
                 const zeroWorkingDays = breakdown.isValidRange && breakdown.workingDays === 0;
                 return (
                   <div className="space-y-3 pt-1">

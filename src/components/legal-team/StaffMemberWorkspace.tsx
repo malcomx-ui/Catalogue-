@@ -234,7 +234,8 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
   onApplyLeave,
   onDelegateTask,
 }) => {
-  const { cases, hearings, setSelectedCase, setActiveTab, currentUser } = useApp();
+  const { cases, hearings, setSelectedCase, setActiveTab, currentUser, systemSettings } = useApp();
+  const configuredHolidays = systemSettings?.publicHolidays;
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isAdmin = isUserAdmin(effectiveUser);
 
@@ -465,7 +466,11 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
     }> = [];
 
     staffLeaves.forEach((lr) => {
-      const workingDays = calculateUgandaWorkingDays(lr.start_date, lr.end_date);
+      const workingDays = calculateUgandaWorkingDays(
+        lr.start_date,
+        lr.end_date,
+        configuredHolidays
+      );
       items.push({
         id: `lv-${lr.id}`,
         kind: 'leave',
@@ -490,7 +495,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
     });
 
     return items;
-  }, [staffLeaves, staffWorkflowApprovals]);
+  }, [staffLeaves, staffWorkflowApprovals, configuredHolidays]);
 
   // 6. Assigned Tasks for this staff member
   const staffTasks = useMemo(() => {
@@ -1252,7 +1257,11 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
               <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
                 {staffLeaves.slice(0, 4).map((lr) => {
                   const badge = formatApprovalStatusBadge(lr.status);
-                  const workingDays = calculateUgandaWorkingDays(lr.start_date, lr.end_date);
+                  const workingDays = calculateUgandaWorkingDays(
+                    lr.start_date,
+                    lr.end_date,
+                    configuredHolidays
+                  );
                   return (
                     <div
                       key={lr.id}

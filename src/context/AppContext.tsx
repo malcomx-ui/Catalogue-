@@ -27,6 +27,7 @@ import {
   DEFAULT_ROLES,
 } from '../data/initialData';
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
+import { DEFAULT_UGANDA_HOLIDAYS, setConfiguredPublicHolidays } from '../utils/ugandaHolidays';
 import { cleanCaseNumber } from '../utils/caseNumber';
 import {
   SupabaseService,
@@ -464,12 +465,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             customFields: Array.isArray(parsed.customFields) ? parsed.customFields : [],
             courtList: Array.isArray(parsed.courtList) && parsed.courtList.length > 0 ? parsed.courtList : DEFAULT_SYSTEM_SETTINGS.courtList,
             practiceAreas: Array.isArray(parsed.practiceAreas) && parsed.practiceAreas.length > 0 ? parsed.practiceAreas : DEFAULT_SYSTEM_SETTINGS.practiceAreas,
+            publicHolidays: Array.isArray(parsed.publicHolidays) ? parsed.publicHolidays : DEFAULT_UGANDA_HOLIDAYS,
           };
         }
       }
     } catch (e) {}
     return DEFAULT_SYSTEM_SETTINGS;
   });
+
+  // Keep runtime holiday calculator synchronized with System Settings
+  useEffect(() => {
+    setConfiguredPublicHolidays(systemSettings.publicHolidays);
+  }, [systemSettings.publicHolidays]);
 
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
   const [selectedLawyerFilter, setSelectedLawyerFilter] = useState<string>('all');
@@ -1693,6 +1700,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         localStorage.setItem('mk_advocates_system_settings_v2', JSON.stringify(next));
       } catch (e) {}
+      setConfiguredPublicHolidays(next.publicHolidays);
 
       // Immediately push to backend so changes reflect on all machines
       fetch('/api/database', {

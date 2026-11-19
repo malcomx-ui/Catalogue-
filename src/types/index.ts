@@ -462,6 +462,14 @@ export interface FirmBrandingConfig {
   jurisdiction: string;
 }
 
+export interface PublicHolidayConfig {
+  id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  recurring: boolean; // true for fixed annual dates, false for movable/one-off dates
+  category: 'Statutory' | 'Religious' | 'Custom';
+}
+
 export interface SystemSettings {
   version: string;
   lastUpdated: string;
@@ -472,6 +480,7 @@ export interface SystemSettings {
   customFields: CustomFieldDefinition[];
   courtList: string[];
   practiceAreas: string[];
+  publicHolidays: PublicHolidayConfig[];
 }
 
 export interface AuditLog {
