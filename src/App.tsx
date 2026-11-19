@@ -14,6 +14,7 @@ import {
   INITIAL_APPROVAL_ITEMS,
   ApprovalWorkflowItem,
 } from './components/ErpWorkspaceViews';
+import CashRequisitionModule, { INITIAL_REQUISITIONS } from './components/CashRequisitionModule';
 import { CaseList } from './components/catalogue/CaseList';
 import { CaseDetailModal } from './components/catalogue/CaseDetailModal';
 import { NewCaseModal } from './components/catalogue/NewCaseModal';
@@ -62,8 +63,13 @@ const MainLayout: React.FC = () => {
   // Shared top header search state (live-filters StaffDashboard tasks, hearings, and matters)
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  // Shared Approvals & Team Messenger badge state
+  // Shared Approvals, Cash Requisitions & Team Messenger badge state
   const [approvals, setApprovals] = useState<ApprovalWorkflowItem[]>(INITIAL_APPROVAL_ITEMS);
+  const [pendingCashRequisitionsCount, setPendingCashRequisitionsCount] = useState<number>(() =>
+    INITIAL_REQUISITIONS.filter(
+      (r) => r.stage === 'Pending Review' || r.stage === 'Level 1 Approved'
+    ).length
+  );
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(2);
 
   const pendingApprovalsCount = approvals.filter((a) => a.status === 'Pending').length;
@@ -186,6 +192,7 @@ const MainLayout: React.FC = () => {
         searchQuery={globalSearchQuery}
         onSearchChange={setGlobalSearchQuery}
         approvalsBadgeCount={pendingApprovalsCount}
+        cashRequisitionsBadgeCount={pendingCashRequisitionsCount}
         messengerBadgeCount={unreadMessagesCount}
       >
         {activeTab === 'dashboard' && renderStaffDashboard()}
@@ -208,6 +215,21 @@ const MainLayout: React.FC = () => {
         )}
         {activeTab === 'approvals' && (
           <ApprovalsQueueView approvals={approvals} onDecide={handleApprovalDecision} />
+        )}
+        {activeTab === 'cash_requisitions' && (
+          <CashRequisitionModule
+            currentUserName={effectiveUser?.name || 'Managing Partner'}
+            currentUserRole={effectiveUser?.roleTitle || effectiveUser?.role || 'Senior Approver'}
+            activeBranch={effectiveUser?.branchName || 'Kampala Central (Head Office)'}
+            isApprover={Boolean(
+              isPartnerOrSuperadmin ||
+                effectiveUser?.role === 'team_lead' ||
+                effectiveUser?.role === 'branch_admin' ||
+                effectiveUser?.role === 'admin_finance_assistant'
+            )}
+            searchQuery={globalSearchQuery}
+            onPendingCountChange={setPendingCashRequisitionsCount}
+          />
         )}
         {activeTab === 'messenger' && (
           <TeamMessengerView

@@ -23,6 +23,7 @@ import {
   LogOut,
   Scale,
   Sliders,
+  Banknote,
 } from 'lucide-react';
 
 export interface DashboardLayoutProps {
@@ -30,6 +31,7 @@ export interface DashboardLayoutProps {
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   approvalsBadgeCount?: number;
+  cashRequisitionsBadgeCount?: number;
   messengerBadgeCount?: number;
   children?: React.ReactNode;
 }
@@ -60,6 +62,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   searchQuery = '',
   onSearchChange,
   approvalsBadgeCount = 3,
+  cashRequisitionsBadgeCount = 2,
   messengerBadgeCount = 2,
   children,
 }) => {
@@ -132,6 +135,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         badge: approvalsBadgeCount > 0 ? approvalsBadgeCount : undefined,
       },
       {
+        id: 'cash_requisitions',
+        label: 'Cash Requisitions',
+        icon: Banknote,
+        tab: 'cash_requisitions',
+        badge: cashRequisitionsBadgeCount > 0 ? cashRequisitionsBadgeCount : undefined,
+      },
+      {
         id: 'messenger',
         label: 'Team Messenger',
         icon: MessageSquare,
@@ -144,7 +154,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       { id: 'branches', label: 'Branches', icon: Building2, tab: 'branches' },
       { id: 'audit', label: 'Audit Trail & Security', icon: ShieldCheck, tab: 'audit_trail' },
     ],
-    [approvalsBadgeCount, messengerBadgeCount, setActiveTab, setIsNewCaseModalOpen]
+    [
+      approvalsBadgeCount,
+      cashRequisitionsBadgeCount,
+      messengerBadgeCount,
+      setActiveTab,
+      setIsNewCaseModalOpen,
+    ]
   );
 
   const adminNavItems: SidebarNavItem[] = useMemo(() => {

@@ -76,6 +76,7 @@ export type NavigationTab =
   | 'legal_team'
   | 'hr'
   | 'approvals'
+  | 'cash_requisitions'
   | 'messenger'
   | 'audit_trail';
 
@@ -97,6 +98,7 @@ const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageActi
   { prefix: '/roles', tab: 'roles' },
   { prefix: '/hr', tab: 'hr' },
   { prefix: '/approvals', tab: 'approvals' },
+  { prefix: '/cash-requisitions', tab: 'cash_requisitions' },
   { prefix: '/messenger', tab: 'messenger' },
   { prefix: '/audit-trail', tab: 'audit_trail' },
   { prefix: '/settings', tab: 'settings' },
@@ -140,6 +142,8 @@ export const getRoutePathForTab = (
       return '/hr';
     case 'approvals':
       return '/approvals';
+    case 'cash_requisitions':
+      return '/cash-requisitions';
     case 'messenger':
       return '/messenger';
     case 'audit_trail':
