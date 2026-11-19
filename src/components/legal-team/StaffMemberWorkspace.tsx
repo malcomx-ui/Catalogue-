@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../../lib/supabase';
 import { hrSupabase } from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
+import { calculateUgandaWorkingDays } from '../../utils/ugandaHolidays';
 import type { CaseItem, CourtHearing } from '../../types';
 import type { ApprovalWorkflowItem } from '../ErpWorkspaceViews';
 import {
@@ -464,11 +465,12 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
     }> = [];
 
     staffLeaves.forEach((lr) => {
+      const workingDays = calculateUgandaWorkingDays(lr.start_date, lr.end_date);
       items.push({
         id: `lv-${lr.id}`,
         kind: 'leave',
         code: lr.leave_type,
-        title: `${lr.start_date} to ${lr.end_date} (${lr.days} day${lr.days === 1 ? '' : 's'})`,
+        title: `${lr.start_date} to ${lr.end_date} (${workingDays} working day${workingDays === 1 ? '' : 's'})`,
         subtitle: lr.reason || 'Leave request submitted via staff portal',
         status: lr.status,
         rawLeave: lr,
@@ -1250,6 +1252,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
               <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
                 {staffLeaves.slice(0, 4).map((lr) => {
                   const badge = formatApprovalStatusBadge(lr.status);
+                  const workingDays = calculateUgandaWorkingDays(lr.start_date, lr.end_date);
                   return (
                     <div
                       key={lr.id}
@@ -1257,7 +1260,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
                     >
                       <div className="min-w-0">
                         <p className="font-semibold text-slate-900 dark:text-white truncate">
-                          {lr.leave_type} · <span className="tabular-nums">{lr.days}d</span>
+                          {lr.leave_type} · <span className="tabular-nums">{workingDays} working d</span>
                         </p>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                           {lr.start_date} to {lr.end_date}

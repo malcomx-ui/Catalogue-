@@ -10,6 +10,11 @@ import {
 import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
 import {
+  calculateUgandaWorkingDays,
+  calculateUgandaLeaveBreakdown,
+  formatHolidayShortDate,
+} from '../utils/ugandaHolidays';
+import {
   StaffMemberWorkspace,
   type WorkspaceLeaveItem,
   type WorkspaceStaffProfile,
@@ -152,11 +157,7 @@ function computeDaysUntilBirthday(dob?: string | null): { daysUntil: number; isT
 }
 
 function calcCalendarDays(start: string, end: string): number {
-  if (!start || !end) return 0;
-  const s = new Date(start);
-  const e = new Date(end);
-  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return 0;
-  return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  return calculateUgandaWorkingDays(start, end);
 }
 
 function formatShortDate(raw?: string | null): string {
@@ -1172,6 +1173,14 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
       showCleanMessage('End date cannot be earlier than start date.', 'warning');
       return;
     }
+    const workingDays = calculateUgandaWorkingDays(leaveForm.start_date, leaveForm.end_date);
+    if (workingDays <= 0) {
+      showCleanMessage(
+        'Selected dates only fall on weekends or Uganda public holidays (0 working days). Please select at least one working day.',
+        'warning'
+      );
+      return;
+    }
     setSavingLeave(true);
     setErrorMsg(null);
     try {
@@ -1265,7 +1274,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
         leave_type: lr.leave_type || 'Annual Leave',
         start_date: lr.start_date,
         end_date: lr.end_date,
-        days: calcCalendarDays(lr.start_date, lr.end_date) || 1,
+        days: calculateUgandaWorkingDays(lr.start_date, lr.end_date),
         reason: lr.reason || '',
         status:
           normStatus === 'approved'
@@ -1878,7 +1887,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                           </div>
                           {days > 0 && (
                             <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                              {days} {days === 1 ? 'day' : 'days'}
+                              {days} {days === 1 ? 'working day' : 'working days'}
                             </div>
                           )}
                         </td>
@@ -2189,23 +2198,80 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsLeaveModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingLeave}
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
-                >
-                  {savingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Submit Leave Request</span>
-                </button>
-              </div>
+              {(() => {
+                const breakdown = calculateUgandaLeaveBreakdown(
+                  leaveForm.start_date,
+                  leaveForm.end_date
+                );
+                const zeroWorkingDays = breakdown.isValidRange && breakdown.workingDays === 0;
+                return (
+                  <>
+                    <div
+                      className={`p-3 rounded-xl border text-xs space-y-1 ${
+                        zeroWorkingDays
+                          ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                          : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50 text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                          Duration: {breakdown.workingDays} working day
+                          {breakdown.workingDays === 1 ? '' : 's'}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Excludes weekends &amp; Uganda public holidays
+                        </span>
+                      </div>
+                      {(breakdown.weekendDays > 0 || breakdown.excludedHolidays.length > 0) && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular-nums">
+                          {breakdown.weekendDays > 0 && (
+                            <span>
+                              {breakdown.weekendDays} weekend day
+                              {breakdown.weekendDays === 1 ? '' : 's'} skipped
+                            </span>
+                          )}
+                          {breakdown.weekendDays > 0 && breakdown.excludedHolidays.length > 0 && (
+                            <span aria-hidden="true">·</span>
+                          )}
+                          {breakdown.excludedHolidays.length > 0 && (
+                            <span>
+                              Uganda holiday{breakdown.excludedHolidays.length === 1 ? '' : 's'} skipped:{' '}
+                              <strong>
+                                {breakdown.excludedHolidays
+                                  .map((h) => `${h.name} (${formatHolidayShortDate(h.date)})`)
+                                  .join(', ')}
+                              </strong>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {zeroWorkingDays && (
+                        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 pt-0.5">
+                          Selected dates fall exclusively on weekends or Uganda public holidays. Please adjust your dates.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setIsLeaveModalOpen(false)}
+                        className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={savingLeave || !breakdown.isValidRange || breakdown.workingDays <= 0}
+                        className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {savingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        <span>Submit Leave Request</span>
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
             </form>
           </div>
         </div>

@@ -9,6 +9,11 @@ import {
 } from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
 import {
+  calculateUgandaWorkingDays,
+  calculateUgandaLeaveBreakdown,
+  formatHolidayShortDate,
+} from '../../utils/ugandaHolidays';
+import {
   StaffMemberWorkspace,
   type WorkspaceStaffProfile,
 } from './StaffMemberWorkspace';
@@ -214,11 +219,7 @@ function getInitials(name?: string | null): string {
 }
 
 function calcCalendarDays(start: string, end: string): number {
-  if (!start || !end) return 1;
-  const s = new Date(start);
-  const e = new Date(end);
-  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return 1;
-  return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  return calculateUgandaWorkingDays(start, end);
 }
 
 function getNextTaskStatus(current: TaskStatus): TaskStatus {
@@ -526,7 +527,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     };
 
     leaveRequests.forEach((l) => {
-      const d = Number(l.days || calcCalendarDays(l.start_date, l.end_date));
+      const d = calculateUgandaWorkingDays(l.start_date, l.end_date);
       const idKey = l.employee_id ? l.employee_id.toLowerCase() : '';
       const emailKey = l.employeeEmail ? l.employeeEmail.trim().toLowerCase() : '';
       const typeNorm = String(l.leave_type || '').trim().toLowerCase();
@@ -968,8 +969,16 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       return;
     }
 
+    const days = calculateUgandaWorkingDays(leaveForm.startDate, leaveForm.endDate);
+    if (days <= 0) {
+      showCleanMessage(
+        'Selected dates only fall on weekends or Uganda public holidays (0 working days). Please pick at least one working day.',
+        'warning'
+      );
+      return;
+    }
+
     setSubmittingLeave(true);
-    const days = calcCalendarDays(leaveForm.startDate, leaveForm.endDate);
     const cleanReason = leaveForm.reason.trim() || 'Requested via Staff Management portal';
 
     try {
@@ -1994,7 +2003,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                           <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
                           <span aria-hidden="true">·</span>
                           <span className="text-slate-500 tabular-nums">
-                            {lr.start_date} to {lr.end_date} ({lr.days} day{lr.days > 1 ? 's' : ''})
+                            {lr.start_date} to {lr.end_date} ({calculateUgandaWorkingDays(lr.start_date, lr.end_date)} working day
+                            {calculateUgandaWorkingDays(lr.start_date, lr.end_date) === 1 ? '' : 's'})
                           </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-400">{lr.reason}</p>
@@ -2147,28 +2157,78 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
-                  Duration: {calcCalendarDays(leaveForm.startDate, leaveForm.endDate)} calendar day(s)
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsLeaveModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submittingLeave}
-                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
-                  >
-                    {submittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Submit Leave Request</span>
-                  </button>
-                </div>
-              </div>
+              {(() => {
+                const breakdown = calculateUgandaLeaveBreakdown(leaveForm.startDate, leaveForm.endDate);
+                const zeroWorkingDays = breakdown.isValidRange && breakdown.workingDays === 0;
+                return (
+                  <div className="space-y-3 pt-1">
+                    <div
+                      className={`p-3 rounded-xl border text-xs space-y-1 ${
+                        zeroWorkingDays
+                          ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                          : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50 text-slate-700 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                          Leave Duration: {breakdown.workingDays} working day
+                          {breakdown.workingDays === 1 ? '' : 's'}
+                        </span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Weekends &amp; Uganda public holidays excluded
+                        </span>
+                      </div>
+
+                      {(breakdown.weekendDays > 0 || breakdown.excludedHolidays.length > 0) && (
+                        <div className="text-[11px] text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular-nums">
+                          {breakdown.weekendDays > 0 && (
+                            <span>
+                              {breakdown.weekendDays} weekend day{breakdown.weekendDays === 1 ? '' : 's'} skipped
+                            </span>
+                          )}
+                          {breakdown.weekendDays > 0 && breakdown.excludedHolidays.length > 0 && (
+                            <span aria-hidden="true">·</span>
+                          )}
+                          {breakdown.excludedHolidays.length > 0 && (
+                            <span>
+                              Uganda holiday{breakdown.excludedHolidays.length === 1 ? '' : 's'} skipped:{' '}
+                              <strong>
+                                {breakdown.excludedHolidays
+                                  .map((h) => `${h.name} (${formatHolidayShortDate(h.date)})`)
+                                  .join(', ')}
+                              </strong>
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {zeroWorkingDays && (
+                        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300 pt-0.5">
+                          Selected dates fall exclusively on weekends or Uganda public holidays. Please adjust your dates.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsLeaveModalOpen(false)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submittingLeave || !breakdown.isValidRange || breakdown.workingDays <= 0}
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {submittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        <span>Submit Leave Request</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </form>
           </div>
         </div>

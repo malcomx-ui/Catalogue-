@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { calculateUgandaWorkingDays } from '../utils/ugandaHolidays';
 
 /**
  * Shared authenticated Supabase client for the HR Module.
@@ -330,6 +331,16 @@ export async function submitLeaveRequest(
       error: 'End date cannot be earlier than start date.',
     };
   }
+  const workingDays = calculateUgandaWorkingDays(startDate, endDate);
+  if (workingDays <= 0) {
+    return {
+      success: false,
+      data: null,
+      persistedInSupabase: false,
+      error:
+        'Selected dates only fall on weekends or Uganda public holidays (0 working days). Please select at least one working day.',
+    };
+  }
 
   if (!UUID_REGEX.test(employeeId)) {
     return {
@@ -460,13 +471,7 @@ function isAnnualLeaveCategory(leaveType?: string | null): boolean {
 }
 
 function calculateInclusiveLeaveDays(startDate?: string | null, endDate?: string | null): number {
-  if (!startDate || !endDate) return 1;
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return 1;
-  }
-  return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  return calculateUgandaWorkingDays(startDate, endDate);
 }
 
 function matchesTargetYear(startDate?: string | null, endDate?: string | null, targetYear?: number): boolean {
