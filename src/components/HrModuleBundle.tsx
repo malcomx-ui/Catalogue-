@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { hrSupabase, ActiveUser, isSuperAdminUser } from '../lib/hrSupabase';
+import { hrSupabase, ActiveUser, isSuperAdminUser, syncFirmUsersToHrModule } from '../lib/hrSupabase';
 import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
 import {
@@ -26,6 +26,7 @@ import {
   Heart,
   ChevronRight,
   AlertCircle,
+  Link2,
 } from 'lucide-react';
 
 // ============================================================================
@@ -47,6 +48,9 @@ export interface HrEmployee {
   department: string | null;
   status: string;
   created_at?: string;
+  /** Client-only connection metadata (never written to Supabase employees columns) */
+  source?: 'hr_synced' | 'hr_only' | 'firm_profile';
+  linked_profile_id?: string | null;
 }
 
 export interface HrLeaveRequest {
@@ -184,6 +188,218 @@ function getStatusPillClasses(status: string): string {
   return 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700';
 }
 
+const LOCAL_HR_OVERRIDES_KEY = 'mk_hr_employee_overrides_v1';
+
+function readLocalHrOverrides(): Record<string, Partial<HrEmployee>> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_HR_OVERRIDES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalHrOverride(key: string, patch: Partial<HrEmployee>): void {
+  if (typeof window === 'undefined' || !key) return;
+  try {
+    const map = readLocalHrOverrides();
+    map[key.toLowerCase()] = { ...(map[key.toLowerCase()] || {}), ...patch };
+    window.localStorage.setItem(LOCAL_HR_OVERRIDES_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage quota issues
+  }
+}
+
+function splitStaffName(rawName?: string | null, email?: string | null): { first_name: string; last_name: string } {
+  const cleaned = String(rawName || '').trim();
+  if (cleaned) {
+    const spaceParts = cleaned.split(/\s+/).filter(Boolean);
+    if (spaceParts.length >= 2) {
+      return {
+        first_name: spaceParts[0],
+        last_name: spaceParts.slice(1).join(' '),
+      };
+    }
+    const dotParts = cleaned.split(/[._-]+/).filter(Boolean);
+    if (dotParts.length >= 2) {
+      const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+      return {
+        first_name: cap(dotParts[0]),
+        last_name: dotParts.slice(1).map(cap).join(' '),
+      };
+    }
+    return { first_name: cleaned, last_name: 'Staff' };
+  }
+  const emailUser = String(email || '').split('@')[0] || 'Staff';
+  const parts = emailUser.split(/[._-]+/).filter(Boolean);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  return {
+    first_name: cap(parts[0] || 'Firm'),
+    last_name: parts.length > 1 ? parts.slice(1).map(cap).join(' ') : 'Member',
+  };
+}
+
+function formatFirmRoleTitle(role?: string | null, roleTitle?: string | null): string {
+  if (roleTitle && roleTitle.trim()) return roleTitle.trim();
+  const r = String(role || '').trim().toLowerCase();
+  if (r === 'partner' || r === 'managing_partner') return 'Managing Partner';
+  if (r === 'super_admin' || r === 'superadmin') return 'Super Administrator';
+  if (r === 'branch_admin') return 'Branch Administrator';
+  if (r === 'admin_finance_assistant') return 'Admin & Finance Assistant';
+  if (r === 'lawyer' || r === 'advocate') return 'Litigation Advocate';
+  if (r === 'clerk') return 'Legal Clerk';
+  return role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Firm Staff';
+}
+
+interface RawFirmUserProfile {
+  id: string;
+  full_name?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  role?: string | null;
+  role_title?: string | null;
+  title?: string | null;
+  branch?: string | null;
+  branch_name?: string | null;
+  branchName?: string | null;
+  is_suspended?: boolean | null;
+  created_at?: string | null;
+}
+
+function buildEmployeeFromFirmProfile(profile: RawFirmUserProfile): HrEmployee {
+  const { first_name, last_name } = splitStaffName(profile.full_name || profile.name, profile.email);
+  const branchLabel =
+    (profile.branch_name || profile.branchName || profile.branch || '').trim() ||
+    'Kampala Central (Head Office)';
+  return {
+    id: profile.id,
+    first_name,
+    last_name,
+    email: profile.email ? profile.email.trim() : null,
+    phone_number: profile.phone ? String(profile.phone).trim() : null,
+    date_of_birth: null,
+    job_title: formatFirmRoleTitle(profile.role, profile.role_title || profile.title),
+    department: branchLabel,
+    status: profile.is_suspended ? 'Inactive' : 'Active',
+    created_at: profile.created_at || undefined,
+    source: 'firm_profile',
+    linked_profile_id: profile.id,
+  };
+}
+
+async function fetchConnectedFirmProfiles(fallbackUsers?: any[]): Promise<RawFirmUserProfile[]> {
+  const byEmail = new Map<string, RawFirmUserProfile>();
+  const withoutEmail: RawFirmUserProfile[] = [];
+
+  try {
+    const { data, error } = await hrSupabase
+      .from('profiles')
+      .select('id, full_name, email, role, role_title, branch, branch_name, is_suspended, created_at')
+      .order('full_name', { ascending: true });
+
+    if (!error && Array.isArray(data)) {
+      data.forEach((row: any) => {
+        const emailKey = String(row.email || '').trim().toLowerCase();
+        if (emailKey) {
+          byEmail.set(emailKey, row);
+        } else if (row.id) {
+          withoutEmail.push(row);
+        }
+      });
+    }
+  } catch {
+    // fall back to AppContext availableUsers below
+  }
+
+  if (Array.isArray(fallbackUsers)) {
+    fallbackUsers.forEach((u: any) => {
+      const emailKey = String(u?.email || '').trim().toLowerCase();
+      if (emailKey && !byEmail.has(emailKey)) {
+        byEmail.set(emailKey, {
+          id: u.id,
+          full_name: u.name,
+          email: u.email,
+          phone: u.phone || null,
+          role: u.role,
+          role_title: u.roleTitle || u.title || null,
+          branch_name: u.branchName || u.branch || null,
+          is_suspended: u.isSuspended || u.isActive === false,
+        });
+      }
+    });
+  }
+
+  return [...Array.from(byEmail.values()), ...withoutEmail];
+}
+
+function mergeEmployeesWithFirmProfiles(
+  dbEmployees: HrEmployee[],
+  firmProfiles: RawFirmUserProfile[]
+): { merged: HrEmployee[]; unsyncedProfiles: RawFirmUserProfile[] } {
+  const localOverrides = readLocalHrOverrides();
+  const profileByEmail = new Map<string, RawFirmUserProfile>();
+  const profileById = new Map<string, RawFirmUserProfile>();
+
+  firmProfiles.forEach((p) => {
+    const emailKey = String(p.email || '').trim().toLowerCase();
+    if (emailKey) profileByEmail.set(emailKey, p);
+    if (p.id) profileById.set(p.id, p);
+  });
+
+  const matchedProfileKeys = new Set<string>();
+  const merged: HrEmployee[] = dbEmployees.map((emp) => {
+    const emailKey = String(emp.email || '').trim().toLowerCase();
+    const matchedProfile =
+      (emailKey ? profileByEmail.get(emailKey) : undefined) || profileById.get(emp.id);
+
+    if (matchedProfile) {
+      if (matchedProfile.email) matchedProfileKeys.add(matchedProfile.email.trim().toLowerCase());
+      matchedProfileKeys.add(matchedProfile.id);
+    }
+
+    const override =
+      (emailKey ? localOverrides[emailKey] : undefined) || localOverrides[emp.id.toLowerCase()] || {};
+
+    return {
+      ...emp,
+      ...override,
+      id: emp.id,
+      source: matchedProfile ? 'hr_synced' : 'hr_only',
+      linked_profile_id: matchedProfile?.id || null,
+    };
+  });
+
+  const unsyncedProfiles: RawFirmUserProfile[] = [];
+  firmProfiles.forEach((profile) => {
+    const emailKey = String(profile.email || '').trim().toLowerCase();
+    const alreadyMatched =
+      (emailKey && matchedProfileKeys.has(emailKey)) || matchedProfileKeys.has(profile.id);
+    if (!alreadyMatched) {
+      unsyncedProfiles.push(profile);
+      const baseEmp = buildEmployeeFromFirmProfile(profile);
+      const override =
+        (emailKey ? localOverrides[emailKey] : undefined) ||
+        localOverrides[profile.id.toLowerCase()] ||
+        {};
+      merged.push({
+        ...baseEmp,
+        ...override,
+        id: baseEmp.id,
+        source: 'firm_profile',
+        linked_profile_id: profile.id,
+      });
+    }
+  });
+
+  merged.sort((a, b) =>
+    `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+  );
+
+  return { merged, unsyncedProfiles };
+}
+
 // ============================================================================
 // 1. BirthdayWidget
 // ============================================================================
@@ -258,6 +474,14 @@ export const BirthdayWidget: React.FC<BirthdayWidgetProps> = ({
             if (!mergedMap.has(e.id)) pushCandidate(e);
           });
       }
+
+      // Also include any firm profiles that have DOB saved in local HR enrichment cache
+      const overrides = readLocalHrOverrides();
+      Object.values(overrides).forEach((ov) => {
+        if (ov?.id && ov?.date_of_birth && !mergedMap.has(ov.id)) {
+          pushCandidate(ov);
+        }
+      });
 
       const sorted = Array.from(mergedMap.values()).sort((a, b) => a.daysUntil - b.daysUntil);
       setCelebrants(sorted);
@@ -582,37 +806,59 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
     reason: '',
   });
 
+  const [firmProfilesCount, setFirmProfilesCount] = useState<number>(0);
+
   const loadHrData = useCallback(async () => {
     if (!isAuthorized) return;
     setLoading(true);
     setErrorMsg(null);
     try {
-      const [empRes, leaveRes] = await Promise.all([
-        hrSupabase
-          .from('employees')
-          .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at')
-          .order('first_name', { ascending: true }),
+      // Automatically sync auth.users / firm profiles into the HR `employees` table on load
+      const [syncResult, leaveRes, firmProfiles] = await Promise.all([
+        syncFirmUsersToHrModule({ fallbackUsers: availableUsers }),
         hrSupabase
           .from('leave_requests')
           .select('id, employee_id, leave_type, start_date, end_date, reason, status, approved_by, created_at')
           .order('created_at', { ascending: false }),
+        fetchConnectedFirmProfiles(availableUsers),
       ]);
 
-      if (empRes.error) {
-        throw new Error(`Employees load error: ${empRes.error.message}`);
-      }
-      if (leaveRes.error) {
-        throw new Error(`Leave requests load error: ${leaveRes.error.message}`);
+      setFirmProfilesCount(Math.max(firmProfiles.length, syncResult.totalFetched || 0));
+
+      let dbEmployees: HrEmployee[] = Array.isArray(syncResult.employees)
+        ? (syncResult.employees as HrEmployee[])
+        : [];
+
+      // If sync returned empty, also try a direct read from `employees`
+      if (dbEmployees.length === 0) {
+        const empRes = await hrSupabase
+          .from('employees')
+          .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at')
+          .order('first_name', { ascending: true });
+        if (!empRes.error && Array.isArray(empRes.data)) {
+          dbEmployees = empRes.data as HrEmployee[];
+        }
       }
 
-      setEmployees((empRes.data || []) as HrEmployee[]);
-      setLeaveRequests((leaveRes.data || []) as HrLeaveRequest[]);
+      const finalMerge = mergeEmployeesWithFirmProfiles(dbEmployees, firmProfiles);
+      setEmployees(finalMerge.merged);
+
+      if (!leaveRes.error && Array.isArray(leaveRes.data)) {
+        setLeaveRequests(leaveRes.data as HrLeaveRequest[]);
+      } else if (leaveRes.error) {
+        setErrorMsg(`Leave requests notice: ${leaveRes.error.message}`);
+      }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to load HR records from Supabase.');
+      // Even if Supabase query fails, fall back cleanly to AppContext firm users
+      const fallbackProfiles = await fetchConnectedFirmProfiles(availableUsers);
+      const fallbackMerge = mergeEmployeesWithFirmProfiles([], fallbackProfiles);
+      setEmployees(fallbackMerge.merged);
+      setFirmProfilesCount(fallbackProfiles.length);
+      setErrorMsg(err?.message || 'Loaded connected firm staff profiles (cloud HR sync notice).');
     } finally {
       setLoading(false);
     }
-  }, [isAuthorized]);
+  }, [isAuthorized, availableUsers]);
 
   useEffect(() => {
     loadHrData();
@@ -705,6 +951,55 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
     setIsEmpModalOpen(true);
   };
 
+  const ensureEmployeePersisted = async (emp: HrEmployee): Promise<string | null> => {
+    if (emp.source !== 'firm_profile') {
+      return emp.id;
+    }
+    const row: Record<string, any> = {
+      first_name: emp.first_name,
+      last_name: emp.last_name,
+      email: emp.email || null,
+      phone_number: emp.phone_number || null,
+      date_of_birth: emp.date_of_birth || null,
+      job_title: emp.job_title || null,
+      department: emp.department || null,
+      status: emp.status || 'Active',
+    };
+    if (UUID_REGEX.test(emp.id)) {
+      row.id = emp.id;
+    }
+    const { data, error } = await hrSupabase
+      .from('employees')
+      .upsert([row], { onConflict: 'id' })
+      .select('id')
+      .single();
+
+    if (!error && data?.id) {
+      return data.id;
+    }
+    // Retry without explicit id in case employees.id is generated or unique by email
+    const { data: insertData, error: insertError } = await hrSupabase
+      .from('employees')
+      .insert([
+        {
+          first_name: emp.first_name,
+          last_name: emp.last_name,
+          email: emp.email || null,
+          phone_number: emp.phone_number || null,
+          date_of_birth: emp.date_of_birth || null,
+          job_title: emp.job_title || null,
+          department: emp.department || null,
+          status: emp.status || 'Active',
+        },
+      ])
+      .select('id')
+      .single();
+    if (!insertError && insertData?.id) {
+      return insertData.id;
+    }
+    return null;
+  };
+
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!empForm.first_name.trim() || !empForm.last_name.trim()) {
@@ -727,12 +1022,38 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
 
     try {
       if (editingEmployee) {
-        const { error } = await hrSupabase
-          .from('employees')
-          .update(payload)
-          .eq('id', editingEmployee.id);
-        if (error) throw error;
-        showCleanMessage(`Updated employee profile for ${payload.first_name} ${payload.last_name}.`, 'success');
+        if (editingEmployee.source === 'firm_profile') {
+          const rowWithId = UUID_REGEX.test(editingEmployee.id)
+            ? { id: editingEmployee.id, ...payload }
+            : payload;
+          const { error } = await hrSupabase
+            .from('employees')
+            .upsert([rowWithId], { onConflict: 'id' });
+          if (error) {
+            // Save enrichment locally if RLS restricts direct employees table insert
+            const overrideKey = editingEmployee.email || editingEmployee.id;
+            writeLocalHrOverride(overrideKey, { id: editingEmployee.id, ...payload });
+            setEmployees((prev) =>
+              prev.map((item) =>
+                item.id === editingEmployee.id ? { ...item, ...payload } : item
+              )
+            );
+            setIsEmpModalOpen(false);
+            showCleanMessage(
+              `Saved HR details for ${payload.first_name} ${payload.last_name} locally (Supabase employees RLS requires write policy for cloud sync).`,
+              'warning'
+            );
+            return;
+          }
+          showCleanMessage(`Synced & updated HR record for ${payload.first_name} ${payload.last_name}.`, 'success');
+        } else {
+          const { error } = await hrSupabase
+            .from('employees')
+            .update(payload)
+            .eq('id', editingEmployee.id);
+          if (error) throw error;
+          showCleanMessage(`Updated employee profile for ${payload.first_name} ${payload.last_name}.`, 'success');
+        }
       } else {
         const { error } = await hrSupabase.from('employees').insert([payload]);
         if (error) throw error;
@@ -751,12 +1072,20 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
 
   const handleDeleteEmployee = async (emp: HrEmployee) => {
     setErrorMsg(null);
+    if (emp.source === 'firm_profile') {
+      setConfirmDeleteId(null);
+      showCleanMessage(
+        'This staff member is linked from active firm user accounts. Suspend or manage their login account under Access Roles & Staff.',
+        'info'
+      );
+      return;
+    }
     try {
       const { error } = await hrSupabase.from('employees').delete().eq('id', emp.id);
       if (error) throw error;
       setConfirmDeleteId(null);
-      setEmployees((prev) => prev.filter((item) => item.id !== emp.id));
-      showCleanMessage(`Removed ${emp.first_name} ${emp.last_name} from HR directory.`, 'success');
+      await loadHrData();
+      showCleanMessage(`Removed HR record for ${emp.first_name} ${emp.last_name}.`, 'success');
     } catch (err: any) {
       const msg = err?.message || 'Failed to delete employee record.';
       setErrorMsg(msg);
@@ -765,47 +1094,32 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
   };
 
   const handleSyncFromFirmUsers = async () => {
-    if (!availableUsers || availableUsers.length === 0) {
-      showCleanMessage('No firm user accounts found to import.', 'warning');
-      return;
-    }
     setSyncingStaff(true);
     setErrorMsg(null);
     try {
-      const existingEmails = new Set(
-        employees.map((e) => (e.email || '').trim().toLowerCase()).filter(Boolean)
-      );
-      const rowsToInsert: Array<Record<string, any>> = [];
+      const result = await syncFirmUsersToHrModule({ fallbackUsers: availableUsers });
 
-      availableUsers.forEach((u) => {
-        const email = (u.email || '').trim().toLowerCase();
-        if (!u.name || (email && existingEmails.has(email))) return;
-        const parts = u.name.trim().split(/\s+/);
-        const first_name = parts[0] || u.name.trim();
-        const last_name = parts.slice(1).join(' ') || 'Staff';
-        rowsToInsert.push({
-          first_name,
-          last_name,
-          email: u.email || null,
-          phone_number: (u as any).phone || null,
-          date_of_birth: null,
-          job_title: (u as any).title || u.role || 'Advocate / Staff',
-          department: u.branchName || 'Litigation & Dispute Resolution',
-          status: (u as any).isActive === false ? 'Inactive' : 'Active',
-        });
-      });
-
-      if (rowsToInsert.length === 0) {
-        showCleanMessage('All firm user accounts are already synced in the HR employee directory.', 'info');
-        return;
+      if (result.error && result.upsertedCount === 0 && result.employees.length === 0) {
+        throw new Error(result.error);
       }
 
-      const { error } = await hrSupabase.from('employees').insert(rowsToInsert);
-      if (error) throw error;
-      showCleanMessage(`Imported ${rowsToInsert.length} firm staff profile(s) into HR directory.`, 'success');
+      if (result.upsertedCount > 0) {
+        showCleanMessage(
+          `Synced ${result.upsertedCount} firm user(s) from ${result.source} into the HR employees table.`,
+          'success'
+        );
+      } else if (result.totalFetched > 0) {
+        showCleanMessage(
+          `All ${result.totalFetched} firm user accounts (${result.source}) are connected in the HR directory.`,
+          'info'
+        );
+      } else {
+        showCleanMessage('No firm user profiles found to sync.', 'warning');
+      }
+
       await loadHrData();
     } catch (err: any) {
-      const msg = err?.message || 'Failed to sync firm users into employees table.';
+      const msg = err?.message || 'Failed to sync firm users into Supabase employees table.';
       setErrorMsg(msg);
       showCleanMessage(msg, 'error');
     } finally {
@@ -839,9 +1153,21 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
     setSavingLeave(true);
     setErrorMsg(null);
     try {
+      const targetEmp = employeeMap.get(leaveForm.employee_id);
+      let persistedEmployeeId = leaveForm.employee_id;
+      if (targetEmp && targetEmp.source === 'firm_profile') {
+        const syncedId = await ensureEmployeePersisted(targetEmp);
+        if (!syncedId) {
+          throw new Error(
+            'Could not register this firm user in the Supabase employees table before logging leave (check Supabase employees RLS policy).'
+          );
+        }
+        persistedEmployeeId = syncedId;
+      }
+
       const { error } = await hrSupabase.from('leave_requests').insert([
         {
-          employee_id: leaveForm.employee_id,
+          employee_id: persistedEmployeeId,
           leave_type: leaveForm.leave_type,
           start_date: leaveForm.start_date,
           end_date: leaveForm.end_date,
@@ -997,7 +1323,9 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
           <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums mt-3">
             {employees.length}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Registered in HR directory</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {firmProfilesCount > 0 ? `${firmProfilesCount} connected firm users` : 'Registered in HR directory'}
+          </p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs">
@@ -1207,8 +1535,23 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                             {getInitials(emp.first_name, emp.last_name)}
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 dark:text-slate-100">
-                              {emp.first_name} {emp.last_name}
+                            <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
+                              <span>
+                                {emp.first_name} {emp.last_name}
+                              </span>
+                              {(emp.source === 'hr_synced' || emp.source === 'firm_profile') && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[10px] font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/70"
+                                  title={
+                                    emp.source === 'hr_synced'
+                                      ? 'Connected firm user synced with HR employees table'
+                                      : 'Connected directly from MK Firm user profiles'
+                                  }
+                                >
+                                  <Link2 className="w-2.5 h-2.5" />
+                                  Firm User
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
                               <Mail className="w-3 h-3" />

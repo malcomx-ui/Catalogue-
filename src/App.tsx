@@ -41,9 +41,9 @@ const MainLayout: React.FC = () => {
   const { activeTab, isAuthenticated, isCpanelMigrationModalOpen, setIsCpanelMigrationModalOpen, currentUser, fetchFreshDataFromSupabase } = useApp();
   const [isFirstLoginModalOpen, setIsFirstLoginModalOpen] = React.useState(false);
 
-  // Main app startup / mount routine
+  // Main app startup / mount routine (runs only when authenticated so login mount stays fast)
   React.useEffect(() => {
-    console.log("Page refreshed. Clearing stale local storage and fetching fresh data...");
+    if (!isAuthenticated) return;
 
     // 1. Clear out old cached case lists
     try {
@@ -63,7 +63,7 @@ const MainLayout: React.FC = () => {
 
     // 3. Force an immediate fetch of live data from Supabase
     fetchFreshDataFromSupabase();
-  }, [fetchFreshDataFromSupabase]);
+  }, [isAuthenticated, fetchFreshDataFromSupabase]);
 
   React.useEffect(() => {
     if (isAuthenticated && currentUser.mustChangePassword) {

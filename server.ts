@@ -2991,6 +2991,240 @@ app.get(['/api/profiles', '/api/users/profiles'], async (req: Request, res: Resp
   }
 });
 
+// Sync all Supabase auth.users (enriched with public.profiles) into the HR module 'employees' table
+app.post('/api/hr/sync-users', async (req: Request, res: Response) => {
+  try {
+    const clientToUse = getSupabaseClientForRequest(req);
+
+    const splitUserName = (rawName?: string | null, email?: string | null) => {
+      const cleaned = String(rawName || '').trim();
+      if (cleaned) {
+        const spaceParts = cleaned.split(/\s+/).filter(Boolean);
+        if (spaceParts.length >= 2) {
+          return {
+            first_name: spaceParts[0],
+            last_name: spaceParts.slice(1).join(' '),
+          };
+        }
+        const dotParts = cleaned.split(/[._-]+/).filter(Boolean);
+        if (dotParts.length >= 2) {
+          const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+          return {
+            first_name: cap(dotParts[0]),
+            last_name: dotParts.slice(1).map(cap).join(' '),
+          };
+        }
+        return { first_name: cleaned, last_name: 'Staff' };
+      }
+      const emailPrefix = String(email || '').split('@')[0] || 'Firm';
+      const parts = emailPrefix.split(/[._-]+/).filter(Boolean);
+      const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+      return {
+        first_name: cap(parts[0] || 'Firm'),
+        last_name: parts.length > 1 ? parts.slice(1).map(cap).join(' ') : 'Member',
+      };
+    };
+
+    const formatRoleTitle = (role?: string | null, roleTitle?: string | null) => {
+      if (roleTitle && String(roleTitle).trim()) return String(roleTitle).trim();
+      const r = String(role || '').trim().toLowerCase();
+      if (r === 'partner' || r === 'managing_partner') return 'Managing Partner';
+      if (r === 'super_admin' || r === 'superadmin') return 'Super Administrator';
+      if (r === 'branch_admin') return 'Branch Administrator';
+      if (r === 'admin_finance_assistant') return 'Admin & Finance Assistant';
+      if (r === 'lawyer' || r === 'advocate') return 'Litigation Advocate';
+      if (r === 'clerk') return 'Legal Clerk';
+      return role ? String(role).charAt(0).toUpperCase() + String(role).slice(1) : 'Firm Staff';
+    };
+
+    // 1. Fetch all auth.users via Admin API when service_role key is available
+    let authUsers: any[] = [];
+    let source: 'auth.users' | 'profiles' = 'profiles';
+
+    if (hasRealServiceRoleKey()) {
+      let page = 1;
+      const perPage = 1000;
+      while (page <= 10) {
+        const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage,
+        });
+        if (listErr) {
+          console.warn('[HR Sync] auth.admin.listUsers notice:', listErr.message);
+          break;
+        }
+        const batch = listData?.users || [];
+        authUsers.push(...batch);
+        if (batch.length < perPage) break;
+        page += 1;
+      }
+      if (authUsers.length > 0) {
+        source = 'auth.users';
+      }
+    }
+
+    // 2. Fetch public.profiles and existing HR employees for enrichment and preservation of HR-specific fields
+    const [{ data: profilesData }, { data: existingEmployeesData }] = await Promise.all([
+      clientToUse.from('profiles').select('*'),
+      clientToUse
+        .from('employees')
+        .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at'),
+    ]);
+
+    const profileById = new Map<string, any>();
+    const profileByEmail = new Map<string, any>();
+    (profilesData || []).forEach((p: any) => {
+      if (p?.id) profileById.set(String(p.id), p);
+      if (p?.email) profileByEmail.set(String(p.email).trim().toLowerCase(), p);
+    });
+
+    const existingById = new Map<string, any>();
+    const existingByEmail = new Map<string, any>();
+    (existingEmployeesData || []).forEach((e: any) => {
+      if (e?.id) existingById.set(String(e.id), e);
+      if (e?.email) existingByEmail.set(String(e.email).trim().toLowerCase(), e);
+    });
+
+    // 3. Build unified list of firm user records (auth.users first, then any remaining public.profiles)
+    const candidateUsers: Array<{
+      id: string;
+      email: string | null;
+      full_name: string | null;
+      phone: string | null;
+      role: string | null;
+      role_title: string | null;
+      department: string | null;
+      is_suspended: boolean;
+    }> = [];
+    const seenIds = new Set<string>();
+    const seenEmails = new Set<string>();
+
+    authUsers.forEach((au: any) => {
+      const id = String(au?.id || '').trim();
+      const email = au?.email ? String(au.email).trim() : null;
+      const emailKey = email ? email.toLowerCase() : '';
+      const prof = (id ? profileById.get(id) : null) || (emailKey ? profileByEmail.get(emailKey) : null);
+      const meta = au?.user_metadata || {};
+
+      if (id) seenIds.add(id);
+      if (emailKey) seenEmails.add(emailKey);
+
+      candidateUsers.push({
+        id,
+        email,
+        full_name: prof?.full_name || meta.full_name || meta.name || null,
+        phone: prof?.phone || au?.phone || meta.phone || null,
+        role: prof?.role || meta.role || null,
+        role_title: prof?.role_title || meta.role_title || null,
+        department: prof?.branch_name || prof?.branch || meta.branch_name || meta.branch || 'Kampala Central (Head Office)',
+        is_suspended: Boolean(prof?.is_suspended || au?.banned_until),
+      });
+    });
+
+    (profilesData || []).forEach((prof: any) => {
+      const id = String(prof?.id || '').trim();
+      const email = prof?.email ? String(prof.email).trim() : null;
+      const emailKey = email ? email.toLowerCase() : '';
+      if ((id && seenIds.has(id)) || (emailKey && seenEmails.has(emailKey))) return;
+      if (id) seenIds.add(id);
+      if (emailKey) seenEmails.add(emailKey);
+
+      candidateUsers.push({
+        id,
+        email,
+        full_name: prof?.full_name || null,
+        phone: prof?.phone || null,
+        role: prof?.role || null,
+        role_title: prof?.role_title || null,
+        department: prof?.branch_name || prof?.branch || 'Kampala Central (Head Office)',
+        is_suspended: Boolean(prof?.is_suspended),
+      });
+    });
+
+    // 4. Prepare upsert payload for 'employees' table (preserving existing HR overrides like date_of_birth)
+    const upsertRows = candidateUsers
+      .filter((u) => isUuidString(u.id) || Boolean(u.email))
+      .map((u) => {
+        const emailKey = u.email ? u.email.toLowerCase() : '';
+        const existing = existingById.get(u.id) || (emailKey ? existingByEmail.get(emailKey) : null);
+        const { first_name, last_name } = splitUserName(u.full_name, u.email);
+
+        const row: Record<string, any> = {
+          first_name: existing?.first_name || first_name,
+          last_name: existing?.last_name || last_name,
+          email: u.email || existing?.email || null,
+          phone_number: existing?.phone_number || u.phone || null,
+          date_of_birth: existing?.date_of_birth || null,
+          job_title: existing?.job_title || formatRoleTitle(u.role, u.role_title),
+          department: existing?.department || u.department || 'Kampala Central (Head Office)',
+          status: existing?.status || (u.is_suspended ? 'Inactive' : 'Active'),
+        };
+
+        if (isUuidString(existing?.id || u.id)) {
+          row.id = existing?.id || u.id;
+        }
+        return row;
+      });
+
+    let upsertedCount = 0;
+    let upsertError: string | null = null;
+
+    if (upsertRows.length > 0) {
+      const withId = upsertRows.filter((r) => Boolean(r.id));
+      const withoutId = upsertRows.filter((r) => !r.id);
+
+      if (withId.length > 0) {
+        const { data: upsertedData, error: err } = await clientToUse
+          .from('employees')
+          .upsert(withId, { onConflict: 'id' })
+          .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at');
+        if (err) {
+          upsertError = err.message;
+        } else {
+          upsertedCount += Array.isArray(upsertedData) ? upsertedData.length : withId.length;
+        }
+      }
+
+      if (withoutId.length > 0) {
+        const { data: insertedData, error: insErr } = await clientToUse
+          .from('employees')
+          .insert(withoutId)
+          .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at');
+        if (insErr && !upsertError) {
+          upsertError = insErr.message;
+        } else if (Array.isArray(insertedData)) {
+          upsertedCount += insertedData.length;
+        }
+      }
+    }
+
+    // 5. Return freshly synced HR employees list
+    const { data: refreshedEmployees } = await clientToUse
+      .from('employees')
+      .select('id, first_name, last_name, email, phone_number, date_of_birth, job_title, department, status, created_at')
+      .order('first_name', { ascending: true });
+
+    return res.json({
+      success: !upsertError || (Array.isArray(refreshedEmployees) && refreshedEmployees.length > 0),
+      source,
+      totalFetched: candidateUsers.length,
+      upsertedCount,
+      employees: Array.isArray(refreshedEmployees) && refreshedEmployees.length > 0 ? refreshedEmployees : upsertRows,
+      error: upsertError,
+    });
+  } catch (err: any) {
+    console.error('[HR Sync] Error syncing firm users to employees:', err);
+    return res.status(500).json({
+      success: false,
+      source: 'profiles',
+      totalFetched: 0,
+      upsertedCount: 0,
+      employees: [],
+      error: err?.message || 'Failed to sync firm users to HR employees table.',
+    });
+  }
+});
+
 // One-click Central Database Backup Download
 app.get('/api/database/backup', (req: Request, res: Response) => {
   const db = readDatabase();

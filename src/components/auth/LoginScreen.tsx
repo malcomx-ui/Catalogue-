@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { supabase } from '../../lib/supabase';
 import {
@@ -50,6 +50,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const [logoErrorStep, setLogoErrorStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Guard against double-clicks / rapid duplicate submits
+  const submittingRef = useRef(false);
 
   // Forgot password request modal state
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -117,6 +120,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     setErrorMessage(null);
 
     const cleanEmail = email.trim();
@@ -125,6 +129,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       return;
     }
 
+    submittingRef.current = true;
     setIsLoading(true);
 
     try {
@@ -164,6 +169,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         err?.message || 'An unexpected error occurred during sign-in. Please try again.'
       );
     } finally {
+      submittingRef.current = false;
       setIsLoading(false);
     }
   };

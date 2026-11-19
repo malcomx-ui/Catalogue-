@@ -1368,11 +1368,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => { isMounted = false; };
   }, []);
 
-  // Initial Data Loader: Fetches live rows directly from Supabase tables (cases)
+  // Initial Data Loader: Fetches live rows directly from Supabase tables (cases) once authenticated
   useEffect(() => {
+    if (!isAuthenticated) return;
     let isMounted = true;
     async function loadCentralDatabase() {
-      console.log("Page refreshed. Clearing stale local storage and fetching fresh data...");
 
       // 1. Clear out old cached case lists
       try {
@@ -1517,11 +1517,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     loadCentralDatabase();
     return () => { isMounted = false; };
-  }, []);
+  }, [isAuthenticated]);
 
   // Real-time synchronization for employee profiles, roles, and branch assignments across tabs and sessions
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !isAuthenticated) return;
 
     // 1. Listen for PostgreSQL changes on public.profiles table
     const profileChannel = supabase
@@ -1564,7 +1564,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       authSub.subscription.unsubscribe();
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [isSupabaseConfigured]);
+  }, [isSupabaseConfigured, isAuthenticated]);
 
   // Sync state
   const [syncLogs, setSyncLogs] = useState<SyncLog[]>(INITIAL_SYNC_LOGS);
@@ -1586,6 +1586,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     refreshAuditLogs();
   }, [isAuthenticated]);
 

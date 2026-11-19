@@ -15,8 +15,23 @@ export const isSupabaseConfigured: boolean = Boolean(
   !supabaseUrl.includes('placeholder')
 );
 
-// Guaranteed non-null Supabase client
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+const hasAuthCallbackInUrl: boolean =
+  typeof window !== 'undefined' &&
+  (
+    window.location.hash.includes('access_token=') ||
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('code=') ||
+    window.location.search.includes('type=recovery')
+  );
+
+// Single module-level Supabase client instance (never recreated on render)
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: hasAuthCallbackInUrl,
+  },
+});
 
 function parseDateForPostgres(d: any): string | null {
   if (!d) return null;
