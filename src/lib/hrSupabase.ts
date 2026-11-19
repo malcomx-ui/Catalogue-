@@ -403,6 +403,237 @@ export async function submitLeaveRequest(
   }
 }
 
+export interface StaffLeaveBalance {
+  employee_id: string;
+  email: string | null;
+  full_name: string;
+  job_title: string | null;
+  department: string | null;
+  year: number;
+  annual_allowance: number;
+  used_days: number;
+  pending_days: number;
+  remaining_days: number;
+  remaining_percent: number;
+}
+
+export interface FetchStaffLeaveBalancesOptions {
+  /** Calendar year to aggregate leave usage for (defaults to current year) */
+  year?: number;
+  /** Default annual leave entitlement in days when no per-employee override exists (defaults to 21) */
+  defaultAnnualAllowance?: number;
+  /** Optional list of employee IDs to filter results to */
+  employeeIds?: string[];
+}
+
+export interface FetchStaffLeaveBalancesResult {
+  success: boolean;
+  balances: StaffLeaveBalance[];
+  byEmployeeId: Record<string, StaffLeaveBalance>;
+  byEmail: Record<string, StaffLeaveBalance>;
+  error: string | null;
+}
+
+function calculateInclusiveLeaveDays(startDate?: string | null, endDate?: string | null): number {
+  if (!startDate || !endDate) return 1;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return 1;
+  }
+  return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function matchesTargetYear(startDate?: string | null, endDate?: string | null, targetYear?: number): boolean {
+  if (!targetYear) return true;
+  const sYear = startDate ? new Date(startDate).getFullYear() : NaN;
+  const eYear = endDate ? new Date(endDate).getFullYear() : NaN;
+  if (Number.isNaN(sYear) && Number.isNaN(eYear)) return true;
+  return sYear === targetYear || eYear === targetYear;
+}
+
+/**
+ * Fetches individual staff annual leave balances from Supabase by aggregating
+ * `employees`, `profiles`, and `leave_requests` for the target calendar year.
+ */
+export async function fetchStaffLeaveBalances(
+  options: FetchStaffLeaveBalancesOptions = {}
+): Promise<FetchStaffLeaveBalancesResult> {
+  const targetYear = options.year ?? new Date().getFullYear();
+  const defaultAllowance = Math.max(1, options.defaultAnnualAllowance ?? 21);
+  const filterIdSet =
+    options.employeeIds && options.employeeIds.length > 0
+      ? new Set(options.employeeIds.map((id) => String(id).trim().toLowerCase()))
+      : null;
+
+  try {
+    let leavesQuery = hrSupabase
+      .from('leave_requests')
+      .select('id, employee_id, leave_type, start_date, end_date, status, created_at');
+
+    if (options.employeeIds && options.employeeIds.length > 0) {
+      const validUuids = options.employeeIds.filter((id) => UUID_REGEX.test(String(id).trim()));
+      if (validUuids.length > 0) {
+        leavesQuery = leavesQuery.in('employee_id', validUuids);
+      }
+    }
+
+    const [employeesRes, profilesRes, leavesRes] = await Promise.all([
+      hrSupabase
+        .from('employees')
+        .select('id, first_name, last_name, email, job_title, department, status')
+        .order('first_name', { ascending: true }),
+      hrSupabase
+        .from('profiles')
+        .select('id, full_name, email, role, role_title, branch, branch_name')
+        .order('full_name', { ascending: true }),
+      leavesQuery,
+    ]);
+
+    if (employeesRes.error && profilesRes.error && leavesRes.error) {
+      return {
+        success: false,
+        balances: [],
+        byEmployeeId: {},
+        byEmail: {},
+        error: leavesRes.error.message || employeesRes.error.message || 'Failed to fetch staff leave balances.',
+      };
+    }
+
+    // Build unified staff registry keyed by lowercased employee_id
+    const staffMap = new Map<
+      string,
+      {
+        employee_id: string;
+        email: string | null;
+        full_name: string;
+        job_title: string | null;
+        department: string | null;
+        annual_allowance: number;
+      }
+    >();
+
+    const profilesByEmail = new Map<string, any>();
+    (profilesRes.data || []).forEach((p: any) => {
+      const em = String(p?.email || '').trim().toLowerCase();
+      if (em) profilesByEmail.set(em, p);
+      if (!p?.id) return;
+      const key = String(p.id).trim().toLowerCase();
+      if (filterIdSet && !filterIdSet.has(key)) return;
+      staffMap.set(key, {
+        employee_id: String(p.id),
+        email: p.email ? String(p.email).trim() : null,
+        full_name: String(p.full_name || em.split('@')[0] || 'Firm Staff').trim(),
+        job_title: p.role_title || p.role || null,
+        department: p.branch_name || p.branch || null,
+        annual_allowance: defaultAllowance,
+      });
+    });
+
+    (employeesRes.data || []).forEach((emp: any) => {
+      if (!emp?.id) return;
+      const key = String(emp.id).trim().toLowerCase();
+      if (filterIdSet && !filterIdSet.has(key)) return;
+      const em = String(emp.email || '').trim().toLowerCase();
+      const matchedProfile = em ? profilesByEmail.get(em) : undefined;
+      const fullName =
+        `${emp.first_name || ''} ${emp.last_name || ''}`.trim() ||
+        matchedProfile?.full_name ||
+        (em ? em.split('@')[0] : 'Firm Staff');
+      const existing = staffMap.get(key);
+      staffMap.set(key, {
+        employee_id: String(emp.id),
+        email: emp.email ? String(emp.email).trim() : existing?.email || null,
+        full_name: fullName,
+        job_title: emp.job_title || existing?.job_title || null,
+        department: emp.department || existing?.department || null,
+        annual_allowance: existing?.annual_allowance ?? defaultAllowance,
+      });
+    });
+
+    // Aggregate approved (used) and pending leave days per employee_id
+    const usedByEmp = new Map<string, number>();
+    const pendingByEmp = new Map<string, number>();
+
+    (leavesRes.data || []).forEach((lr: any) => {
+      if (!lr?.employee_id) return;
+      const empKey = String(lr.employee_id).trim().toLowerCase();
+      if (filterIdSet && !filterIdSet.has(empKey)) return;
+      if (!matchesTargetYear(lr.start_date, lr.end_date, targetYear)) return;
+
+      const statusNorm = String(lr.status || '').trim().toLowerCase();
+      const days = calculateInclusiveLeaveDays(lr.start_date, lr.end_date);
+
+      if (statusNorm === 'approved') {
+        usedByEmp.set(empKey, (usedByEmp.get(empKey) || 0) + days);
+      } else if (statusNorm === 'pending') {
+        pendingByEmp.set(empKey, (pendingByEmp.get(empKey) || 0) + days);
+      }
+
+      if (!staffMap.has(empKey)) {
+        staffMap.set(empKey, {
+          employee_id: String(lr.employee_id),
+          email: null,
+          full_name: 'Firm Staff',
+          job_title: null,
+          department: null,
+          annual_allowance: defaultAllowance,
+        });
+      }
+    });
+
+    const balances: StaffLeaveBalance[] = [];
+    const byEmployeeId: Record<string, StaffLeaveBalance> = {};
+    const byEmail: Record<string, StaffLeaveBalance> = {};
+
+    staffMap.forEach((member, empKey) => {
+      const allowance = Math.max(1, member.annual_allowance);
+      const usedDays = usedByEmp.get(empKey) || 0;
+      const pendingDays = pendingByEmp.get(empKey) || 0;
+      const remainingDays = Math.max(0, allowance - usedDays);
+      const remainingPercent = Math.min(100, Math.max(0, Math.round((remainingDays / allowance) * 100)));
+
+      const record: StaffLeaveBalance = {
+        employee_id: member.employee_id,
+        email: member.email,
+        full_name: member.full_name,
+        job_title: member.job_title,
+        department: member.department,
+        year: targetYear,
+        annual_allowance: allowance,
+        used_days: usedDays,
+        pending_days: pendingDays,
+        remaining_days: remainingDays,
+        remaining_percent: remainingPercent,
+      };
+
+      balances.push(record);
+      byEmployeeId[empKey] = record;
+      if (record.email) {
+        byEmail[record.email.trim().toLowerCase()] = record;
+      }
+    });
+
+    balances.sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+    return {
+      success: true,
+      balances,
+      byEmployeeId,
+      byEmail,
+      error: leavesRes.error ? leavesRes.error.message : null,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      balances: [],
+      byEmployeeId: {},
+      byEmail: {},
+      error: err?.message || 'Unexpected error while fetching staff leave balances.',
+    };
+  }
+}
+
 /**
  * Returns true ONLY for Super Admin accounts.
  * All regular staff, associates, clerks, branch admins, and unauthenticated users get `false`.

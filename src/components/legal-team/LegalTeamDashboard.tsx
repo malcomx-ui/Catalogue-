@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../../lib/supabase';
-import { hrSupabase, submitLeaveRequest } from '../../lib/hrSupabase';
+import {
+  hrSupabase,
+  submitLeaveRequest,
+  fetchStaffLeaveBalances,
+  type StaffLeaveBalance,
+} from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
 import {
   CalendarDays,
@@ -24,6 +29,7 @@ import {
   Columns3,
   Cake,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 
 export interface LegalTeamDashboardProps {
@@ -82,7 +88,10 @@ interface StaffMemberCardData {
   hoursLogged: number;
   hourlyRate: number;
   annualAllowance: number;
+  usedLeaveDays: number;
+  pendingLeaveDays: number;
   leaveRemaining: number;
+  leaveRemainingPercent: number;
   birthdayEligible: boolean;
   birthdayLabel?: string;
   isUuid: boolean;
@@ -276,9 +285,12 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   // Active sub-tab
   const [activeSubTab, setActiveSubTab] = useState<StaffSubTab>('directory');
 
-  // Live Supabase profiles + HR employee DOB enrichment
+  // Live Supabase profiles + HR employee DOB enrichment + individual leave balances
   const [supabaseProfiles, setSupabaseProfiles] = useState<any[]>([]);
   const [employeeDobMap, setEmployeeDobMap] = useState<Record<string, string>>({});
+  const [leaveBalancesById, setLeaveBalancesById] = useState<Record<string, StaffLeaveBalance>>({});
+  const [leaveBalancesByEmail, setLeaveBalancesByEmail] = useState<Record<string, StaffLeaveBalance>>({});
+  const [loadingBalances, setLoadingBalances] = useState(false);
 
   // Birthday wishes inline composer state
   const [openWishStaffId, setOpenWishStaffId] = useState<string | null>(null);
@@ -364,7 +376,21 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     }
   }, [leaveRequests]);
 
-  // Fetch live Supabase profiles, employee DOBs, and leave_requests on mount
+  // Fetch individual staff leave balances from Supabase via hrSupabase.fetchStaffLeaveBalances
+  const refreshLeaveBalances = useCallback(async () => {
+    setLoadingBalances(true);
+    try {
+      const res = await fetchStaffLeaveBalances({ defaultAnnualAllowance: 21 });
+      if (res.success) {
+        setLeaveBalancesById(res.byEmployeeId);
+        setLeaveBalancesByEmail(res.byEmail);
+      }
+    } finally {
+      setLoadingBalances(false);
+    }
+  }, []);
+
+  // Fetch live Supabase profiles, employee DOBs, leave_requests, and leave balances on mount
   const loadLiveStaffMetadata = useCallback(async () => {
     try {
       const [profilesRes, employeesRes, leavesRes] = await Promise.all([
@@ -377,6 +403,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           .from('leave_requests')
           .select('id, employee_id, leave_type, start_date, end_date, reason, status, created_at')
           .order('created_at', { ascending: false }),
+        refreshLeaveBalances(),
       ]);
 
       if (!profilesRes.error && Array.isArray(profilesRes.data)) {
@@ -452,26 +479,47 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     } catch {
       // gracefully rely on availableUsers + local storage
     }
-  }, []);
+  }, [refreshLeaveBalances]);
 
   useEffect(() => {
     loadLiveStaffMetadata();
   }, [loadLiveStaffMetadata]);
 
-  // Approved leave days per staff member (by id or email)
-  const usedLeaveDaysByKey = useMemo(() => {
-    const map = new Map<string, number>();
-    leaveRequests
-      .filter((l) => l.status === 'Approved')
-      .forEach((l) => {
-        const d = Number(l.days || calcCalendarDays(l.start_date, l.end_date));
-        if (l.employee_id) map.set(l.employee_id.toLowerCase(), (map.get(l.employee_id.toLowerCase()) || 0) + d);
-        if (l.employeeEmail) {
-          const em = l.employeeEmail.trim().toLowerCase();
-          map.set(em, (map.get(em) || 0) + d);
+  // Approved & pending leave days from local (unsynced) and live leave requests per staff member
+  const leaveUsageByKey = useMemo(() => {
+    const usedAll = new Map<string, number>();
+    const pendingAll = new Map<string, number>();
+    const usedLocalOnly = new Map<string, number>();
+    const pendingLocalOnly = new Map<string, number>();
+
+    const addTo = (map: Map<string, number>, key: string, days: number) => {
+      if (!key) return;
+      map.set(key, (map.get(key) || 0) + days);
+    };
+
+    leaveRequests.forEach((l) => {
+      const d = Number(l.days || calcCalendarDays(l.start_date, l.end_date));
+      const idKey = l.employee_id ? l.employee_id.toLowerCase() : '';
+      const emailKey = l.employeeEmail ? l.employeeEmail.trim().toLowerCase() : '';
+
+      if (l.status === 'Approved') {
+        addTo(usedAll, idKey, d);
+        addTo(usedAll, emailKey, d);
+        if (!l.persistedInSupabase) {
+          addTo(usedLocalOnly, idKey, d);
+          addTo(usedLocalOnly, emailKey, d);
         }
-      });
-    return map;
+      } else if (l.status === 'Pending') {
+        addTo(pendingAll, idKey, d);
+        addTo(pendingAll, emailKey, d);
+        if (!l.persistedInSupabase) {
+          addTo(pendingLocalOnly, idKey, d);
+          addTo(pendingLocalOnly, emailKey, d);
+        }
+      }
+    });
+
+    return { usedAll, pendingAll, usedLocalOnly, pendingLocalOnly };
   }, [leaveRequests]);
 
   // Build unified Staff Directory & Attendance cards
@@ -548,12 +596,39 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       const birthdayEligible = hasAnyRealDob ? bdayMeta.eligible : idx < 2;
       const birthdayLabel = bdayMeta.label || (idx === 0 ? 'Birthday Today' : 'Upcoming Birthday');
 
-      const annualAllowance = 21;
-      const usedDays = Math.max(
-        usedLeaveDaysByKey.get(idStr.toLowerCase()) || 0,
-        em ? usedLeaveDaysByKey.get(em) || 0 : 0
+      const cloudBalance =
+        leaveBalancesById[idStr.toLowerCase()] || (em ? leaveBalancesByEmail[em] : undefined);
+      const annualAllowance = cloudBalance?.annual_allowance ?? 21;
+
+      const localOnlyUsed = Math.max(
+        leaveUsageByKey.usedLocalOnly.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.usedLocalOnly.get(em) || 0 : 0
       );
-      const leaveRemaining = Math.max(0, annualAllowance - usedDays);
+      const localOnlyPending = Math.max(
+        leaveUsageByKey.pendingLocalOnly.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.pendingLocalOnly.get(em) || 0 : 0
+      );
+      const allUsedFromState = Math.max(
+        leaveUsageByKey.usedAll.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.usedAll.get(em) || 0 : 0
+      );
+      const allPendingFromState = Math.max(
+        leaveUsageByKey.pendingAll.get(idStr.toLowerCase()) || 0,
+        em ? leaveUsageByKey.pendingAll.get(em) || 0 : 0
+      );
+
+      // Prefer live fetched Supabase balance + any local unsynced entries, while immediately reflecting optimistic UI updates
+      const usedLeaveDays = cloudBalance
+        ? Math.max(cloudBalance.used_days + localOnlyUsed, allUsedFromState)
+        : allUsedFromState;
+      const pendingLeaveDays = cloudBalance
+        ? Math.max(cloudBalance.pending_days + localOnlyPending, allPendingFromState)
+        : allPendingFromState;
+      const leaveRemaining = Math.max(0, annualAllowance - usedLeaveDays);
+      const leaveRemainingPercent = Math.min(
+        100,
+        Math.max(0, Math.round((leaveRemaining / Math.max(1, annualAllowance)) * 100))
+      );
 
       const isActive = isSelf ? isClockedIn : !u.isSuspended;
       const todaysPunch = isSelf
@@ -580,7 +655,10 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         hoursLogged: staffHours,
         hourlyRate: resolveHourlyRate(u.role, u.roleTitle),
         annualAllowance,
+        usedLeaveDays,
+        pendingLeaveDays,
         leaveRemaining,
+        leaveRemainingPercent,
         birthdayEligible,
         birthdayLabel,
         isUuid: UUID_REGEX.test(idStr),
@@ -591,7 +669,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     availableUsers,
     effectiveUser,
     employeeDobMap,
-    usedLeaveDaysByKey,
+    leaveBalancesById,
+    leaveBalancesByEmail,
+    leaveUsageByKey,
     isClockedIn,
     clockInTime,
     hoursLogged,
@@ -821,6 +901,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       setLeaveRequests((prev) => [newRecord, ...prev]);
       setIsLeaveModalOpen(false);
       setActiveSubTab('leaves');
+      if (result.persistedInSupabase) {
+        void refreshLeaveBalances();
+      }
       showCleanMessage(
         result.persistedInSupabase
           ? `Leave request saved to HR register for ${staff.name} (${days} day${days > 1 ? 's' : ''}).`
@@ -857,6 +940,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     if (record.persistedInSupabase && UUID_REGEX.test(record.id)) {
       try {
         await hrSupabase.from('leave_requests').update({ status: nextStatus }).eq('id', record.id);
+        await refreshLeaveBalances();
       } catch {
         // local state already updated
       }
@@ -1441,115 +1525,261 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       )}
 
       {/* TAB 3: LEAVE MANAGEMENT & ALLOWANCES */}
-      {activeSubTab === 'leaves' && (
-        <section className="space-y-6">
-          {/* Leave Requests Queue */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Leave Applications &amp; Approvals</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Submit and track annual, sick, and study leave schedules across branches
+      {activeSubTab === 'leaves' && (() => {
+        const totalStaffCount = filteredStaff.length;
+        const avgRemainingDays =
+          totalStaffCount > 0
+            ? Math.round(
+                (filteredStaff.reduce((acc, s) => acc + s.leaveRemaining, 0) / totalStaffCount) * 10
+              ) / 10
+            : 0;
+        const totalUsedDays = filteredStaff.reduce((acc, s) => acc + s.usedLeaveDays, 0);
+        const totalPendingDays = filteredStaff.reduce((acc, s) => acc + s.pendingLeaveDays, 0);
+
+        return (
+          <section className="space-y-6">
+            {/* Leave Balance Summary Strip */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Tracked Staff</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
+                  {totalStaffCount}
                 </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Active annual entitlements</p>
               </div>
-              <button
-                type="button"
-                onClick={() => openApplyLeaveModal()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Application
-              </button>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Avg. Remaining Leave</p>
+                <p className="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">
+                  {avgRemainingDays} <span className="text-xs font-semibold text-slate-400">Days</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Per staff member ({new Date().getFullYear()})</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Approved Days Used</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                  {totalUsedDays} <span className="text-xs font-semibold text-slate-400">Days</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Deducted from annual pool</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Pending Approval</p>
+                <p className="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                  {totalPendingDays} <span className="text-xs font-semibold text-slate-400">Days</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">Awaiting supervisor sign-off</p>
+              </div>
             </div>
 
-            {filteredLeaves.length === 0 ? (
-              <div className="p-8 text-center text-sm text-slate-500">
-                No leave requests found for the current branch or search filter.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredLeaves.map((lr) => (
-                  <div
-                    key={lr.id}
-                    className="p-4 sm:px-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-bold text-slate-900 dark:text-white">{lr.employeeName}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-slate-500 tabular-nums">
-                          {lr.start_date} to {lr.end_date} ({lr.days} day{lr.days > 1 ? 's' : ''})
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">{lr.reason}</p>
-                      <p className="text-[11px] text-slate-400">{lr.branchName}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {lr.status === 'Pending' && isAdmin ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleLeaveStatusChange(lr, 'Approved')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleLeaveStatusChange(lr, 'Rejected')}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            Reject
-                          </button>
-                        </>
-                      ) : (
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold border ${
-                            lr.status === 'Approved'
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                              : lr.status === 'Rejected'
-                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                              : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                          }`}
-                        >
-                          {lr.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Staff Leave Allowances Breakdown */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Annual Leave Allowances ({filteredStaff.length})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {filteredStaff.map((s) => (
-                <div
-                  key={s.id}
-                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{s.name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{s.roleTitle}</p>
-                  </div>
-                  <div className="text-right shrink-0 tabular-nums">
-                    <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{s.leaveRemaining} Days</p>
-                    <p className="text-[10px] text-slate-400">of {s.annualAllowance}d annual</p>
-                  </div>
+            {/* Staff Annual Leave Allowances & Progress Bars */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Annual Leave Allowances ({filteredStaff.length})
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Individual remaining annual leave days calculated from live HR leave records
+                  </p>
                 </div>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => void refreshLeaveBalances()}
+                  disabled={loadingBalances}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingBalances ? 'animate-spin' : ''}`} />
+                  {loadingBalances ? 'Refreshing...' : 'Refresh Balances'}
+                </button>
+              </div>
+
+              {filteredStaff.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                  No staff leave balances match the current branch or search filter.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredStaff.map((s, idx) => {
+                    const pct = s.leaveRemainingPercent;
+                    const barColor =
+                      pct >= 50
+                        ? 'bg-blue-600 dark:bg-blue-500'
+                        : pct >= 20
+                        ? 'bg-amber-500 dark:bg-amber-400'
+                        : 'bg-rose-600 dark:bg-rose-500';
+                    const textAccent =
+                      pct >= 50
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : pct >= 20
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-rose-600 dark:text-rose-400';
+
+                    return (
+                      <div
+                        key={s.id}
+                        className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 flex flex-col justify-between gap-3.5"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-9 h-9 rounded-full bg-gradient-to-br ${
+                                avatarGradients[idx % avatarGradients.length]
+                              } text-white text-xs font-bold flex items-center justify-center shrink-0`}
+                            >
+                              {getInitials(s.name)}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {s.name}
+                              </p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                {s.roleTitle}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 tabular-nums">
+                            <p className={`text-sm font-bold leading-tight ${textAccent}`}>
+                              {s.leaveRemaining}{' '}
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                / {s.annualAllowance}d
+                              </span>
+                            </p>
+                            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              {pct}% left
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Remaining Annual Leave Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div
+                            role="progressbar"
+                            aria-label={`${s.name} remaining annual leave days`}
+                            aria-valuenow={s.leaveRemaining}
+                            aria-valuemin={0}
+                            aria-valuemax={s.annualAllowance}
+                            className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700/80 overflow-hidden"
+                          >
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                            <div className="flex items-center gap-2">
+                              <span>
+                                Used: <strong className="text-slate-700 dark:text-slate-200">{s.usedLeaveDays}d</strong>
+                              </span>
+                              <span aria-hidden="true">·</span>
+                              <span>
+                                Pending:{' '}
+                                <strong className="text-amber-600 dark:text-amber-400">{s.pendingLeaveDays}d</strong>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => openApplyLeaveModal(s.id)}
+                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        </section>
-      )}
+
+            {/* Leave Requests Queue */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Leave Applications &amp; Approvals
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Submit and track annual, sick, and study leave schedules across branches
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openApplyLeaveModal()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Application
+                </button>
+              </div>
+
+              {filteredLeaves.length === 0 ? (
+                <div className="p-8 text-center text-sm text-slate-500">
+                  No leave requests found for the current branch or search filter.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredLeaves.map((lr) => (
+                    <div
+                      key={lr.id}
+                      className="p-4 sm:px-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="font-bold text-slate-900 dark:text-white">{lr.employeeName}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-slate-500 tabular-nums">
+                            {lr.start_date} to {lr.end_date} ({lr.days} day{lr.days > 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">{lr.reason}</p>
+                        <p className="text-[11px] text-slate-400">{lr.branchName}</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {lr.status === 'Pending' && isAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleLeaveStatusChange(lr, 'Approved')}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleLeaveStatusChange(lr, 'Rejected')}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Reject
+                            </button>
+                          </>
+                        ) : (
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                              lr.status === 'Approved'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                : lr.status === 'Rejected'
+                                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                                : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                            }`}
+                          >
+                            {lr.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* MODAL: APPLY FOR LEAVE */}
       {isLeaveModalOpen && (
