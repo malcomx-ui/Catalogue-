@@ -16,7 +16,6 @@ import {
   CalendarClock,
   Gift,
   Mail,
-  Clock,
   Send,
   X,
   CheckCircle2,
@@ -33,12 +32,8 @@ import {
 } from 'lucide-react';
 
 export interface LegalTeamDashboardProps {
-  /** Controlled props synced with DashboardLayout sticky top header */
+  /** Controlled search query synced with DashboardLayout sticky top header */
   searchQuery?: string;
-  isClockedIn?: boolean;
-  clockInTime?: string;
-  hoursLogged?: number;
-  onToggleClock?: () => void;
 }
 
 type StaffSubTab = 'directory' | 'tasks' | 'leaves';
@@ -84,8 +79,6 @@ interface StaffMemberCardData {
   avatarUrl?: string;
   isActive: boolean;
   isCurrentUser: boolean;
-  todaysPunch: string;
-  hoursLogged: number;
   hourlyRate: number;
   annualAllowance: number;
   usedLeaveDays: number;
@@ -273,10 +266,6 @@ function isBirthdayUpcomingWithin30Days(dob?: string | null): { eligible: boolea
 
 export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   searchQuery = '',
-  isClockedIn = true,
-  clockInTime = '08:15 AM',
-  hoursLogged = 6.5,
-  onToggleClock,
 }) => {
   const { availableUsers, cases, branches, currentUser, selectedBranchFilter } = useApp();
 
@@ -625,8 +614,6 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     }
 
     const rawList = [...Array.from(byEmail.values()), ...noEmail];
-    const presetPunches = ['In @ 08:04 AM', 'In @ 08:15 AM', 'In @ 08:22 AM', 'In @ 08:31 AM', 'In @ 08:45 AM', 'In @ 08:52 AM'];
-    const presetHours = [6.9, 6.5, 6.3, 6.1, 5.8, 5.5];
 
     return rawList.map((u, idx) => {
       const em = String(u.email || '').trim().toLowerCase();
@@ -696,15 +683,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         Math.max(0, Math.round((leaveRemaining / Math.max(1, annualAllowance)) * 100))
       );
 
-      const isActive = isSelf ? isClockedIn : !u.isSuspended;
-      const todaysPunch = isSelf
-        ? isClockedIn
-          ? `In @ ${clockInTime}`
-          : 'Clocked Out'
-        : u.isSuspended
-        ? 'Inactive'
-        : presetPunches[idx % presetPunches.length];
-      const staffHours = isSelf ? hoursLogged : u.isSuspended ? 0 : presetHours[idx % presetHours.length];
+      const isActive = !u.isSuspended;
 
       return {
         id: idStr,
@@ -717,8 +696,6 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         avatarUrl: u.avatarUrl,
         isActive,
         isCurrentUser: isSelf,
-        todaysPunch,
-        hoursLogged: staffHours,
         hourlyRate: resolveHourlyRate(u.role, u.roleTitle),
         annualAllowance,
         usedLeaveDays,
@@ -741,9 +718,6 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     leaveBalancesByEmail,
     leaveUsageByKey,
     hasCloudLeavesLoaded,
-    isClockedIn,
-    clockInTime,
-    hoursLogged,
   ]);
 
   // Resolve active branch filter label
@@ -1082,30 +1056,11 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
             Staff Management &amp; Workflow Delegation
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Leave administration, clock-in/out timesheets, task workflows, and staff birthday notifications.
+            Leave administration, staff directory, task workflows, and staff birthday notifications.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {onToggleClock && (
-            <button
-              type="button"
-              onClick={onToggleClock}
-              className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition cursor-pointer whitespace-nowrap tabular-nums ${
-                isClockedIn
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {isClockedIn
-                  ? `Clocked In (${clockInTime}) • ${hoursLogged.toFixed(1)}h`
-                  : `Clocked Out • ${hoursLogged.toFixed(1)}h`}
-              </span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => openApplyLeaveModal()}
@@ -1157,7 +1112,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           }`}
         >
           <Users className="w-4 h-4 shrink-0" />
-          <span className="tabular-nums">Staff Directory &amp; Attendance ({filteredStaff.length})</span>
+          <span className="tabular-nums">Staff Directory ({filteredStaff.length})</span>
         </button>
 
         <button
@@ -1250,7 +1205,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               className={`w-2 h-2 rounded-full shrink-0 ${
                                 staff.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
                               }`}
-                              title={staff.isActive ? 'Active / Clocked In' : 'Offline / Clocked Out'}
+                              title={staff.isActive ? 'Active Staff' : 'Inactive'}
                             />
                             <span className="truncate">{staff.branchName}</span>
                           </div>
@@ -1332,23 +1287,16 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                       </div>
                     )}
 
-                    {/* 4-Cell Metrics Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {/* Staff Summary Metrics Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Today&apos;s Punch</p>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Status</p>
                         <p
-                          className={`text-xs sm:text-sm font-bold mt-1 tabular-nums truncate ${
+                          className={`text-xs sm:text-sm font-bold mt-1 truncate ${
                             staff.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
                           }`}
                         >
-                          {staff.todaysPunch}
-                        </p>
-                      </div>
-
-                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Hours Logged</p>
-                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
-                          {staff.hoursLogged.toFixed(1)}h
+                          {staff.isActive ? 'Active' : 'Inactive'}
                         </p>
                       </div>
 
@@ -1359,7 +1307,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                         </p>
                       </div>
 
-                      <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                      <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 col-span-2 sm:col-span-1">
                         <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Leave Remaining</p>
                         <p className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 mt-1 tabular-nums">
                           {staff.leaveRemaining} Days

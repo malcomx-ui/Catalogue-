@@ -10,8 +10,6 @@ import { StaffDashboard } from './components/StaffDashboard';
 import {
   ApprovalsQueueView,
   TeamMessengerView,
-  LegalResearchView,
-  CorrespondenceView,
   AuditTrailSecurityView,
   INITIAL_APPROVAL_ITEMS,
   ApprovalWorkflowItem,
@@ -47,8 +45,6 @@ import './utils/testRls';
 import './services/caseService';
 import './services/reportService';
 
-const CLOCK_STATE_STORAGE_KEY = 'mk_staff_clock_state_v1';
-
 const MainLayout: React.FC = () => {
   const {
     activeTab,
@@ -65,51 +61,6 @@ const MainLayout: React.FC = () => {
 
   // Shared top header search state (live-filters StaffDashboard tasks, hearings, and matters)
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-
-  // Shared clock-in/out state (synced between sticky header badge and StaffDashboard Block D)
-  const [clockState, setClockState] = useState<{
-    isClockedIn: boolean;
-    clockInTime: string;
-    hoursLogged: number;
-  }>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = window.localStorage.getItem(CLOCK_STATE_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (typeof parsed?.isClockedIn === 'boolean') return parsed;
-        }
-      } catch {
-        // ignore storage errors
-      }
-    }
-    return { isClockedIn: true, clockInTime: '08:15 AM', hoursLogged: 6.5 };
-  });
-
-  const handleToggleClock = useCallback(() => {
-    setClockState((prev) => {
-      const nextClockedIn = !prev.isClockedIn;
-      const next = {
-        isClockedIn: nextClockedIn,
-        clockInTime: nextClockedIn
-          ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : prev.clockInTime,
-        hoursLogged: nextClockedIn ? prev.hoursLogged : Number((prev.hoursLogged + 0.1).toFixed(1)),
-      };
-      try {
-        window.localStorage.setItem(CLOCK_STATE_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      showCleanMessage(
-        nextClockedIn
-          ? `Clocked in at ${next.clockInTime} (${next.hoursLogged.toFixed(1)} h logged).`
-          : `Clocked out. Total logged today: ${next.hoursLogged.toFixed(1)} h.`,
-        'info'
-      );
-      return next;
-    });
-  }, []);
 
   // Shared Approvals & Team Messenger badge state
   const [approvals, setApprovals] = useState<ApprovalWorkflowItem[]>(INITIAL_APPROVAL_ITEMS);
@@ -211,17 +162,12 @@ const MainLayout: React.FC = () => {
       hideTopHeader={true}
       searchQuery={globalSearchQuery}
       onSearchChange={setGlobalSearchQuery}
-      isClockedIn={clockState.isClockedIn}
-      clockInTime={clockState.clockInTime}
-      hoursLogged={clockState.hoursLogged}
-      onToggleClock={handleToggleClock}
       pendingApprovalsCount={pendingApprovalsCount}
       onOpenNewCase={() => setIsNewCaseModalOpen(true)}
       onOpenLitigationForm={() => {
         setActiveTab('catalogue');
         setIsNewCaseModalOpen(true);
       }}
-      onOpenLegalResearch={() => setActiveTab('research')}
       onOpenApprovals={() => setActiveTab('approvals')}
       onOpenDocuments={() => setActiveTab('documents')}
       onOpenCases={() => setActiveTab('catalogue')}
@@ -239,10 +185,6 @@ const MainLayout: React.FC = () => {
         currentUser={effectiveUser}
         searchQuery={globalSearchQuery}
         onSearchChange={setGlobalSearchQuery}
-        isClockedIn={clockState.isClockedIn}
-        clockInTime={clockState.clockInTime}
-        hoursLogged={clockState.hoursLogged}
-        onToggleClock={handleToggleClock}
         approvalsBadgeCount={pendingApprovalsCount}
         messengerBadgeCount={unreadMessagesCount}
       >
@@ -257,15 +199,7 @@ const MainLayout: React.FC = () => {
           </div>
         )}
         {activeTab === 'branches' && <BranchesDirectory />}
-        {activeTab === 'legal_team' && (
-          <LegalTeamDashboard
-            searchQuery={globalSearchQuery}
-            isClockedIn={clockState.isClockedIn}
-            clockInTime={clockState.clockInTime}
-            hoursLogged={clockState.hoursLogged}
-            onToggleClock={handleToggleClock}
-          />
-        )}
+        {activeTab === 'legal_team' && <LegalTeamDashboard searchQuery={globalSearchQuery} />}
         {activeTab === 'approvals' && (
           <ApprovalsQueueView approvals={approvals} onDecide={handleApprovalDecision} />
         )}
@@ -275,8 +209,6 @@ const MainLayout: React.FC = () => {
             onMarkAllRead={() => setUnreadMessagesCount(0)}
           />
         )}
-        {activeTab === 'research' && <LegalResearchView />}
-        {activeTab === 'correspondence' && <CorrespondenceView />}
         {activeTab === 'audit_trail' && <AuditTrailSecurityView />}
         {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : renderStaffDashboard())}
         {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : renderStaffDashboard())}

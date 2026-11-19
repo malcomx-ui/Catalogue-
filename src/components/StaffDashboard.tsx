@@ -6,11 +6,9 @@ import { LockedBirthdayWidget } from './LockedHrComponents';
 import { showCleanMessage } from '../utils/notification';
 import {
   Search,
-  Clock,
   Building2,
   Plus,
   Gavel,
-  Sparkles,
   FolderClock,
   Award,
   Lock,
@@ -20,8 +18,8 @@ import {
   Cake,
   Send,
   ListChecks,
-  UserCheck,
   Calendar,
+  Clock,
   MapPin,
   CheckCircle2,
   X,
@@ -66,16 +64,6 @@ export interface BirthdayCelebrant {
   wishes: Array<{ id: string; sender: string; message: string; createdAt: string }>;
 }
 
-export interface StaffAttendanceCard {
-  id: string;
-  name: string;
-  role: string;
-  clockInTime: string;
-  hoursLogged: number;
-  isActive: boolean;
-  isCurrentUser?: boolean;
-}
-
 export interface StaffDashboardProps {
   currentUser?: any;
   /** Controlled props passed from DashboardLayout so header & dashboard stay in sync */
@@ -85,14 +73,9 @@ export interface StaffDashboardProps {
   activeBranchLabel?: string;
   branchOptions?: Array<{ id: string; name: string }>;
   onBranchChange?: (branchId: string) => void;
-  isClockedIn?: boolean;
-  clockInTime?: string;
-  hoursLogged?: number;
-  onToggleClock?: () => void;
   pendingApprovalsCount?: number;
   onOpenNewCase?: () => void;
   onOpenLitigationForm?: () => void;
-  onOpenLegalResearch?: () => void;
   onOpenApprovals?: () => void;
   onOpenDocuments?: () => void;
   onOpenCases?: () => void;
@@ -265,14 +248,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   activeBranchLabel: controlledBranchLabel,
   branchOptions: controlledBranchOptions,
   onBranchChange,
-  isClockedIn: controlledClockedIn,
-  clockInTime: controlledClockInTime,
-  hoursLogged: controlledHoursLogged,
-  onToggleClock,
   pendingApprovalsCount = 3,
   onOpenNewCase,
   onOpenLitigationForm,
-  onOpenLegalResearch,
   onOpenApprovals,
   onOpenDocuments,
   onOpenCases,
@@ -298,35 +276,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   const effectiveUser = useMemo(() => getEffectiveUser(propUser || ctxUser), [propUser, ctxUser]);
   const isSuperAdmin = isSuperAdminUser(effectiveUser);
 
-  // Local fallbacks when StaffDashboard is mounted standalone outside DashboardLayout
+  // Local fallback when StaffDashboard is mounted standalone outside DashboardLayout
   const [internalSearch, setInternalSearch] = useState('');
-  const [internalClockedIn, setInternalClockedIn] = useState(true);
-  const [internalClockInTime, setInternalClockInTime] = useState('08:15 AM');
-  const [internalHoursLogged, setInternalHoursLogged] = useState(6.5);
 
   const searchQuery = controlledSearch !== undefined ? controlledSearch : internalSearch;
   const handleSearchChange = onSearchChange || setInternalSearch;
-
-  const isClockedIn = controlledClockedIn !== undefined ? controlledClockedIn : internalClockedIn;
-  const clockInTime = controlledClockInTime || internalClockInTime;
-  const hoursLogged = controlledHoursLogged !== undefined ? controlledHoursLogged : internalHoursLogged;
-
-  const handleToggleClock = useCallback(() => {
-    if (onToggleClock) {
-      onToggleClock();
-      return;
-    }
-    setInternalClockedIn((prev) => {
-      const next = !prev;
-      if (next) {
-        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        setInternalClockInTime(nowStr);
-      } else {
-        setInternalHoursLogged((h) => Number((h + 0.1).toFixed(1)));
-      }
-      return next;
-    });
-  }, [onToggleClock]);
 
   const resolvedBranchOptions = useMemo(() => {
     if (controlledBranchOptions && controlledBranchOptions.length > 0) return controlledBranchOptions;
@@ -719,62 +673,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     );
   }, [tasks, searchQuery]);
 
-  // Block D — Staff Attendance & Clock-In (6 staff cards synced with active user's clock state)
-  const attendanceList = useMemo<StaffAttendanceCard[]>(() => {
-    const currentName = effectiveUser?.name || 'Firm Counsel';
-    const currentRole = effectiveUser?.roleTitle || effectiveUser?.role || 'Advocate';
-
-    const selfCard: StaffAttendanceCard = {
-      id: String(effectiveUser?.id || 'current-user'),
-      name: currentName,
-      role: currentRole,
-      clockInTime: isClockedIn ? clockInTime : 'Clocked Out',
-      hoursLogged,
-      isActive: isClockedIn,
-      isCurrentUser: true,
-    };
-
-    const presetTimes = ['08:02 AM', '08:19 AM', '08:27 AM', '08:40 AM', '08:55 AM'];
-    const presetHours = [6.8, 6.4, 6.2, 5.9, 5.6];
-
-    const othersFromUsers = availableUsers
-      .filter(
-        (u) =>
-          u?.name &&
-          String(u.email || '').toLowerCase() !== String(effectiveUser?.email || '').toLowerCase() &&
-          String(u.id || '') !== String(effectiveUser?.id || '')
-      )
-      .slice(0, 5)
-      .map((u, idx) => ({
-        id: u.id,
-        name: u.name,
-        role: u.roleTitle || u.role || 'Legal Staff',
-        clockInTime: presetTimes[idx % presetTimes.length],
-        hoursLogged: presetHours[idx % presetHours.length],
-        isActive: !u.isSuspended,
-      }));
-
-    const fallbackColleagues: StaffAttendanceCard[] = [
-      { id: 'att-2', name: 'Lilian Kobusinge', role: 'Senior Associate', clockInTime: '08:02 AM', hoursLogged: 6.8, isActive: true },
-      { id: 'att-3', name: 'Phionah Adoch', role: 'Admin & Finance', clockInTime: '08:19 AM', hoursLogged: 6.4, isActive: true },
-      { id: 'att-4', name: 'Bright Arinaitwe Bujara', role: 'Litigation Advocate', clockInTime: '08:27 AM', hoursLogged: 6.2, isActive: true },
-      { id: 'att-5', name: 'Martin Twomo', role: 'Branch Counsel', clockInTime: '08:40 AM', hoursLogged: 5.9, isActive: true },
-      { id: 'att-6', name: 'Janet Kemigisa', role: 'Registry Clerk', clockInTime: '08:55 AM', hoursLogged: 5.6, isActive: true },
-    ];
-
-    const peers = othersFromUsers.length >= 5
-      ? othersFromUsers
-      : [
-          ...othersFromUsers,
-          ...fallbackColleagues.slice(0, Math.max(0, 5 - othersFromUsers.length)),
-        ];
-
-    return [selfCard, ...peers].slice(0, 6);
-  }, [effectiveUser, isClockedIn, clockInTime, hoursLogged, availableUsers]);
-
-  const activeAttendanceCount = attendanceList.filter((a) => a.isActive).length;
-
-  // Block E — Upcoming Hearings & Deadlines (merged from live hearings & case next court dates, filtered by search & branch)
+  // Block D — Upcoming Hearings & Deadlines (merged from live hearings & case next court dates, filtered by search & branch)
   const upcomingHearings = useMemo(() => {
     const items: Array<{
       id: string;
@@ -911,11 +810,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     else setIsNewCaseModalOpen(true);
   };
 
-  const triggerLegalResearch = () => {
-    if (onOpenLegalResearch) onOpenLegalResearch();
-    else setActiveTab('research');
-  };
-
   return (
     <div className="space-y-6">
       {/* Standalone Top Header Bar (shown only if StaffDashboard is rendered outside DashboardLayout) */}
@@ -943,23 +837,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={handleToggleClock}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold border transition cursor-pointer whitespace-nowrap tabular-nums ${
-                isClockedIn
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {isClockedIn
-                  ? `Clocked In (${clockInTime}) • ${hoursLogged.toFixed(1)} h`
-                  : `Clocked Out • ${hoursLogged.toFixed(1)} h`}
-              </span>
-            </button>
-
             <div className="relative flex items-center">
               <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
               <select
@@ -1058,7 +935,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             </p>
           </div>
 
-          {/* 3 Hero Action Buttons */}
+          {/* Hero Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               type="button"
@@ -1076,15 +953,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             >
               <Gavel className="w-4 h-4 shrink-0" />
               <span>Branch Litigation Form</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={triggerLegalResearch}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-950/40 hover:bg-indigo-950/60 text-white border border-white/20 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap"
-            >
-              <Sparkles className="w-4 h-4 shrink-0 text-amber-300" />
-              <span>AI Legal Research</span>
             </button>
           </div>
         </div>
@@ -1465,83 +1333,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
       </section>
 
-      {/* BLOCK D — Staff Attendance & Clock-In */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <UserCheck className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Staff Attendance &amp; Clock-In
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Live presence roster for {activeBranchLabel}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 tabular-nums">
-              {activeAttendanceCount} / {attendanceList.length} Active
-            </span>
-            <button
-              type="button"
-              onClick={handleToggleClock}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
-                isClockedIn
-                  ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>{isClockedIn ? 'Clock Out Now' : 'Clock In Now'}</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {attendanceList.map((member) => (
-            <div
-              key={member.id}
-              className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className={`w-10 h-10 rounded-full font-bold text-xs flex items-center justify-center shrink-0 ${
-                    member.isActive
-                      ? 'bg-slate-900 dark:bg-blue-600 text-white'
-                      : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {getInitials(member.name)}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                    {member.name}
-                    {member.isCurrentUser ? ' (You)' : ''}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{member.role}</p>
-                </div>
-              </div>
-
-              <div className="text-right shrink-0 tabular-nums">
-                <p
-                  className={`text-xs font-semibold ${
-                    member.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'
-                  }`}
-                >
-                  {member.clockInTime}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">{member.hoursLogged.toFixed(1)} h</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* BLOCK E — Upcoming Hearings & Deadlines */}
+      {/* BLOCK D — Upcoming Hearings & Deadlines */}
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">

@@ -9,16 +9,13 @@ import {
   FolderLock,
   ClipboardCheck,
   MessageSquare,
-  Sparkles,
   Receipt,
   Users,
   Calendar,
-  Mail,
   Building2,
   ShieldCheck,
   UserCog,
   Search,
-  Clock,
   Menu,
   X,
   PanelLeftClose,
@@ -32,10 +29,6 @@ export interface DashboardLayoutProps {
   currentUser?: any;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
-  isClockedIn?: boolean;
-  clockInTime?: string;
-  hoursLogged?: number;
-  onToggleClock?: () => void;
   approvalsBadgeCount?: number;
   messengerBadgeCount?: number;
   children?: React.ReactNode;
@@ -66,10 +59,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   currentUser: propUser,
   searchQuery = '',
   onSearchChange,
-  isClockedIn = true,
-  clockInTime = '08:15 AM',
-  hoursLogged = 6.5,
-  onToggleClock,
   approvalsBadgeCount = 3,
   messengerBadgeCount = 2,
   children,
@@ -91,6 +80,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [logoErrorStep, setLogoErrorStep] = useState(0);
+
+  const firmLogoSrc =
+    logoErrorStep === 0
+      ? '/logo.png'
+      : logoErrorStep === 1
+      ? '/mk_firm_logo.png'
+      : logoErrorStep === 2
+      ? '/seal.png'
+      : null;
 
   const branchOptions = useMemo(() => {
     if (Array.isArray(branches) && branches.length > 0) {
@@ -139,11 +138,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'messenger',
         badge: messengerBadgeCount > 0 ? messengerBadgeCount : undefined,
       },
-      { id: 'research', label: 'Legal Research AI', icon: Sparkles, tab: 'research' },
       { id: 'billing', label: 'Billing & Fee Notes', icon: Receipt, tab: 'mortgages' },
       { id: 'staff_workflow', label: 'Staff & Workflow', icon: Users, tab: 'legal_team' },
       { id: 'calendar', label: 'Calendar & Deadlines', icon: Calendar, tab: 'causelist' },
-      { id: 'correspondence', label: 'Correspondence', icon: Mail, tab: 'correspondence' },
       { id: 'branches', label: 'Branches', icon: Building2, tab: 'branches' },
       { id: 'audit', label: 'Audit Trail & Security', icon: ShieldCheck, tab: 'audit_trail' },
     ],
@@ -194,8 +191,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           }}
           className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left"
         >
-          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Scale className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+            {firmLogoSrc ? (
+              <img
+                src={firmLogoSrc}
+                alt="Muhumuza - Kiiza Advocates Firm Logo"
+                referrerPolicy="no-referrer"
+                onError={() => setLogoErrorStep((s) => s + 1)}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <Scale className="w-5 h-5 text-blue-600" />
+            )}
           </div>
           {!compact && (
             <div className="min-w-0">
@@ -203,7 +210,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 MK Case Catalogue
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                Law Firm ERP Workspace
+                Muhumuza - Kiiza Advocates
               </p>
             </div>
           )}
@@ -415,27 +422,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
 
-          {/* Right: Clock-in/out pill button + Branch selector dropdown */}
+          {/* Right: Branch selector dropdown */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={onToggleClock}
-              className={`inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-full text-xs font-semibold border transition cursor-pointer whitespace-nowrap tabular-nums ${
-                isClockedIn
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">
-                {isClockedIn
-                  ? `Clocked In (${clockInTime}) • ${hoursLogged.toFixed(1)} h`
-                  : `Clocked Out • ${hoursLogged.toFixed(1)} h`}
-              </span>
-              <span className="sm:hidden">{isClockedIn ? `${hoursLogged.toFixed(1)}h` : 'Out'}</span>
-            </button>
-
-            <div className="relative hidden md:flex items-center">
+            <div className="relative flex items-center">
               <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
               <select
                 aria-label="Select active branch"

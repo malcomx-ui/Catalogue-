@@ -3368,14 +3368,14 @@ async function start() {
           if (fs.existsSync(absFile)) {
             const mtime = fs.statSync(absFile).mtimeMs;
             const prevMtime = seenMtimes.get(absFile);
-            if (prevMtime !== undefined && mtime > prevMtime) {
+            if (prevMtime !== mtime) {
               delete req.headers['if-none-match'];
               const mods = vite.moduleGraph.getModulesByFile(absFile);
               if (mods) {
                 mods.forEach((mod) => vite.moduleGraph.invalidateModule(mod));
               }
+              seenMtimes.set(absFile, mtime);
             }
-            seenMtimes.set(absFile, mtime);
           }
         } catch {
           // ignore stat errors for virtual modules

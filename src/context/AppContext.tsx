@@ -77,8 +77,6 @@ export type NavigationTab =
   | 'hr'
   | 'approvals'
   | 'messenger'
-  | 'research'
-  | 'correspondence'
   | 'audit_trail';
 
 const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageAction?: MortgageViewAction }> = [
@@ -100,8 +98,6 @@ const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageActi
   { prefix: '/hr', tab: 'hr' },
   { prefix: '/approvals', tab: 'approvals' },
   { prefix: '/messenger', tab: 'messenger' },
-  { prefix: '/research', tab: 'research' },
-  { prefix: '/correspondence', tab: 'correspondence' },
   { prefix: '/audit-trail', tab: 'audit_trail' },
   { prefix: '/settings', tab: 'settings' },
   { prefix: '/dashboard', tab: 'dashboard' },
@@ -146,10 +142,6 @@ export const getRoutePathForTab = (
       return '/approvals';
     case 'messenger':
       return '/messenger';
-    case 'research':
-      return '/research';
-    case 'correspondence':
-      return '/correspondence';
     case 'audit_trail':
       return '/audit-trail';
     case 'settings':
