@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { getEffectiveUser } from '../lib/supabase';
-import { hrSupabase, isSuperAdminUser } from '../lib/hrSupabase';
+import { hrSupabase, isSuperAdminUser, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
 import { LockedBirthdayWidget } from './LockedHrComponents';
 import { showCleanMessage } from '../utils/notification';
 import {
@@ -973,8 +973,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
             <p className="text-sm text-blue-100 leading-relaxed">
               You have{' '}
-              <span className="font-semibold text-white tabular-nums">{kpiMetrics.pendingCases} active case matters</span>,{' '}
-              <span className="font-semibold text-white tabular-nums">{kpiMetrics.approvals} pending approvals</span>, and{' '}
+              <span className="font-semibold text-white tabular-nums">{kpiMetrics.pendingCases} active case matters</span>
+              {canAccessRestrictedWorkflowNav(effectiveUser) ? (
+                <>
+                  ,{' '}
+                  <span className="font-semibold text-white tabular-nums">{kpiMetrics.approvals} pending approvals</span>,
+                </>
+              ) : null}{' '}
+              and{' '}
               <span className="font-semibold text-white tabular-nums">{kpiMetrics.vaultCustody} files in physical custody</span>{' '}
               under {activeBranchLabel}.
             </p>
@@ -1003,8 +1009,12 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
       </section>
 
-      {/* 4-COLUMN KPI STAT CARDS */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* KPI STAT CARDS */}
+      <section
+        className={`grid grid-cols-1 sm:grid-cols-2 ${
+          canAccessRestrictedWorkflowNav(effectiveUser) ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+        } gap-4`}
+      >
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
@@ -1082,27 +1092,29 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
         </button>
 
-        <button
-          type="button"
-          onClick={() => (onOpenApprovals ? onOpenApprovals() : setActiveTab('approvals'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Approval Workflows</p>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
-                {kpiMetrics.approvals}
-              </p>
+        {canAccessRestrictedWorkflowNav(effectiveUser) && (
+          <button
+            type="button"
+            onClick={() => (onOpenApprovals ? onOpenApprovals() : setActiveTab('approvals'))}
+            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Approval Workflows</p>
+                <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
+                  {kpiMetrics.approvals}
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                <ClipboardList className="w-5 h-5" />
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <ClipboardList className="w-5 h-5" />
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+              <span className="font-semibold text-amber-700 dark:text-amber-400">Awaiting sign-off</span>
+              <span className="text-slate-500 dark:text-slate-400">Fee notes &amp; releases</span>
             </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="font-semibold text-amber-700 dark:text-amber-400">Awaiting sign-off</span>
-            <span className="text-slate-500 dark:text-slate-400">Fee notes &amp; releases</span>
-          </div>
-        </button>
+          </button>
+        )}
       </section>
 
       {/* BLOCK A — Company Dashboard Notices & Announcements */}
@@ -1311,14 +1323,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => (onOpenWorkload ? onOpenWorkload() : setActiveTab('legal_team'))}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-950 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
-          >
-            <span>Manage Workload</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          {canAccessRestrictedWorkflowNav(effectiveUser) && (
+            <button
+              type="button"
+              onClick={() => (onOpenWorkload ? onOpenWorkload() : setActiveTab('legal_team'))}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-950 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+            >
+              <span>Manage Workload</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="divide-y divide-slate-100 dark:divide-slate-800">

@@ -54,7 +54,11 @@ import { LegalTeamDashboard } from './components/legal-team/LegalTeamDashboard';
 import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordModal';
 import { NotificationToast } from './components/common/NotificationToast';
 import { isUserAdmin, getEffectiveUser, supabase } from './lib/supabase';
-import { isSuperAdminUser } from './lib/hrSupabase';
+import {
+  isSuperAdminUser,
+  isPilotTesterUser,
+  canAccessRestrictedWorkflowNav,
+} from './lib/hrSupabase';
 import { LockedHrModule } from './components/LockedHrComponents';
 import { showCleanMessage } from './utils/notification';
 import './utils/testRls';
@@ -243,11 +247,15 @@ const MainLayout: React.FC = () => {
       effectiveUser?.role?.toLowerCase().includes('partner')
   );
 
+  const isSuperAdmin = isSuperAdminUser(effectiveUser);
+  const canAccessRestrictedWorkflow = canAccessRestrictedWorkflowNav(effectiveUser);
   const effectiveUserName = effectiveUser?.name || 'Managing Partner';
   const effectiveUserRole = effectiveUser?.roleTitle || effectiveUser?.role || 'Senior Approver';
   const effectiveBranchName = effectiveUser?.branchName || 'Kampala Central (Head Office)';
   const isCashApprover = Boolean(
-    isPartnerOrSuperadmin ||
+    isSuperAdmin ||
+      isPilotTesterUser(effectiveUser) ||
+      isPartnerOrSuperadmin ||
       effectiveUser?.role === 'team_lead' ||
       effectiveUser?.role === 'branch_admin' ||
       effectiveUser?.role === 'admin_finance_assistant'
@@ -329,13 +337,17 @@ const MainLayout: React.FC = () => {
         setActiveTab('catalogue');
         setIsNewCaseModalOpen(true);
       }}
-      onOpenApprovals={() => setActiveTab('approvals')}
+      onOpenApprovals={() => {
+        if (canAccessRestrictedWorkflow) setActiveTab('approvals');
+      }}
       onOpenDocuments={() => setActiveTab('documents')}
       onOpenCases={() => setActiveTab('catalogue')}
-      onOpenWorkload={() => setActiveTab('legal_team')}
+      onOpenWorkload={() => {
+        if (canAccessRestrictedWorkflow) setActiveTab('legal_team');
+      }}
       onOpenHearings={() => setActiveTab('causelist')}
       onOpenHrModule={() => {
-        if (isSuperAdminUser(effectiveUser)) setActiveTab('hr');
+        if (isSuperAdmin) setActiveTab('hr');
       }}
     />
   );
@@ -364,58 +376,68 @@ const MainLayout: React.FC = () => {
           </div>
         )}
         {activeTab === 'branches' && <BranchesDirectory />}
-        {activeTab === 'legal_team' && (
-          <LegalTeamDashboard
-            searchQuery={globalSearchQuery}
-            approvals={unifiedApprovalsForStaff}
-            onDecideApproval={handleApprovalDecision}
-          />
-        )}
-        {activeTab === 'approvals' && (
-          <ApprovalsQueueView
-            approvals={approvals}
-            onDecide={handleApprovalDecision}
-            cashRequisitions={cashRequisitions}
-            cashNotifications={cashNotifications}
-            onCreateCashRequisition={handleCreateCashRequisition}
-            onDecideCashRequisition={handleDecideCashRequisition}
-            onMarkAllCashNotificationsRead={handleMarkAllCashNotificationsRead}
-            onMarkCashNotificationRead={handleMarkCashNotificationRead}
-            currentUserName={effectiveUserName}
-            currentUserRole={effectiveUserRole}
-            activeBranch={effectiveBranchName}
-            isApprover={isCashApprover}
-            searchQuery={globalSearchQuery}
-          />
-        )}
-        {activeTab === 'cash_requisitions' && (
-          <CashRequisitionModule
-            currentUserName={effectiveUserName}
-            currentUserRole={effectiveUserRole}
-            activeBranch={effectiveBranchName}
-            isApprover={isCashApprover}
-            searchQuery={globalSearchQuery}
-            requisitions={cashRequisitions}
-            notifications={cashNotifications}
-            onCreateRequisition={handleCreateCashRequisition}
-            onApplyDecision={handleDecideCashRequisition}
-            onMarkAllNotificationsRead={handleMarkAllCashNotificationsRead}
-            onMarkNotificationRead={handleMarkCashNotificationRead}
-          />
-        )}
+        {activeTab === 'legal_team' &&
+          (canAccessRestrictedWorkflow ? (
+            <LegalTeamDashboard
+              searchQuery={globalSearchQuery}
+              approvals={unifiedApprovalsForStaff}
+              onDecideApproval={handleApprovalDecision}
+            />
+          ) : (
+            renderStaffDashboard()
+          ))}
+        {activeTab === 'approvals' &&
+          (canAccessRestrictedWorkflow ? (
+            <ApprovalsQueueView
+              approvals={approvals}
+              onDecide={handleApprovalDecision}
+              cashRequisitions={cashRequisitions}
+              cashNotifications={cashNotifications}
+              onCreateCashRequisition={handleCreateCashRequisition}
+              onDecideCashRequisition={handleDecideCashRequisition}
+              onMarkAllCashNotificationsRead={handleMarkAllCashNotificationsRead}
+              onMarkCashNotificationRead={handleMarkCashNotificationRead}
+              currentUserName={effectiveUserName}
+              currentUserRole={effectiveUserRole}
+              activeBranch={effectiveBranchName}
+              isApprover={isCashApprover}
+              searchQuery={globalSearchQuery}
+            />
+          ) : (
+            renderStaffDashboard()
+          ))}
+        {activeTab === 'cash_requisitions' &&
+          (canAccessRestrictedWorkflow ? (
+            <CashRequisitionModule
+              currentUserName={effectiveUserName}
+              currentUserRole={effectiveUserRole}
+              activeBranch={effectiveBranchName}
+              isApprover={isCashApprover}
+              searchQuery={globalSearchQuery}
+              requisitions={cashRequisitions}
+              notifications={cashNotifications}
+              onCreateRequisition={handleCreateCashRequisition}
+              onApplyDecision={handleDecideCashRequisition}
+              onMarkAllNotificationsRead={handleMarkAllCashNotificationsRead}
+              onMarkNotificationRead={handleMarkCashNotificationRead}
+            />
+          ) : (
+            renderStaffDashboard()
+          ))}
         {activeTab === 'messenger' && (
           <TeamMessengerView
             unreadCount={unreadMessagesCount}
             onMarkAllRead={() => setUnreadMessagesCount(0)}
           />
         )}
-        {activeTab === 'audit_trail' && <AuditTrailSecurityView />}
+        {activeTab === 'audit_trail' &&
+          (canAccessRestrictedWorkflow ? <AuditTrailSecurityView /> : renderStaffDashboard())}
         {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : renderStaffDashboard())}
         {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : renderStaffDashboard())}
         {activeTab === 'documents' && <DocumentRepository />}
         {activeTab === 'analytics' && (isPartnerOrSuperadmin ? <LitigationAnalytics /> : renderStaffDashboard())}
         {activeTab === 'hr' &&
-          (isSuperAdminUser(effectiveUser) ? (
+          (isSuperAdmin ? (
             <LockedHrModule currentUser={effectiveUser} />
           ) : (
             renderStaffDashboard()

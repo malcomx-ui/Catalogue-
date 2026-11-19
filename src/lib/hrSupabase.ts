@@ -817,3 +817,42 @@ export function isSuperAdminUser(user?: ActiveUser | null): boolean {
 
   return false;
 }
+
+/**
+ * Returns true for the designated non-admin pilot tester account (`clerk.fortportal`)
+ * so they can test newly added workflow modules without gaining Admin / HR Admin access.
+ */
+export function isPilotTesterUser(user?: (ActiveUser & { username?: string | null }) | null): boolean {
+  if (!user) return false;
+
+  const email = String(user.email || '').trim().toLowerCase();
+  const emailPrefix = email.split('@')[0] || '';
+  const name = String(user.name || '').trim().toLowerCase();
+  const username = String(user.username || '').trim().toLowerCase();
+  const id = String(user.id || '').trim().toLowerCase();
+
+  if (
+    email === 'clerk.fortportal' ||
+    emailPrefix === 'clerk.fortportal' ||
+    email.startsWith('clerk.fortportal@') ||
+    name === 'clerk.fortportal' ||
+    username === 'clerk.fortportal' ||
+    id === 'user-clerk-ftp'
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Controls visibility and route access for the restricted rollout navigation modules:
+ * Approvals, Cash Requisitions, Staff & Workflow, and Audit Trail & Security.
+ * Visible ONLY to Super Admins and `clerk.fortportal`.
+ */
+export function canAccessRestrictedWorkflowNav(
+  user?: (ActiveUser & { username?: string | null }) | null
+): boolean {
+  return isSuperAdminUser(user) || isPilotTesterUser(user);
+}
+

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp, NavigationTab } from '../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
-import { isSuperAdminUser } from '../lib/hrSupabase';
+import { isSuperAdminUser, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
 import type { RequisitionNotification } from '../lib/cashRequisitionStore';
 import {
   LayoutGrid,
@@ -88,6 +88,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const effectiveUser = useMemo(() => getEffectiveUser(propUser || ctxUser), [propUser, ctxUser]);
   const isSuperAdmin = isSuperAdminUser(effectiveUser);
   const isAdmin = isUserAdmin(effectiveUser);
+  const canAccessRestrictedWorkflow = canAccessRestrictedWorkflowNav(effectiveUser);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -139,8 +140,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     ];
   }, [branches]);
 
-  const primaryNavItems: SidebarNavItem[] = useMemo(
-    () => [
+  const primaryNavItems: SidebarNavItem[] = useMemo(() => {
+    const items: SidebarNavItem[] = [
       { id: 'workspace', label: 'Workspace', icon: LayoutGrid, tab: 'dashboard' },
       { id: 'cases', label: 'Cases & Matters', icon: Briefcase, tab: 'catalogue' },
       {
@@ -153,20 +154,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         },
       },
       { id: 'documents', label: 'Documents & Custody', icon: FolderLock, tab: 'documents' },
-      {
-        id: 'approvals',
-        label: 'Approvals',
-        icon: ClipboardCheck,
-        tab: 'approvals',
-        badge: approvalsBadgeCount > 0 ? approvalsBadgeCount : undefined,
-      },
-      {
-        id: 'cash_requisitions',
-        label: 'Cash Requisitions',
-        icon: Banknote,
-        tab: 'cash_requisitions',
-        badge: cashRequisitionsBadgeCount > 0 ? cashRequisitionsBadgeCount : undefined,
-      },
+    ];
+
+    if (canAccessRestrictedWorkflow) {
+      items.push(
+        {
+          id: 'approvals',
+          label: 'Approvals',
+          icon: ClipboardCheck,
+          tab: 'approvals',
+          badge: approvalsBadgeCount > 0 ? approvalsBadgeCount : undefined,
+        },
+        {
+          id: 'cash_requisitions',
+          label: 'Cash Requisitions',
+          icon: Banknote,
+          tab: 'cash_requisitions',
+          badge: cashRequisitionsBadgeCount > 0 ? cashRequisitionsBadgeCount : undefined,
+        }
+      );
+    }
+
+    items.push(
       {
         id: 'messenger',
         label: 'Team Messenger',
@@ -174,20 +183,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'messenger',
         badge: messengerBadgeCount > 0 ? messengerBadgeCount : undefined,
       },
-      { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' },
-      { id: 'staff_workflow', label: 'Staff & Workflow', icon: Users, tab: 'legal_team' },
+      { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' }
+    );
+
+    if (canAccessRestrictedWorkflow) {
+      items.push({ id: 'staff_workflow', label: 'Staff & Workflow', icon: Users, tab: 'legal_team' });
+    }
+
+    items.push(
       { id: 'calendar', label: 'Calendar & Deadlines', icon: Calendar, tab: 'causelist' },
-      { id: 'branches', label: 'Branches', icon: Building2, tab: 'branches' },
-      { id: 'audit', label: 'Audit Trail & Security', icon: ShieldCheck, tab: 'audit_trail' },
-    ],
-    [
-      approvalsBadgeCount,
-      cashRequisitionsBadgeCount,
-      messengerBadgeCount,
-      setActiveTab,
-      setIsNewCaseModalOpen,
-    ]
-  );
+      { id: 'branches', label: 'Branches', icon: Building2, tab: 'branches' }
+    );
+
+    if (canAccessRestrictedWorkflow) {
+      items.push({
+        id: 'audit',
+        label: 'Audit Trail & Security',
+        icon: ShieldCheck,
+        tab: 'audit_trail',
+      });
+    }
+
+    return items;
+  }, [
+    canAccessRestrictedWorkflow,
+    approvalsBadgeCount,
+    cashRequisitionsBadgeCount,
+    messengerBadgeCount,
+    setActiveTab,
+    setIsNewCaseModalOpen,
+  ]);
 
   const adminNavItems: SidebarNavItem[] = useMemo(() => {
     const list: SidebarNavItem[] = [];
@@ -464,9 +489,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
 
-          {/* Right: Decision Notifications Bell + Branch selector dropdown */}
+          {/* Right: Decision Notifications Bell (restricted workflow users only) + Branch selector dropdown */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <div ref={notifRef} className="relative">
+            {canAccessRestrictedWorkflow && (
+              <div ref={notifRef} className="relative">
               <button
                 type="button"
                 onClick={() => setNotifPopoverOpen((o) => !o)}
@@ -579,7 +605,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             <div className="relative flex items-center">
               <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
