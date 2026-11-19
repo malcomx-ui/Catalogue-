@@ -1,5 +1,4 @@
 import { supabase } from './supabase';
-import { isStrictSuperAdmin } from './supabase';
 
 /**
  * Shared authenticated Supabase client for the HR Module.
@@ -22,15 +21,28 @@ export interface ActiveUser {
 }
 
 /**
- * Strict Super Admin check for HR Module access.
- * Recognizes normalized 'super_admin' / 'super admin' roles as well as the ERP's
- * Managing Partner / Super Administrator profile flags.
+ * Returns true ONLY for Super Admin accounts.
+ * All regular staff, associates, clerks, branch admins, and unauthenticated users get `false`.
  */
 export function isSuperAdminUser(user?: ActiveUser | null): boolean {
-  if (!user) return false;
-  const normalized = (user.role || '').trim().toLowerCase();
-  if (normalized === 'super_admin' || normalized === 'super admin') {
+  if (!user || !user.id) return false;
+
+  const normalizedRole = (user.role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (normalizedRole === 'super_admin' || normalizedRole === 'superadmin') {
     return true;
   }
-  return isStrictSuperAdmin(user);
+
+  const normalizedRoleId = String(user.roleId || user.role_id || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  if (normalizedRoleId === 'role_super_admin' || normalizedRoleId === 'super_admin') {
+    return true;
+  }
+
+  if (user.isSuperAdmin === true || user.is_super_admin === true) {
+    return true;
+  }
+
+  return false;
 }

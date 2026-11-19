@@ -32,7 +32,7 @@ import { FirstLoginPasswordModal } from './components/auth/FirstLoginPasswordMod
 import { NotificationToast } from './components/common/NotificationToast';
 import { isUserAdmin, getEffectiveUser, supabase } from './lib/supabase';
 import { isSuperAdminUser } from './lib/hrSupabase';
-import { HrModuleEntry } from './components/HrModuleBundle';
+import { LockedHrModule } from './components/LockedHrComponents';
 import './utils/testRls';
 import './services/caseService';
 import './services/reportService';
@@ -150,7 +150,7 @@ const MainLayout: React.FC = () => {
           {activeTab === 'conflicts' && (isPartnerOrSuperadmin ? <ConflictChecker /> : <FirmDashboard />)}
           {activeTab === 'documents' && <DocumentRepository />}
           {activeTab === 'analytics' && (isPartnerOrSuperadmin ? <LitigationAnalytics /> : <FirmDashboard />)}
-          {activeTab === 'hr' && (isSuperAdminUser(effectiveUser) ? <HrModuleEntry currentUser={effectiveUser} gateForSuperAdmin={true} /> : <FirmDashboard />)}
+          {activeTab === 'hr' && (isSuperAdminUser(effectiveUser) ? <LockedHrModule currentUser={effectiveUser} /> : <FirmDashboard />)}
           {activeTab === 'roles' && (isAdmin ? <AccessRolesManager /> : <FirmDashboard />)}
           {activeTab === 'settings' && (isAdmin ? <SystemSettingsManager /> : <FirmDashboard />)}
         </main>

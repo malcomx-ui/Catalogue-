@@ -171,9 +171,8 @@ export const Sidebar: React.FC = () => {
   if (isSuperAdminUser(effectiveUser)) {
     administrativeNavItems.push({
       id: 'hr',
-      label: 'HR & People Ops',
+      label: 'HR Management (Admin Only)',
       icon: Users,
-      badge: 'HR',
     });
   }
   if (userPermissions?.canManageRoles || effectiveUser?.isSuperAdmin) {
