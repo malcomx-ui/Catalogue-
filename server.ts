@@ -3340,6 +3340,7 @@ async function start() {
   if (process.env.NODE_ENV === 'production' && fs.existsSync(path.resolve(__dirname, 'dist'))) {
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req: Request, res: Response) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.sendFile(path.resolve(__dirname, 'dist/index.html'));
     });
   } else {
@@ -3349,6 +3350,40 @@ async function start() {
       server: { middlewareMode: true },
       appType: 'spa',
     });
+
+    // When DISABLE_HMR=true disables file watching (`watch: null`), Vite's in-memory
+    // moduleGraph would otherwise keep serving stale transforms across page reloads.
+    // On-demand mtime invalidation ensures every edited file reflects immediately on refresh.
+    const seenMtimes = new Map<string, number>();
+    app.use((req, res, next) => {
+      const cleanUrl = (req.url || '').split('?')[0];
+      if (cleanUrl === '/' || cleanUrl.endsWith('.html') || cleanUrl.startsWith('/src/')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+      }
+
+      if (cleanUrl.startsWith('/src/')) {
+        const absFile = path.resolve(__dirname, cleanUrl.slice(1));
+        try {
+          if (fs.existsSync(absFile)) {
+            const mtime = fs.statSync(absFile).mtimeMs;
+            const prevMtime = seenMtimes.get(absFile);
+            if (prevMtime !== undefined && mtime > prevMtime) {
+              delete req.headers['if-none-match'];
+              const mods = vite.moduleGraph.getModulesByFile(absFile);
+              if (mods) {
+                mods.forEach((mod) => vite.moduleGraph.invalidateModule(mod));
+              }
+            }
+            seenMtimes.set(absFile, mtime);
+          }
+        } catch {
+          // ignore stat errors for virtual modules
+        }
+      }
+      next();
+    });
+
     app.use(vite.middlewares);
   }
 
