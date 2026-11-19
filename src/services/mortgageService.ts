@@ -400,23 +400,18 @@ const extractRecordsFromWorkbook = (
       const commentsVal = getVal(['Comments', 'Comment', 'comments', 'Remarks', 'Notes'], ['comment', 'remark', 'note']);
 
       const bankBranchStr = bankBranchVal ? String(bankBranchVal).trim() : '';
-      const isCentenary = isCentenaryBankName(options.bankName);
-      const rawFirmBranchStr = isCentenary
-        ? ''
-        : firmBranchVal
+      const rawFirmBranchStr = firmBranchVal
         ? String(firmBranchVal).trim()
         : options.firmBranchStation
         ? String(options.firmBranchStation).trim()
         : '';
-      const rawFirmBranchId = isCentenary
-        ? ''
-        : firmBranchIdVal
+      const rawFirmBranchId = firmBranchIdVal
         ? String(firmBranchIdVal).trim()
         : options.branchId
         ? String(options.branchId).trim()
         : '';
       const firmBranchMeta =
-        !isCentenary && (rawFirmBranchStr || rawFirmBranchId)
+        rawFirmBranchStr || rawFirmBranchId
           ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchStr || undefined)
           : null;
       const descStr = descVal ? String(descVal).trim() : '';
@@ -432,9 +427,9 @@ const extractRecordsFromWorkbook = (
         bank_branch: bankBranchStr,
         branch: bankBranchStr,
         client_branch_location: bankBranchStr,
-        firm_branch_station: isCentenary ? '' : rawFirmBranchStr || firmBranchMeta?.name || '',
-        branch_name: isCentenary ? '' : rawFirmBranchStr || firmBranchMeta?.name || '',
-        branch_id: isCentenary ? '' : firmBranchMeta?.id || rawFirmBranchId || '',
+        firm_branch_station: rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_name: rawFirmBranchStr || firmBranchMeta?.name || '',
+        branch_id: firmBranchMeta?.id || rawFirmBranchId || '',
         client_name: clientName,
         mortgagor_name: clientName,
         name: clientName,
@@ -524,7 +519,6 @@ const buildBankSpecificData = (r: any): Record<string, any> => {
  */
 export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean }) => {
   const resolvedBankName = r.bank_name || r.client_bank_name || 'Centenary Bank';
-  const isCentenary = isCentenaryBankName(resolvedBankName);
 
   const bankBranchVal =
     r.bank_branch_station ??
@@ -533,14 +527,13 @@ export const buildMortgageCasesRow = (r: any, options?: { includeId?: boolean })
     r.client_branch_location ??
     r.branch ??
     '';
-  const rawFirmBranchName = isCentenary
-    ? ''
-    : r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
-  const rawFirmBranchId = isCentenary ? '' : r.branch_id ?? r.branchId ?? '';
-  const hasFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
+  const rawFirmBranchName =
+    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
   const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
-  const resolvedFirmName = isCentenary ? '' : rawFirmBranchName || firmMeta?.name || undefined;
-  const resolvedFirmId = isCentenary ? '' : firmMeta?.id || rawFirmBranchId || undefined;
+  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
   const bankSpecificData = buildBankSpecificData(r);
 
   const row: Record<string, any> = {
@@ -626,7 +619,6 @@ export const buildMortgagesRow = (r: any) => {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.assigned_lawyer_id);
 
   const resolvedBankName = r.client_bank_name || r.bank_name || 'Centenary Bank';
-  const isCentenary = isCentenaryBankName(resolvedBankName);
 
   const bankBranchVal =
     r.bank_branch_station ??
@@ -635,14 +627,13 @@ export const buildMortgagesRow = (r: any) => {
     r.client_branch_location ??
     r.branch ??
     '';
-  const rawFirmBranchName = isCentenary
-    ? ''
-    : r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
-  const rawFirmBranchId = isCentenary ? '' : r.branch_id ?? r.branchId ?? '';
-  const hasFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
+  const rawFirmBranchName =
+    r.firm_branch_station ?? r.firmBranchStation ?? r.branch_name ?? r.branchName ?? '';
+  const rawFirmBranchId = r.branch_id ?? r.branchId ?? '';
+  const hasFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
   const firmMeta = hasFirmBranch ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined) : null;
-  const resolvedFirmName = isCentenary ? '' : rawFirmBranchName || firmMeta?.name || undefined;
-  const resolvedFirmId = isCentenary ? '' : firmMeta?.id || rawFirmBranchId || undefined;
+  const resolvedFirmName = rawFirmBranchName || firmMeta?.name || undefined;
+  const resolvedFirmId = firmMeta?.id || rawFirmBranchId || undefined;
   const bankSpecificData = buildBankSpecificData(r);
 
   const row: Record<string, any> = {
@@ -795,7 +786,6 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     row?.bank_specific_data && typeof row.bank_specific_data === 'object' ? row.bank_specific_data : {};
   const resolvedBank =
     row.client_bank_name || row.bank_name || fallbackBankName || 'Centenary Bank';
-  const isCentenary = isCentenaryBankName(resolvedBank);
 
   // Bank Branch Station (lending bank's handling branch, e.g. Centenary Bank Kamwenge Branch)
   const resolvedBankBranch =
@@ -807,17 +797,15 @@ const normalizeMortgageRecord = (row: any, fallbackBankName?: string) => {
     '';
 
   // Firm Branch Station (MK Advocates office processing instructions, e.g. Kampala Central (Head Office))
-  // Centenary Bank strictly omits internal Firm Branch details
-  const rawFirmBranchName = isCentenary
-    ? ''
-    : row.firm_branch_station || row.firmBranchStation || row.branch_name || row.branchName || '';
-  const rawFirmBranchId = isCentenary ? '' : row.branch_id || row.branchId || '';
-  const hasExplicitFirmBranch = !isCentenary && Boolean(rawFirmBranchName || rawFirmBranchId);
+  const rawFirmBranchName =
+    row.firm_branch_station || row.firmBranchStation || row.branch_name || row.branchName || '';
+  const rawFirmBranchId = row.branch_id || row.branchId || '';
+  const hasExplicitFirmBranch = Boolean(rawFirmBranchName || rawFirmBranchId);
   const resolvedFirmMeta = hasExplicitFirmBranch
     ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
     : null;
-  const resolvedFirmBranch = isCentenary ? '' : rawFirmBranchName || resolvedFirmMeta?.name || '';
-  const resolvedFirmBranchId = isCentenary ? '' : rawFirmBranchId || resolvedFirmMeta?.id || '';
+  const resolvedFirmBranch = rawFirmBranchName || resolvedFirmMeta?.name || '';
+  const resolvedFirmBranchId = rawFirmBranchId || resolvedFirmMeta?.id || '';
 
   const resolvedClient =
     row.client_name || row.mortgagor_name || row.borrower_name || row.name || '';
@@ -999,18 +987,16 @@ export const MortgageService = {
 
       const preparedRecords = records.map((r, idx) => {
         const targetRecBank = r.bank_name || r.client_bank_name || bankName;
-        const isCentenary = isCentenaryBankName(targetRecBank);
-        const rowFirmName = isCentenary
-          ? ''
-          : r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || defaultFirmMeta.name;
-        const rowFirmId = isCentenary ? '' : r.branch_id || r.branchId || defaultFirmMeta.id;
-        const firmMeta = isCentenary ? null : resolveBranchMeta(rowFirmId, rowFirmName);
+        const rowFirmName =
+          r.firm_branch_station || r.firmBranchStation || r.branch_name || r.branchName || defaultFirmMeta.name;
+        const rowFirmId = r.branch_id || r.branchId || defaultFirmMeta.id;
+        const firmMeta = resolveBranchMeta(rowFirmId, rowFirmName);
         const normalized = normalizeMortgageRecord(
           {
             ...r,
-            firm_branch_station: isCentenary ? '' : rowFirmName || firmMeta?.name || '',
-            branch_name: isCentenary ? '' : rowFirmName || firmMeta?.name || '',
-            branch_id: isCentenary ? '' : firmMeta?.id || '',
+            firm_branch_station: rowFirmName || firmMeta?.name || '',
+            branch_name: rowFirmName || firmMeta?.name || '',
+            branch_id: firmMeta?.id || '',
           },
           targetRecBank
         );
@@ -1423,6 +1409,295 @@ export const MortgageService = {
   },
 
   /**
+   * Fetches a paginated slice of Centenary Bank mortgage cases with ONLY lightweight
+   * summary columns needed for the register table list view.
+   * Queries `mortgage_cases` (where live Centenary records reside) and falls back
+   * cleanly to `centenary_mortgage_cases` or local storage if needed.
+   */
+  async fetchCentenaryMortgagesPage(
+    page: number = 1,
+    pageSize: number = 25,
+    filters?: {
+      search?: string;
+      month?: string;
+      branch?: string;
+      status?: string;
+    }
+  ): Promise<{
+    data: any[];
+    count: number;
+    page: number;
+    pageSize: number;
+    source: 'mortgage_cases' | 'centenary_mortgage_cases' | 'local';
+  }> {
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safePageSize = Math.max(1, Math.min(200, Math.floor(Number(pageSize) || 25)));
+    const from = (safePage - 1) * safePageSize;
+    const to = from + safePageSize - 1;
+
+    const searchQ = (filters?.search || '').trim();
+    const monthQ = (filters?.month || '').trim();
+    const branchQ = (filters?.branch || '').trim();
+    const statusQ = (filters?.status || '').trim();
+
+    const LIGHTWEIGHT_MC_COLS =
+      'id, date_of_receipt, branch, client_branch_location, client_name, mortgagor_name, rim_no, loan_amount, total_disbursements, grand_total, date_of_return, status, month_sheet, source_sheet, record_year, bank_name, client_bank_name';
+    const LIGHTWEIGHT_CMC_COLS =
+      'id, date_of_receipt, branch, client_name, rim_no, loan_amount, grand_total, date_of_return';
+
+    const buildFilteredQuery = (table: 'mortgage_cases' | 'centenary_mortgage_cases') => {
+      const cols = table === 'mortgage_cases' ? LIGHTWEIGHT_MC_COLS : LIGHTWEIGHT_CMC_COLS;
+      let query = supabase.from(table).select(cols, { count: 'exact' });
+
+      if (table === 'mortgage_cases') {
+        query = query.or('bank_name.ilike.%Centenary%,client_bank_name.ilike.%Centenary%');
+      }
+
+      if (searchQ) {
+        const clean = searchQ.replace(/[,()]/g, '').trim();
+        if (clean) {
+          if (table === 'mortgage_cases') {
+            query = query.or(
+              `client_name.ilike.%${clean}%,mortgagor_name.ilike.%${clean}%,rim_no.ilike.%${clean}%,branch.ilike.%${clean}%,client_branch_location.ilike.%${clean}%`
+            );
+          } else {
+            query = query.or(
+              `client_name.ilike.%${clean}%,rim_no.ilike.%${clean}%,branch.ilike.%${clean}%`
+            );
+          }
+        }
+      }
+
+      if (monthQ && table === 'mortgage_cases') {
+        const cleanMonth = monthQ.replace(/[,()]/g, '').trim();
+        const shortMonth = cleanMonth.slice(0, 3);
+        query = query.or(
+          `month_sheet.ilike.%${cleanMonth}%,month_sheet.ilike.%${shortMonth}%,source_sheet.ilike.%${cleanMonth}%`
+        );
+      }
+
+      if (branchQ && branchQ !== 'ALL') {
+        const cleanBranch = branchQ.replace(/[,()]/g, '').trim();
+        if (cleanBranch) {
+          if (table === 'mortgage_cases') {
+            query = query.or(
+              `branch.ilike.%${cleanBranch}%,client_branch_location.ilike.%${cleanBranch}%`
+            );
+          } else {
+            query = query.ilike('branch', `%${cleanBranch}%`);
+          }
+        }
+      }
+
+      if (statusQ && statusQ !== 'ALL' && table === 'mortgage_cases') {
+        query = query.ilike('status', `%${statusQ}%`);
+      }
+
+      query = query
+        .order('date_of_receipt', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      return query;
+    };
+
+    // 1. Primary lightweight paginated query on `mortgage_cases`
+    try {
+      const { data, error, count } = await buildFilteredQuery('mortgage_cases');
+
+      if (!error && Array.isArray(data) && (count || 0) > 0) {
+        const normalized = data.map((row) => ({
+          ...normalizeMortgageRecord(row, 'Centenary Bank'),
+          _isLightweightSummary: true,
+        }));
+        return {
+          data: normalized,
+          count: count || normalized.length,
+          page: safePage,
+          pageSize: safePageSize,
+          source: 'mortgage_cases',
+        };
+      }
+
+      // If filter produced 0 matches on mortgage_cases (no error), check whether centenary_mortgage_cases has rows
+      if (!error && (searchQ || monthQ || (branchQ && branchQ !== 'ALL') || (statusQ && statusQ !== 'ALL'))) {
+        return {
+          data: [],
+          count: 0,
+          page: safePage,
+          pageSize: safePageSize,
+          source: 'mortgage_cases',
+        };
+      }
+    } catch (err) {
+      console.warn('[MortgageService] mortgage_cases paginated fetch notice:', err);
+    }
+
+    // 2. Fallback to `centenary_mortgage_cases` if populated
+    try {
+      const { data, error, count } = await buildFilteredQuery('centenary_mortgage_cases');
+      if (!error && Array.isArray(data) && (count || 0) > 0) {
+        const normalized = data.map((row) => ({
+          ...normalizeMortgageRecord(row, 'Centenary Bank'),
+          _isLightweightSummary: true,
+        }));
+        return {
+          data: normalized,
+          count: count || normalized.length,
+          page: safePage,
+          pageSize: safePageSize,
+          source: 'centenary_mortgage_cases',
+        };
+      }
+    } catch (err) {
+      console.warn('[MortgageService] centenary_mortgage_cases paginated fetch notice:', err);
+    }
+
+    // 3. Offline/local fallback sliced cleanly to requested page
+    const localRows = readLocalMortgages()
+      .filter((row: any) => isCentenaryBankName(row.client_bank_name || row.bank_name || 'Centenary Bank'))
+      .map((row: any) => normalizeMortgageRecord(row, 'Centenary Bank'))
+      .filter((m: any) => {
+        if (searchQ) {
+          const q = searchQ.toLowerCase();
+          const hit =
+            m.client_name?.toLowerCase().includes(q) ||
+            m.rim_no?.toLowerCase().includes(q) ||
+            m.branch?.toLowerCase().includes(q);
+          if (!hit) return false;
+        }
+        if (branchQ && branchQ !== 'ALL') {
+          if (!String(m.branch || '').toLowerCase().includes(branchQ.toLowerCase())) return false;
+        }
+        if (statusQ && statusQ !== 'ALL') {
+          if (String(m.status || '').toLowerCase() !== statusQ.toLowerCase()) return false;
+        }
+        return true;
+      })
+      .sort((a: any, b: any) =>
+        String(b.date_of_receipt || '').localeCompare(String(a.date_of_receipt || ''))
+      );
+
+    return {
+      data: localRows.slice(from, to + 1),
+      count: localRows.length,
+      page: safePage,
+      pageSize: safePageSize,
+      source: 'local',
+    };
+  },
+
+  /**
+   * Lightweight numeric-only summary + distinct bank branches for Centenary Bank header/KPIs
+   * without pulling heavy text descriptions or 19-column breakdowns.
+   */
+  async fetchCentenarySummary(filters?: {
+    search?: string;
+    month?: string;
+    branch?: string;
+    status?: string;
+  }): Promise<{
+    totalCount: number;
+    totalLoan: number;
+    totalDisbursements: number;
+    totalLegalFees: number;
+    totalVat: number;
+    totalGrandTotal: number;
+    branches: string[];
+  }> {
+    const empty = {
+      totalCount: 0,
+      totalLoan: 0,
+      totalDisbursements: 0,
+      totalLegalFees: 0,
+      totalVat: 0,
+      totalGrandTotal: 0,
+      branches: [] as string[],
+    };
+
+    try {
+      let query = supabase
+        .from('mortgage_cases')
+        .select('loan_amount, total_disbursements, legal_fees, vat_18, grand_total, branch, client_branch_location')
+        .or('bank_name.ilike.%Centenary%,client_bank_name.ilike.%Centenary%')
+        .limit(5000);
+
+      const searchQ = (filters?.search || '').trim().replace(/[,()]/g, '');
+      const monthQ = (filters?.month || '').trim().replace(/[,()]/g, '');
+      const branchQ = (filters?.branch || '').trim().replace(/[,()]/g, '');
+      const statusQ = (filters?.status || '').trim();
+
+      if (searchQ) {
+        query = query.or(
+          `client_name.ilike.%${searchQ}%,mortgagor_name.ilike.%${searchQ}%,rim_no.ilike.%${searchQ}%,branch.ilike.%${searchQ}%,client_branch_location.ilike.%${searchQ}%`
+        );
+      }
+      if (monthQ) {
+        const shortMonth = monthQ.slice(0, 3);
+        query = query.or(
+          `month_sheet.ilike.%${monthQ}%,month_sheet.ilike.%${shortMonth}%,source_sheet.ilike.%${monthQ}%`
+        );
+      }
+      if (branchQ && branchQ !== 'ALL') {
+        query = query.or(`branch.ilike.%${branchQ}%,client_branch_location.ilike.%${branchQ}%`);
+      }
+      if (statusQ && statusQ !== 'ALL') {
+        query = query.ilike('status', `%${statusQ}%`);
+      }
+
+      const { data, error } = await query;
+      if (error || !Array.isArray(data)) return empty;
+
+      const branchSet = new Set<string>();
+      const summary = data.reduce(
+        (acc, row: any) => {
+          acc.totalCount += 1;
+          acc.totalLoan += Number(row.loan_amount || 0);
+          acc.totalDisbursements += Number(row.total_disbursements || 0);
+          acc.totalLegalFees += Number(row.legal_fees || 0);
+          acc.totalVat += Number(row.vat_18 || 0);
+          acc.totalGrandTotal += Number(row.grand_total || 0);
+          const br = String(row.client_branch_location || row.branch || '').trim();
+          if (br && br !== '-') branchSet.add(br);
+          return acc;
+        },
+        { ...empty }
+      );
+      summary.branches = Array.from(branchSet).sort((a, b) => a.localeCompare(b));
+      return summary;
+    } catch {
+      return empty;
+    }
+  },
+
+  /**
+   * Lazily fetches the complete 19-column record for a single mortgage ID when
+   * inspecting or editing a lightweight summary row.
+   */
+  async fetchMortgageById(id: string, fallbackBankName: string = 'Centenary Bank'): Promise<any | null> {
+    if (!id) return null;
+
+    for (const table of ['mortgage_cases', 'centenary_mortgage_cases', 'mortgages'] as const) {
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (!error && data) {
+          return normalizeMortgageRecord(data, fallbackBankName);
+        }
+      } catch {
+        // continue to fallback table
+      }
+    }
+
+    const localMatch = readLocalMortgages().find((item: any) => String(item.id) === String(id));
+    return localMatch ? normalizeMortgageRecord(localMatch, fallbackBankName) : null;
+  },
+
+  /**
    * Inserts a new mortgage file, syncing to Supabase `mortgage_cases`, `mortgages`,
    * local workstation `/api/mortgages`, and browser localStorage fallback.
    */
@@ -1442,7 +1717,6 @@ export const MortgageService = {
     const isGlobalAdmin = isUserAdmin(effectiveUser);
     const userFirmMeta = resolveBranchMeta(effectiveUser.branchId, effectiveUser.branchName);
     const targetBankName = payload?.bank_name || payload?.client_bank_name || 'Centenary Bank';
-    const isCentenary = isCentenaryBankName(targetBankName);
 
     if (!isStrictSuper && isSuperAdminOnlyBank(targetBankName)) {
       const msg =
@@ -1459,18 +1733,16 @@ export const MortgageService = {
       payload?.branch ??
       '';
 
-    const rawFirmBranchName = isCentenary
-      ? ''
-      : payload?.firm_branch_station || payload?.firmBranchStation || payload?.branch_name || payload?.branchName || '';
-    const rawFirmBranchId = isCentenary ? '' : payload?.branch_id || payload?.branchId || '';
+    const rawFirmBranchName =
+      payload?.firm_branch_station || payload?.firmBranchStation || payload?.branch_name || payload?.branchName || '';
+    const rawFirmBranchId = payload?.branch_id || payload?.branchId || '';
 
-    const targetFirmMeta = isCentenary
-      ? { id: '', name: '' }
-      : rawFirmBranchName || rawFirmBranchId
-      ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
-      : userFirmMeta;
+    const targetFirmMeta =
+      rawFirmBranchName || rawFirmBranchId
+        ? resolveBranchMeta(rawFirmBranchId || undefined, rawFirmBranchName || undefined)
+        : userFirmMeta;
 
-    if (!isGlobalAdmin && !isCentenary) {
+    if (!isGlobalAdmin) {
       if (
         (rawFirmBranchName || rawFirmBranchId) &&
         !canUserModifyMortgage(effectiveUser, {
@@ -1485,12 +1757,10 @@ export const MortgageService = {
       }
     }
 
-    const effectiveFirmName = isCentenary
-      ? ''
-      : isGlobalAdmin
+    const effectiveFirmName = isGlobalAdmin
       ? rawFirmBranchName || targetFirmMeta.name
       : effectiveUser.branchName || userFirmMeta.name;
-    const effectiveFirmId = isCentenary ? '' : isGlobalAdmin ? targetFirmMeta.id : userFirmMeta.id;
+    const effectiveFirmId = isGlobalAdmin ? targetFirmMeta.id : userFirmMeta.id;
 
     const effectivePayload = {
       ...payload,

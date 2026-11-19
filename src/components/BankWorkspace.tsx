@@ -47,6 +47,7 @@ import {
 import { IMBankReportModule } from './mortgages/banks/IMBankReportModule';
 import { BarodaReportModule } from './mortgages/banks/BarodaReportModule';
 import { KCBReportModule } from './mortgages/banks/KCBReportModule';
+import MortgageRegisterTable from './mortgages/MortgageRegisterTable';
 
 export interface BankWorkspaceProps {
   bankName: string;
@@ -132,7 +133,55 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   const isDedicatedBank = hasIndependentModule(bankName);
   const isRestrictedBankForUser = isSuperAdminOnlyBank(bankName) && !isStrictSuper;
 
-  const handleEditRequest = (record: any) => {
+  // Server-side lightweight pagination state for Centenary Bank
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [centenarySummary, setCentenarySummary] = useState<{
+    totalCount: number;
+    totalLoan: number;
+    totalDisbursements: number;
+    totalLegalFees: number;
+    totalVat: number;
+    totalGrandTotal: number;
+    branches: string[];
+  }>({
+    totalCount: 0,
+    totalLoan: 0,
+    totalDisbursements: 0,
+    totalLegalFees: 0,
+    totalVat: 0,
+    totalGrandTotal: 0,
+    branches: [],
+  });
+  const [isHydratingRecord, setIsHydratingRecord] = useState<boolean>(false);
+  const useServerCentenaryPagination = isCentenary && viewMode === 'table';
+
+  const hydrateFullRecord = async (record: any): Promise<any> => {
+    if (!record?._isLightweightSummary || !record?.id) return record;
+    setIsHydratingRecord(true);
+    try {
+      const full = await MortgageService.fetchMortgageById(String(record.id), bankName);
+      if (full) {
+        return { ...record, ...full, _isLightweightSummary: false };
+      }
+      return record;
+    } finally {
+      setIsHydratingRecord(false);
+    }
+  };
+
+  const handleInspectRecord = async (record: any) => {
+    setSelectedRecordForView(record);
+    if (record?._isLightweightSummary && record?.id) {
+      const full = await hydrateFullRecord(record);
+      setSelectedRecordForView((curr: any) =>
+        curr && String(curr.id) === String(record.id) ? full : curr
+      );
+    }
+  };
+
+  const handleEditRequest = async (record: any) => {
     if (!canUserModifyMortgage(effectiveUser, record)) {
       const assigned = effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch';
       showCleanMessage(
@@ -141,7 +190,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       );
       return;
     }
-    setSelectedRecordForEdit(record);
+    const hydrated = await hydrateFullRecord(record);
+    setSelectedRecordForEdit(hydrated);
   };
 
   const handleDeleteRecord = async (record: any) => {
@@ -162,6 +212,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         setConfirmDeleteId(null);
         setSelectedRecordForView((prev: any) => (prev?.id === record.id ? null : prev));
         setMortgages((prev) => prev.filter((item) => String(item.id) !== String(record.id)));
+        setTotalCount((prev) => Math.max(0, prev - 1));
+        if (useServerCentenaryPagination) {
+          loadBankData(page, pageSize);
+        }
       } else {
         showCleanMessage('Could not delete mortgage record. Please verify permissions or connection.', 'error');
       }
@@ -186,14 +240,44 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
   // 2. Lawyers list for advocate filtering dropdown
   const [lawyersList, setLawyersList] = useState<any[]>([]);
 
+  // Debounced search query for server-side Centenary pagination
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search || '');
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
+  // Reset to page 1 when bank or server filters change
+  useEffect(() => {
+    setPage(1);
+  }, [bankName, debouncedSearch, filters.month, filters.branch, filters.status, pageSize]);
+
   useEffect(() => {
     console.log('[BankWorkspace] Mounted for bank:', bankName);
+    setWorkspaceTab('register');
   }, [bankName]);
 
   useEffect(() => {
-    setWorkspaceTab('register');
-    loadBankData();
-  }, [bankName, effectiveUser?.id, effectiveUser?.roleId, isRestrictedBankForUser]);
+    if (useServerCentenaryPagination) {
+      loadBankData(page, pageSize);
+    } else {
+      loadBankData();
+    }
+  }, [
+    bankName,
+    effectiveUser?.id,
+    effectiveUser?.roleId,
+    isRestrictedBankForUser,
+    useServerCentenaryPagination,
+    page,
+    pageSize,
+    debouncedSearch,
+    filters.month,
+    filters.branch,
+    filters.status,
+  ]);
 
   useEffect(() => {
     if (!externalActionNonce) return;
@@ -247,19 +331,38 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
     loadLawyers();
   }, []);
 
-  const loadBankData = async () => {
+  const loadBankData = async (targetPage: number = page, targetPageSize: number = pageSize) => {
     if (isRestrictedBankForUser) {
       setMortgages([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const data = await MortgageService.fetchMortgages(bankName, effectiveUser);
-      setMortgages(data || []);
+      if (isCentenary && viewMode === 'table') {
+        const activeFilters = {
+          search: debouncedSearch,
+          month: filters.month,
+          branch: filters.branch,
+          status: filters.status,
+        };
+        const [pageResult, summaryResult] = await Promise.all([
+          MortgageService.fetchCentenaryMortgagesPage(targetPage, targetPageSize, activeFilters),
+          MortgageService.fetchCentenarySummary(activeFilters),
+        ]);
+        setMortgages(pageResult.data || []);
+        setTotalCount(pageResult.count || 0);
+        setCentenarySummary(summaryResult);
+      } else {
+        const data = await MortgageService.fetchMortgages(bankName, effectiveUser);
+        setMortgages(data || []);
+        setTotalCount((data || []).length);
+      }
     } catch (err) {
       console.error('Error loading bank data:', err);
       setMortgages([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
@@ -277,6 +380,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
     ];
     const set = new Set<string>(canonical);
     if (effectiveUser?.branchName) set.add(effectiveUser.branchName);
+    centenarySummary.branches.forEach((br) => {
+      if (br && br !== '-') set.add(br);
+    });
     mortgages.forEach((m) => {
       const bankBr = String(
         m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || ''
@@ -286,7 +392,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       if (firmBr && firmBr !== '-') set.add(firmBr);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [mortgages, effectiveUser?.branchName]);
+  }, [mortgages, centenarySummary.branches, effectiveUser?.branchName]);
 
   const canAddInActiveBranchView = useMemo(() => {
     if (isGlobalAdmin) return true;
@@ -408,12 +514,23 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
     });
   }, [mortgages, filters]);
 
-  const totalValue = useMemo(
-    () => mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0),
-    [mortgages]
-  );
+  const totalValue = useMemo(() => {
+    if (useServerCentenaryPagination && centenarySummary.totalLoan > 0) {
+      return centenarySummary.totalLoan;
+    }
+    return mortgages.reduce((acc, curr) => acc + (Number(curr.loan_amount) || 0), 0);
+  }, [useServerCentenaryPagination, centenarySummary.totalLoan, mortgages]);
 
   const filteredTotals = useMemo(() => {
+    if (useServerCentenaryPagination) {
+      return {
+        loan: centenarySummary.totalLoan,
+        disbursements: centenarySummary.totalDisbursements,
+        legalFees: centenarySummary.totalLegalFees,
+        vat: centenarySummary.totalVat,
+        grandTotal: centenarySummary.totalGrandTotal,
+      };
+    }
     return filteredMortgages.reduce(
       (acc, m) => {
         acc.loan += Number(m.loan_amount || 0);
@@ -425,7 +542,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       },
       { loan: 0, disbursements: 0, legalFees: 0, vat: 0, grandTotal: 0 }
     );
-  }, [filteredMortgages]);
+  }, [useServerCentenaryPagination, centenarySummary, filteredMortgages]);
 
   const [printedTimestamp, setPrintedTimestamp] = useState<string>(() =>
     formatPrintTimestamp()
@@ -721,7 +838,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">{bankName}</h1>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 font-medium whitespace-nowrap tabular-nums">
-                {mortgages.length} Files Loaded
+                {useServerCentenaryPagination
+                  ? `${totalCount.toLocaleString()} Total Records`
+                  : `${mortgages.length.toLocaleString()} Files Loaded`}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -895,12 +1014,24 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
       </div>
 
       {/* Filtered Summary Strip (Screen only; hidden when printing) */}
-      {!loading && mortgages.length > 0 && (
+      {(!loading || useServerCentenaryPagination) && (useServerCentenaryPagination ? totalCount > 0 : mortgages.length > 0) && (
         <div className="no-print kpi-summary-cards grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 w-full min-w-0">
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
-            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Showing Files</span>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+              {useServerCentenaryPagination ? 'Total Records' : 'Showing Files'}
+            </span>
             <span className="text-base font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums truncate block mt-1">
-              {filteredMortgages.length} <span className="text-xs font-normal text-slate-400">/ {mortgages.length}</span>
+              {useServerCentenaryPagination ? (
+                <>
+                  {mortgages.length}{' '}
+                  <span className="text-xs font-normal text-slate-400">/ {totalCount.toLocaleString()}</span>
+                </>
+              ) : (
+                <>
+                  {filteredMortgages.length}{' '}
+                  <span className="text-xs font-normal text-slate-400">/ {mortgages.length}</span>
+                </>
+              )}
             </span>
           </div>
           <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow min-w-0">
@@ -932,7 +1063,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
 
       {/* Full Register Container (Table + All-Fields Cards View) */}
       <div className="mortgage-print-table-wrap bg-white dark:bg-slate-900 print:bg-white rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden w-full min-w-0">
-        {!loading && filteredMortgages.length > 0 && (
+        {(useServerCentenaryPagination || (!loading && filteredMortgages.length > 0)) && (
           <div className="no-print px-5 py-3 bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 shadow-2xs">
@@ -962,11 +1093,13 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 </button>
               </div>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">
-                8-Column Preview · Click any row to inspect or edit all 19 fields
+                {useServerCentenaryPagination
+                  ? 'Paginated Lightweight Register · Click any row to load all 19 fields'
+                  : '8-Column Preview · Click any row to inspect or edit all 19 fields'}
               </span>
             </div>
 
-            {viewMode === 'table' && (
+            {viewMode === 'table' && !useServerCentenaryPagination && (
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -991,7 +1124,77 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
           </div>
         )}
 
-        {loading ? (
+        {useServerCentenaryPagination ? (
+          <>
+            <MortgageRegisterTable
+              records={mortgages}
+              loading={loading}
+              page={page}
+              pageSize={pageSize}
+              totalCount={totalCount}
+              onPageChange={(nextPage) => setPage(nextPage)}
+              onPageSizeChange={(nextSize) => {
+                setPageSize(nextSize);
+                setPage(1);
+              }}
+              onInspectRecord={handleInspectRecord}
+              onEditRecord={handleEditRequest}
+              onDeleteRecord={(record) => {
+                setConfirmDeleteId(String(record.id));
+                handleInspectRecord(record);
+              }}
+              canModifyRecord={(record) => canUserModifyMortgage(effectiveUser, record)}
+              viewOnlyBranchLabel={
+                effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'
+              }
+              printTotals={{
+                loan: filteredTotals.loan,
+                grandTotal: filteredTotals.grandTotal,
+              }}
+              emptyState={
+                <div className="py-6 space-y-3">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    No Mortgage Files Found
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                    There are currently no mortgage or security files recorded under {bankName} matching your search filter.
+                  </p>
+                  <div className="no-print flex items-center justify-center gap-2.5 pt-1">
+                    {canImportMortgages && (
+                      <button
+                        type="button"
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>Import Excel</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!canAddInActiveBranchView}
+                      title={addDisabledTooltip}
+                      onClick={() => setIsModalOpen(true)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed"
+                    >
+                      {canAddInActiveBranchView ? '+ Add Mortgage File' : 'Add Mortgage (View-Only)'}
+                    </button>
+                  </div>
+                </div>
+              }
+            />
+            <div className="hidden print:block print-only mt-3 pt-2 border-t border-slate-300 text-[8.5pt] text-slate-600">
+              <div className="flex items-center justify-between">
+                <span>
+                  MUHUMUZA-KIIZA ADVOCATES &amp; LEGAL CONSULTANTS · {bankName} ({reportPeriodTitle})
+                </span>
+                <span>
+                  Date Printed: <strong className="text-slate-900">{printedTimestamp}</strong>
+                </span>
+              </div>
+            </div>
+          </>
+        ) : loading ? (
           <div className="p-12 text-center text-gray-500 text-sm">
             Loading {bankName} mortgage registers...
           </div>
@@ -1052,10 +1255,10 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       >
                         {m.bank_branch_station || m.bank_branch || m.client_branch_location || m.branch || 'No Bank Branch'}
                       </span>
-                      {!isCentenary && (m.firm_branch_station || m.branch_name) && (
+                      {(m.firm_branch_station || m.branch_name) && (
                         <span
                           className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-medium border border-indigo-200/80 dark:border-indigo-800/80"
-                          title="Firm Branch Station (MK Office)"
+                          title="MK Firm Branch (MK Office)"
                         >
                           MK: {m.firm_branch_station || m.branch_name}
                         </span>
@@ -1300,7 +1503,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       <td
                         className="print-col-text py-3.5 px-3.5 text-left text-xs font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 truncate whitespace-nowrap"
                         title={
-                          `${branchText}${!isCentenary && firmOfficeText ? ` · MK Office: ${firmOfficeText}` : ''}${
+                          `${branchText}${firmOfficeText ? ` · MK Office: ${firmOfficeText}` : ''}${
                             canModifyRow ? '' : ' (View-only)'
                           }`
                         }
@@ -1316,7 +1519,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                             </span>
                           )}
                         </div>
-                        {!isCentenary && firmOfficeText && (
+                        {firmOfficeText && (
                           <div className="print:hidden text-[10px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
                             MK: {firmOfficeText}
                           </div>
@@ -1468,6 +1671,11 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             </div>
 
             <div className="p-6 overflow-y-auto space-y-5 text-xs">
+              {isHydratingRecord && (
+                <div className="px-3.5 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-900 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                  Loading full 19-column financial breakdown &amp; security particulars...
+                </div>
+              )}
               {/* Section 1: Core Particulars */}
               <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-3">
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
@@ -1490,16 +1698,14 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                         '-'}
                     </span>
                   </div>
-                  {!isCentenary && (
-                    <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Firm Branch Station (MK Office)</span>
-                      <span className="font-semibold text-indigo-700 dark:text-indigo-300">
-                        {selectedRecordForView.firm_branch_station ||
-                          selectedRecordForView.branch_name ||
-                          '-'}
-                      </span>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-slate-500 dark:text-slate-400 block">MK Firm Branch (MK Office)</span>
+                    <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                      {selectedRecordForView.firm_branch_station ||
+                        selectedRecordForView.branch_name ||
+                        '-'}
+                    </span>
+                  </div>
                   <div>
                     <span className="text-slate-500 dark:text-slate-400 block">Record Year &amp; Month</span>
                     <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
@@ -1815,7 +2021,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                           const rec = selectedRecordForView;
                           setConfirmDeleteId(null);
                           setSelectedRecordForView(null);
-                          setSelectedRecordForEdit(rec);
+                          handleEditRequest(rec);
                         }}
                         className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:opacity-70 disabled:cursor-not-allowed"
                       >

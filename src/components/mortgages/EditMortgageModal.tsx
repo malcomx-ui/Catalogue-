@@ -11,7 +11,6 @@ import {
 import { showCleanMessage } from '../../utils/notification';
 import { X, FileText, ArrowRightLeft, Calculator, Loader2, Lock } from 'lucide-react';
 import {
-  isCentenaryBank,
   isSuperAdminOnlyBank,
   isIMBank,
   isBarodaBank,
@@ -94,7 +93,6 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
   const [bankNameField, setBankNameField] = useState(
     record?.bank_name || record?.client_bank_name || 'Centenary Bank'
   );
-  const isCentenary = isCentenaryBank(bankNameField);
   const [mortgagorName, setMortgagorName] = useState(
     record?.client_name || record?.mortgagor_name || record?.borrower_name || ''
   );
@@ -268,17 +266,15 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
       return;
     }
 
-    const effectiveFirmName = isCentenary
-      ? ''
-      : isGlobalAdmin
+    const effectiveFirmName = isGlobalAdmin
       ? firmBranchStation.trim() || assignedBranchMeta.name
       : assignedBranchMeta.name;
-    const effectiveFirmMeta = isCentenary
-      ? { id: '', name: '' }
-      : resolveBranchMeta(!isGlobalAdmin ? assignedBranchMeta.id : undefined, effectiveFirmName);
+    const effectiveFirmMeta = resolveBranchMeta(
+      !isGlobalAdmin ? assignedBranchMeta.id : undefined,
+      effectiveFirmName
+    );
 
     if (
-      !isCentenary &&
       !isGlobalAdmin &&
       !canUserModifyMortgage(effectiveUser, {
         branch_id: effectiveFirmMeta.id,
@@ -511,9 +507,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
           {!canModifyRecord && (
             <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-300 rounded-xl text-xs font-medium">
-              {isCentenary
-                ? 'View-Only Mode: Your role does not permit modifying this Centenary Bank register entry.'
-                : `View-Only Mode: This mortgage belongs to ${firmBranchStation}. Your account can only edit files assigned to your MK branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`}
+              {`View-Only Mode: This mortgage belongs to ${firmBranchStation}. Your account can only edit files assigned to your MK branch (${effectiveUser?.branchName || currentUser?.branchName || 'your station'}).`}
             </div>
           )}
           {error && (
@@ -609,36 +603,34 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                   </p>
                 </div>
 
-                {!isCentenary && (
-                  <div>
-                    <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Firm Branch Station (MK Advocates Office)
-                    </label>
-                    <select
-                      value={firmBranchStation}
-                      onChange={(e) => {
-                        if (isGlobalAdmin) setFirmBranchStation(e.target.value);
-                      }}
-                      disabled={!canModifyRecord || !isGlobalAdmin}
-                      className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-medium ${
-                        !canModifyRecord || !isGlobalAdmin
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed'
-                          : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
-                      }`}
-                    >
-                      {firmBranchOptions.map((b) => (
-                        <option key={b.id} value={b.name}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className={`text-[10px] mt-1 ${!isGlobalAdmin ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                      {!isGlobalAdmin
-                        ? `Defaulted & locked to your MK office: ${assignedBranchMeta.name}`
-                        : 'MK Advocates office processing instructions'}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    MK Firm Branch (MK Advocates Office)
+                  </label>
+                  <select
+                    value={firmBranchStation}
+                    onChange={(e) => {
+                      if (isGlobalAdmin) setFirmBranchStation(e.target.value);
+                    }}
+                    disabled={!canModifyRecord || !isGlobalAdmin}
+                    className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2 focus:ring-1 focus:ring-blue-500 focus:outline-none font-medium ${
+                      !canModifyRecord || !isGlobalAdmin
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed'
+                        : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
+                    }`}
+                  >
+                    {firmBranchOptions.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className={`text-[10px] mt-1 ${!isGlobalAdmin ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {!isGlobalAdmin
+                      ? `Defaulted & locked to your MK office: ${assignedBranchMeta.name}`
+                      : 'MK Advocates office processing instructions'}
+                  </p>
+                </div>
 
                 <div>
                   <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">Loan Amount (UGX) *</label>
@@ -767,39 +759,37 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {!isCentenary && (
-                  <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Firm Branch Station (MK Advocates Office) *
-                    </label>
-                    <select
-                      value={firmBranchStation}
-                      onChange={(e) => {
-                        if (isGlobalAdmin) setFirmBranchStation(e.target.value);
-                      }}
-                      disabled={!canModifyRecord || !isGlobalAdmin}
-                      className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-medium ${
-                        !canModifyRecord || !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
-                      }`}
-                    >
-                      {firmBranchOptions.map((b) => (
-                        <option key={b.id} value={b.name}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                      Bank Handling Branch remains preserved as: <strong>{bankBranchStation || 'Not set'}</strong>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    MK Firm Branch (MK Advocates Office) *
+                  </label>
+                  <select
+                    value={firmBranchStation}
+                    onChange={(e) => {
+                      if (isGlobalAdmin) setFirmBranchStation(e.target.value);
+                    }}
+                    disabled={!canModifyRecord || !isGlobalAdmin}
+                    className={`w-full border border-slate-300 dark:border-slate-700 rounded-lg p-2.5 focus:outline-none focus:border-blue-500 font-medium ${
+                      !canModifyRecord || !isGlobalAdmin ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100'
+                    }`}
+                  >
+                    {firmBranchOptions.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    Bank Handling Branch remains preserved as: <strong>{bankBranchStation || 'Not set'}</strong>
+                  </p>
+                  {!isGlobalAdmin && (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                      Only Super Admin / Firm Admin may transfer mortgages to another MK office.
                     </p>
-                    {!isGlobalAdmin && (
-                      <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
-                        Only Super Admin / Firm Admin may transfer mortgages to another MK office.
-                      </p>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
 
-                <div className={isCentenary ? 'sm:col-span-2' : ''}>
+                <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Firm Department *</label>
                   <select
                     value={department}

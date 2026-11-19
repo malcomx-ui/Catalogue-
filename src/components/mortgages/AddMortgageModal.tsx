@@ -23,7 +23,6 @@ import {
   Loader2,
 } from 'lucide-react';
 import {
-  isCentenaryBank,
   isSuperAdminOnlyBank,
   isIMBank,
   isBarodaBank,
@@ -58,6 +57,18 @@ const DEFAULT_FIRM_BRANCHES = [
   { id: 'jnj-reg', name: 'Jinja Regional Office' },
   { id: 'glu-reg', name: 'Gulu Regional Office' },
   { id: 'msn-reg', name: 'Masindi Regional Office' },
+];
+
+const FILE_STATUS_OPTIONS = [
+  { value: 'Active / Processing', label: 'Active / Processing' },
+  { value: 'Completed / Cleared', label: 'Completed / Cleared' },
+  { value: 'Pending Valuation', label: 'Pending Valuation' },
+  { value: 'On Hold', label: 'On Hold' },
+  { value: 'Under Preparation', label: 'Under Preparation' },
+  { value: 'Sent for Registration', label: 'Sent for Registration' },
+  { value: 'Registered', label: 'Registered (Custody Safe)' },
+  { value: 'Pending Release', label: 'Pending Release' },
+  { value: 'Released / Discharged', label: 'Released / Discharged' },
 ];
 
 export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
@@ -101,7 +112,6 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   );
   const effectiveSelectedBank =
     !isStrictSuper && isSuperAdminOnlyBank(selectedBank) ? 'Centenary Bank' : selectedBank;
-  const isCentenary = isCentenaryBank(effectiveSelectedBank);
 
   // Reporting Period (defaults to selected month if provided, else current year and current month)
   const [recordYear, setRecordYear] = useState<number>(() => new Date().getFullYear());
@@ -160,6 +170,8 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
   const [dateOfReturn, setDateOfReturn] = useState<string>('');
   // 19) comments (Text)
   const [comments, setComments] = useState<string>('');
+  // 20) status (File Status dropdown)
+  const [status, setStatus] = useState<string>('Active / Processing');
 
   // UI state
   const [loading, setLoading] = useState<boolean>(false);
@@ -221,17 +233,15 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       return;
     }
 
-    const effectiveFirmBranchName = isCentenary
-      ? ''
-      : isGlobalAdmin
+    const effectiveFirmBranchName = isGlobalAdmin
       ? firmBranchStation.trim() || assignedBranchLabel
       : assignedBranchLabel;
-    const effectiveFirmMeta = isCentenary
-      ? { id: '', name: '' }
-      : resolveBranchMeta(!isGlobalAdmin ? assignedBranchMeta.id : undefined, effectiveFirmBranchName);
+    const effectiveFirmMeta = resolveBranchMeta(
+      !isGlobalAdmin ? assignedBranchMeta.id : undefined,
+      effectiveFirmBranchName
+    );
 
     if (
-      !isCentenary &&
       !isGlobalAdmin &&
       !canUserModifyMortgage(effectiveUser, {
         branch_id: effectiveFirmMeta.id,
@@ -280,7 +290,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
       date_of_payment: dateOfPayment || null,
       date_of_return: dateOfReturn || null,
       comments: comments.trim(),
-      status: dateOfReturn ? 'Completed / Cleared' : 'Active / Processing',
+      status: status || (dateOfReturn ? 'Completed / Cleared' : 'Active / Processing'),
       source_sheet: 'Tracker Entry',
       record_year: recordYear ? parseInt(String(recordYear), 10) : new Date().getFullYear(),
       month_sheet: monthSheet || MONTHS[new Date().getMonth()],
@@ -465,9 +475,9 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               <span>1. Basic File Particulars &amp; Receipt</span>
             </div>
 
-            <div className={`grid grid-cols-1 ${isCentenary ? 'sm:grid-cols-6' : 'sm:grid-cols-4'} gap-3.5`}>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
               {/* 1. date_of_receipt */}
-              <div className={isCentenary ? 'sm:col-span-2' : ''}>
+              <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Date of Receipt <span className="text-rose-500">*</span>
                 </label>
@@ -481,7 +491,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 2a. bank_branch_station (Lending Bank Handling Branch - always editable) */}
-              <div className={isCentenary ? 'sm:col-span-2' : ''}>
+              <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Bank Branch Station
                 </label>
@@ -493,52 +503,48 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                   onChange={(e) => setBankBranchStation(e.target.value)}
                   className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
-                {!isCentenary && (
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                    Bank handling branch (editable)
-                  </p>
-                )}
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                  Bank handling branch (editable)
+                </p>
               </div>
 
-              {/* 2b. firm_branch_station (MK Advocates Office - omitted completely for Centenary Bank) */}
-              {!isCentenary && (
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Firm Branch Station (MK Office)
-                  </label>
-                  {isGlobalAdmin ? (
-                    <select
-                      name="firm_branch_station"
-                      value={firmBranchStation}
-                      onChange={(e) => setFirmBranchStation(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    >
-                      {firmBranchOptions.map((b) => (
-                        <option key={b.id} value={b.name}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      name="firm_branch_station"
-                      value={assignedBranchLabel}
-                      disabled
-                      readOnly
-                      className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium cursor-not-allowed"
-                    />
-                  )}
-                  <p className={`text-[10px] mt-1 ${!isGlobalAdmin ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                    {!isGlobalAdmin
-                      ? `Locked to your MK office: ${assignedBranchLabel}`
-                      : 'MK Advocates office processing instructions'}
-                  </p>
-                </div>
-              )}
+              {/* 2b. firm_branch_station (MK Advocates Office) */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  MK Firm Branch (MK Office)
+                </label>
+                {isGlobalAdmin ? (
+                  <select
+                    name="firm_branch_station"
+                    value={firmBranchStation}
+                    onChange={(e) => setFirmBranchStation(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    {firmBranchOptions.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    name="firm_branch_station"
+                    value={assignedBranchLabel}
+                    disabled
+                    readOnly
+                    className="w-full border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-medium cursor-not-allowed"
+                  />
+                )}
+                <p className={`text-[10px] mt-1 ${!isGlobalAdmin ? 'text-amber-700 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {!isGlobalAdmin
+                    ? `Locked to your MK office: ${assignedBranchLabel}`
+                    : 'MK Advocates office processing instructions'}
+                </p>
+              </div>
 
               {/* 4. rim_no */}
-              <div className={isCentenary ? 'sm:col-span-2' : ''}>
+              <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   RIM NO.
                 </label>
@@ -552,7 +558,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 3. client_name / name (Required) */}
-              <div className={isCentenary ? 'sm:col-span-3' : 'sm:col-span-2'}>
+              <div className="sm:col-span-2">
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Client Name / Name <span className="text-rose-500">* (Required)</span>
                 </label>
@@ -567,7 +573,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
               </div>
 
               {/* 6. loan_amount */}
-              <div className={isCentenary ? 'sm:col-span-3' : 'sm:col-span-2'}>
+              <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Loan Amount (UGX)
                 </label>
@@ -585,8 +591,27 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
                 </div>
               </div>
 
+              {/* File Status dropdown */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  File Status
+                </label>
+                <select
+                  name="status"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                  {FILE_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* 5. property_description / description */}
-              <div className={isCentenary ? 'sm:col-span-6' : 'sm:col-span-4'}>
+              <div className="sm:col-span-4">
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Property Description / Description
                 </label>

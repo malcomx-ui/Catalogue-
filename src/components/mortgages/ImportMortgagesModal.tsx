@@ -18,7 +18,7 @@ import {
   canUserImportMortgages,
   resolveBranchMeta,
 } from '../../lib/supabase';
-import { isCentenaryBank, isSuperAdminOnlyBank } from './banks/bankConfigs';
+import { isSuperAdminOnlyBank } from './banks/bankConfigs';
 
 const DEFAULT_FIRM_BRANCHES = [
   { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
@@ -81,7 +81,6 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
   const [selectedBank, setSelectedBank] = useState<string>(() =>
     !isStrictSuper && isSuperAdminOnlyBank(defaultBank) ? 'Centenary Bank' : defaultBank
   );
-  const isCentenary = isCentenaryBank(selectedBank);
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [recordYear, setRecordYear] = useState<number>(
     defaultYear || new Date().getFullYear()
@@ -125,13 +124,12 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
       monthSheet: selectedMonth,
       recordYear: recordYear || new Date().getFullYear(),
       sheetSelection,
-      firmBranchStation: isCentenary ? '' : isGlobalAdmin ? firmBranchStation : assignedBranchMeta.name,
-      branchId: isCentenary ? '' : isGlobalAdmin ? targetFirmMeta.id : assignedBranchMeta.id,
+      firmBranchStation: isGlobalAdmin ? firmBranchStation : assignedBranchMeta.name,
+      branchId: isGlobalAdmin ? targetFirmMeta.id : assignedBranchMeta.id,
     });
   }, [
     workbookExtractor,
     selectedBank,
-    isCentenary,
     selectedMonth,
     recordYear,
     sheetSelection,
@@ -328,7 +326,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
               <span>1. Target Bank &amp; Reporting Month</span>
             </div>
 
-            <div className={`grid grid-cols-1 ${isCentenary ? 'sm:grid-cols-3' : 'sm:grid-cols-4'} gap-3.5`}>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Target Bank <span className="text-rose-500">*</span>
@@ -347,25 +345,23 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                 </select>
               </div>
 
-              {!isCentenary && (
-                <div>
-                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Firm Branch Station (MK Office) <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={firmBranchStation}
-                    onChange={(e) => setFirmBranchStation(e.target.value)}
-                    disabled={importing || !isGlobalAdmin}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:opacity-60"
-                  >
-                    {firmBranchOptions.map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  MK Firm Branch (MK Office) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={firmBranchStation}
+                  onChange={(e) => setFirmBranchStation(e.target.value)}
+                  disabled={importing || !isGlobalAdmin}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none disabled:opacity-60"
+                >
+                  {firmBranchOptions.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -483,9 +479,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                       <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 whitespace-nowrap">
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Client Name</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Bank Branch Station</th>
-                        {!isCentenary && (
-                          <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Firm Office (MK)</th>
-                        )}
+                        <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Firm Office (MK)</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">RIM No.</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap">Property Description</th>
                         <th className="py-2.5 px-3.5 font-semibold whitespace-nowrap text-right">Loan Amount</th>
@@ -501,9 +495,7 @@ export const ImportMortgagesModal: React.FC<ImportMortgagesModalProps> = ({
                         <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 divide-x divide-slate-100/70 dark:divide-slate-800/70 whitespace-nowrap">
                           <td className="py-2.5 px-3.5 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">{rec.client_name}</td>
                           <td className="py-2.5 px-3.5 whitespace-nowrap">{rec.bank_branch_station || rec.branch || '-'}</td>
-                          {!isCentenary && (
-                            <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">{rec.firm_branch_station || firmBranchStation}</td>
-                          )}
+                          <td className="py-2.5 px-3.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">{rec.firm_branch_station || firmBranchStation}</td>
                           <td className="py-2.5 px-3.5 font-mono tabular-nums whitespace-nowrap">{rec.rim_no || '-'}</td>
                           <td className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                             {rec.property_description || '-'}
