@@ -74,7 +74,12 @@ export type NavigationTab =
   | 'mortgages'
   | 'branches'
   | 'legal_team'
-  | 'hr';
+  | 'hr'
+  | 'approvals'
+  | 'messenger'
+  | 'research'
+  | 'correspondence'
+  | 'audit_trail';
 
 const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageAction?: MortgageViewAction }> = [
   { prefix: '/litigation/cases', tab: 'catalogue' },
@@ -93,6 +98,11 @@ const ROUTE_TO_TAB_MAP: Array<{ prefix: string; tab: NavigationTab; mortgageActi
   { prefix: '/sync-hub', tab: 'synchub' },
   { prefix: '/roles', tab: 'roles' },
   { prefix: '/hr', tab: 'hr' },
+  { prefix: '/approvals', tab: 'approvals' },
+  { prefix: '/messenger', tab: 'messenger' },
+  { prefix: '/research', tab: 'research' },
+  { prefix: '/correspondence', tab: 'correspondence' },
+  { prefix: '/audit-trail', tab: 'audit_trail' },
   { prefix: '/settings', tab: 'settings' },
   { prefix: '/dashboard', tab: 'dashboard' },
 ];
@@ -132,6 +142,16 @@ export const getRoutePathForTab = (
       return '/roles';
     case 'hr':
       return '/hr';
+    case 'approvals':
+      return '/approvals';
+    case 'messenger':
+      return '/messenger';
+    case 'research':
+      return '/research';
+    case 'correspondence':
+      return '/correspondence';
+    case 'audit_trail':
+      return '/audit-trail';
     case 'settings':
       return '/settings';
     default:
