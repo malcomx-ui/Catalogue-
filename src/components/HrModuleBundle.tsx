@@ -1,7 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { hrSupabase, ActiveUser, isSuperAdminUser, syncFirmUsersToHrModule } from '../lib/hrSupabase';
+import {
+  hrSupabase,
+  ActiveUser,
+  isSuperAdminUser,
+  syncFirmUsersToHrModule,
+  getStaffLeaveBalances,
+  type StaffLeaveBalance,
+} from '../lib/hrSupabase';
 import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
+import {
+  StaffMemberWorkspace,
+  type WorkspaceLeaveItem,
+  type WorkspaceStaffProfile,
+} from './legal-team/StaffMemberWorkspace';
+import { INITIAL_APPROVAL_ITEMS } from './ErpWorkspaceViews';
 import {
   Users,
   UserPlus,
@@ -764,8 +777,11 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
   const isAuthorized = !gateForSuperAdmin || isSuperAdminUser(currentUser);
 
   const [activeSubTab, setActiveSubTab] = useState<'employees' | 'leaves' | 'birthdays'>('employees');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [employees, setEmployees] = useState<HrEmployee[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<HrLeaveRequest[]>([]);
+  const [leaveBalancesById, setLeaveBalancesById] = useState<Record<string, StaffLeaveBalance>>({});
+  const [leaveBalancesByEmail, setLeaveBalancesByEmail] = useState<Record<string, StaffLeaveBalance>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [syncingStaff, setSyncingStaff] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -813,6 +829,12 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
     setLoading(true);
     setErrorMsg(null);
     try {
+      void getStaffLeaveBalances({ defaultAnnualAllowance: 21 }).then((res) => {
+        if (res.success) {
+          setLeaveBalancesById(res.byEmployeeId);
+          setLeaveBalancesByEmail(res.byEmail);
+        }
+      });
       // Automatically sync auth.users / firm profiles into the HR `employees` table on load
       const [syncResult, leaveRes, firmProfiles] = await Promise.all([
         syncFirmUsersToHrModule({ fallbackUsers: availableUsers }),
@@ -1223,6 +1245,98 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
     }
   };
 
+  const selectedEmployee = useMemo(
+    () => (selectedEmployeeId ? employees.find((e) => e.id === selectedEmployeeId) || null : null),
+    [selectedEmployeeId, employees]
+  );
+
+  const hrWorkspaceLeaves: WorkspaceLeaveItem[] = useMemo(() => {
+    const byId = new Map(employees.map((e) => [e.id, e]));
+    return leaveRequests.map((lr) => {
+      const emp = byId.get(lr.employee_id);
+      const fullName = emp ? `${emp.first_name} ${emp.last_name}`.trim() : 'Firm Staff';
+      const normStatus = String(lr.status || 'Pending').toLowerCase();
+      return {
+        id: lr.id,
+        employee_id: lr.employee_id,
+        employeeName: fullName,
+        employeeEmail: emp?.email || '',
+        branchName: emp?.department || 'Kampala Central (Head Office)',
+        leave_type: lr.leave_type || 'Annual Leave',
+        start_date: lr.start_date,
+        end_date: lr.end_date,
+        days: calcCalendarDays(lr.start_date, lr.end_date) || 1,
+        reason: lr.reason || '',
+        status:
+          normStatus === 'approved'
+            ? 'Approved'
+            : normStatus === 'rejected'
+            ? 'Rejected'
+            : 'Pending',
+        created_at: lr.created_at || new Date().toISOString(),
+        persistedInSupabase: true,
+      };
+    });
+  }, [leaveRequests, employees]);
+
+  const selectedWorkspaceProfile: WorkspaceStaffProfile | null = useMemo(() => {
+    if (!selectedEmployee) return null;
+    const fullName = `${selectedEmployee.first_name} ${selectedEmployee.last_name}`.trim();
+    const em = (selectedEmployee.email || '').trim().toLowerCase();
+    const bal =
+      leaveBalancesById[selectedEmployee.id.toLowerCase()] || (em ? leaveBalancesByEmail[em] : undefined);
+    const annualAllowance = bal?.annual_allowance ?? 21;
+    const usedLeaveDays =
+      bal?.used_days ??
+      hrWorkspaceLeaves
+        .filter(
+          (l) =>
+            l.employee_id === selectedEmployee.id &&
+            l.status === 'Approved' &&
+            l.leave_type.toLowerCase().includes('annual')
+        )
+        .reduce((acc, l) => acc + l.days, 0);
+    const pendingLeaveDays =
+      bal?.pending_days ??
+      hrWorkspaceLeaves
+        .filter(
+          (l) =>
+            l.employee_id === selectedEmployee.id &&
+            l.status === 'Pending' &&
+            l.leave_type.toLowerCase().includes('annual')
+        )
+        .reduce((acc, l) => acc + l.days, 0);
+    const otherLeaveDays = bal?.other_used_days ?? 0;
+    const leaveRemaining = Math.max(0, annualAllowance - usedLeaveDays);
+    const leaveRemainingPercent = Math.min(
+      100,
+      Math.max(0, Math.round((leaveRemaining / Math.max(1, annualAllowance)) * 100))
+    );
+    const statusNorm = (selectedEmployee.status || 'Active').toLowerCase();
+
+    return {
+      id: selectedEmployee.id,
+      name: fullName || 'Firm Staff',
+      email: selectedEmployee.email || 'staff@mkadvocates.ug',
+      phone: selectedEmployee.phone_number || undefined,
+      roleTitle: selectedEmployee.job_title || 'Staff Member',
+      role: selectedEmployee.job_title || 'lawyer',
+      branchName: selectedEmployee.department || 'Kampala Central (Head Office)',
+      department: selectedEmployee.department || undefined,
+      isActive: statusNorm === 'active',
+      statusLabel: selectedEmployee.status || 'Active',
+      annualAllowance,
+      usedLeaveDays,
+      pendingLeaveDays,
+      otherLeaveDays,
+      leaveRemaining,
+      leaveRemainingPercent,
+      dateOfBirth: selectedEmployee.date_of_birth,
+      joinedAt: selectedEmployee.created_at || null,
+      isUuid: UUID_REGEX.test(selectedEmployee.id),
+    };
+  }, [selectedEmployee, leaveBalancesById, leaveBalancesByEmail, hrWorkspaceLeaves]);
+
   // Super Admin Gate
   if (!isAuthorized) {
     return (
@@ -1242,6 +1356,22 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12 text-slate-900 dark:text-slate-100">
+      {selectedWorkspaceProfile && selectedEmployee ? (
+        <StaffMemberWorkspace
+          staff={selectedWorkspaceProfile}
+          onBack={() => setSelectedEmployeeId(null)}
+          leaveRequests={hrWorkspaceLeaves}
+          onLeaveStatusChange={(record, nextStatus) => {
+            const matched = leaveRequests.find((lr) => lr.id === record.id);
+            if (matched) {
+              void handleLeaveDecision(matched, nextStatus);
+            }
+          }}
+          approvals={INITIAL_APPROVAL_ITEMS}
+          onApplyLeave={(empId) => openNewLeaveModal(empId)}
+        />
+      ) : (
+      <>
       {/* Executive Header */}
       <div className="bg-slate-950 text-white rounded-2xl p-6 border border-slate-900 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -1531,14 +1661,23 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                     >
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-blue-600/20 text-white dark:text-blue-300 border border-slate-800 dark:border-blue-500/30 flex items-center justify-center text-xs font-bold shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEmployeeId(emp.id)}
+                            className="w-9 h-9 rounded-full bg-slate-900 dark:bg-blue-600/20 text-white dark:text-blue-300 border border-slate-800 dark:border-blue-500/30 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-500 transition"
+                            title="Open Staff Member Workspace"
+                          >
                             {getInitials(emp.first_name, emp.last_name)}
-                          </div>
+                          </button>
                           <div>
                             <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
-                              <span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedEmployeeId(emp.id)}
+                                className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition text-left cursor-pointer"
+                              >
                                 {emp.first_name} {emp.last_name}
-                              </span>
+                              </button>
                               {(emp.source === 'hr_synced' || emp.source === 'firm_profile') && (
                                 <span
                                   className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[10px] font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/70"
@@ -1607,6 +1746,15 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                           </div>
                         ) : (
                           <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedEmployeeId(emp.id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition cursor-pointer"
+                              title="Open Staff Member Workspace"
+                            >
+                              <span>Workspace</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => openNewLeaveModal(emp.id)}
@@ -1785,6 +1933,8 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
       {/* TAB 3: BIRTHDAYS & WISHES */}
       {activeSubTab === 'birthdays' && (
         <BirthdayWidget currentUserId={currentUser?.id || ''} />
+      )}
+      </>
       )}
 
       {/* MODAL: ADD / EDIT EMPLOYEE */}

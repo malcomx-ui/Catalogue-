@@ -329,48 +329,93 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
   // Branch-scoped live cases
   const branchScopedCases = useMemo(() => {
-    if (!activeBranchId || activeBranchId === 'all') return cases;
-    const targetBranch = branches.find((b) => b.id === activeBranchId);
-    const targetCity = (targetBranch?.city || '').toLowerCase();
-    const targetName = (targetBranch?.name || activeBranchLabel || '').toLowerCase();
+    const normalizedBranchId = String(activeBranchId || '').trim().toLowerCase();
+    if (
+      !normalizedBranchId ||
+      normalizedBranchId === 'all' ||
+      normalizedBranchId === 'all firm branches' ||
+      normalizedBranchId === '(all firm branches)'
+    ) {
+      return cases;
+    }
+
+    const targetBranch = branches.find((b) => b.id.toLowerCase() === normalizedBranchId);
+    const targetCity = (targetBranch?.city || '').trim().toLowerCase();
+    const targetName = (targetBranch?.name || activeBranchLabel || '').trim().toLowerCase();
 
     return cases.filter((c) => {
-      const bId = c.branchId;
-      const bName = (c.branch || c.branchName || '').toLowerCase();
+      const bId = String(c.branchId || '').trim().toLowerCase();
+      const bName = String(c.branch || c.branchName || '').trim().toLowerCase();
       return (
-        bId === activeBranchId ||
-        (targetCity && bName.includes(targetCity)) ||
-        (targetName && bName.includes(targetName))
+        (bId !== '' && bId === normalizedBranchId) ||
+        (targetCity !== '' && (bName.includes(targetCity) || bId.includes(targetCity))) ||
+        (targetName !== '' &&
+          bName !== '' &&
+          (bName.includes(targetName) || (bName.length >= 3 && targetName.includes(bName))))
       );
     });
   }, [cases, activeBranchId, branches, activeBranchLabel]);
 
-  // Live KPI metrics
+  // Live KPI metrics (strictly tallied from branchScopedCases)
   const kpiMetrics = useMemo(() => {
     let pendingCount = 0;
+    let activePendingCount = 0;
+    let inactivePendingCount = 0;
     let accomplishedCount = 0;
 
     branchScopedCases.forEach((c) => {
-      const s = String(c.status || 'Active').toLowerCase();
+      const s = String(c.status || 'Active').trim().toLowerCase();
+      const stage = String(c.stage || '').trim().toLowerCase();
       const isClosed =
         s === 'closed' ||
         s === 'concluded' ||
         s === 'archived' ||
+        s === 'disposed' ||
+        s === 'completed' ||
         s.includes('closed') ||
         s.includes('concluded') ||
+        s.includes('disposed') ||
         s.includes('judgment') ||
+        stage.includes('disposed') ||
+        stage.includes('closed') ||
         Boolean(c.year_of_closure);
+
       if (isClosed) {
         accomplishedCount += 1;
       } else {
         pendingCount += 1;
+        const explicitInactiveFlag =
+          (c as any).is_active === false || (c as any).isActive === false;
+        const isInactiveStatus =
+          explicitInactiveFlag ||
+          s.includes('inactive') ||
+          s.includes('innactive') ||
+          s.includes('dormant') ||
+          s.includes('on_hold') ||
+          s.includes('on hold') ||
+          s.includes('on-hold') ||
+          s.includes('paused') ||
+          s.includes('stayed') ||
+          s.includes('suspended') ||
+          s.includes('abeyance');
+
+        if (isInactiveStatus) {
+          inactivePendingCount += 1;
+        } else {
+          activePendingCount += 1;
+        }
       }
     });
 
-    const vaultCustodyCount = Math.max(documents.length, branchScopedCases.length > 0 ? Math.min(branchScopedCases.length, 48) : 14);
+    const vaultCustodyCount = Math.max(
+      documents.length,
+      branchScopedCases.length > 0 ? Math.min(branchScopedCases.length, 48) : 14
+    );
 
     return {
       pendingCases: pendingCount,
+      activePendingCases: activePendingCount,
+      inactivePendingCases: inactivePendingCount,
       accomplishedCases: accomplishedCount,
       vaultCustody: vaultCustodyCount,
       approvals: pendingApprovalsCount,
@@ -963,7 +1008,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl p-5 transition cursor-pointer group"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
@@ -976,16 +1021,27 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               <FolderClock className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="font-semibold text-blue-700 dark:text-blue-400">Active docket</span>
-            <span className="text-slate-500 dark:text-slate-400 truncate max-w-[140px]">{activeBranchLabel}</span>
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs tabular-nums">
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+                <span>Active:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{kpiMetrics.activePendingCases}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
+                <span>Innactive:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{kpiMetrics.inactivePendingCases}</span>
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              {activeBranchLabel}
+            </p>
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl p-5 transition cursor-pointer group"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
@@ -1007,7 +1063,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenDocuments ? onOpenDocuments() : setActiveTab('documents'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 transition cursor-pointer group"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
@@ -1029,7 +1085,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenApprovals ? onOpenApprovals() : setActiveTab('approvals'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-2xl p-5 transition cursor-pointer group"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
