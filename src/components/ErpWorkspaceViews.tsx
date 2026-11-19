@@ -1,6 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
+import CashRequisitionModule from './CashRequisitionModule';
+import type {
+  ApprovalActionType,
+  CashRequisitionItem,
+  CreateCashRequisitionInput,
+  RequisitionNotification,
+} from '../lib/cashRequisitionStore';
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -13,13 +20,16 @@ import {
   Network,
   Users,
   Lock,
+  Banknote,
+  Bell,
+  ArrowRight,
 } from 'lucide-react';
 
 export interface ApprovalWorkflowItem {
   id: string;
   code: string;
   title: string;
-  category: 'Fee Note' | 'Vault Release' | 'Filing Clearance';
+  category: 'Fee Note' | 'Vault Release' | 'Filing Clearance' | 'Cash Requisition';
   requester: string;
   branch: string;
   submittedAt: string;
@@ -106,7 +116,37 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 export const ApprovalsQueueView: React.FC<{
   approvals: ApprovalWorkflowItem[];
   onDecide: (id: string, decision: 'Approved' | 'Rejected') => void;
-}> = ({ approvals, onDecide }) => {
+  cashRequisitions?: CashRequisitionItem[];
+  cashNotifications?: RequisitionNotification[];
+  onCreateCashRequisition?: (input: CreateCashRequisitionInput) => CashRequisitionItem;
+  onDecideCashRequisition?: (
+    req: CashRequisitionItem,
+    action: ApprovalActionType,
+    reason: string
+  ) => { updated: CashRequisitionItem; notification: RequisitionNotification } | null;
+  onMarkAllCashNotificationsRead?: () => void;
+  onMarkCashNotificationRead?: (id: string) => void;
+  currentUserName?: string;
+  currentUserRole?: string;
+  activeBranch?: string;
+  isApprover?: boolean;
+  searchQuery?: string;
+}> = ({
+  approvals,
+  onDecide,
+  cashRequisitions = [],
+  cashNotifications = [],
+  onCreateCashRequisition,
+  onDecideCashRequisition,
+  onMarkAllCashNotificationsRead,
+  onMarkCashNotificationRead,
+  currentUserName = 'Managing Partner',
+  currentUserRole = 'Senior Approver',
+  activeBranch = 'Kampala Central (Head Office)',
+  isApprover = true,
+  searchQuery = '',
+}) => {
+  const [workspaceSection, setWorkspaceSection] = useState<'all' | 'cash' | 'general'>('all');
   const [filter, setFilter] = useState<'ALL' | 'Pending' | 'Approved' | 'Rejected'>('ALL');
 
   const visible = useMemo(
@@ -114,101 +154,218 @@ export const ApprovalsQueueView: React.FC<{
     [approvals, filter]
   );
 
-  const pendingCount = approvals.filter((a) => a.status === 'Pending').length;
+  const generalPendingCount = approvals.filter((a) => a.status === 'Pending').length;
+  const activeCashCount = cashRequisitions.filter(
+    (r) => r.stage === 'Pending Review' || r.stage === 'Level 1 Approved'
+  ).length;
+  const unreadNoticeCount = cashNotifications.filter((n) => n.unread).length;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2.5">
             <ClipboardCheck className="w-6 h-6 text-blue-600" />
             Approval Workflows
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Review and authorize pending vault releases, fee notes, and urgent litigation filings.
+            Review and authorize multi-level cash requisitions, vault releases, fee notes, and urgent litigation filings.
           </p>
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start">
-          {(['ALL', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap ${
-                filter === tab
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {tab === 'Pending' ? `Pending (${pendingCount})` : tab}
-            </button>
-          ))}
+        {/* Section Switcher */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start overflow-x-auto max-w-full">
+          <button
+            type="button"
+            onClick={() => setWorkspaceSection('all')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap tabular-nums ${
+              workspaceSection === 'all'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            All Workflows ({generalPendingCount + activeCashCount} active)
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceSection('cash')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap tabular-nums ${
+              workspaceSection === 'cash'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Banknote className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            Cash Requisitions ({activeCashCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceSection('general')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap tabular-nums ${
+              workspaceSection === 'general'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            Vault, Fees &amp; Filings ({generalPendingCount})
+          </button>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {visible.map((item) => (
-          <div
-            key={item.id}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+      {/* Decision Notifications Quick Banner when on General tab */}
+      {workspaceSection === 'general' && cashNotifications.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+            <div className="text-xs min-w-0">
+              <p className="font-semibold text-slate-900 dark:text-white">
+                Latest Cash Requisition Notice: {cashNotifications[0].referenceCode} ·{' '}
+                {cashNotifications[0].status}
+                {unreadNoticeCount > 0 && (
+                  <span className="ml-2 text-blue-600 dark:text-blue-400 tabular-nums">
+                    ({unreadNoticeCount} unread)
+                  </span>
+                )}
+              </p>
+              <p className="text-slate-600 dark:text-slate-300 mt-0.5 truncate">
+                By {cashNotifications[0].actorName} — &ldquo;{cashNotifications[0].reason}&rdquo;
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWorkspaceSection('cash')}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0 cursor-pointer"
           >
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                <span className="font-mono font-semibold text-blue-700 dark:text-blue-400">{item.code}</span>
-                <span>·</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{item.category}</span>
-                <span>·</span>
-                <span>{item.branch}</span>
-                <span>·</span>
-                <span className="tabular-nums">{item.submittedAt}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Requested by <span className="font-medium text-slate-800 dark:text-slate-200">{item.requester}</span> · {item.amountOrDetail}
+            <span>Open Cash Requisitions</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Cash Requisition Multi-Level Approval Workflow Section */}
+      {(workspaceSection === 'all' || workspaceSection === 'cash') && (
+        <CashRequisitionModule
+          compactHeader={true}
+          currentUserName={currentUserName}
+          currentUserRole={currentUserRole}
+          activeBranch={activeBranch}
+          isApprover={isApprover}
+          searchQuery={searchQuery}
+          requisitions={cashRequisitions}
+          notifications={cashNotifications}
+          onCreateRequisition={onCreateCashRequisition}
+          onApplyDecision={onDecideCashRequisition}
+          onMarkAllNotificationsRead={onMarkAllCashNotificationsRead}
+          onMarkNotificationRead={onMarkCashNotificationRead}
+        />
+      )}
+
+      {/* General Firm Approvals Section (Vault Release, Fee Notes, Filing Clearances) */}
+      {(workspaceSection === 'all' || workspaceSection === 'general') && (
+        <section className="space-y-4 pt-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Vault Releases, Fee Notes &amp; Filing Clearances
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Chambers operational sign-offs awaiting managing partner authorization.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              {item.status === 'Pending' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => onDecide(item.id, 'Approved')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDecide(item.id, 'Rejected')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    Return
-                  </button>
-                </>
-              ) : (
-                <span
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                    item.status === 'Approved'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
-                      : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300'
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start">
+              {(['ALL', 'Pending', 'Approved', 'Rejected'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setFilter(tab)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer whitespace-nowrap ${
+                    filter === tab
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {item.status === 'Approved' ? (
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  ) : (
-                    <XCircle className="w-3.5 h-3.5" />
-                  )}
-                  {item.status}
-                </span>
-              )}
+                  {tab === 'Pending' ? `Pending (${generalPendingCount})` : tab}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+
+          <div className="space-y-3">
+            {visible.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+              >
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-mono font-semibold text-blue-700 dark:text-blue-400">
+                      {item.code}
+                    </span>
+                    <span>·</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      {item.category}
+                    </span>
+                    <span>·</span>
+                    <span>{item.branch}</span>
+                    <span>·</span>
+                    <span className="tabular-nums">{item.submittedAt}</span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Requested by{' '}
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      {item.requester}
+                    </span>{' '}
+                    · {item.amountOrDetail}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {item.status === 'Pending' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onDecide(item.id, 'Approved')}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDecide(item.id, 'Rejected')}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-slate-700 dark:text-slate-300 text-xs font-semibold transition cursor-pointer"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Return
+                      </button>
+                    </>
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                        item.status === 'Approved'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300'
+                      }`}
+                    >
+                      {item.status === 'Approved' ? (
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <XCircle className="w-3.5 h-3.5" />
+                      )}
+                      {item.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 };

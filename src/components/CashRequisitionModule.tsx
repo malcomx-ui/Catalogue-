@@ -11,55 +11,38 @@ import {
   Send,
   ShieldCheck,
   AlertCircle,
+  MessageSquareQuote,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
+import {
+  type RequisitionStage,
+  type ApprovalActionType,
+  type RequisitionDecisionLog,
+  type CashRequisitionItem,
+  type RequisitionNotification,
+  type CreateCashRequisitionInput,
+  INITIAL_REQUISITIONS,
+  INITIAL_NOTIFICATIONS,
+  formatRequisitionMoney,
+  loadLocalRequisitions,
+  saveLocalRequisitions,
+  loadLocalNotifications,
+  saveLocalNotifications,
+  buildNewCashRequisition,
+  applyRequisitionDecision,
+  syncCashRequisitionToSupabase,
+} from '../lib/cashRequisitionStore';
 
-export type RequisitionStage =
-  | 'Pending Review'
-  | 'Level 1 Approved'
-  | 'Approved'
-  | 'Denied';
-
-export type ApprovalActionType = 'Reviewed' | 'Approved' | 'Denied';
-
-export interface RequisitionDecisionLog {
-  id: string;
-  action: ApprovalActionType;
-  actorName: string;
-  actorRole: string;
-  levelLabel: string;
-  reason: string;
-  timestamp: string;
-}
-
-export interface CashRequisitionItem {
-  id: string;
-  referenceCode: string;
-  requesterName: string;
-  requesterRole: string;
-  branch: string;
-  caseRef?: string;
-  purpose: string;
-  amount: number;
-  currency: 'UGX' | 'USD';
-  stage: RequisitionStage;
-  currentLevel: 1 | 2;
-  createdAt: string;
-  logs: RequisitionDecisionLog[];
-}
-
-export interface RequisitionNotification {
-  id: string;
-  requisitionId: string;
-  referenceCode: string;
-  recipientName: string;
-  status: ApprovalActionType;
-  reason: string;
-  actorName: string;
-  createdAt: string;
-  unread: boolean;
-}
+export type {
+  RequisitionStage,
+  ApprovalActionType,
+  RequisitionDecisionLog,
+  CashRequisitionItem,
+  RequisitionNotification,
+  CreateCashRequisitionInput,
+};
+export { INITIAL_REQUISITIONS, INITIAL_NOTIFICATIONS };
 
 export interface CashRequisitionModuleProps {
   currentUserName?: string;
@@ -67,84 +50,19 @@ export interface CashRequisitionModuleProps {
   activeBranch?: string;
   isApprover?: boolean;
   searchQuery?: string;
+  compactHeader?: boolean;
+  /** Controlled shared state (optional — falls back to local state if omitted) */
+  requisitions?: CashRequisitionItem[];
+  notifications?: RequisitionNotification[];
+  onCreateRequisition?: (input: CreateCashRequisitionInput) => CashRequisitionItem;
+  onApplyDecision?: (
+    req: CashRequisitionItem,
+    action: ApprovalActionType,
+    reason: string
+  ) => { updated: CashRequisitionItem; notification: RequisitionNotification } | null;
+  onMarkAllNotificationsRead?: () => void;
+  onMarkNotificationRead?: (notificationId: string) => void;
   onPendingCountChange?: (count: number) => void;
-}
-
-const REQUISITIONS_STORAGE_KEY = 'mk_cash_requisitions_v1';
-const NOTIFICATIONS_STORAGE_KEY = 'mk_cash_requisition_notifications_v1';
-
-export const INITIAL_REQUISITIONS: CashRequisitionItem[] = [
-  {
-    id: 'req-1',
-    referenceCode: 'CR-2026-014',
-    requesterName: 'Amara Patel',
-    requesterRole: 'Senior Paralegal & File Custodian',
-    branch: 'Kampala Central (Head Office)',
-    caseRef: 'HC-2026-CV-019',
-    purpose: 'Court filing fees, process service & registry search stamps',
-    amount: 480000,
-    currency: 'UGX',
-    stage: 'Pending Review',
-    currentLevel: 1,
-    createdAt: '2026-11-19 09:30 AM',
-    logs: [
-      {
-        id: 'log-1',
-        action: 'Reviewed',
-        actorName: 'System Intake',
-        actorRole: 'Registry Desk',
-        levelLabel: 'Intake Check',
-        reason: 'Receipt checklist attached and case reference verified.',
-        timestamp: '2026-11-19 09:35 AM',
-      },
-    ],
-  },
-  {
-    id: 'req-2',
-    referenceCode: 'CR-2026-015',
-    requesterName: 'Julian Thorne',
-    requesterRole: 'Litigation Associate',
-    branch: 'Mbarara Regional Office',
-    caseRef: 'MB-2026-LD-008',
-    purpose: 'Witness transport & regional court appearance facilitation',
-    amount: 320000,
-    currency: 'UGX',
-    stage: 'Level 1 Approved',
-    currentLevel: 2,
-    createdAt: '2026-11-18 02:15 PM',
-    logs: [
-      {
-        id: 'log-2',
-        action: 'Approved',
-        actorName: 'Marcus Sterling',
-        actorRole: 'Branch / Litigation Lead',
-        levelLabel: 'Level 1 Approval',
-        reason: 'Regional hearing schedule confirmed; cleared for final finance sign-off.',
-        timestamp: '2026-11-18 04:40 PM',
-      },
-    ],
-  },
-];
-
-const INITIAL_NOTIFICATIONS: RequisitionNotification[] = [
-  {
-    id: 'notif-1',
-    requisitionId: 'req-2',
-    referenceCode: 'CR-2026-015',
-    recipientName: 'Julian Thorne',
-    status: 'Approved',
-    reason: 'Regional hearing schedule confirmed; cleared for final finance sign-off.',
-    actorName: 'Marcus Sterling',
-    createdAt: '2026-11-18 04:40 PM',
-    unread: true,
-  },
-];
-
-function formatMoney(amount: number, currency: 'UGX' | 'USD'): string {
-  const formatted = Number(amount || 0).toLocaleString('en-US', {
-    maximumFractionDigits: currency === 'USD' ? 2 : 0,
-  });
-  return `${currency} ${formatted}`;
 }
 
 export default function CashRequisitionModule({
@@ -153,39 +71,29 @@ export default function CashRequisitionModule({
   activeBranch = 'Kampala Central (Head Office)',
   isApprover = true,
   searchQuery = '',
+  compactHeader = false,
+  requisitions: controlledRequisitions,
+  notifications: controlledNotifications,
+  onCreateRequisition,
+  onApplyDecision,
+  onMarkAllNotificationsRead,
+  onMarkNotificationRead,
   onPendingCountChange,
 }: CashRequisitionModuleProps) {
-  const { branches } = useApp();
+  const { branches, cases } = useApp();
 
-  const [requisitions, setRequisitions] = useState<CashRequisitionItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = window.localStorage.getItem(REQUISITIONS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch {
-        // fallback to seed items
-      }
-    }
-    return INITIAL_REQUISITIONS;
-  });
+  const [localRequisitions, setLocalRequisitions] = useState<CashRequisitionItem[]>(() =>
+    loadLocalRequisitions()
+  );
+  const [localNotifications, setLocalNotifications] = useState<RequisitionNotification[]>(() =>
+    loadLocalNotifications()
+  );
 
-  const [notifications, setNotifications] = useState<RequisitionNotification[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch {
-        // fallback to seed notifications
-      }
-    }
-    return INITIAL_NOTIFICATIONS;
-  });
+  const isControlledReqs = Array.isArray(controlledRequisitions);
+  const isControlledNotifs = Array.isArray(controlledNotifications);
+
+  const requisitions = isControlledReqs ? controlledRequisitions : localRequisitions;
+  const notifications = isControlledNotifs ? controlledNotifications : localNotifications;
 
   const [filterStage, setFilterStage] = useState<'All' | RequisitionStage>('All');
 
@@ -213,12 +121,8 @@ export default function CashRequisitionModule({
   }, [activeBranch]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(REQUISITIONS_STORAGE_KEY, JSON.stringify(requisitions));
-      } catch {
-        // ignore storage quota errors
-      }
+    if (!isControlledReqs) {
+      saveLocalRequisitions(localRequisitions);
     }
     if (onPendingCountChange) {
       const pending = requisitions.filter(
@@ -226,17 +130,13 @@ export default function CashRequisitionModule({
       ).length;
       onPendingCountChange(pending);
     }
-  }, [requisitions, onPendingCountChange]);
+  }, [isControlledReqs, localRequisitions, requisitions, onPendingCountChange]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
-      } catch {
-        // ignore storage quota errors
-      }
+    if (!isControlledNotifs) {
+      saveLocalNotifications(localNotifications);
     }
-  }, [notifications]);
+  }, [isControlledNotifs, localNotifications]);
 
   const branchChoices = useMemo(() => {
     const base =
@@ -256,6 +156,23 @@ export default function CashRequisitionModule({
     }
     return base;
   }, [branches, branch]);
+
+  const caseSuggestions = useMemo(() => {
+    if (!Array.isArray(cases)) return [];
+    const seen = new Set<string>();
+    const results: Array<{ fileNumber: string; label: string }> = [];
+    for (const c of cases) {
+      const ref = String(c.suitNumber || c.firmRefNumber || c.case_number || '').trim();
+      if (!ref || seen.has(ref)) continue;
+      seen.add(ref);
+      results.push({
+        fileNumber: ref,
+        label: c.title ? `${ref} — ${c.title}` : ref,
+      });
+      if (results.length >= 60) break;
+    }
+    return results;
+  }, [cases]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => n.unread).length,
@@ -300,47 +217,32 @@ export default function CashRequisitionModule({
       return;
     }
 
-    const nextNum = String(requisitions.length + 14).padStart(3, '0');
-    const nowLabel = new Date().toLocaleString([], {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const newReq: CashRequisitionItem = {
-      id: `req-${Date.now()}`,
-      referenceCode: `CR-2026-${nextNum}`,
-      requesterName: currentUserName,
-      requesterRole: currentUserRole,
-      branch: branch.trim() || 'Kampala Central (Head Office)',
-      caseRef: caseRef.trim() || undefined,
+    const input: CreateCashRequisitionInput = {
       purpose: purpose.trim(),
       amount: numericAmount,
       currency,
-      stage: 'Pending Review',
-      currentLevel: 1,
-      createdAt: nowLabel,
-      logs: [
-        {
-          id: `log-${Date.now()}`,
-          action: 'Reviewed',
-          actorName: currentUserName,
-          actorRole: currentUserRole,
-          levelLabel: 'Submission Logged',
-          reason: 'Requisition submitted for Level 1 review.',
-          timestamp: nowLabel,
-        },
-      ],
+      branch: branch.trim() || 'Kampala Central (Head Office)',
+      caseRef: caseRef.trim() || undefined,
+      requesterName: currentUserName,
+      requesterRole: currentUserRole,
     };
 
-    setRequisitions((prev) => [newReq, ...prev]);
+    if (onCreateRequisition) {
+      onCreateRequisition(input);
+    } else {
+      const newReq = buildNewCashRequisition(requisitions, input);
+      setLocalRequisitions((prev) => [newReq, ...prev]);
+      void syncCashRequisitionToSupabase(newReq);
+      showCleanMessage(
+        `Cash requisition ${newReq.referenceCode} submitted for Level 1 review.`,
+        'success'
+      );
+    }
+
     setPurpose('');
     setCaseRef('');
     setAmount('');
     setFormError(null);
-    showCleanMessage(`Cash requisition ${newReq.referenceCode} submitted for Level 1 review.`, 'success');
   }
 
   function handleApplyDecision(req: CashRequisitionItem, action: ApprovalActionType) {
@@ -350,79 +252,52 @@ export default function CashRequisitionModule({
       return;
     }
 
-    const nowLabel = new Date().toLocaleString([], {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    const levelLabel =
-      req.currentLevel === 1 ? 'Level 1 Review / Approval' : 'Level 2 Final Approval';
+    if (onApplyDecision) {
+      const result = onApplyDecision(req, action, cleanReason);
+      if (!result) return;
+    } else {
+      const { updated, notification } = applyRequisitionDecision(
+        req,
+        action,
+        currentUserName,
+        currentUserRole,
+        cleanReason
+      );
 
-    let nextStage: RequisitionStage = req.stage;
-    let nextLevel: 1 | 2 = req.currentLevel;
+      setLocalRequisitions((prev) =>
+        prev.map((item) => (item.id === req.id ? updated : item))
+      );
+      setLocalNotifications((prev) => [notification, ...prev]);
+      void syncCashRequisitionToSupabase(updated);
 
-    if (action === 'Denied') {
-      nextStage = 'Denied';
-    } else if (action === 'Reviewed') {
-      nextStage = req.currentLevel === 1 ? 'Pending Review' : 'Level 1 Approved';
-    } else if (action === 'Approved') {
-      if (req.currentLevel === 1) {
-        nextStage = 'Level 1 Approved';
-        nextLevel = 2;
-      } else {
-        nextStage = 'Approved';
-      }
+      showCleanMessage(
+        `${req.referenceCode} marked as ${action} by ${currentUserName}: "${cleanReason}"`,
+        action === 'Denied' ? 'warning' : 'success'
+      );
     }
 
-    const newLog: RequisitionDecisionLog = {
-      id: `log-${Date.now()}`,
-      action,
-      actorName: currentUserName,
-      actorRole: currentUserRole,
-      levelLabel,
-      reason: cleanReason,
-      timestamp: nowLabel,
-    };
-
-    setRequisitions((prev) =>
-      prev.map((item) =>
-        item.id === req.id
-          ? {
-              ...item,
-              stage: nextStage,
-              currentLevel: nextLevel,
-              logs: [...item.logs, newLog],
-            }
-          : item
-      )
-    );
-
-    const notification: RequisitionNotification = {
-      id: `notif-${Date.now()}`,
-      requisitionId: req.id,
-      referenceCode: req.referenceCode,
-      recipientName: req.requesterName,
-      status: action,
-      reason: cleanReason,
-      actorName: `${currentUserName} (${levelLabel})`,
-      createdAt: nowLabel,
-      unread: true,
-    };
-
-    setNotifications((prev) => [notification, ...prev]);
     setActiveDecisionId(null);
     setDecisionReason('');
+    setExpandedLogsId(req.id);
     setFormError(null);
-    showCleanMessage(
-      `${req.referenceCode} marked as ${nextStage} (${levelLabel}).`,
-      action === 'Denied' ? 'warning' : 'success'
-    );
   }
 
   function markAllNotificationsRead() {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    if (onMarkAllNotificationsRead) {
+      onMarkAllNotificationsRead();
+    } else {
+      setLocalNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    }
+  }
+
+  function markSingleNotificationRead(id: string) {
+    if (onMarkNotificationRead) {
+      onMarkNotificationRead(id);
+    } else {
+      setLocalNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+      );
+    }
   }
 
   function getStageBadgeClass(stage: RequisitionStage) {
@@ -440,7 +315,7 @@ export default function CashRequisitionModule({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Top Header & Notifications Feed */}
+      {/* Top Header & Decision Notifications Feed */}
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -448,18 +323,25 @@ export default function CashRequisitionModule({
               <Banknote className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                Cash Requisition &amp; Multi-Level Approval Workflow
-              </h1>
+              {compactHeader ? (
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                  Cash Requisitions — Multi-Level Review &amp; Approval
+                </h2>
+              ) : (
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Cash Requisition &amp; Multi-Level Approval Workflow
+                </h1>
+              )}
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                 Submit requisitions, complete Level 1 &amp; Level 2 reviews, and log mandatory reasons on every decision.
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2.5 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 tabular-nums">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 tabular-nums">
               <Bell className="w-3.5 h-3.5" />
-              {unreadCount} New Decision Notice{unreadCount === 1 ? '' : 's'}
+              {unreadCount} Unread Notice{unreadCount === 1 ? '' : 's'}
             </span>
             {unreadCount > 0 && (
               <button
@@ -476,14 +358,20 @@ export default function CashRequisitionModule({
         {/* Decision Notifications Banner List */}
         {notifications.length > 0 && (
           <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Decision Notifications (Reviewed, Approved &amp; Denied)
+            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <span>Decision Notifications (Reviewed, Approved &amp; Denied)</span>
+              <span className="tabular-nums normal-case font-medium">
+                Showing latest {Math.min(4, notifications.length)} of {notifications.length}
+              </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {notifications.slice(0, 4).map((n) => (
                 <div
                   key={n.id}
-                  className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  onClick={() => n.unread && markSingleNotificationRead(n.id)}
+                  className={`p-3 rounded-xl border text-xs space-y-1 transition ${
+                    n.unread ? 'cursor-pointer ring-1 ring-blue-500/20' : 'opacity-85'
+                  } ${
                     n.status === 'Denied'
                       ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-100'
                       : n.status === 'Approved'
@@ -492,7 +380,13 @@ export default function CashRequisitionModule({
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 font-bold">
-                    <span className="font-mono">
+                    <span className="inline-flex items-center gap-1.5 font-mono">
+                      {n.unread && (
+                        <span
+                          className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 shrink-0"
+                          title="Unread decision notice"
+                        />
+                      )}
                       {n.referenceCode} · {n.status}
                     </span>
                     <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400 tabular-nums">
@@ -625,11 +519,21 @@ export default function CashRequisitionModule({
             <input
               id="req-case-ref"
               type="text"
+              list="mk-cash-req-case-suggestions"
               value={caseRef}
               onChange={(e) => setCaseRef(e.target.value)}
               placeholder="e.g., HC-2026-CV-019"
               className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
             />
+            {caseSuggestions.length > 0 && (
+              <datalist id="mk-cash-req-case-suggestions">
+                {caseSuggestions.map((c) => (
+                  <option key={c.fileNumber} value={c.fileNumber}>
+                    {c.label}
+                  </option>
+                ))}
+              </datalist>
+            )}
           </div>
 
           <button
@@ -679,6 +583,7 @@ export default function CashRequisitionModule({
                 const isFinalized = req.stage === 'Approved' || req.stage === 'Denied';
                 const isDeciding = activeDecisionId === req.id;
                 const isLogsOpen = expandedLogsId === req.id;
+                const latestLog = req.logs.length > 0 ? req.logs[req.logs.length - 1] : null;
 
                 return (
                   <article
@@ -735,11 +640,30 @@ export default function CashRequisitionModule({
 
                       <div className="sm:text-right shrink-0 space-y-1">
                         <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-                          {formatMoney(req.amount, req.currency)}
+                          {formatRequisitionMoney(req.amount, req.currency)}
                         </p>
                         <p className="text-[11px] text-slate-400 tabular-nums">{req.createdAt}</p>
                       </div>
                     </div>
+
+                    {/* Latest Decision Note Preview */}
+                    {latestLog && (
+                      <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-start gap-2 text-xs">
+                        <MessageSquareQuote className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-700 dark:text-slate-200">
+                            {latestLog.levelLabel} ({latestLog.action})
+                          </span>
+                          <span className="text-slate-500 dark:text-slate-400">
+                            {' '}
+                            by {latestLog.actorName}:{' '}
+                          </span>
+                          <span className="text-slate-700 dark:text-slate-300">
+                            &ldquo;{latestLog.reason}&rdquo;
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Multi-Level Progress Bar / Stepper */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
@@ -789,7 +713,7 @@ export default function CashRequisitionModule({
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                         >
                           <History className="w-3.5 h-3.5" />
-                          <span>Decision Log ({req.logs.length})</span>
+                          <span>Audit Trail ({req.logs.length})</span>
                         </button>
 
                         {isApprover && !isFinalized && (
@@ -824,7 +748,7 @@ export default function CashRequisitionModule({
                     {/* Inline Review / Approval Panel with Mandatory Reason */}
                     {isDeciding && isApprover && !isFinalized && (
                       <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-3">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <label
                             htmlFor={`decision-reason-${req.id}`}
                             className="text-xs font-bold text-slate-900 dark:text-white"
@@ -844,7 +768,7 @@ export default function CashRequisitionModule({
                           rows={2}
                           value={decisionReason}
                           onChange={(e) => setDecisionReason(e.target.value)}
-                          placeholder="Enter verification notes, budget check, or denial justification..."
+                          placeholder="Enter verification notes, budget check, or denial justification (sent in decision notification)..."
                           className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
                         />
 

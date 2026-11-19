@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp, NavigationTab } from '../context/AppContext';
 import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
 import { isSuperAdminUser } from '../lib/hrSupabase';
+import type { RequisitionNotification } from '../lib/cashRequisitionStore';
 import {
   LayoutGrid,
   Briefcase,
@@ -24,6 +25,7 @@ import {
   Scale,
   Sliders,
   Banknote,
+  Bell,
 } from 'lucide-react';
 
 export interface DashboardLayoutProps {
@@ -33,6 +35,9 @@ export interface DashboardLayoutProps {
   approvalsBadgeCount?: number;
   cashRequisitionsBadgeCount?: number;
   messengerBadgeCount?: number;
+  decisionNotifications?: RequisitionNotification[];
+  onMarkAllDecisionNotificationsRead?: () => void;
+  onMarkDecisionNotificationRead?: (id: string) => void;
   children?: React.ReactNode;
 }
 
@@ -64,6 +69,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   approvalsBadgeCount = 3,
   cashRequisitionsBadgeCount = 2,
   messengerBadgeCount = 2,
+  decisionNotifications = [],
+  onMarkAllDecisionNotificationsRead,
+  onMarkDecisionNotificationRead,
   children,
 }) => {
   const {
@@ -84,6 +92,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [logoErrorStep, setLogoErrorStep] = useState(0);
+  const [notifPopoverOpen, setNotifPopoverOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+
+  const unreadDecisionCount = useMemo(
+    () => decisionNotifications.filter((n) => n.unread).length,
+    [decisionNotifications]
+  );
+
+  useEffect(() => {
+    if (!notifPopoverOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifPopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [notifPopoverOpen]);
 
   const firmLogoSrc =
     logoErrorStep === 0
@@ -438,8 +464,123 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
 
-          {/* Right: Branch selector dropdown */}
+          {/* Right: Decision Notifications Bell + Branch selector dropdown */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div ref={notifRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setNotifPopoverOpen((o) => !o)}
+                aria-label="Decision notifications"
+                title="Cash Requisition Decision Notifications"
+                className="relative p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadDecisionCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums shadow-xs">
+                    {unreadDecisionCount > 9 ? '9+' : unreadDecisionCount}
+                  </span>
+                )}
+              </button>
+
+              {notifPopoverOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                        Decision Notifications
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                        {unreadDecisionCount} unread notice{unreadDecisionCount === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    {unreadDecisionCount > 0 && onMarkAllDecisionNotificationsRead && (
+                      <button
+                        type="button"
+                        onClick={onMarkAllDecisionNotificationsRead}
+                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                    {decisionNotifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        No cash requisition decision notices yet.
+                      </div>
+                    ) : (
+                      decisionNotifications.slice(0, 8).map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => {
+                            onMarkDecisionNotificationRead?.(n.id);
+                            setActiveTab('cash_requisitions');
+                            setNotifPopoverOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer space-y-1 ${
+                            n.unread ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-mono font-bold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
+                              {n.unread && (
+                                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                              )}
+                              {n.referenceCode}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                                n.status === 'Denied'
+                                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                  : n.status === 'Approved'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                              }`}
+                            >
+                              {n.status}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            For <strong className="text-slate-700 dark:text-slate-200">{n.recipientName}</strong> · By{' '}
+                            <strong className="text-slate-700 dark:text-slate-200">{n.actorName}</strong>
+                          </p>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
+                            Reason: &ldquo;{n.reason}&rdquo;
+                          </p>
+                          <p className="text-[10px] text-slate-400 tabular-nums">{n.createdAt}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('approvals');
+                        setNotifPopoverOpen(false);
+                      }}
+                      className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                    >
+                      View Approvals
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('cash_requisitions');
+                        setNotifPopoverOpen(false);
+                      }}
+                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Open Cash Requisitions →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative flex items-center">
               <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
               <select

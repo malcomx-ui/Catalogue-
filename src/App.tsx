@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { DashboardLayout } from './components/DashboardLayout';
 import { StaffDashboard } from './components/StaffDashboard';
@@ -14,7 +14,22 @@ import {
   INITIAL_APPROVAL_ITEMS,
   ApprovalWorkflowItem,
 } from './components/ErpWorkspaceViews';
-import CashRequisitionModule, { INITIAL_REQUISITIONS } from './components/CashRequisitionModule';
+import CashRequisitionModule from './components/CashRequisitionModule';
+import {
+  type ApprovalActionType,
+  type CashRequisitionItem,
+  type CreateCashRequisitionInput,
+  type RequisitionNotification,
+  loadLocalRequisitions,
+  saveLocalRequisitions,
+  loadLocalNotifications,
+  saveLocalNotifications,
+  buildNewCashRequisition,
+  applyRequisitionDecision,
+  formatRequisitionMoney,
+  fetchCashRequisitionsFromSupabase,
+  syncCashRequisitionToSupabase,
+} from './lib/cashRequisitionStore';
 import { CaseList } from './components/catalogue/CaseList';
 import { CaseDetailModal } from './components/catalogue/CaseDetailModal';
 import { NewCaseModal } from './components/catalogue/NewCaseModal';
@@ -63,21 +78,102 @@ const MainLayout: React.FC = () => {
   // Shared top header search state (live-filters StaffDashboard tasks, hearings, and matters)
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
-  // Shared Approvals, Cash Requisitions & Team Messenger badge state
+  // Shared Approvals, Cash Requisitions, Decision Notifications & Team Messenger state
   const [approvals, setApprovals] = useState<ApprovalWorkflowItem[]>(INITIAL_APPROVAL_ITEMS);
-  const [pendingCashRequisitionsCount, setPendingCashRequisitionsCount] = useState<number>(() =>
-    INITIAL_REQUISITIONS.filter(
-      (r) => r.stage === 'Pending Review' || r.stage === 'Level 1 Approved'
-    ).length
+  const [cashRequisitions, setCashRequisitions] = useState<CashRequisitionItem[]>(() =>
+    loadLocalRequisitions()
+  );
+  const [cashNotifications, setCashNotifications] = useState<RequisitionNotification[]>(() =>
+    loadLocalNotifications()
   );
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(2);
 
-  const pendingApprovalsCount = approvals.filter((a) => a.status === 'Pending').length;
+  useEffect(() => {
+    saveLocalRequisitions(cashRequisitions);
+  }, [cashRequisitions]);
 
-  const handleApprovalDecision = useCallback((id: string, decision: 'Approved' | 'Rejected') => {
-    setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: decision } : a)));
-    showCleanMessage(`Workflow item marked as ${decision}.`, decision === 'Approved' ? 'success' : 'warning');
-  }, []);
+  useEffect(() => {
+    saveLocalNotifications(cashNotifications);
+  }, [cashNotifications]);
+
+  // Optional non-blocking sync with shared Supabase client once authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    fetchCashRequisitionsFromSupabase().then((remote) => {
+      if (active && remote && remote.length > 0) {
+        setCashRequisitions((prev) => {
+          const seen = new Set(remote.map((r) => r.id));
+          const localOnly = prev.filter((p) => !seen.has(p.id));
+          return [...remote, ...localOnly];
+        });
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  const pendingCashRequisitionsCount = useMemo(
+    () =>
+      cashRequisitions.filter(
+        (r) => r.stage === 'Pending Review' || r.stage === 'Level 1 Approved'
+      ).length,
+    [cashRequisitions]
+  );
+
+  const generalPendingApprovalsCount = useMemo(
+    () => approvals.filter((a) => a.status === 'Pending').length,
+    [approvals]
+  );
+
+  const pendingApprovalsCount = generalPendingApprovalsCount + pendingCashRequisitionsCount;
+
+  // Unified approval items passed to Staff / Legal Team Member Workspaces
+  const unifiedApprovalsForStaff = useMemo<ApprovalWorkflowItem[]>(() => {
+    const mappedCash: ApprovalWorkflowItem[] = cashRequisitions.map((req) => {
+      const latestLog = req.logs[req.logs.length - 1];
+      const mappedStatus: ApprovalWorkflowItem['status'] =
+        req.stage === 'Approved'
+          ? 'Approved'
+          : req.stage === 'Denied'
+          ? 'Rejected'
+          : 'Pending';
+      return {
+        id: `cash-${req.id}`,
+        code: req.referenceCode,
+        title: `${req.purpose} (${req.stage})`,
+        category: 'Cash Requisition',
+        requester: req.requesterName,
+        branch: req.branch,
+        submittedAt: req.createdAt,
+        amountOrDetail: `${formatRequisitionMoney(req.amount, req.currency)}${
+          req.caseRef ? ` · ${req.caseRef}` : ''
+        }${latestLog ? ` · Note: ${latestLog.reason}` : ''}`,
+        status: mappedStatus,
+      };
+    });
+    return [...mappedCash, ...approvals];
+  }, [cashRequisitions, approvals]);
+
+  const handleApprovalDecision = useCallback(
+    (id: string, decision: 'Approved' | 'Rejected') => {
+      if (id.startsWith('cash-')) {
+        setActiveTab('cash_requisitions');
+        showCleanMessage(
+          'Cash requisitions require a mandatory decision reason — complete Level 1 / Level 2 review in Cash Requisitions.',
+          'info'
+        );
+        return;
+      }
+      setApprovals((prev) => prev.map((a) => (a.id === id ? { ...a, status: decision } : a)));
+      showCleanMessage(
+        `Workflow item marked as ${decision}.`,
+        decision === 'Approved' ? 'success' : 'warning'
+      );
+    },
+    [setActiveTab]
+  );
 
   // Main app startup / mount routine (runs only when authenticated so login mount stays fast)
   React.useEffect(() => {
@@ -147,6 +243,65 @@ const MainLayout: React.FC = () => {
       effectiveUser?.role?.toLowerCase().includes('partner')
   );
 
+  const effectiveUserName = effectiveUser?.name || 'Managing Partner';
+  const effectiveUserRole = effectiveUser?.roleTitle || effectiveUser?.role || 'Senior Approver';
+  const effectiveBranchName = effectiveUser?.branchName || 'Kampala Central (Head Office)';
+  const isCashApprover = Boolean(
+    isPartnerOrSuperadmin ||
+      effectiveUser?.role === 'team_lead' ||
+      effectiveUser?.role === 'branch_admin' ||
+      effectiveUser?.role === 'admin_finance_assistant'
+  );
+
+  const handleCreateCashRequisition = useCallback(
+    (input: CreateCashRequisitionInput): CashRequisitionItem => {
+      const created = buildNewCashRequisition(cashRequisitions, input);
+      setCashRequisitions((prev) => [created, ...prev]);
+      void syncCashRequisitionToSupabase(created);
+      showCleanMessage(
+        `Cash requisition ${created.referenceCode} submitted for Level 1 review.`,
+        'success'
+      );
+      return created;
+    },
+    [cashRequisitions]
+  );
+
+  const handleDecideCashRequisition = useCallback(
+    (req: CashRequisitionItem, action: ApprovalActionType, reason: string) => {
+      const cleanReason = reason.trim();
+      if (!cleanReason) return null;
+      const result = applyRequisitionDecision(
+        req,
+        action,
+        effectiveUserName,
+        effectiveUserRole,
+        cleanReason
+      );
+      setCashRequisitions((prev) =>
+        prev.map((item) => (item.id === req.id ? result.updated : item))
+      );
+      setCashNotifications((prev) => [result.notification, ...prev]);
+      void syncCashRequisitionToSupabase(result.updated);
+      showCleanMessage(
+        `${req.referenceCode} marked as ${action} by ${effectiveUserName}: "${cleanReason}"`,
+        action === 'Denied' ? 'warning' : 'success'
+      );
+      return result;
+    },
+    [effectiveUserName, effectiveUserRole]
+  );
+
+  const handleMarkAllCashNotificationsRead = useCallback(() => {
+    setCashNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+  }, []);
+
+  const handleMarkCashNotificationRead = useCallback((id: string) => {
+    setCashNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+    );
+  }, []);
+
   // If password recovery link was opened, display the UpdatePasswordPage component
   if (isPasswordRecovery) {
     return (
@@ -194,6 +349,9 @@ const MainLayout: React.FC = () => {
         approvalsBadgeCount={pendingApprovalsCount}
         cashRequisitionsBadgeCount={pendingCashRequisitionsCount}
         messengerBadgeCount={unreadMessagesCount}
+        decisionNotifications={cashNotifications}
+        onMarkAllDecisionNotificationsRead={handleMarkAllCashNotificationsRead}
+        onMarkDecisionNotificationRead={handleMarkCashNotificationRead}
       >
         {activeTab === 'dashboard' && renderStaffDashboard()}
         {activeTab === 'catalogue' && <CaseList />}
@@ -209,26 +367,40 @@ const MainLayout: React.FC = () => {
         {activeTab === 'legal_team' && (
           <LegalTeamDashboard
             searchQuery={globalSearchQuery}
-            approvals={approvals}
+            approvals={unifiedApprovalsForStaff}
             onDecideApproval={handleApprovalDecision}
           />
         )}
         {activeTab === 'approvals' && (
-          <ApprovalsQueueView approvals={approvals} onDecide={handleApprovalDecision} />
+          <ApprovalsQueueView
+            approvals={approvals}
+            onDecide={handleApprovalDecision}
+            cashRequisitions={cashRequisitions}
+            cashNotifications={cashNotifications}
+            onCreateCashRequisition={handleCreateCashRequisition}
+            onDecideCashRequisition={handleDecideCashRequisition}
+            onMarkAllCashNotificationsRead={handleMarkAllCashNotificationsRead}
+            onMarkCashNotificationRead={handleMarkCashNotificationRead}
+            currentUserName={effectiveUserName}
+            currentUserRole={effectiveUserRole}
+            activeBranch={effectiveBranchName}
+            isApprover={isCashApprover}
+            searchQuery={globalSearchQuery}
+          />
         )}
         {activeTab === 'cash_requisitions' && (
           <CashRequisitionModule
-            currentUserName={effectiveUser?.name || 'Managing Partner'}
-            currentUserRole={effectiveUser?.roleTitle || effectiveUser?.role || 'Senior Approver'}
-            activeBranch={effectiveUser?.branchName || 'Kampala Central (Head Office)'}
-            isApprover={Boolean(
-              isPartnerOrSuperadmin ||
-                effectiveUser?.role === 'team_lead' ||
-                effectiveUser?.role === 'branch_admin' ||
-                effectiveUser?.role === 'admin_finance_assistant'
-            )}
+            currentUserName={effectiveUserName}
+            currentUserRole={effectiveUserRole}
+            activeBranch={effectiveBranchName}
+            isApprover={isCashApprover}
             searchQuery={globalSearchQuery}
-            onPendingCountChange={setPendingCashRequisitionsCount}
+            requisitions={cashRequisitions}
+            notifications={cashNotifications}
+            onCreateRequisition={handleCreateCashRequisition}
+            onApplyDecision={handleDecideCashRequisition}
+            onMarkAllNotificationsRead={handleMarkAllCashNotificationsRead}
+            onMarkNotificationRead={handleMarkCashNotificationRead}
           />
         )}
         {activeTab === 'messenger' && (
