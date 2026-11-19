@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useApp, NavigationTab } from '../../context/AppContext';
 import { isUserAdmin, isAdminFinanceAssistant, getEffectiveUser, canUserImportMortgages } from '../../lib/supabase';
+import { isSuperAdminUser } from '../../lib/hrSupabase';
 import { getUserRoleLabel, getUserRoleBadge } from '../../types';
 import { buildLegalTeamDirectory } from '../../utils/legalTeam';
 import RefreshSessionButton from '../auth/RefreshSessionButton';
@@ -165,6 +166,14 @@ export const Sidebar: React.FC = () => {
       label: 'Sync Hub & Circuits',
       icon: Network,
       count: branches.length,
+    });
+  }
+  if (isSuperAdminUser(effectiveUser)) {
+    administrativeNavItems.push({
+      id: 'hr',
+      label: 'HR & People Ops',
+      icon: Users,
+      badge: 'HR',
     });
   }
   if (userPermissions?.canManageRoles || effectiveUser?.isSuperAdmin) {

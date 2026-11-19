@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { WeeklyMattersNotificationModal } from '../causelist/WeeklyMattersNotificationModal';
 import { StatusBadge } from '../common/StatusBadge';
+import { BirthdayWidget } from '../HrModuleBundle';
+import { isSuperAdminUser } from '../../lib/hrSupabase';
 
 export const FirmDashboard: React.FC = () => {
   const {
@@ -533,6 +535,14 @@ export const FirmDashboard: React.FC = () => {
             </button>
           </div>
         </section>
+      )}
+
+      {/* 1.75 SUPER ADMIN TEAM BIRTHDAYS & HR SHORTCUT */}
+      {isSuperAdminUser(effectiveUser) && effectiveUser?.id && (
+        <BirthdayWidget
+          currentUserId={effectiveUser.id}
+          onOpenHrModule={() => setActiveTab('hr')}
+        />
       )}
 
       {/* 2. 5 KPI STAT CARDS ROW */}
