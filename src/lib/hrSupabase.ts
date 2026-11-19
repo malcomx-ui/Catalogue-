@@ -263,6 +263,146 @@ export async function syncFirmUsersToHrModule(options?: {
   }
 }
 
+export interface HrLeaveRequestRecord {
+  id: string;
+  employee_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason: string | null;
+  status: 'Pending' | 'Approved' | 'Rejected' | string;
+  approved_by: string | null;
+  created_at: string;
+}
+
+export interface SubmitLeaveRequestInput {
+  employee_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason?: string | null;
+  status?: 'Pending' | 'Approved' | 'Rejected';
+  /** Optional staff profile metadata used to ensure the parent `employees` FK row exists before insert */
+  employee_name?: string | null;
+  employee_email?: string | null;
+  job_title?: string | null;
+  department?: string | null;
+}
+
+export interface SubmitLeaveRequestResult {
+  success: boolean;
+  data: HrLeaveRequestRecord | null;
+  persistedInSupabase: boolean;
+  error: string | null;
+}
+
+/**
+ * Inserts a new leave request into Supabase `leave_requests`.
+ * Ensures a matching parent row exists in `employees` when `employee_id` is a valid UUID
+ * so foreign-key constraints succeed cleanly for newly connected firm users.
+ */
+export async function submitLeaveRequest(
+  input: SubmitLeaveRequestInput
+): Promise<SubmitLeaveRequestResult> {
+  const employeeId = String(input.employee_id || '').trim();
+  const leaveType = String(input.leave_type || '').trim();
+  const startDate = String(input.start_date || '').trim();
+  const endDate = String(input.end_date || '').trim();
+  const reason = input.reason ? String(input.reason).trim() : null;
+  const status = input.status || 'Pending';
+
+  if (!employeeId) {
+    return { success: false, data: null, persistedInSupabase: false, error: 'Employee ID is required.' };
+  }
+  if (!leaveType || !startDate || !endDate) {
+    return {
+      success: false,
+      data: null,
+      persistedInSupabase: false,
+      error: 'Leave type, start date, and end date are required.',
+    };
+  }
+  if (endDate < startDate) {
+    return {
+      success: false,
+      data: null,
+      persistedInSupabase: false,
+      error: 'End date cannot be earlier than start date.',
+    };
+  }
+
+  if (!UUID_REGEX.test(employeeId)) {
+    return {
+      success: false,
+      data: null,
+      persistedInSupabase: false,
+      error: 'Selected staff account is not linked to a UUID employee record yet.',
+    };
+  }
+
+  try {
+    // Ensure parent employee record exists in `employees` (best-effort; ignores RLS errors if already synced)
+    if (input.employee_name || input.employee_email) {
+      const { first_name, last_name } = splitUserFullName(input.employee_name, input.employee_email);
+      await hrSupabase
+        .from('employees')
+        .upsert(
+          [
+            {
+              id: employeeId,
+              first_name,
+              last_name,
+              email: input.employee_email ? String(input.employee_email).trim() : null,
+              job_title: input.job_title ? String(input.job_title).trim() : 'Firm Staff',
+              department: input.department ? String(input.department).trim() : 'Kampala Central (Head Office)',
+              status: 'Active',
+            },
+          ],
+          { onConflict: 'id', ignoreDuplicates: true }
+        )
+        .select('id');
+    }
+
+    const { data, error } = await hrSupabase
+      .from('leave_requests')
+      .insert([
+        {
+          employee_id: employeeId,
+          leave_type: leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          reason,
+          status,
+        },
+      ])
+      .select('id, employee_id, leave_type, start_date, end_date, reason, status, approved_by, created_at')
+      .single();
+
+    if (error) {
+      return {
+        success: false,
+        data: null,
+        persistedInSupabase: false,
+        error: error.message || 'Failed to insert leave request into Supabase.',
+      };
+    }
+
+    return {
+      success: true,
+      data: data as HrLeaveRequestRecord,
+      persistedInSupabase: true,
+      error: null,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      data: null,
+      persistedInSupabase: false,
+      error: err?.message || 'Unexpected error while submitting leave request.',
+    };
+  }
+}
+
 /**
  * Returns true ONLY for Super Admin accounts.
  * All regular staff, associates, clerks, branch admins, and unauthenticated users get `false`.

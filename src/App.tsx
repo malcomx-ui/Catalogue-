@@ -257,7 +257,15 @@ const MainLayout: React.FC = () => {
           </div>
         )}
         {activeTab === 'branches' && <BranchesDirectory />}
-        {activeTab === 'legal_team' && <LegalTeamDashboard />}
+        {activeTab === 'legal_team' && (
+          <LegalTeamDashboard
+            searchQuery={globalSearchQuery}
+            isClockedIn={clockState.isClockedIn}
+            clockInTime={clockState.clockInTime}
+            hoursLogged={clockState.hoursLogged}
+            onToggleClock={handleToggleClock}
+          />
+        )}
         {activeTab === 'approvals' && (
           <ApprovalsQueueView approvals={approvals} onDecide={handleApprovalDecision} />
         )}

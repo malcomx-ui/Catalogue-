@@ -1,1559 +1,1804 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { CaseItem, CourtHearing, StaffDiaryEntry, StaffDiaryEntryType, getUserRoleBadge } from '../../types';
-import { getEffectiveUser } from '../../lib/supabase';
-import {
-  LegalTeamMember,
-  buildLegalTeamDirectory,
-  doesCaseMatchMember,
-  findLegalTeamMemberByKey,
-  isCaseClosedOrArchived,
-  normalizePersonName,
-} from '../../utils/legalTeam';
+import { getEffectiveUser, isUserAdmin } from '../../lib/supabase';
+import { hrSupabase, submitLeaveRequest } from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
 import {
-  Users,
-  Search,
-  ArrowLeft,
   CalendarDays,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
   Plus,
-  Trash2,
-  Edit3,
-  Check,
-  X,
-  FileText,
-  Scale,
-  Building2,
+  Users,
+  ListChecks,
+  CalendarClock,
+  Gift,
   Mail,
-  Award,
-  NotebookPen,
-  TrendingUp,
-  Eye,
+  Clock,
+  Send,
+  X,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  Briefcase,
+  Loader2,
+  Trash2,
+  LayoutList,
+  Columns3,
+  Cake,
+  Search,
 } from 'lucide-react';
-import { StatusBadge } from '../common/StatusBadge';
-import { RowActionMenu } from '../common/RowActionMenu';
 
-interface DayScheduleHearing {
+export interface LegalTeamDashboardProps {
+  /** Controlled props synced with DashboardLayout sticky top header */
+  searchQuery?: string;
+  isClockedIn?: boolean;
+  clockInTime?: string;
+  hoursLogged?: number;
+  onToggleClock?: () => void;
+}
+
+type StaffSubTab = 'directory' | 'tasks' | 'leaves';
+type TaskStatus = 'Todo' | 'In Progress' | 'Completed';
+type TaskPriority = 'URGENT' | 'HIGH' | 'MEDIUM';
+
+interface DelegatedTask {
   id: string;
-  date: string;
-  time: string;
+  priority: TaskPriority;
   title: string;
-  suitNumber: string;
-  court: string;
-  purpose: string;
-  status: string;
-  caseItem?: CaseItem;
+  caseCode: string;
+  assignee: string;
+  assigneeEmail?: string;
+  branchName?: string;
+  dueDate: string;
+  status: TaskStatus;
 }
 
-const ENTRY_TYPE_META: Record<
-  StaffDiaryEntryType,
-  { label: string; short: string; badgeClass: string; dotClass: string }
-> = {
-  meeting: {
-    label: 'Client Meeting',
-    short: 'Meeting',
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-    dotClass: 'bg-blue-600',
-  },
-  deadline: {
-    label: 'Task Deadline',
-    short: 'Deadline',
-    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
-    dotClass: 'bg-amber-600',
-  },
-  milestone: {
-    label: 'Milestone',
-    short: 'Milestone',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    dotClass: 'bg-emerald-600',
-  },
-  diary: {
-    label: 'Daily Diary / Note',
-    short: 'Diary',
-    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
-    dotClass: 'bg-slate-600',
-  },
-};
-
-function getLocalDateIso(date: Date = new Date()): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+interface LeaveRequestRecord {
+  id: string;
+  employee_id: string;
+  employeeName: string;
+  employeeEmail: string;
+  branchName: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  days: number;
+  reason: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  created_at: string;
+  persistedInSupabase?: boolean;
 }
 
-export const LegalTeamDashboard: React.FC = () => {
-  const {
-    availableUsers,
-    cases,
-    hearings,
-    branches,
-    currentUser,
-    userPermissions,
-    selectedStaffKey,
-    setSelectedStaffKey,
-    setSelectedCase,
-    staffDiaryEntries,
-    addStaffDiaryEntry,
-    updateStaffDiaryEntry,
-    deleteStaffDiaryEntry,
-    toggleStaffDiaryComplete,
-  } = useApp();
+interface StaffMemberCardData {
+  id: string;
+  name: string;
+  email: string;
+  roleTitle: string;
+  role: string;
+  branchId: string;
+  branchName: string;
+  avatarUrl?: string;
+  isActive: boolean;
+  isCurrentUser: boolean;
+  todaysPunch: string;
+  hoursLogged: number;
+  hourlyRate: number;
+  annualAllowance: number;
+  leaveRemaining: number;
+  birthdayEligible: boolean;
+  birthdayLabel?: string;
+  isUuid: boolean;
+}
 
-  const effectiveUser = getEffectiveUser(currentUser);
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TASKS_STORAGE_KEY = 'mk_staff_dashboard_tasks_v1';
+const LOCAL_LEAVES_STORAGE_KEY = 'mk_staff_leave_requests_v1';
+const LOCAL_WISHES_STORAGE_KEY = 'mk_staff_dashboard_wishes_v1';
+const LOCAL_HR_OVERRIDES_KEY = 'mk_hr_employee_overrides_v1';
 
-  // Directory filters
-  const [directorySearch, setDirectorySearch] = useState('');
-  const [directoryBranchFilter, setDirectoryBranchFilter] = useState<string>('all');
-  const [directoryRoleFilter, setDirectoryRoleFilter] = useState<string>('all');
+const LEAVE_TYPES = [
+  'Annual Leave',
+  'Sick Leave',
+  'Study Leave',
+  'Compassionate Leave',
+  'Maternity / Paternity',
+  'Unpaid Leave',
+];
 
-  // Individual Staff Dashboard view state
-  const [dashboardTab, setDashboardTab] = useState<'schedule' | 'cases' | 'logs'>('schedule');
-  const [calendarMonthDate, setCalendarMonthDate] = useState<Date>(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+const DEFAULT_TASKS: DelegatedTask[] = [
+  {
+    id: 'tsk-1',
+    priority: 'URGENT',
+    title: 'File Written Submissions & Index of Authorities before Commercial Court',
+    caseCode: 'LF-2026-0142',
+    assignee: 'Lilian Kobusinge',
+    branchName: 'Kampala Central (Head Office)',
+    dueDate: 'Today, 04:00 PM',
+    status: 'In Progress',
+  },
+  {
+    id: 'tsk-2',
+    priority: 'HIGH',
+    title: 'Verify Original Mailo Certificate & Mortgage Deed Registration',
+    caseCode: 'DOC-PLD-0891',
+    assignee: 'Phionah Adoch',
+    branchName: 'Kampala Central (Head Office)',
+    dueDate: 'Tomorrow, 11:00 AM',
+    status: 'Todo',
+  },
+  {
+    id: 'tsk-3',
+    priority: 'HIGH',
+    title: 'Prepare Witness Statement Bundle & Serve Opposing Counsel',
+    caseCode: 'LF-2026-0118',
+    assignee: 'Bright Arinaitwe Bujara',
+    branchName: 'Kampala Central (Head Office)',
+    dueDate: 'Nov 21, 2026',
+    status: 'In Progress',
+  },
+  {
+    id: 'tsk-4',
+    priority: 'MEDIUM',
+    title: 'Reconcile Centenary Bank Disbursement Fee Note & Client Ledger',
+    caseCode: 'DOC-FEE-0442',
+    assignee: 'Martin Twomo',
+    branchName: 'Fort Portal Branch',
+    dueDate: 'Nov 23, 2026',
+    status: 'Todo',
+  },
+  {
+    id: 'tsk-5',
+    priority: 'MEDIUM',
+    title: 'Archive Concluded Consent Decree & Update Physical Vault Register',
+    caseCode: 'LF-2025-0904',
+    assignee: 'Janet Kemigisa',
+    branchName: 'Kampala Central (Head Office)',
+    dueDate: 'Nov 24, 2026',
+    status: 'Completed',
+  },
+];
+
+const INITIAL_LEAVE_REQUESTS: LeaveRequestRecord[] = [
+  {
+    id: 'lv-seed-1',
+    employee_id: 'seed-emp-1',
+    employeeName: 'Lilian Kobusinge',
+    employeeEmail: 'lilian.kobusinge@mkadvocates.ug',
+    branchName: 'Kampala Central (Head Office)',
+    leave_type: 'Annual Leave',
+    start_date: '2026-12-07',
+    end_date: '2026-12-11',
+    days: 5,
+    reason: 'Scheduled year-end family travel (all Commercial Court briefs handed over).',
+    status: 'Pending',
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'lv-seed-2',
+    employee_id: 'seed-emp-2',
+    employeeName: 'Martin Twomo',
+    employeeEmail: 'martin.twomo@mkadvocates.ug',
+    branchName: 'Fort Portal Branch',
+    leave_type: 'Study Leave',
+    start_date: '2026-11-26',
+    end_date: '2026-11-27',
+    days: 2,
+    reason: 'Uganda Law Society Continuing Legal Education (CLE) seminar.',
+    status: 'Approved',
+    created_at: new Date().toISOString(),
+  },
+];
+
+function getInitials(name?: string | null): string {
+  const parts = String(name || 'MK')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return (parts[0] || 'MK').slice(0, 2).toUpperCase();
+}
+
+function calcCalendarDays(start: string, end: string): number {
+  if (!start || !end) return 1;
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || e < s) return 1;
+  return Math.round((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function getNextTaskStatus(current: TaskStatus): TaskStatus {
+  if (current === 'Todo') return 'In Progress';
+  if (current === 'In Progress') return 'Completed';
+  return 'Todo';
+}
+
+function resolveHourlyRate(role?: string | null, roleTitle?: string | null): number {
+  const combined = `${role || ''} ${roleTitle || ''}`.toLowerCase();
+  if (combined.includes('partner') || combined.includes('super')) return 850;
+  if (combined.includes('team lead') || combined.includes('senior')) return 650;
+  if (combined.includes('branch_admin') || combined.includes('branch admin')) return 520;
+  if (combined.includes('lawyer') || combined.includes('advocate') || combined.includes('counsel')) return 450;
+  if (combined.includes('finance') || combined.includes('admin')) return 280;
+  if (combined.includes('clerk')) return 160;
+  return 350;
+}
+
+function readLocalWishes(): Record<string, Array<{ id: string; sender: string; message: string; createdAt: string }>> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LOCAL_WISHES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistLocalWish(
+  staffId: string,
+  wish: { id: string; sender: string; message: string; createdAt: string }
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const map = readLocalWishes();
+    map[staffId] = [wish, ...(map[staffId] || [])];
+    window.localStorage.setItem(LOCAL_WISHES_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isBirthdayUpcomingWithin30Days(dob?: string | null): { eligible: boolean; label: string } {
+  if (!dob) return { eligible: false, label: '' };
+  const parts = String(dob).slice(0, 10).split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return { eligible: false, label: '' };
+  const [, month, day] = parts;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = new Date(now.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(now.getFullYear() + 1, month - 1, day);
+  const diffDays = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const label = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return { eligible: diffDays <= 30, label: diffDays === 0 ? `${label} (Today)` : label };
+}
+
+export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
+  searchQuery = '',
+  isClockedIn = true,
+  clockInTime = '08:15 AM',
+  hoursLogged = 6.5,
+  onToggleClock,
+}) => {
+  const { availableUsers, cases, branches, currentUser, selectedBranchFilter } = useApp();
+
+  const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
+  const isAdmin = isUserAdmin(effectiveUser);
+
+  // Active sub-tab
+  const [activeSubTab, setActiveSubTab] = useState<StaffSubTab>('directory');
+
+  // Live Supabase profiles + HR employee DOB enrichment
+  const [supabaseProfiles, setSupabaseProfiles] = useState<any[]>([]);
+  const [employeeDobMap, setEmployeeDobMap] = useState<Record<string, string>>({});
+
+  // Birthday wishes inline composer state
+  const [openWishStaffId, setOpenWishStaffId] = useState<string | null>(null);
+  const [wishDraft, setWishDraft] = useState('');
+  const [sendingWishId, setSendingWishId] = useState<string | null>(null);
+  const [wishesByStaff, setWishesByStaff] = useState<
+    Record<string, Array<{ id: string; sender: string; message: string; createdAt: string }>>
+  >(() => readLocalWishes());
+
+  // Workflow & Tasks state (shared localStorage key with StaffDashboard Block C)
+  const [tasks, setTasks] = useState<DelegatedTask[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(TASKS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return DEFAULT_TASKS;
   });
-  const [selectedDateStr, setSelectedDateStr] = useState<string>(() => getLocalDateIso());
-  const [caseStatusScope, setCaseStatusScope] = useState<'all' | 'active' | 'closed'>('all');
-  const [caseSearch, setCaseSearch] = useState('');
-  const [logFilter, setLogFilter] = useState<'all' | StaffDiaryEntryType | 'pending' | 'completed'>('all');
+  const [taskViewMode, setTaskViewMode] = useState<'list' | 'board'>('list');
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState<'ALL' | TaskPriority>('ALL');
 
-  // Diary / Task Composer state
-  const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [entryForm, setEntryForm] = useState<{
-    entryType: StaffDiaryEntryType;
-    date: string;
-    time: string;
-    title: string;
-    notes: string;
-    caseId: string;
-  }>({
-    entryType: 'diary',
-    date: getLocalDateIso(),
-    time: '09:30',
+  // Leave Management state
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRecord[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(LOCAL_LEAVES_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_LEAVE_REQUESTS;
+  });
+
+  // Modals: Apply for Leave & Delegate Task
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [submittingLeave, setSubmittingLeave] = useState(false);
+  const [leaveForm, setLeaveForm] = useState({
+    staffId: '',
+    leaveType: LEAVE_TYPES[0],
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+    reason: '',
+  });
+
+  const [isDelegateModalOpen, setIsDelegateModalOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({
     title: '',
-    notes: '',
-    caseId: '',
+    priority: 'HIGH' as TaskPriority,
+    caseCode: '',
+    assignee: '',
+    dueDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+    status: 'Todo' as TaskStatus,
   });
 
-  // Build unified directory
-  const members = useMemo(
-    () =>
-      buildLegalTeamDirectory({
-        availableUsers,
-        cases,
-        hearings,
-        branches,
-        canViewAllBranches: Boolean(userPermissions.canViewAllBranches),
-        userBranchId: effectiveUser?.branchId || currentUser?.branchId,
-        userBranchName: effectiveUser?.branchName || currentUser?.branchName,
-      }),
-    [
-      availableUsers,
-      cases,
-      hearings,
-      branches,
-      userPermissions.canViewAllBranches,
-      effectiveUser?.branchId,
-      effectiveUser?.branchName,
-      currentUser?.branchId,
-      currentUser?.branchName,
-    ]
-  );
+  // Persist tasks and local leaves
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+      } catch {
+        // ignore
+      }
+    }
+  }, [tasks]);
 
-  const selectedMember: LegalTeamMember | null = useMemo(
-    () => findLegalTeamMemberByKey(members, selectedStaffKey),
-    [members, selectedStaffKey]
-  );
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(LOCAL_LEAVES_STORAGE_KEY, JSON.stringify(leaveRequests));
+      } catch {
+        // ignore
+      }
+    }
+  }, [leaveRequests]);
 
-  const filteredDirectory = useMemo(() => {
-    const q = directorySearch.trim().toLowerCase();
-    return members.filter((m) => {
-      if (directoryBranchFilter !== 'all' && m.branchId !== directoryBranchFilter) return false;
-      if (directoryRoleFilter !== 'all') {
-        const r = m.role.toLowerCase();
-        if (directoryRoleFilter === 'advocate' && !r.includes('lawyer') && !r.includes('advocate') && !r.includes('lead') && !r.includes('partner')) {
-          return false;
-        }
-        if (directoryRoleFilter === 'admin' && !r.includes('admin') && !r.includes('partner')) {
-          return false;
-        }
-        if (directoryRoleFilter === 'support' && !r.includes('clerk') && !r.includes('finance')) {
-          return false;
+  // Fetch live Supabase profiles, employee DOBs, and leave_requests on mount
+  const loadLiveStaffMetadata = useCallback(async () => {
+    try {
+      const [profilesRes, employeesRes, leavesRes] = await Promise.all([
+        hrSupabase
+          .from('profiles')
+          .select('id, full_name, email, role, role_title, branch, branch_name, is_suspended')
+          .order('full_name', { ascending: true }),
+        hrSupabase.from('employees').select('id, email, date_of_birth, first_name, last_name'),
+        hrSupabase
+          .from('leave_requests')
+          .select('id, employee_id, leave_type, start_date, end_date, reason, status, created_at')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      if (!profilesRes.error && Array.isArray(profilesRes.data)) {
+        setSupabaseProfiles(profilesRes.data);
+      }
+
+      const dobLookup: Record<string, string> = {};
+      if (!employeesRes.error && Array.isArray(employeesRes.data)) {
+        employeesRes.data.forEach((emp: any) => {
+          if (emp.date_of_birth) {
+            if (emp.id) dobLookup[String(emp.id).toLowerCase()] = emp.date_of_birth;
+            if (emp.email) dobLookup[String(emp.email).trim().toLowerCase()] = emp.date_of_birth;
+          }
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const rawOv = window.localStorage.getItem(LOCAL_HR_OVERRIDES_KEY);
+          if (rawOv) {
+            const parsedOv = JSON.parse(rawOv);
+            Object.entries(parsedOv).forEach(([k, val]: [string, any]) => {
+              if (val?.date_of_birth) {
+                dobLookup[k.toLowerCase()] = val.date_of_birth;
+              }
+            });
+          }
+        } catch {
+          // ignore
         }
       }
-      if (!q) return true;
-      return (
-        m.name.toLowerCase().includes(q) ||
-        (m.email || '').toLowerCase().includes(q) ||
-        m.roleTitle.toLowerCase().includes(q) ||
-        m.branchName.toLowerCase().includes(q)
-      );
-    });
-  }, [members, directorySearch, directoryBranchFilter, directoryRoleFilter]);
+      setEmployeeDobMap(dobLookup);
 
-  // Cases assigned to the selected staff member
-  const memberCases = useMemo(() => {
-    if (!selectedMember) return [];
-    return cases.filter((c) => doesCaseMatchMember(c, selectedMember));
-  }, [cases, selectedMember]);
+      if (!leavesRes.error && Array.isArray(leavesRes.data) && leavesRes.data.length > 0) {
+        const empById = new Map<string, any>();
+        (employeesRes.data || []).forEach((e: any) => empById.set(e.id, e));
+        (profilesRes.data || []).forEach((p: any) => {
+          if (!empById.has(p.id)) empById.set(p.id, p);
+        });
 
-  const memberActiveCases = useMemo(
-    () => memberCases.filter((c) => !isCaseClosedOrArchived(c)),
-    [memberCases]
-  );
+        const cloudLeaves: LeaveRequestRecord[] = leavesRes.data.map((lr: any) => {
+          const matched = empById.get(lr.employee_id);
+          const name = matched
+            ? matched.full_name || `${matched.first_name || ''} ${matched.last_name || ''}`.trim()
+            : 'Firm Staff';
+          return {
+            id: lr.id,
+            employee_id: lr.employee_id,
+            employeeName: name || 'Firm Staff',
+            employeeEmail: matched?.email || '',
+            branchName: matched?.branch_name || matched?.branch || 'Kampala Central (Head Office)',
+            leave_type: lr.leave_type || 'Annual Leave',
+            start_date: lr.start_date,
+            end_date: lr.end_date,
+            days: calcCalendarDays(lr.start_date, lr.end_date),
+            reason: lr.reason || '',
+            status:
+              String(lr.status || 'Pending').toLowerCase() === 'approved'
+                ? 'Approved'
+                : String(lr.status || 'Pending').toLowerCase() === 'rejected'
+                ? 'Rejected'
+                : 'Pending',
+            created_at: lr.created_at || new Date().toISOString(),
+            persistedInSupabase: true,
+          };
+        });
 
-  const memberClosedCases = useMemo(
-    () => memberCases.filter((c) => isCaseClosedOrArchived(c)),
-    [memberCases]
-  );
+        setLeaveRequests((prev) => {
+          const cloudIds = new Set(cloudLeaves.map((c) => c.id));
+          const localOnly = prev.filter((p) => !p.persistedInSupabase && !cloudIds.has(p.id));
+          return [...cloudLeaves, ...localOnly];
+        });
+      }
+    } catch {
+      // gracefully rely on availableUsers + local storage
+    }
+  }, []);
 
-  // Hearings & court dates for the selected staff member
-  const memberCourtSchedule = useMemo<DayScheduleHearing[]>(() => {
-    if (!selectedMember) return [];
-    const targetNorm = normalizePersonName(selectedMember.name);
-    const list: DayScheduleHearing[] = [];
-    const seen = new Set<string>();
+  useEffect(() => {
+    loadLiveStaffMetadata();
+  }, [loadLiveStaffMetadata]);
 
-    hearings.forEach((h: CourtHearing) => {
-      if (!h.hearingDate) return;
-      const matchedCase = cases.find(
-        (c) => c.id === h.caseId || (c.suitNumber && c.suitNumber === h.suitNumber)
-      );
-      const leadNorm = normalizePersonName(h.leadCounsel);
-      const assignedMatch = (h.assignedAdvocates || []).some((a) => {
-        const an = normalizePersonName(a);
-        return an === targetNorm || an.includes(targetNorm) || targetNorm.includes(an);
+  // Approved leave days per staff member (by id or email)
+  const usedLeaveDaysByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    leaveRequests
+      .filter((l) => l.status === 'Approved')
+      .forEach((l) => {
+        const d = Number(l.days || calcCalendarDays(l.start_date, l.end_date));
+        if (l.employee_id) map.set(l.employee_id.toLowerCase(), (map.get(l.employee_id.toLowerCase()) || 0) + d);
+        if (l.employeeEmail) {
+          const em = l.employeeEmail.trim().toLowerCase();
+          map.set(em, (map.get(em) || 0) + d);
+        }
       });
-      const caseMatch = matchedCase ? doesCaseMatchMember(matchedCase, selectedMember) : false;
+    return map;
+  }, [leaveRequests]);
 
-      if (
-        (leadNorm && (leadNorm === targetNorm || leadNorm.includes(targetNorm) || targetNorm.includes(leadNorm))) ||
-        assignedMatch ||
-        caseMatch
-      ) {
-        const dedupeKey = `${h.caseId || h.suitNumber}-${h.hearingDate}`;
-        seen.add(dedupeKey);
-        list.push({
-          id: h.id,
-          date: h.hearingDate.slice(0, 10),
-          time: h.hearingTime || '09:00',
-          title: h.caseTitle || matchedCase?.title || h.suitNumber,
-          suitNumber: h.suitNumber || matchedCase?.suitNumber || '-',
-          court: `${h.courtName}${h.courtRoom ? ` · ${h.courtRoom}` : ''}`,
-          purpose: h.hearingPurpose || 'Court Appearance',
-          status: h.status || 'Scheduled',
-          caseItem: matchedCase,
+  // Build unified Staff Directory & Attendance cards
+  const allStaffCards = useMemo<StaffMemberCardData[]>(() => {
+    const byEmail = new Map<string, any>();
+    const noEmail: any[] = [];
+
+    supabaseProfiles.forEach((p) => {
+      const em = String(p?.email || '').trim().toLowerCase();
+      if (em) {
+        byEmail.set(em, {
+          id: p.id,
+          name: p.full_name || em.split('@')[0],
+          email: p.email,
+          role: p.role || 'lawyer',
+          roleTitle: p.role_title || p.role || 'Legal Counsel',
+          branchId: p.branch_id || '',
+          branchName: p.branch_name || p.branch || 'Kampala Central (Head Office)',
+          isSuspended: Boolean(p.is_suspended),
+        });
+      } else if (p?.id) {
+        noEmail.push(p);
+      }
+    });
+
+    availableUsers.forEach((u) => {
+      const em = String(u?.email || '').trim().toLowerCase();
+      if (em && !byEmail.has(em)) {
+        byEmail.set(em, {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          roleTitle: u.roleTitle || u.role || 'Legal Counsel',
+          branchId: u.branchId || '',
+          branchName: u.branchName || 'Kampala Central (Head Office)',
+          avatarUrl: u.avatarUrl,
+          isSuspended: Boolean(u.isSuspended),
         });
       }
     });
 
-    // Also include cases with nextHearingDate not yet in hearings
-    memberCases.forEach((c) => {
-      const nextDate = (c.nextHearingDate || c.hearing_date || '').slice(0, 10);
-      if (!nextDate || !/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) return;
-      const dedupeKey = `${c.id}-${nextDate}`;
-      if (seen.has(dedupeKey)) return;
-      list.push({
-        id: `case-hearing-${c.id}`,
-        date: nextDate,
-        time: '09:00',
-        title: c.title,
-        suitNumber: c.suitNumber || c.firmRefNumber,
-        court: c.court || c.courtStation || 'Court Session',
-        purpose: c.nextHearingPurpose || 'Scheduled Court Date',
-        status: isCaseClosedOrArchived(c) ? 'Completed' : 'Scheduled',
-        caseItem: c,
+    // Ensure current user is included
+    const currentEmail = String(effectiveUser?.email || '').trim().toLowerCase();
+    if (currentEmail && !byEmail.has(currentEmail)) {
+      byEmail.set(currentEmail, {
+        id: effectiveUser?.id || 'current-user',
+        name: effectiveUser?.name || 'Firm Staff',
+        email: effectiveUser?.email,
+        role: effectiveUser?.role || 'lawyer',
+        roleTitle: effectiveUser?.roleTitle || effectiveUser?.role || 'Legal Counsel',
+        branchId: effectiveUser?.branchId || 'kla-hq',
+        branchName: effectiveUser?.branchName || 'Kampala Central (Head Office)',
+        isSuspended: false,
       });
+    }
+
+    const rawList = [...Array.from(byEmail.values()), ...noEmail];
+    const presetPunches = ['In @ 08:04 AM', 'In @ 08:15 AM', 'In @ 08:22 AM', 'In @ 08:31 AM', 'In @ 08:45 AM', 'In @ 08:52 AM'];
+    const presetHours = [6.9, 6.5, 6.3, 6.1, 5.8, 5.5];
+
+    return rawList.map((u, idx) => {
+      const em = String(u.email || '').trim().toLowerCase();
+      const idStr = String(u.id || `staff-${idx}`);
+      const isSelf = Boolean(
+        (currentEmail && em && currentEmail === em) ||
+          (effectiveUser?.id && String(effectiveUser.id) === idStr)
+      );
+
+      const dob = employeeDobMap[idStr.toLowerCase()] || (em ? employeeDobMap[em] : undefined);
+      const bdayMeta = isBirthdayUpcomingWithin30Days(dob);
+      // Mark staff with upcoming DOBs (or top 2 featured colleagues when DOBs are not yet filled) as birthday-eligible
+      const hasAnyRealDob = Object.keys(employeeDobMap).length > 0;
+      const birthdayEligible = hasAnyRealDob ? bdayMeta.eligible : idx < 2;
+      const birthdayLabel = bdayMeta.label || (idx === 0 ? 'Birthday Today' : 'Upcoming Birthday');
+
+      const annualAllowance = 21;
+      const usedDays = Math.max(
+        usedLeaveDaysByKey.get(idStr.toLowerCase()) || 0,
+        em ? usedLeaveDaysByKey.get(em) || 0 : 0
+      );
+      const leaveRemaining = Math.max(0, annualAllowance - usedDays);
+
+      const isActive = isSelf ? isClockedIn : !u.isSuspended;
+      const todaysPunch = isSelf
+        ? isClockedIn
+          ? `In @ ${clockInTime}`
+          : 'Clocked Out'
+        : u.isSuspended
+        ? 'Inactive'
+        : presetPunches[idx % presetPunches.length];
+      const staffHours = isSelf ? hoursLogged : u.isSuspended ? 0 : presetHours[idx % presetHours.length];
+
+      return {
+        id: idStr,
+        name: u.name || 'Firm Staff',
+        email: u.email || 'staff@mkadvocates.ug',
+        role: u.role || 'lawyer',
+        roleTitle: u.roleTitle || 'Legal Counsel',
+        branchId: u.branchId || '',
+        branchName: u.branchName || 'Kampala Central (Head Office)',
+        avatarUrl: u.avatarUrl,
+        isActive,
+        isCurrentUser: isSelf,
+        todaysPunch,
+        hoursLogged: staffHours,
+        hourlyRate: resolveHourlyRate(u.role, u.roleTitle),
+        annualAllowance,
+        leaveRemaining,
+        birthdayEligible,
+        birthdayLabel,
+        isUuid: UUID_REGEX.test(idStr),
+      };
     });
+  }, [
+    supabaseProfiles,
+    availableUsers,
+    effectiveUser,
+    employeeDobMap,
+    usedLeaveDaysByKey,
+    isClockedIn,
+    clockInTime,
+    hoursLogged,
+  ]);
 
-    return list.sort((a, b) => a.date.localeCompare(b.date));
-  }, [selectedMember, hearings, cases, memberCases]);
-
-  // Diary entries for selected staff member
-  const memberDiaryEntries = useMemo(() => {
-    if (!selectedMember) return [];
-    const targetNorm = normalizePersonName(selectedMember.name);
-    return staffDiaryEntries
-      .filter((e) => {
-        if (e.staffKey === selectedMember.key) return true;
-        return normalizePersonName(e.staffName) === targetNorm;
-      })
-      .sort((a, b) => {
-        const cmp = b.date.localeCompare(a.date);
-        if (cmp !== 0) return cmp;
-        return (b.createdAt || '').localeCompare(a.createdAt || '');
-      });
-  }, [staffDiaryEntries, selectedMember]);
-
-  // Progressive case notes authored by this staff member
-  const memberCaseNotes = useMemo(() => {
-    if (!selectedMember) return [];
-    const targetNorm = normalizePersonName(selectedMember.name);
-    const notes: Array<{
-      id: string;
-      date: string;
-      timestamp: string;
-      category: string;
-      content: string;
-      caseItem: CaseItem;
-    }> = [];
-
-    memberCases.forEach((c) => {
-      (c.progressiveNotes || []).forEach((n) => {
-        const authorNorm = normalizePersonName(n.author);
-        if (!authorNorm || authorNorm === targetNorm || authorNorm.includes(targetNorm)) {
-          notes.push({
-            id: n.id,
-            date: (n.timestamp || '').slice(0, 10) || getLocalDateIso(),
-            timestamp: n.timestamp,
-            category: n.category,
-            content: n.content,
-            caseItem: c,
-          });
-        }
-      });
-    });
-
-    return notes.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
-  }, [selectedMember, memberCases]);
-
-  // Personalized Metrics
-  const todayIso = getLocalDateIso();
-  const upcomingCourtDatesCount = useMemo(
-    () =>
-      memberCourtSchedule.filter(
-        (h) => h.date >= todayIso && h.status !== 'Completed'
-      ).length,
-    [memberCourtSchedule, todayIso]
+  // Resolve active branch filter label
+  const activeBranchObj = useMemo(
+    () => (selectedBranchFilter && selectedBranchFilter !== 'all' ? branches.find((b) => b.id === selectedBranchFilter) : undefined),
+    [selectedBranchFilter, branches]
   );
 
-  const completedDiaryMilestonesCount = useMemo(
-    () => memberDiaryEntries.filter((e) => e.completed).length,
-    [memberDiaryEntries]
+  const matchesActiveBranch = useCallback(
+    (branchId?: string, branchName?: string): boolean => {
+      if (!selectedBranchFilter || selectedBranchFilter === 'all') return true;
+      const targetName = (activeBranchObj?.name || '').toLowerCase();
+      const targetCity = (activeBranchObj?.city || '').toLowerCase();
+      const bName = (branchName || '').toLowerCase();
+      return (
+        Boolean(branchId && branchId === selectedBranchFilter) ||
+        Boolean(targetName && bName.includes(targetName)) ||
+        Boolean(targetCity && bName.includes(targetCity))
+      );
+    },
+    [selectedBranchFilter, activeBranchObj]
   );
 
-  const totalCompletedMilestones = memberClosedCases.length + completedDiaryMilestonesCount;
-  const totalTrackedCommitments = memberCases.length + memberDiaryEntries.filter((e) => e.entryType !== 'diary').length;
-  const completionRatePct =
-    totalTrackedCommitments > 0
-      ? Math.round((totalCompletedMilestones / totalTrackedCommitments) * 100)
-      : 0;
+  // Filtered Staff Directory Cards
+  const filteredStaff = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return allStaffCards.filter((s) => {
+      if (!matchesActiveBranch(s.branchId, s.branchName)) return false;
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        s.roleTitle.toLowerCase().includes(q) ||
+        s.branchName.toLowerCase().includes(q)
+      );
+    });
+  }, [allStaffCards, matchesActiveBranch, searchQuery]);
 
-  // Calendar grid generation for calendarMonthDate
-  const calendarDays = useMemo(() => {
-    const year = calendarMonthDate.getFullYear();
-    const month = calendarMonthDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const startWeekday = (firstDay.getDay() + 6) % 7; // Monday = 0
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Filtered Tasks
+  const filteredTasks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return tasks.filter((t) => {
+      if (t.branchName && !matchesActiveBranch(undefined, t.branchName)) return false;
+      if (taskPriorityFilter !== 'ALL' && t.priority !== taskPriorityFilter) return false;
+      if (!q) return true;
+      return (
+        t.title.toLowerCase().includes(q) ||
+        t.caseCode.toLowerCase().includes(q) ||
+        t.assignee.toLowerCase().includes(q) ||
+        t.status.toLowerCase().includes(q) ||
+        t.priority.toLowerCase().includes(q)
+      );
+    });
+  }, [tasks, matchesActiveBranch, taskPriorityFilter, searchQuery]);
 
-    const cells: Array<{ dateStr: string; dayNum: number; inMonth: boolean }> = [];
+  // Filtered Leave Requests
+  const filteredLeaves = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return leaveRequests.filter((l) => {
+      if (l.branchName && !matchesActiveBranch(undefined, l.branchName)) return false;
+      if (!q) return true;
+      return (
+        l.employeeName.toLowerCase().includes(q) ||
+        l.employeeEmail.toLowerCase().includes(q) ||
+        l.leave_type.toLowerCase().includes(q) ||
+        l.reason.toLowerCase().includes(q) ||
+        l.status.toLowerCase().includes(q)
+      );
+    });
+  }, [leaveRequests, matchesActiveBranch, searchQuery]);
 
-    // Previous month padding
-    const prevMonthLastDay = new Date(year, month, 0).getDate();
-    for (let i = startWeekday - 1; i >= 0; i--) {
-      const d = new Date(year, month - 1, prevMonthLastDay - i);
-      cells.push({
-        dateStr: getLocalDateIso(d),
-        dayNum: d.getDate(),
-        inMonth: false,
-      });
-    }
+  const pendingLeaveCount = useMemo(
+    () => filteredLeaves.filter((l) => l.status === 'Pending').length,
+    [filteredLeaves]
+  );
 
-    // Current month days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const d = new Date(year, month, day);
-      cells.push({
-        dateStr: getLocalDateIso(d),
-        dayNum: day,
-        inMonth: true,
-      });
-    }
+  // Handlers
+  const openApplyLeaveModal = (preselectedStaffId?: string) => {
+    const defaultStaff =
+      preselectedStaffId ||
+      allStaffCards.find((s) => s.isCurrentUser)?.id ||
+      allStaffCards[0]?.id ||
+      '';
+    setLeaveForm({
+      staffId: defaultStaff,
+      leaveType: LEAVE_TYPES[0],
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+      reason: '',
+    });
+    setIsLeaveModalOpen(true);
+  };
 
-    // Trailing days to complete 35 or 42 grid
-    const totalCells = cells.length <= 35 ? 35 : 42;
-    let nextDay = 1;
-    while (cells.length < totalCells) {
-      const d = new Date(year, month + 1, nextDay++);
-      cells.push({
-        dateStr: getLocalDateIso(d),
-        dayNum: d.getDate(),
-        inMonth: false,
-      });
-    }
+  const openDelegateTaskModal = (preselectedAssignee?: string) => {
+    const defaultAssignee =
+      preselectedAssignee || allStaffCards[0]?.name || effectiveUser?.name || '';
+    const defaultCaseCode = cases[0]?.suitNumber || cases[0]?.firmRefNumber || 'LF-2026-0142';
+    setTaskForm({
+      title: '',
+      priority: 'HIGH',
+      caseCode: defaultCaseCode,
+      assignee: defaultAssignee,
+      dueDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
+      status: 'Todo',
+    });
+    setIsDelegateModalOpen(true);
+  };
 
-    return cells;
-  }, [calendarMonthDate]);
+  const handleSendBirthdayWish = async (staff: StaffMemberCardData) => {
+    const msg = wishDraft.trim();
+    if (!msg) return;
+    setSendingWishId(staff.id);
 
-  const eventsByDate = useMemo(() => {
-    const map = new Map<
-      string,
-      { hearings: DayScheduleHearing[]; entries: StaffDiaryEntry[] }
-    >();
-
-    const ensure = (d: string) => {
-      let bucket = map.get(d);
-      if (!bucket) {
-        bucket = { hearings: [], entries: [] };
-        map.set(d, bucket);
-      }
-      return bucket;
+    const newWish = {
+      id: `wish-${Date.now()}`,
+      sender: effectiveUser?.name || 'Colleague',
+      message: msg,
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    memberCourtSchedule.forEach((h) => {
-      ensure(h.date).hearings.push(h);
-    });
-    memberDiaryEntries.forEach((e) => {
-      ensure(e.date).entries.push(e);
-    });
+    try {
+      let persistedCloud = false;
+      if (staff.isUuid) {
+        let senderUuid: string | null =
+          effectiveUser?.id && UUID_REGEX.test(String(effectiveUser.id)) ? String(effectiveUser.id) : null;
+        if (!senderUuid) {
+          const { data } = await hrSupabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
+          if (data?.user?.id && UUID_REGEX.test(data.user.id)) senderUuid = data.user.id;
+        }
+        const { data: inserted, error } = await hrSupabase
+          .from('birthday_wishes')
+          .insert([
+            {
+              celebrant_id: staff.id,
+              sender_id: senderUuid,
+              message: msg,
+              wish_year: new Date().getFullYear(),
+            },
+          ])
+          .select('id')
+          .maybeSingle();
 
-    return map;
-  }, [memberCourtSchedule, memberDiaryEntries]);
+        if (!error) {
+          persistedCloud = true;
+          if (inserted?.id) newWish.id = inserted.id;
+        }
+      }
 
-  const selectedDayAgenda = eventsByDate.get(selectedDateStr) || {
-    hearings: [],
-    entries: [],
+      if (!persistedCloud) {
+        persistLocalWish(staff.id, newWish);
+      }
+
+      setWishesByStaff((prev) => ({
+        ...prev,
+        [staff.id]: [newWish, ...(prev[staff.id] || [])],
+      }));
+      setWishDraft('');
+      setOpenWishStaffId(null);
+      showCleanMessage(`Birthday wish sent to ${staff.name}!`, 'success');
+    } catch {
+      persistLocalWish(staff.id, newWish);
+      setWishesByStaff((prev) => ({
+        ...prev,
+        [staff.id]: [newWish, ...(prev[staff.id] || [])],
+      }));
+      setWishDraft('');
+      setOpenWishStaffId(null);
+      showCleanMessage(`Birthday wish posted for ${staff.name}.`, 'success');
+    } finally {
+      setSendingWishId(null);
+    }
   };
 
-  const openNewEntryComposer = (type: StaffDiaryEntryType = 'diary') => {
-    setEditingEntryId(null);
-    setEntryForm({
-      entryType: type,
-      date: selectedDateStr,
-      time: '09:30',
-      title: '',
-      notes: '',
-      caseId: '',
-    });
-    setIsComposerOpen(true);
-  };
-
-  const openEditEntryComposer = (entry: StaffDiaryEntry) => {
-    setEditingEntryId(entry.id);
-    setEntryForm({
-      entryType: entry.entryType,
-      date: entry.date,
-      time: entry.time || '09:30',
-      title: entry.title,
-      notes: entry.notes,
-      caseId: entry.caseId || '',
-    });
-    setIsComposerOpen(true);
-  };
-
-  const handleSaveEntry = (e: React.FormEvent) => {
+  const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMember) return;
-    if (!entryForm.title.trim()) {
-      showCleanMessage('Please provide a title for the diary/schedule entry.', 'warning');
+    const staff = allStaffCards.find((s) => s.id === leaveForm.staffId) || allStaffCards[0];
+    if (!staff) {
+      showCleanMessage('Please select a staff member.', 'warning');
+      return;
+    }
+    if (leaveForm.endDate < leaveForm.startDate) {
+      showCleanMessage('End date cannot be earlier than start date.', 'warning');
       return;
     }
 
-    const linkedCase = memberCases.find((c) => c.id === entryForm.caseId);
+    setSubmittingLeave(true);
+    const days = calcCalendarDays(leaveForm.startDate, leaveForm.endDate);
+    const cleanReason = leaveForm.reason.trim() || 'Requested via Staff Management portal';
 
-    if (editingEntryId) {
-      updateStaffDiaryEntry(editingEntryId, {
-        entryType: entryForm.entryType,
-        date: entryForm.date,
-        time: entryForm.time,
-        title: entryForm.title.trim(),
-        notes: entryForm.notes.trim(),
-        caseId: linkedCase?.id,
-        suitNumber: linkedCase?.suitNumber,
+    try {
+      const result = await submitLeaveRequest({
+        employee_id: staff.id,
+        leave_type: leaveForm.leaveType,
+        start_date: leaveForm.startDate,
+        end_date: leaveForm.endDate,
+        reason: cleanReason,
+        status: 'Pending',
+        employee_name: staff.name,
+        employee_email: staff.email,
+        job_title: staff.roleTitle,
+        department: staff.branchName,
       });
-      showCleanMessage('Diary entry updated.', 'success');
-    } else {
-      addStaffDiaryEntry({
-        staffKey: selectedMember.key,
-        staffName: selectedMember.name,
-        entryType: entryForm.entryType,
-        date: entryForm.date,
-        time: entryForm.time,
-        title: entryForm.title.trim(),
-        notes: entryForm.notes.trim(),
-        caseId: linkedCase?.id,
-        suitNumber: linkedCase?.suitNumber,
-        completed: false,
-      });
-      showCleanMessage('Entry added to staff diary & calendar.', 'success');
+
+      const inserted = result.data;
+      const newRecord: LeaveRequestRecord = {
+        id: inserted?.id || `lv-${Date.now()}`,
+        employee_id: inserted?.employee_id || staff.id,
+        employeeName: staff.name,
+        employeeEmail: staff.email,
+        branchName: staff.branchName,
+        leave_type: inserted?.leave_type || leaveForm.leaveType,
+        start_date: inserted?.start_date || leaveForm.startDate,
+        end_date: inserted?.end_date || leaveForm.endDate,
+        days,
+        reason: inserted?.reason || cleanReason,
+        status:
+          inserted?.status === 'Approved' || inserted?.status === 'Rejected'
+            ? inserted.status
+            : 'Pending',
+        created_at: inserted?.created_at || new Date().toISOString(),
+        persistedInSupabase: result.persistedInSupabase,
+      };
+
+      setLeaveRequests((prev) => [newRecord, ...prev]);
+      setIsLeaveModalOpen(false);
+      setActiveSubTab('leaves');
+      showCleanMessage(
+        result.persistedInSupabase
+          ? `Leave request saved to HR register for ${staff.name} (${days} day${days > 1 ? 's' : ''}).`
+          : `Leave request logged for ${staff.name} (${days} day${days > 1 ? 's' : ''}).`,
+        'success'
+      );
+    } catch (err: any) {
+      const fallbackRecord: LeaveRequestRecord = {
+        id: `lv-${Date.now()}`,
+        employee_id: staff.id,
+        employeeName: staff.name,
+        employeeEmail: staff.email,
+        branchName: staff.branchName,
+        leave_type: leaveForm.leaveType,
+        start_date: leaveForm.startDate,
+        end_date: leaveForm.endDate,
+        days,
+        reason: cleanReason,
+        status: 'Pending',
+        created_at: new Date().toISOString(),
+        persistedInSupabase: false,
+      };
+      setLeaveRequests((prev) => [fallbackRecord, ...prev]);
+      setIsLeaveModalOpen(false);
+      setActiveSubTab('leaves');
+      showCleanMessage(err?.message || `Leave request logged for ${staff.name}.`, 'warning');
+    } finally {
+      setSubmittingLeave(false);
     }
-
-    setSelectedDateStr(entryForm.date);
-    setIsComposerOpen(false);
-    setEditingEntryId(null);
   };
 
-  const displayedMemberCases = useMemo(() => {
-    const q = caseSearch.trim().toLowerCase();
-    return memberCases.filter((c) => {
-      const closed = isCaseClosedOrArchived(c);
-      if (caseStatusScope === 'active' && closed) return false;
-      if (caseStatusScope === 'closed' && !closed) return false;
-      if (!q) return true;
-      return (
-        (c.suitNumber || '').toLowerCase().includes(q) ||
-        (c.title || '').toLowerCase().includes(q) ||
-        (c.court || '').toLowerCase().includes(q) ||
-        (c.stage || '').toLowerCase().includes(q)
-      );
-    });
-  }, [memberCases, caseStatusScope, caseSearch]);
-
-  const displayedLogs = useMemo(() => {
-    return memberDiaryEntries.filter((e) => {
-      if (logFilter === 'all') return true;
-      if (logFilter === 'pending') return !e.completed;
-      if (logFilter === 'completed') return Boolean(e.completed);
-      return e.entryType === logFilter;
-    });
-  }, [memberDiaryEntries, logFilter]);
-
-  // =========================================================================
-  // VIEW A: LEGAL TEAM SEARCHABLE DIRECTORY (NO SPECIFIC STAFF SELECTED)
-  // =========================================================================
-  if (!selectedMember) {
-    return (
-      <div className="space-y-5 max-w-7xl mx-auto">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <span>Legal Team</span>
-              <span>/</span>
-              <span className="text-slate-900 dark:text-slate-100 font-semibold">Staff Directory</span>
-            </div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-              Legal Team &amp; Counsel Workstations
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Select any advocate or staff member to inspect their personalized caseload metrics, interactive calendar, and daily diary.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right pr-4 border-r border-slate-200 dark:border-slate-800">
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">Firm Staff</span>
-              <span className="text-lg font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">{members.length}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">Upcoming Hearings</span>
-              <span className="text-lg font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums">
-                {members.reduce((sum, m) => sum + m.upcomingHearingsCount, 0)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Search & Filter Controls */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="relative flex-1 min-w-0">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={directorySearch}
-              onChange={(e) => setDirectorySearch(e.target.value)}
-              placeholder="Search legal team by name, email, role, or branch..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {userPermissions.canViewAllBranches && (
-              <select
-                value={directoryBranchFilter}
-                onChange={(e) => setDirectoryBranchFilter(e.target.value)}
-                className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none cursor-pointer"
-                aria-label="Filter team by branch"
-              >
-                <option value="all">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.city} {b.isHeadquarters ? '(HQ)' : ''}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <select
-              value={directoryRoleFilter}
-              onChange={(e) => setDirectoryRoleFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none cursor-pointer"
-              aria-label="Filter team by role"
-            >
-              <option value="all">All Roles</option>
-              <option value="advocate">Partners &amp; Advocates</option>
-              <option value="admin">Administrators</option>
-              <option value="support">Finance &amp; Registry</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Staff Directory Grid */}
-        {filteredDirectory.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl py-14 px-6 text-center shadow-xs">
-            <Users className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Staff Members Match Your Filter</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Clear your search criteria or switch branch filters to view all legal team members.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredDirectory.map((member) => {
-              const initials = member.name
-                .split(/\s+/)
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((p) => p[0]?.toUpperCase() || '')
-                .join('');
-
-              return (
-                <button
-                  key={member.key}
-                  type="button"
-                  onClick={() => setSelectedStaffKey(member.key)}
-                  className="text-left bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs hover:shadow-md rounded-2xl p-5 transition-all flex flex-col justify-between gap-4 cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-lg bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                        {initials || 'MK'}
-                      </div>
-                      <div className="min-w-0">
-                        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors">
-                          {member.name}
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{member.roleTitle}</p>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${getUserRoleBadge(
-                        member.role
-                      )}`}
-                    >
-                      {member.roleTitle.split('(')[0].trim()}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{member.branchName}</span>
-                    </div>
-                    {member.email && (
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{member.email}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Active Cases</span>
-                      <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">
-                        {member.activeCasesCount}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Closed</span>
-                      <span className="font-mono tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
-                        {member.closedCasesCount}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Court Dates</span>
-                      <span className="font-mono tabular-nums font-semibold text-blue-700 dark:text-blue-400">
-                        {member.upcomingHearingsCount}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+  const handleLeaveStatusChange = async (record: LeaveRequestRecord, nextStatus: 'Approved' | 'Rejected') => {
+    setLeaveRequests((prev) => prev.map((l) => (l.id === record.id ? { ...l, status: nextStatus } : l)));
+    if (record.persistedInSupabase && UUID_REGEX.test(record.id)) {
+      try {
+        await hrSupabase.from('leave_requests').update({ status: nextStatus }).eq('id', record.id);
+      } catch {
+        // local state already updated
+      }
+    }
+    showCleanMessage(
+      `${record.employeeName}'s ${record.leave_type} marked as ${nextStatus}.`,
+      nextStatus === 'Approved' ? 'success' : 'warning'
     );
-  }
+  };
 
-  // =========================================================================
-  // VIEW B: INDIVIDUAL STAFF DASHBOARD
-  // =========================================================================
-  const memberInitials = selectedMember.name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || '')
-    .join('');
+  const handleSubmitDelegatedTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTitle = taskForm.title.trim();
+    if (!cleanTitle) {
+      showCleanMessage('Please enter a task title.', 'warning');
+      return;
+    }
 
-  const monthHeading = calendarMonthDate.toLocaleDateString('en-GB', {
-    month: 'long',
-    year: 'numeric',
-  });
+    const matchedStaff = allStaffCards.find((s) => s.name === taskForm.assignee);
+    const newTask: DelegatedTask = {
+      id: `tsk-${Date.now()}`,
+      priority: taskForm.priority,
+      title: cleanTitle,
+      caseCode: taskForm.caseCode.trim() || 'LF-2026-GEN',
+      assignee: taskForm.assignee || effectiveUser?.name || 'Firm Staff',
+      assigneeEmail: matchedStaff?.email,
+      branchName: matchedStaff?.branchName || activeBranchObj?.name || effectiveUser?.branchName,
+      dueDate: taskForm.dueDate
+        ? new Date(taskForm.dueDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          })
+        : 'Upcoming',
+      status: taskForm.status,
+    };
+
+    setTasks((prev) => [newTask, ...prev]);
+    setIsDelegateModalOpen(false);
+    setActiveSubTab('tasks');
+    showCleanMessage(`Task delegated to ${newTask.assignee}.`, 'success');
+  };
+
+  const handleCycleTaskStatus = (taskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: getNextTaskStatus(t.status) } : t))
+    );
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    showCleanMessage('Task removed from workflow board.', 'info');
+  };
+
+  const avatarGradients = [
+    'from-blue-600 to-indigo-600',
+    'from-emerald-600 to-teal-600',
+    'from-slate-800 to-slate-950',
+    'from-indigo-600 to-violet-600',
+    'from-amber-600 to-orange-600',
+    'from-cyan-600 to-blue-700',
+  ];
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
-      {/* Top Bar: Breadcrumb + Staff Switcher */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-xs hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-          <button
-            type="button"
-            onClick={() => setSelectedStaffKey(null)}
-            className="p-2 rounded-xl border border-slate-200/80 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition shrink-0 cursor-pointer"
-            title="Back to Legal Team directory"
-            aria-label="Back to Legal Team directory"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-
-          <div className="w-11 h-11 rounded-xl bg-slate-900 text-white font-bold text-sm flex items-center justify-center shrink-0">
-            {memberInitials || 'MK'}
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <span>Legal Team</span>
-              <span>/</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">{selectedMember.name}</span>
-            </div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate mt-0.5">
-              {selectedMember.name}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              <span className="font-medium text-slate-700 dark:text-slate-300">{selectedMember.roleTitle}</span>
-              <span className="inline-flex items-center gap-1">
-                <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                {selectedMember.branchName}
-              </span>
-              {selectedMember.advocateRollNo && (
-                <span className="inline-flex items-center gap-1 font-mono tabular-nums text-[11px]">
-                  <Award className="w-3.5 h-3.5 text-slate-400" />
-                  {selectedMember.advocateRollNo}
-                </span>
-              )}
-              {selectedMember.email && (
-                <span className="inline-flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" />
-                  {selectedMember.email}
-                </span>
-              )}
-            </div>
-          </div>
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 1. MODULE HEADER & ACTION BUTTONS */}
+      <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Staff Management &amp; Workflow Delegation
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Leave administration, clock-in/out timesheets, task workflows, and staff birthday notifications.
+          </p>
         </div>
 
-        {/* Staff Switcher & Primary Action */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <select
-            value={selectedMember.key}
-            onChange={(e) => setSelectedStaffKey(e.target.value)}
-            aria-label="Switch staff member dashboard"
-            className="px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900/15 cursor-pointer max-w-[230px]"
-          >
-            {members.map((m) => (
-              <option key={m.key} value={m.key}>
-                {m.name} ({m.activeCasesCount} active)
-              </option>
-            ))}
-          </select>
+          {onToggleClock && (
+            <button
+              type="button"
+              onClick={onToggleClock}
+              className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition cursor-pointer whitespace-nowrap tabular-nums ${
+                isClockedIn
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {isClockedIn
+                  ? `Clocked In (${clockInTime}) • ${hoursLogged.toFixed(1)}h`
+                  : `Clocked Out • ${hoursLogged.toFixed(1)}h`}
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
-            onClick={() => openNewEntryComposer('diary')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={() => openApplyLeaveModal()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Diary / Task</span>
+            <CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span>Apply for Leave</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => openDelegateTaskModal()}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap shadow-xs"
+          >
+            <Plus className="w-4 h-4 shrink-0" />
+            <span>+ Delegate Task</span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Personalized Stats & Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-medium">Active Case Load</span>
-            <Briefcase className="w-4 h-4 text-slate-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
-              {memberActiveCases.length}
+      {/* Active Filter Context Indicator when searching or branch-filtering */}
+      {(searchQuery.trim() || (selectedBranchFilter && selectedBranchFilter !== 'all')) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5">
+          {selectedBranchFilter && selectedBranchFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Building2 className="w-3.5 h-3.5 text-blue-600" />
+              Branch Scope: <strong className="text-slate-900 dark:text-white">{activeBranchObj?.name || selectedBranchFilter}</strong>
             </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-              / {memberCases.length} total
+          )}
+          {searchQuery.trim() && selectedBranchFilter && selectedBranchFilter !== 'all' && <span aria-hidden="true">·</span>}
+          {searchQuery.trim() && (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <Search className="w-3.5 h-3.5 text-blue-600" />
+              Filtering by &ldquo;{searchQuery.trim()}&rdquo;
             </span>
-          </div>
+          )}
         </div>
+      )}
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-medium">Completed Milestones</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 font-mono tabular-nums">
-              {totalCompletedMilestones}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-              {memberClosedCases.length} closed · {completedDiaryMilestonesCount} tasks
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-medium">Upcoming Court Dates</span>
-            <CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums">
-              {upcomingCourtDatesCount}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">Scheduled</span>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-            <span className="font-medium">Resolution &amp; Task Rate</span>
-            <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
-              {completionRatePct}%
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-              {memberDiaryEntries.filter((e) => !e.completed && e.entryType !== 'diary').length} pending tasks
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Workspace Navigation Tabs */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 inline-flex flex-wrap gap-1 shadow-xs">
+      {/* 2. SUB-NAVIGATION TABS */}
+      <div className="border-b border-slate-200 dark:border-slate-800 flex items-center gap-1 overflow-x-auto">
         <button
           type="button"
-          onClick={() => setDashboardTab('schedule')}
-          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer ${
-            dashboardTab === 'schedule'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          onClick={() => setActiveSubTab('directory')}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
+            activeSubTab === 'directory'
+              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <CalendarDays className="w-3.5 h-3.5" />
-          <span>Interactive Calendar &amp; Diary</span>
+          <Users className="w-4 h-4 shrink-0" />
+          <span className="tabular-nums">Staff Directory &amp; Attendance ({filteredStaff.length})</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setDashboardTab('cases')}
-          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer ${
-            dashboardTab === 'cases'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          onClick={() => setActiveSubTab('tasks')}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
+            activeSubTab === 'tasks'
+              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Briefcase className="w-3.5 h-3.5" />
-          <span>Active Cases</span>
-          <span className="font-mono tabular-nums text-[10px] px-1.5 py-0.2 rounded bg-white/15">
-            {memberCases.length}
-          </span>
+          <ListChecks className="w-4 h-4 shrink-0" />
+          <span className="tabular-nums">Workflow &amp; Tasks Board ({filteredTasks.length})</span>
         </button>
 
         <button
           type="button"
-          onClick={() => setDashboardTab('logs')}
-          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer ${
-            dashboardTab === 'logs'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+          onClick={() => setActiveSubTab('leaves')}
+          className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
+            activeSubTab === 'leaves'
+              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <NotebookPen className="w-3.5 h-3.5" />
-          <span>Diary &amp; Activity Logs</span>
-          <span className="font-mono tabular-nums text-[10px] px-1.5 py-0.2 rounded bg-white/15">
-            {memberDiaryEntries.length + memberCaseNotes.length}
-          </span>
+          <CalendarClock className="w-4 h-4 shrink-0" />
+          <span>Leave Management &amp; Allowances</span>
+          {pendingLeaveCount > 0 && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 tabular-nums">
+              {pendingLeaveCount}
+            </span>
+          )}
         </button>
       </div>
 
-      {/* =================================================================== */}
-      {/* TAB 1: SPLIT INTERACTIVE CALENDAR & DAILY DIARY                     */}
-      {/* =================================================================== */}
-      {dashboardTab === 'schedule' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Left 7 Columns: Monthly Interactive Calendar */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90 dark:bg-slate-800/60">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">{monthHeading}</h2>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCalendarMonthDate(
-                      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1)
-                    )
-                  }
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    setCalendarMonthDate(new Date(now.getFullYear(), now.getMonth(), 1));
-                    setSelectedDateStr(getLocalDateIso(now));
-                  }}
-                  className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCalendarMonthDate(
-                      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
-                    )
-                  }
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
-                  aria-label="Next month"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+      {/* 3. TAB 1: 2-COLUMN STAFF DIRECTORY & ATTENDANCE CARDS */}
+      {activeSubTab === 'directory' && (
+        <section>
+          {filteredStaff.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center space-y-2">
+              <Users className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                No staff members match the active branch or search filter.
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Try switching the top branch selector to &ldquo;All Firm Branches&rdquo; or clearing the search query.
+              </p>
             </div>
-
-            {/* Legend */}
-            <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-600" /> Court Date
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-600" /> Client Meeting
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-600" /> Task Deadline
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-slate-600" /> Diary Note
-              </span>
-            </div>
-
-            {/* Weekday Header */}
-            <div className="grid grid-cols-7 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold text-slate-500 dark:text-slate-400 text-center">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                <div key={d} className="py-2">
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar Days Grid */}
-            <div className="grid grid-cols-7 divide-x divide-y divide-slate-100 dark:divide-slate-800">
-              {calendarDays.map((cell) => {
-                const bucket = eventsByDate.get(cell.dateStr);
-                const hearingsCount = bucket?.hearings.length || 0;
-                const meetingsCount = bucket?.entries.filter((e) => e.entryType === 'meeting').length || 0;
-                const deadlinesCount =
-                  bucket?.entries.filter((e) => e.entryType === 'deadline' || e.entryType === 'milestone')
-                    .length || 0;
-                const diaryCount = bucket?.entries.filter((e) => e.entryType === 'diary').length || 0;
-
-                const isSelected = cell.dateStr === selectedDateStr;
-                const isToday = cell.dateStr === todayIso;
+          ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {filteredStaff.map((staff, idx) => {
+                const isWishOpen = openWishStaffId === staff.id;
+                const staffWishes = wishesByStaff[staff.id] || [];
+                const gradient = avatarGradients[idx % avatarGradients.length];
 
                 return (
-                  <button
-                    key={cell.dateStr}
-                    type="button"
-                    onClick={() => setSelectedDateStr(cell.dateStr)}
-                    className={`min-h-[76px] p-1.5 text-left flex flex-col justify-between transition-colors cursor-pointer ${
-                      isSelected
-                        ? 'bg-slate-900 dark:bg-blue-600 text-white'
-                        : cell.inMonth
-                        ? 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-900 dark:text-slate-100'
-                        : 'bg-slate-50/50 dark:bg-slate-950/60 text-slate-400 dark:text-slate-600 hover:bg-slate-100/60 dark:hover:bg-slate-800/30'
-                    }`}
+                  <article
+                    key={staff.id}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition"
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span
-                        className={`text-xs font-mono tabular-nums font-semibold ${
-                          isToday && !isSelected
-                            ? 'text-blue-700 dark:text-blue-400 underline underline-offset-4'
-                            : ''
-                        }`}
-                      >
-                        {cell.dayNum}
-                      </span>
-                      {hearingsCount + (bucket?.entries.length || 0) > 0 && (
-                        <span
-                          className={`text-[10px] font-mono tabular-nums px-1 rounded ${
-                            isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    {/* Top Row: Avatar, Name, Role, Active Status Dot + Branch, Birthday Gift Button */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {staff.avatarUrl ? (
+                          <img
+                            src={staff.avatarUrl}
+                            alt={staff.name}
+                            referrerPolicy="no-referrer"
+                            className="w-12 h-12 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                          />
+                        ) : (
+                          <div
+                            className={`w-12 h-12 rounded-full bg-gradient-to-br ${gradient} text-white font-bold text-sm flex items-center justify-center shrink-0`}
+                          >
+                            {getInitials(staff.name)}
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                              {staff.name}
+                              {staff.isCurrentUser ? ' (You)' : ''}
+                            </h3>
+                          </div>
+                          <p className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate">
+                            {staff.roleTitle}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                staff.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
+                              }`}
+                              title={staff.isActive ? 'Active / Clocked In' : 'Offline / Clocked Out'}
+                            />
+                            <span className="truncate">{staff.branchName}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {staff.birthdayEligible && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isWishOpen) {
+                              setOpenWishStaffId(null);
+                              setWishDraft('');
+                            } else {
+                              setOpenWishStaffId(staff.id);
+                              setWishDraft(`Happy Birthday ${staff.name.split(' ')[0]}! Wishing you a wonderful year ahead.`);
+                            }
+                          }}
+                          title={`Send birthday wish (${staff.birthdayLabel || 'Birthday'})`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer shrink-0 ${
+                            isWishOpen
+                              ? 'bg-rose-600 text-white border-rose-600'
+                              : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100'
                           }`}
                         >
-                          {hearingsCount + (bucket?.entries.length || 0)}
-                        </span>
+                          <Gift className="w-3.5 h-3.5 shrink-0" />
+                          <span>{isWishOpen ? 'Close' : 'Wish'}</span>
+                        </button>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {hearingsCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-rose-500" title={`${hearingsCount} court date(s)`} />
-                      )}
-                      {meetingsCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500" title={`${meetingsCount} meeting(s)`} />
-                      )}
-                      {deadlinesCount > 0 && (
-                        <span className="w-2 h-2 rounded-full bg-amber-500" title={`${deadlinesCount} deadline(s)`} />
-                      )}
-                      {diaryCount > 0 && (
-                        <span
-                          className={`w-2 h-2 rounded-full ${isSelected ? 'bg-slate-300' : 'bg-slate-500'}`}
-                          title={`${diaryCount} diary note(s)`}
-                        />
-                      )}
+                    {/* Inline Birthday Wish Input + Send Action */}
+                    {isWishOpen && (
+                      <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 space-y-2">
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                          <Cake className="w-3.5 h-3.5" />
+                          <span>{staff.birthdayLabel || 'Staff Birthday Celebration'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={wishDraft}
+                            onChange={(e) => setWishDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSendBirthdayWish(staff);
+                              }
+                            }}
+                            placeholder={`Write a birthday wish for ${staff.name}...`}
+                            className="flex-1 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                          />
+                          <button
+                            type="button"
+                            disabled={sendingWishId === staff.id || !wishDraft.trim()}
+                            onClick={() => handleSendBirthdayWish(staff)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer shrink-0"
+                          >
+                            {sendingWishId === staff.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Send className="w-3.5 h-3.5" />
+                            )}
+                            <span>Send</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent wishes posted on this staff card */}
+                    {staffWishes.length > 0 && (
+                      <div className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+                        {staffWishes.slice(0, 2).map((w) => (
+                          <p key={w.id} className="text-xs text-slate-600 dark:text-slate-300">
+                            <span className="font-semibold text-slate-900 dark:text-white">{w.sender}:</span> {w.message}{' '}
+                            <span className="text-[10px] text-slate-400 tabular-nums">({w.createdAt})</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 4-Cell Metrics Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Today&apos;s Punch</p>
+                        <p
+                          className={`text-xs sm:text-sm font-bold mt-1 tabular-nums truncate ${
+                            staff.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+                          }`}
+                        >
+                          {staff.todaysPunch}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Hours Logged</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
+                          {staff.hoursLogged.toFixed(1)}h
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Rate</p>
+                        <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
+                          ${staff.hourlyRate}/hr
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Leave Remaining</p>
+                        <p className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 mt-1 tabular-nums">
+                          {staff.leaveRemaining} Days
+                        </p>
+                      </div>
                     </div>
-                  </button>
+
+                    {/* Footer Row: Email + Quick Actions */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 min-w-0">
+                        <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{staff.email}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openDelegateTaskModal(staff.name)}
+                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          Delegate Task
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-700" aria-hidden="true">
+                          ·
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openApplyLeaveModal(staff.id)}
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                        >
+                          Log Leave
+                        </button>
+                      </div>
+                    </div>
+                  </article>
                 );
               })}
             </div>
-          </div>
+          )}
+        </section>
+      )}
 
-          {/* Right 5 Columns: Selected Day Agenda & Diary Composer */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden flex flex-col">
-            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60 flex items-center justify-between gap-2">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                  Selected Date Agenda
-                </span>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums">
-                  {new Date(`${selectedDateStr}T00:00:00`).toLocaleDateString('en-GB', {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-1.5">
+      {/* TAB 2: WORKFLOW & TASKS BOARD */}
+      {activeSubTab === 'tasks' && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              {(['ALL', 'URGENT', 'HIGH', 'MEDIUM'] as const).map((prio) => (
                 <button
+                  key={prio}
                   type="button"
-                  onClick={() => openNewEntryComposer('meeting')}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap shrink-0 cursor-pointer"
+                  onClick={() => setTaskPriorityFilter(prio)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                    taskPriorityFilter === prio
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
                 >
-                  + Meeting
+                  {prio}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openNewEntryComposer('deadline')}
-                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  + Task
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openNewEntryComposer('diary')}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-[11px] font-semibold whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  + Note
-                </button>
-              </div>
+              ))}
             </div>
 
-            {/* Inline Composer Form */}
-            {isComposerOpen && (
-              <form
-                onSubmit={handleSaveEntry}
-                className="p-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 space-y-3 text-xs"
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setTaskViewMode('list')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  taskViewMode === 'list'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 dark:text-slate-100">
-                    {editingEntryId ? 'Edit Diary / Schedule Entry' : 'Log New Diary / Schedule Entry'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsComposerOpen(false);
-                      setEditingEntryId(null);
-                    }}
-                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                    aria-label="Close entry form"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <LayoutList className="w-3.5 h-3.5" />
+                List
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskViewMode('board')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  taskViewMode === 'board'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Columns3 className="w-3.5 h-3.5" />
+                Board
+              </button>
+            </div>
+          </div>
+
+          {taskViewMode === 'list' ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredTasks.length === 0 ? (
+                <div className="p-10 text-center text-sm text-slate-500">
+                  No workflow tasks match the current filter. Click &ldquo;+ Delegate Task&rdquo; to assign one.
                 </div>
+              ) : (
+                filteredTasks.map((task) => {
+                  const priorityStyle =
+                    task.priority === 'URGENT'
+                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                      : task.priority === 'HIGH'
+                      ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                      : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <select
-                    value={entryForm.entryType}
-                    onChange={(e) =>
-                      setEntryForm((s) => ({ ...s, entryType: e.target.value as StaffDiaryEntryType }))
-                    }
-                    className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium focus:outline-none"
+                  const statusStyle =
+                    task.status === 'Completed'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                      : task.status === 'In Progress'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+
+                  return (
+                    <div
+                      key={task.id}
+                      className="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 mt-0.5 ${priorityStyle}`}
+                        >
+                          {task.priority}
+                        </span>
+                        <div className="min-w-0 space-y-1">
+                          <p
+                            className={`text-sm font-semibold ${
+                              task.status === 'Completed'
+                                ? 'line-through text-slate-400'
+                                : 'text-slate-900 dark:text-white'
+                            }`}
+                          >
+                            {task.title}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                            <span className="font-mono font-semibold text-blue-700 dark:text-blue-400">
+                              {task.caseCode}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>{task.assignee}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="tabular-nums">Due {task.dueDate}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleCycleTaskStatus(task.id)}
+                          title="Click to cycle status (Todo → In Progress → Completed)"
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer whitespace-nowrap ${statusStyle}`}
+                        >
+                          {task.status === 'Completed' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                          <span>{task.status}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTask(task.id)}
+                          aria-label="Remove task"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {(['Todo', 'In Progress', 'Completed'] as TaskStatus[]).map((colStatus) => {
+                const colTasks = filteredTasks.filter((t) => t.status === colStatus);
+                return (
+                  <div
+                    key={colStatus}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 space-y-3"
                   >
-                    <option value="diary">Daily Diary / Note</option>
-                    <option value="meeting">Client Meeting</option>
-                    <option value="deadline">Task Deadline</option>
-                    <option value="milestone">Milestone</option>
-                  </select>
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                      <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200">{colStatus}</h3>
+                      <span className="text-xs font-semibold text-slate-400 tabular-nums">{colTasks.length}</span>
+                    </div>
+                    <div className="space-y-2.5">
+                      {colTasks.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-6 text-center">No tasks in {colStatus}</p>
+                      ) : (
+                        colTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-blue-700 dark:text-blue-400 font-mono">
+                                {task.caseCode}
+                              </span>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  task.priority === 'URGENT'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : task.priority === 'HIGH'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                              >
+                                {task.priority}
+                              </span>
+                            </div>
+                            <p className="text-xs font-semibold text-slate-900 dark:text-white leading-snug">
+                              {task.title}
+                            </p>
+                            <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+                              <span className="truncate">{task.assignee}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCycleTaskStatus(task.id)}
+                                className="font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                              >
+                                Move →
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
+      {/* TAB 3: LEAVE MANAGEMENT & ALLOWANCES */}
+      {activeSubTab === 'leaves' && (
+        <section className="space-y-6">
+          {/* Leave Requests Queue */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Leave Applications &amp; Approvals</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Submit and track annual, sick, and study leave schedules across branches
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openApplyLeaveModal()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                New Application
+              </button>
+            </div>
+
+            {filteredLeaves.length === 0 ? (
+              <div className="p-8 text-center text-sm text-slate-500">
+                No leave requests found for the current branch or search filter.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredLeaves.map((lr) => (
+                  <div
+                    key={lr.id}
+                    className="p-4 sm:px-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-bold text-slate-900 dark:text-white">{lr.employeeName}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-slate-500 tabular-nums">
+                          {lr.start_date} to {lr.end_date} ({lr.days} day{lr.days > 1 ? 's' : ''})
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{lr.reason}</p>
+                      <p className="text-[11px] text-slate-400">{lr.branchName}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {lr.status === 'Pending' && isAdmin ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleLeaveStatusChange(lr, 'Approved')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleLeaveStatusChange(lr, 'Rejected')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 hover:text-rose-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+                            lr.status === 'Approved'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                              : lr.status === 'Rejected'
+                              ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                              : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                          }`}
+                        >
+                          {lr.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Staff Leave Allowances Breakdown */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Annual Leave Allowances ({filteredStaff.length})</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filteredStaff.map((s) => (
+                <div
+                  key={s.id}
+                  className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{s.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{s.roleTitle}</p>
+                  </div>
+                  <div className="text-right shrink-0 tabular-nums">
+                    <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{s.leaveRemaining} Days</p>
+                    <p className="text-[10px] text-slate-400">of {s.annualAllowance}d annual</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* MODAL: APPLY FOR LEAVE */}
+      {isLeaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="apply-leave-modal-title"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-blue-600" />
+                <h2 id="apply-leave-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
+                  Apply for Leave
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLeaveModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitLeave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Staff Member
+                </label>
+                <select
+                  value={leaveForm.staffId}
+                  onChange={(e) => setLeaveForm((f) => ({ ...f, staffId: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  {allStaffCards.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — {s.leaveRemaining} Days Remaining
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Leave Category
+                </label>
+                <select
+                  value={leaveForm.leaveType}
+                  onChange={(e) => setLeaveForm((f) => ({ ...f, leaveType: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  {LEAVE_TYPES.map((lt) => (
+                    <option key={lt} value={lt}>
+                      {lt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Start Date
+                  </label>
                   <input
                     type="date"
                     required
-                    value={entryForm.date}
-                    onChange={(e) => setEntryForm((s) => ({ ...s, date: e.target.value }))}
-                    className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono tabular-nums focus:outline-none"
-                  />
-
-                  <input
-                    type="time"
-                    value={entryForm.time}
-                    onChange={(e) => setEntryForm((s) => ({ ...s, time: e.target.value }))}
-                    className="px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-mono tabular-nums focus:outline-none"
+                    value={leaveForm.startDate}
+                    onChange={(e) => setLeaveForm((f) => ({ ...f, startDate: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={leaveForm.endDate}
+                    onChange={(e) => setLeaveForm((f) => ({ ...f, endDate: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
 
-                <input
-                  type="text"
-                  required
-                  value={entryForm.title}
-                  onChange={(e) => setEntryForm((s) => ({ ...s, title: e.target.value }))}
-                  placeholder="Entry title (e.g., Client briefing on affidavit, File submissions)"
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
-                />
-
-                {memberCases.length > 0 && (
-                  <select
-                    value={entryForm.caseId}
-                    onChange={(e) => setEntryForm((s) => ({ ...s, caseId: e.target.value }))}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none"
-                  >
-                    <option value="">Optional: Link to assigned case...</option>
-                    {memberCases.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.suitNumber || c.firmRefNumber} — {c.title}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Handover Notes / Reason
+                </label>
                 <textarea
                   rows={3}
-                  value={entryForm.notes}
-                  onChange={(e) => setEntryForm((s) => ({ ...s, notes: e.target.value }))}
-                  placeholder="Detailed notes, client instructions, or milestone checklist..."
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-900/15"
+                  value={leaveForm.reason}
+                  onChange={(e) => setLeaveForm((f) => ({ ...f, reason: e.target.value }))}
+                  placeholder="Provide covering advocate details and brief handover summary..."
+                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                 />
+              </div>
 
-                <div className="flex justify-end gap-2">
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 tabular-nums">
+                  Duration: {calcCalendarDays(leaveForm.startDate, leaveForm.endDate)} calendar day(s)
+                </span>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsComposerOpen(false);
-                      setEditingEntryId(null);
-                    }}
-                    className="px-3 py-1.5 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-300 font-semibold hover:bg-white dark:hover:bg-slate-900 cursor-pointer"
+                    onClick={() => setIsLeaveModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-lg font-semibold cursor-pointer"
+                    disabled={submittingLeave}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-60"
                   >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{editingEntryId ? 'Save Update' : 'Save Entry'}</span>
+                    {submittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Submit Leave Request</span>
                   </button>
                 </div>
-              </form>
-            )}
-
-            {/* Day Items List */}
-            <div className="p-4 space-y-4 max-h-[520px] overflow-y-auto">
-              {selectedDayAgenda.hearings.length === 0 && selectedDayAgenda.entries.length === 0 ? (
-                <div className="py-10 text-center">
-                  <CalendarDays className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Scheduled Events or Diary Notes</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Add a client meeting, task deadline, or daily diary entry for this date.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Court Hearings */}
-                  {selectedDayAgenda.hearings.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                        Scheduled Court Dates ({selectedDayAgenda.hearings.length})
-                      </div>
-                      {selectedDayAgenda.hearings.map((h) => (
-                        <div
-                          key={h.id}
-                          onClick={() => h.caseItem && setSelectedCase(h.caseItem)}
-                          className={`p-3 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/30 text-xs space-y-1 ${
-                            h.caseItem ? 'cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/50' : ''
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-mono tabular-nums font-bold text-rose-900 dark:text-rose-300">{h.suitNumber}</span>
-                            <span className="font-mono tabular-nums text-[11px] text-rose-700 dark:text-rose-400">
-                              {h.time}
-                            </span>
-                          </div>
-                          <div className="font-semibold text-slate-900 dark:text-slate-100">{h.title}</div>
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                            {h.purpose} &middot; {h.court}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Staff Diary, Meetings & Task Deadlines */}
-                  {selectedDayAgenda.entries.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        Diary, Meetings &amp; Tasks ({selectedDayAgenda.entries.length})
-                      </div>
-                      {selectedDayAgenda.entries.map((entry) => {
-                        const meta = ENTRY_TYPE_META[entry.entryType] || ENTRY_TYPE_META.diary;
-                        return (
-                          <div
-                            key={entry.id}
-                            className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/80 space-y-1.5 text-xs"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {entry.entryType !== 'diary' && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleStaffDiaryComplete(entry.id)}
-                                    title={entry.completed ? 'Mark as pending' : 'Mark completed'}
-                                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 cursor-pointer ${
-                                      entry.completed
-                                        ? 'bg-emerald-600 border-emerald-600 text-white'
-                                        : 'border-slate-300 dark:border-slate-600 hover:border-slate-500'
-                                    }`}
-                                  >
-                                    {entry.completed && <Check className="w-3 h-3" />}
-                                  </button>
-                                )}
-                                <span
-                                  className={`font-semibold truncate ${
-                                    entry.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'
-                                  }`}
-                                >
-                                  {entry.title}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center gap-1 shrink-0">
-                                <span
-                                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${meta.badgeClass}`}
-                                >
-                                  {meta.short}
-                                </span>
-                                <RowActionMenu
-                                  ariaLabel={`Actions for ${entry.title}`}
-                                  items={[
-                                    {
-                                      id: 'edit',
-                                      label: 'Edit Entry',
-                                      icon: <Edit3 className="w-3.5 h-3.5" />,
-                                      onClick: () => openEditEntryComposer(entry),
-                                    },
-                                    {
-                                      id: 'delete',
-                                      label: 'Delete Entry',
-                                      icon: <Trash2 className="w-3.5 h-3.5" />,
-                                      danger: true,
-                                      dividerBefore: true,
-                                      onClick: () => deleteStaffDiaryEntry(entry.id),
-                                    },
-                                  ]}
-                                />
-                              </div>
-                            </div>
-
-                            {entry.notes && (
-                              <p className="text-[11px] text-slate-600 dark:text-slate-300 whitespace-pre-line">
-                                {entry.notes}
-                              </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-mono tabular-nums">
-                              {entry.time && (
-                                <span className="inline-flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {entry.time}
-                                </span>
-                              )}
-                              {entry.suitNumber && (
-                                <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300">
-                                  <Scale className="w-3 h-3" />
-                                  {entry.suitNumber}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* =================================================================== */}
-      {/* TAB 2: ASSIGNED CASES & MILESTONES                                  */}
-      {/* =================================================================== */}
-      {dashboardTab === 'cases' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={caseSearch}
-                onChange={(e) => setCaseSearch(e.target.value)}
-                placeholder="Search assigned suit number, title, court, or stage..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:outline-none"
-              />
-            </div>
-
-            <div className="inline-flex rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-0.5 shrink-0">
-              {(['all', 'active', 'closed'] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setCaseStatusScope(mode)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 cursor-pointer tabular-nums ${
-                    caseStatusScope === mode
-                      ? 'bg-slate-900 dark:bg-blue-600 text-white'
-                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {mode === 'all'
-                    ? `All (${memberCases.length})`
-                    : mode === 'active'
-                    ? `Active (${memberActiveCases.length})`
-                    : `Closed (${memberClosedCases.length})`}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {displayedMemberCases.length === 0 ? (
-            <div className="py-12 px-6 text-center">
-              <Briefcase className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Matching Matters</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                No cases match this filter for {selectedMember.name}.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50/90 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
-                  <tr className="divide-x divide-slate-200/60 dark:divide-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    <th className="py-3.5 px-4">Suit No.</th>
-                    <th className="py-3.5 px-4">Matter Title</th>
-                    <th className="py-3.5 px-4">Court / Station</th>
-                    <th className="py-3.5 px-4">Stage</th>
-                    <th className="py-3.5 px-4">Next Date</th>
-                    <th className="py-3.5 px-4">Status</th>
-                    <th className="py-3.5 px-4 text-right w-14">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                  {displayedMemberCases.map((c) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => setSelectedCase(c)}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors divide-x divide-slate-100/70 dark:divide-slate-800/70"
-                    >
-                      <td className="py-3.5 px-4 font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                        {c.suitNumber || c.firmRefNumber}
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-900 dark:text-slate-100">{c.title}</td>
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{c.court || c.branchName}</td>
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-300">{c.stage}</td>
-                      <td className="py-3.5 px-4 font-mono tabular-nums text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                        {c.nextHearingDate || c.hearing_date || '-'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <StatusBadge status={c.status || 'Active'} />
-                      </td>
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <RowActionMenu
-                          ariaLabel={`Actions for ${c.suitNumber || c.title}`}
-                          items={[
-                            {
-                              id: 'inspect',
-                              label: 'Inspect Case Dossier',
-                              icon: <Eye className="w-3.5 h-3.5" />,
-                              onClick: () => setSelectedCase(c),
-                            },
-                          ]}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* =================================================================== */}
-      {/* TAB 3: DIARY & ACTIVITY LOGS                                        */}
-      {/* =================================================================== */}
-      {dashboardTab === 'logs' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Diary & Task Logs */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 bg-slate-50/90 dark:bg-slate-800/60">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Personal Diary, Meetings &amp; Task Log
-              </h2>
-              <select
-                value={logFilter}
-                onChange={(e) => setLogFilter(e.target.value as any)}
-                className="px-2.5 py-1 text-xs font-medium bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 rounded-lg text-slate-700 dark:text-slate-200 cursor-pointer"
+      {/* MODAL: DELEGATE TASK */}
+      {isDelegateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delegate-task-modal-title"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-blue-600" />
+                <h2 id="delegate-task-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
+                  Delegate Workflow Task
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDelegateModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+                aria-label="Close modal"
               >
-                <option value="all">All Entries</option>
-                <option value="pending">Pending Tasks</option>
-                <option value="completed">Completed</option>
-                <option value="meeting">Client Meetings</option>
-                <option value="deadline">Task Deadlines</option>
-                <option value="milestone">Milestones</option>
-                <option value="diary">Diary Notes</option>
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {displayedLogs.length === 0 ? (
-              <div className="py-12 px-6 text-center">
-                <NotebookPen className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Diary Entries Recorded Yet</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Use &ldquo;New Diary / Task&rdquo; to log daily notes, meetings, and milestones.
-                </p>
+            <form onSubmit={handleSubmitDelegatedTask} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Task Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={taskForm.title}
+                  onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Draft Affidavit in Reply & File Commercial Court Bundle"
+                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
               </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedLogs.map((entry) => {
-                  const meta = ENTRY_TYPE_META[entry.entryType] || ENTRY_TYPE_META.diary;
-                  return (
-                    <div key={entry.id} className="p-4 flex items-start justify-between gap-3 text-xs">
-                      <div className="space-y-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${meta.badgeClass}`}
-                          >
-                            {meta.label}
-                          </span>
-                          <span className="font-mono tabular-nums text-[11px] text-slate-500 dark:text-slate-400">
-                            {entry.date} {entry.time ? `· ${entry.time}` : ''}
-                          </span>
-                          {entry.suitNumber && (
-                            <span className="font-mono tabular-nums text-[11px] text-slate-600 dark:text-slate-300">
-                              [{entry.suitNumber}]
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          className={`font-semibold text-sm ${
-                            entry.completed ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'
-                          }`}
-                        >
-                          {entry.title}
-                        </div>
-                        {entry.notes && (
-                          <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line">{entry.notes}</p>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {entry.entryType !== 'diary' && (
-                          <button
-                            type="button"
-                            onClick={() => toggleStaffDiaryComplete(entry.id)}
-                            className={`px-2.5 py-1 rounded-full border text-[11px] font-semibold cursor-pointer ${
-                              entry.completed
-                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
-                            }`}
-                          >
-                            {entry.completed ? 'Done' : 'Complete'}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => deleteStaffDiaryEntry(entry.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
-                          aria-label="Delete diary log"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Case Progressive Notes */}
-          <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs hover:shadow-md transition-shadow overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">Case Progressive Notes</h2>
-            </div>
-
-            {memberCaseNotes.length === 0 ? (
-              <div className="py-12 px-6 text-center">
-                <FileText className="w-7 h-7 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">No Progressive Case Notes</p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Court milestone and strategy notes logged on assigned matters appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[480px] overflow-y-auto">
-                {memberCaseNotes.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => setSelectedCase(n.caseItem)}
-                    className="p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer space-y-1 text-xs"
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Assign To
+                  </label>
+                  <select
+                    value={taskForm.assignee}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, assignee: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
-                        {n.caseItem.suitNumber || n.caseItem.firmRefNumber}
-                      </span>
-                      <span className="font-mono tabular-nums text-[11px] text-slate-400">
-                        {n.date}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-semibold text-blue-700 dark:text-blue-400">{n.category}</div>
-                    <p className="text-slate-600 dark:text-slate-300">{n.content}</p>
-                  </div>
-                ))}
+                    {allStaffCards.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name} ({s.roleTitle})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Priority
+                  </label>
+                  <select
+                    value={taskForm.priority}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="URGENT">URGENT</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                  </select>
+                </div>
               </div>
-            )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Case File / Doc Code
+                  </label>
+                  <input
+                    type="text"
+                    value={taskForm.caseCode}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, caseCode: e.target.value }))}
+                    placeholder="e.g. LF-2026-0142"
+                    className="w-full px-3.5 py-2.5 text-sm font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Due Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={taskForm.dueDate}
+                    onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsDelegateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Delegate Task</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
