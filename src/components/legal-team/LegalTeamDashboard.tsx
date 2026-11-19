@@ -9,6 +9,11 @@ import {
 } from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
 import {
+  StaffMemberWorkspace,
+  type WorkspaceStaffProfile,
+} from './StaffMemberWorkspace';
+import { INITIAL_APPROVAL_ITEMS, type ApprovalWorkflowItem } from '../ErpWorkspaceViews';
+import {
   CalendarDays,
   Plus,
   Users,
@@ -29,11 +34,15 @@ import {
   Cake,
   Search,
   RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 
 export interface LegalTeamDashboardProps {
   /** Controlled search query synced with DashboardLayout sticky top header */
   searchQuery?: string;
+  /** Shared firm approval workflow items */
+  approvals?: ApprovalWorkflowItem[];
+  onDecideApproval?: (id: string, decision: 'Approved' | 'Rejected') => void;
 }
 
 type StaffSubTab = 'directory' | 'tasks' | 'leaves';
@@ -72,6 +81,7 @@ interface StaffMemberCardData {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   roleTitle: string;
   role: string;
   branchId: string;
@@ -79,13 +89,15 @@ interface StaffMemberCardData {
   avatarUrl?: string;
   isActive: boolean;
   isCurrentUser: boolean;
-  hourlyRate: number;
+  assignedCasesCount: number;
   annualAllowance: number;
   usedLeaveDays: number;
   pendingLeaveDays: number;
   otherLeaveDays: number;
   leaveRemaining: number;
   leaveRemainingPercent: number;
+  dateOfBirth?: string | null;
+  joinedAt?: string | null;
   birthdayEligible: boolean;
   birthdayLabel?: string;
   isUuid: boolean;
@@ -215,17 +227,6 @@ function getNextTaskStatus(current: TaskStatus): TaskStatus {
   return 'Todo';
 }
 
-function resolveHourlyRate(role?: string | null, roleTitle?: string | null): number {
-  const combined = `${role || ''} ${roleTitle || ''}`.toLowerCase();
-  if (combined.includes('partner') || combined.includes('super')) return 850;
-  if (combined.includes('team lead') || combined.includes('senior')) return 650;
-  if (combined.includes('branch_admin') || combined.includes('branch admin')) return 520;
-  if (combined.includes('lawyer') || combined.includes('advocate') || combined.includes('counsel')) return 450;
-  if (combined.includes('finance') || combined.includes('admin')) return 280;
-  if (combined.includes('clerk')) return 160;
-  return 350;
-}
-
 function readLocalWishes(): Record<string, Array<{ id: string; sender: string; message: string; createdAt: string }>> {
   if (typeof window === 'undefined') return {};
   try {
@@ -266,18 +267,23 @@ function isBirthdayUpcomingWithin30Days(dob?: string | null): { eligible: boolea
 
 export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   searchQuery = '',
+  approvals = INITIAL_APPROVAL_ITEMS,
+  onDecideApproval,
 }) => {
   const { availableUsers, cases, branches, currentUser, selectedBranchFilter } = useApp();
 
   const effectiveUser = useMemo(() => getEffectiveUser(currentUser), [currentUser]);
   const isAdmin = isUserAdmin(effectiveUser);
 
-  // Active sub-tab
+  // Active sub-tab & selected staff member for dedicated workspace view
   const [activeSubTab, setActiveSubTab] = useState<StaffSubTab>('directory');
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
-  // Live Supabase profiles + HR employee DOB enrichment + individual leave balances
+  // Live Supabase profiles + HR employee metadata enrichment + individual leave balances
   const [supabaseProfiles, setSupabaseProfiles] = useState<any[]>([]);
   const [employeeDobMap, setEmployeeDobMap] = useState<Record<string, string>>({});
+  const [employeePhoneMap, setEmployeePhoneMap] = useState<Record<string, string>>({});
+  const [employeeJoinedMap, setEmployeeJoinedMap] = useState<Record<string, string>>({});
   const [fetchedLeaveBalances, setFetchedLeaveBalances] = useState<StaffLeaveBalance[]>([]);
   const [leaveBalancesById, setLeaveBalancesById] = useState<Record<string, StaffLeaveBalance>>({});
   const [leaveBalancesByEmail, setLeaveBalancesByEmail] = useState<Record<string, StaffLeaveBalance>>({});
@@ -390,9 +396,11 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       const [profilesRes, employeesRes, leavesRes] = await Promise.all([
         hrSupabase
           .from('profiles')
-          .select('id, full_name, email, role, role_title, branch, branch_name, is_suspended')
+          .select('id, full_name, email, role, role_title, branch, branch_name, is_suspended, created_at')
           .order('full_name', { ascending: true }),
-        hrSupabase.from('employees').select('id, email, date_of_birth, first_name, last_name'),
+        hrSupabase
+          .from('employees')
+          .select('id, email, phone_number, date_of_birth, first_name, last_name, created_at'),
         hrSupabase
           .from('leave_requests')
           .select('id, employee_id, leave_type, start_date, end_date, reason, status, created_at')
@@ -405,11 +413,33 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       }
 
       const dobLookup: Record<string, string> = {};
+      const phoneLookup: Record<string, string> = {};
+      const joinedLookup: Record<string, string> = {};
       if (!employeesRes.error && Array.isArray(employeesRes.data)) {
         employeesRes.data.forEach((emp: any) => {
+          const idKey = emp.id ? String(emp.id).toLowerCase() : '';
+          const emailKey = emp.email ? String(emp.email).trim().toLowerCase() : '';
           if (emp.date_of_birth) {
-            if (emp.id) dobLookup[String(emp.id).toLowerCase()] = emp.date_of_birth;
-            if (emp.email) dobLookup[String(emp.email).trim().toLowerCase()] = emp.date_of_birth;
+            if (idKey) dobLookup[idKey] = emp.date_of_birth;
+            if (emailKey) dobLookup[emailKey] = emp.date_of_birth;
+          }
+          if (emp.phone_number) {
+            if (idKey) phoneLookup[idKey] = emp.phone_number;
+            if (emailKey) phoneLookup[emailKey] = emp.phone_number;
+          }
+          if (emp.created_at) {
+            if (idKey) joinedLookup[idKey] = emp.created_at;
+            if (emailKey) joinedLookup[emailKey] = emp.created_at;
+          }
+        });
+      }
+      if (!profilesRes.error && Array.isArray(profilesRes.data)) {
+        profilesRes.data.forEach((p: any) => {
+          const idKey = p.id ? String(p.id).toLowerCase() : '';
+          const emailKey = p.email ? String(p.email).trim().toLowerCase() : '';
+          if (p.created_at) {
+            if (idKey && !joinedLookup[idKey]) joinedLookup[idKey] = p.created_at;
+            if (emailKey && !joinedLookup[emailKey]) joinedLookup[emailKey] = p.created_at;
           }
         });
       }
@@ -419,9 +449,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           if (rawOv) {
             const parsedOv = JSON.parse(rawOv);
             Object.entries(parsedOv).forEach(([k, val]: [string, any]) => {
-              if (val?.date_of_birth) {
-                dobLookup[k.toLowerCase()] = val.date_of_birth;
-              }
+              if (val?.date_of_birth) dobLookup[k.toLowerCase()] = val.date_of_birth;
+              if (val?.phone_number) phoneLookup[k.toLowerCase()] = val.phone_number;
             });
           }
         } catch {
@@ -429,6 +458,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         }
       }
       setEmployeeDobMap(dobLookup);
+      setEmployeePhoneMap(phoneLookup);
+      setEmployeeJoinedMap(joinedLookup);
 
       if (!leavesRes.error && Array.isArray(leavesRes.data) && leavesRes.data.length > 0) {
         const empById = new Map<string, any>();
@@ -684,11 +715,40 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       );
 
       const isActive = !u.isSuspended;
+      const phone =
+        employeePhoneMap[idStr.toLowerCase()] || (em ? employeePhoneMap[em] : undefined);
+      const joinedAt =
+        employeeJoinedMap[idStr.toLowerCase()] || (em ? employeeJoinedMap[em] : undefined) || null;
+
+      const staffNameNorm = String(u.name || '')
+        .trim()
+        .toLowerCase();
+      const assignedCasesCount = cases.filter((c) => {
+        const lead = String(c.leadAdvocate || '')
+          .trim()
+          .toLowerCase();
+        if (staffNameNorm && lead && (lead === staffNameNorm || lead.includes(staffNameNorm) || staffNameNorm.includes(lead))) {
+          return true;
+        }
+        if (
+          Array.isArray(c.assistingAdvocates) &&
+          c.assistingAdvocates.some((a) => {
+            const an = String(a || '')
+              .trim()
+              .toLowerCase();
+            return Boolean(staffNameNorm && an && (an === staffNameNorm || an.includes(staffNameNorm)));
+          })
+        ) {
+          return true;
+        }
+        return false;
+      }).length;
 
       return {
         id: idStr,
         name: u.name || 'Firm Staff',
         email: u.email || 'staff@mkadvocates.ug',
+        phone,
         role: u.role || 'lawyer',
         roleTitle: u.roleTitle || 'Legal Counsel',
         branchId: u.branchId || '',
@@ -696,13 +756,15 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         avatarUrl: u.avatarUrl,
         isActive,
         isCurrentUser: isSelf,
-        hourlyRate: resolveHourlyRate(u.role, u.roleTitle),
+        assignedCasesCount,
         annualAllowance,
         usedLeaveDays,
         pendingLeaveDays,
         otherLeaveDays,
         leaveRemaining,
         leaveRemainingPercent,
+        dateOfBirth: dob || null,
+        joinedAt,
         birthdayEligible,
         birthdayLabel,
         isUuid: UUID_REGEX.test(idStr),
@@ -714,10 +776,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     fetchedLeaveBalances,
     effectiveUser,
     employeeDobMap,
+    employeePhoneMap,
+    employeeJoinedMap,
     leaveBalancesById,
     leaveBalancesByEmail,
     leaveUsageByKey,
     hasCloudLeavesLoaded,
+    cases,
   ]);
 
   // Resolve active branch filter label
@@ -826,8 +891,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     setIsDelegateModalOpen(true);
   };
 
-  const handleSendBirthdayWish = async (staff: StaffMemberCardData) => {
-    const msg = wishDraft.trim();
+  const handleSendBirthdayWish = async (staff: StaffMemberCardData, customMessage?: string) => {
+    const msg = (customMessage !== undefined ? customMessage : wishDraft).trim();
     if (!msg) return;
     setSendingWishId(staff.id);
 
@@ -1047,8 +1112,78 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     'from-cyan-600 to-blue-700',
   ];
 
+  const selectedStaff = useMemo(
+    () => (selectedStaffId ? allStaffCards.find((s) => s.id === selectedStaffId) || null : null),
+    [selectedStaffId, allStaffCards]
+  );
+
+  const openStaffWorkspaceByName = useCallback(
+    (nameOrEmail?: string | null) => {
+      const target = String(nameOrEmail || '')
+        .trim()
+        .toLowerCase();
+      if (!target) return;
+      const found = allStaffCards.find(
+        (s) =>
+          s.name.trim().toLowerCase() === target ||
+          s.email.trim().toLowerCase() === target ||
+          s.name.trim().toLowerCase().includes(target) ||
+          target.includes(s.name.trim().toLowerCase())
+      );
+      if (found) {
+        setSelectedStaffId(found.id);
+      }
+    },
+    [allStaffCards]
+  );
+
+  const selectedWorkspaceProfile: WorkspaceStaffProfile | null = useMemo(() => {
+    if (!selectedStaff) return null;
+    return {
+      id: selectedStaff.id,
+      name: selectedStaff.name,
+      email: selectedStaff.email,
+      phone: selectedStaff.phone,
+      roleTitle: selectedStaff.roleTitle,
+      role: selectedStaff.role,
+      branchId: selectedStaff.branchId,
+      branchName: selectedStaff.branchName,
+      avatarUrl: selectedStaff.avatarUrl,
+      isActive: selectedStaff.isActive,
+      isCurrentUser: selectedStaff.isCurrentUser,
+      annualAllowance: selectedStaff.annualAllowance,
+      usedLeaveDays: selectedStaff.usedLeaveDays,
+      pendingLeaveDays: selectedStaff.pendingLeaveDays,
+      otherLeaveDays: selectedStaff.otherLeaveDays,
+      leaveRemaining: selectedStaff.leaveRemaining,
+      leaveRemainingPercent: selectedStaff.leaveRemainingPercent,
+      dateOfBirth: selectedStaff.dateOfBirth,
+      birthdayEligible: selectedStaff.birthdayEligible,
+      birthdayLabel: selectedStaff.birthdayLabel,
+      joinedAt: selectedStaff.joinedAt,
+      isUuid: selectedStaff.isUuid,
+    };
+  }, [selectedStaff]);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {selectedWorkspaceProfile && selectedStaff ? (
+        <StaffMemberWorkspace
+          staff={selectedWorkspaceProfile}
+          onBack={() => setSelectedStaffId(null)}
+          tasks={tasks}
+          onCycleTaskStatus={handleCycleTaskStatus}
+          leaveRequests={leaveRequests}
+          onLeaveStatusChange={handleLeaveStatusChange}
+          approvals={approvals}
+          onDecideApproval={onDecideApproval}
+          wishes={wishesByStaff[selectedStaff.id] || []}
+          onSendWish={(msg) => handleSendBirthdayWish(selectedStaff, msg)}
+          onApplyLeave={(staffId) => openApplyLeaveModal(staffId)}
+          onDelegateTask={(staffName) => openDelegateTaskModal(staffName)}
+        />
+      ) : (
+      <>
       {/* 1. MODULE HEADER & ACTION BUTTONS */}
       <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="space-y-1">
@@ -1170,9 +1305,18 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                 return (
                   <article
                     key={staff.id}
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition"
+                    onClick={() => setSelectedStaffId(staff.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedStaffId(staff.id);
+                      }
+                    }}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-2xs hover:border-blue-300 dark:hover:border-blue-700 transition cursor-pointer group"
                   >
-                    {/* Top Row: Avatar, Name, Role, Active Status Dot + Branch, Birthday Gift Button */}
+                    {/* Top Row: Avatar, Name, Role, Branch, Birthday Gift Button */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3.5 min-w-0">
                         {staff.avatarUrl ? (
@@ -1192,7 +1336,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
 
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                            <h3 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition truncate">
                               {staff.name}
                               {staff.isCurrentUser ? ' (You)' : ''}
                             </h3>
@@ -1201,45 +1345,48 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                             {staff.roleTitle}
                           </p>
                           <div className="flex items-center gap-1.5 mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${
-                                staff.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'
-                              }`}
-                              title={staff.isActive ? 'Active Staff' : 'Inactive'}
-                            />
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="truncate">{staff.branchName}</span>
                           </div>
                         </div>
                       </div>
 
-                      {staff.birthdayEligible && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (isWishOpen) {
-                              setOpenWishStaffId(null);
-                              setWishDraft('');
-                            } else {
-                              setOpenWishStaffId(staff.id);
-                              setWishDraft(`Happy Birthday ${staff.name.split(' ')[0]}! Wishing you a wonderful year ahead.`);
-                            }
-                          }}
-                          title={`Send birthday wish (${staff.birthdayLabel || 'Birthday'})`}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer shrink-0 ${
-                            isWishOpen
-                              ? 'bg-rose-600 text-white border-rose-600'
-                              : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100'
-                          }`}
-                        >
-                          <Gift className="w-3.5 h-3.5 shrink-0" />
-                          <span>{isWishOpen ? 'Close' : 'Wish'}</span>
-                        </button>
-                      )}
+                      <div
+                        className="flex items-center gap-1.5 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {staff.birthdayEligible && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isWishOpen) {
+                                setOpenWishStaffId(null);
+                                setWishDraft('');
+                              } else {
+                                setOpenWishStaffId(staff.id);
+                                setWishDraft(`Happy Birthday ${staff.name.split(' ')[0]}! Wishing you a wonderful year ahead.`);
+                              }
+                            }}
+                            title={`Send birthday wish (${staff.birthdayLabel || 'Birthday'})`}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer shrink-0 ${
+                              isWishOpen
+                                ? 'bg-rose-600 text-white border-rose-600'
+                                : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100'
+                            }`}
+                          >
+                            <Gift className="w-3.5 h-3.5 shrink-0" />
+                            <span>{isWishOpen ? 'Close' : 'Wish'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Inline Birthday Wish Input + Send Action */}
                     {isWishOpen && (
-                      <div className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 space-y-2">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-3 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 space-y-2"
+                      >
                         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
                           <Cake className="w-3.5 h-3.5" />
                           <span>{staff.birthdayLabel || 'Staff Birthday Celebration'}</span>
@@ -1287,7 +1434,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                       </div>
                     )}
 
-                    {/* Staff Summary Metrics Grid */}
+                    {/* Staff Summary Metrics Grid (Non-Rate) */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
                         <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Status</p>
@@ -1301,9 +1448,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                       </div>
 
                       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800">
-                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Rate</p>
+                        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Assigned Cases</p>
                         <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white mt-1 tabular-nums">
-                          ${staff.hourlyRate}/hr
+                          {staff.assignedCasesCount} {staff.assignedCasesCount === 1 ? 'Matter' : 'Matters'}
                         </p>
                       </div>
 
@@ -1322,11 +1469,14 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                         <span className="truncate">{staff.email}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div
+                        className="flex items-center gap-2 shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={() => openDelegateTaskModal(staff.name)}
-                          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                         >
                           Delegate Task
                         </button>
@@ -1339,6 +1489,17 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                           className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
                         >
                           Log Leave
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-700" aria-hidden="true">
+                          ·
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStaffId(staff.id)}
+                          className="inline-flex items-center gap-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                        >
+                          <span>Workspace</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -1447,7 +1608,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               {task.caseCode}
                             </span>
                             <span aria-hidden="true">·</span>
-                            <span>{task.assignee}</span>
+                            <button
+                              type="button"
+                              onClick={() => openStaffWorkspaceByName(task.assigneeEmail || task.assignee)}
+                              className="font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer"
+                            >
+                              {task.assignee}
+                            </button>
                             <span aria-hidden="true">·</span>
                             <span className="tabular-nums">Due {task.dueDate}</span>
                           </div>
@@ -1520,7 +1687,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               {task.title}
                             </p>
                             <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
-                              <span className="truncate">{task.assignee}</span>
+                              <button
+                                type="button"
+                                onClick={() => openStaffWorkspaceByName(task.assigneeEmail || task.assignee)}
+                                className="truncate hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer"
+                              >
+                                {task.assignee}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleCycleTaskStatus(task.id)}
@@ -1698,9 +1871,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               {getInitials(s.name)}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStaffId(s.id)}
+                                className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline truncate block text-left cursor-pointer"
+                              >
                                 {s.name}
-                              </p>
+                              </button>
                               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                                 {s.roleTitle}
                               </p>
@@ -1806,7 +1983,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                     >
                       <div className="space-y-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-bold text-slate-900 dark:text-white">{lr.employeeName}</span>
+                          <button
+                            type="button"
+                            onClick={() => openStaffWorkspaceByName(lr.employeeEmail || lr.employeeName)}
+                            className="font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer"
+                          >
+                            {lr.employeeName}
+                          </button>
                           <span aria-hidden="true">·</span>
                           <span className="font-semibold text-blue-700 dark:text-blue-400">{lr.leave_type}</span>
                           <span aria-hidden="true">·</span>
@@ -1860,6 +2043,8 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           </section>
         );
       })()}
+      </>
+      )}
 
       {/* MODAL: APPLY FOR LEAVE */}
       {isLeaveModalOpen && (

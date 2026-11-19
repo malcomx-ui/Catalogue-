@@ -199,7 +199,13 @@ const MainLayout: React.FC = () => {
           </div>
         )}
         {activeTab === 'branches' && <BranchesDirectory />}
-        {activeTab === 'legal_team' && <LegalTeamDashboard searchQuery={globalSearchQuery} />}
+        {activeTab === 'legal_team' && (
+          <LegalTeamDashboard
+            searchQuery={globalSearchQuery}
+            approvals={approvals}
+            onDecideApproval={handleApprovalDecision}
+          />
+        )}
         {activeTab === 'approvals' && (
           <ApprovalsQueueView approvals={approvals} onDecide={handleApprovalDecision} />
         )}
