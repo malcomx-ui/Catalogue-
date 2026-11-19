@@ -3,6 +3,7 @@ export {
   isSuperAdminUser,
   syncFirmUsersToHrModule,
   submitLeaveRequest,
+  getStaffLeaveBalances,
   fetchStaffLeaveBalances,
   fetchEmployeeLeaveBalance,
 } from '../lib/hrSupabase';
@@ -13,6 +14,7 @@ export type {
   HrLeaveRequestRecord,
   SubmitLeaveRequestInput,
   SubmitLeaveRequestResult,
+  EmployeeAllowanceRecord,
   StaffLeaveBalance,
   FetchStaffLeaveBalancesOptions,
   FetchStaffLeaveBalancesResult,

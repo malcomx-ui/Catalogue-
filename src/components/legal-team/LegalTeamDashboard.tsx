@@ -4,7 +4,7 @@ import { getEffectiveUser, isUserAdmin } from '../../lib/supabase';
 import {
   hrSupabase,
   submitLeaveRequest,
-  fetchStaffLeaveBalances,
+  getStaffLeaveBalances,
   type StaffLeaveBalance,
 } from '../../lib/hrSupabase';
 import { showCleanMessage } from '../../utils/notification';
@@ -380,11 +380,11 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     }
   }, [leaveRequests]);
 
-  // Fetch individual staff leave balances from Supabase via hrSupabase.fetchStaffLeaveBalances
+  // Fetch individual staff leave balances from Supabase via hrSupabase.getStaffLeaveBalances
   const refreshLeaveBalances = useCallback(async () => {
     setLoadingBalances(true);
     try {
-      const res = await fetchStaffLeaveBalances({ defaultAnnualAllowance: 21 });
+      const res = await getStaffLeaveBalances({ defaultAnnualAllowance: 21 });
       if (res.success) {
         setFetchedLeaveBalances(res.balances);
         setLeaveBalancesById(res.byEmployeeId);

@@ -403,6 +403,20 @@ export async function submitLeaveRequest(
   }
 }
 
+export interface EmployeeAllowanceRecord {
+  id?: string;
+  employee_id: string;
+  year?: number | null;
+  allowance_year?: number | null;
+  annual_allowance?: number | null;
+  annual_days?: number | null;
+  annual_leave_days?: number | null;
+  total_days?: number | null;
+  allowance_days?: number | null;
+  carry_over_days?: number | null;
+  carried_over_days?: number | null;
+}
+
 export interface StaffLeaveBalance {
   employee_id: string;
   email: string | null;
@@ -411,6 +425,8 @@ export interface StaffLeaveBalance {
   department: string | null;
   year: number;
   annual_allowance: number;
+  carry_over_days: number;
+  allowance_source: 'employee_allowances' | 'default';
   /** Approved annual leave days deducted from annual_allowance */
   used_days: number;
   /** Pending annual leave days awaiting approval */
@@ -424,7 +440,7 @@ export interface StaffLeaveBalance {
 export interface FetchStaffLeaveBalancesOptions {
   /** Calendar year to aggregate leave usage for (defaults to current year) */
   year?: number;
-  /** Default annual leave entitlement in days when no per-employee override exists (defaults to 21) */
+  /** Default annual leave entitlement in days when no row exists in `employee_allowances` (defaults to 21) */
   defaultAnnualAllowance?: number;
   /** Optional list of employee IDs to filter results to */
   employeeIds?: string[];
@@ -461,11 +477,40 @@ function matchesTargetYear(startDate?: string | null, endDate?: string | null, t
   return sYear === targetYear || eYear === targetYear;
 }
 
+function resolveAllowanceDaysFromRow(
+  row: EmployeeAllowanceRecord,
+  fallbackAllowance: number
+): { baseDays: number; carryOverDays: number; totalDays: number } {
+  const candidates = [
+    row.annual_allowance,
+    row.annual_leave_days,
+    row.annual_days,
+    row.allowance_days,
+    row.total_days,
+  ];
+  const parsedBase = candidates.find(
+    (val): val is number => typeof val === 'number' && Number.isFinite(val) && val > 0
+  );
+  const baseDays = parsedBase ?? fallbackAllowance;
+
+  const carryCandidates = [row.carry_over_days, row.carried_over_days];
+  const parsedCarry = carryCandidates.find(
+    (val): val is number => typeof val === 'number' && Number.isFinite(val) && val > 0
+  );
+  const carryOverDays = parsedCarry ?? 0;
+
+  return {
+    baseDays,
+    carryOverDays,
+    totalDays: Math.max(1, baseDays + carryOverDays),
+  };
+}
+
 /**
- * Fetches individual staff annual leave balances from Supabase by aggregating
- * `employees`, `profiles`, and `leave_requests` for the target calendar year.
+ * Queries `leave_requests` and `employee_allowances` (enriched with `employees` and `profiles`)
+ * to calculate remaining annual leave days per employee for the target calendar year.
  */
-export async function fetchStaffLeaveBalances(
+export async function getStaffLeaveBalances(
   options: FetchStaffLeaveBalancesOptions = {}
 ): Promise<FetchStaffLeaveBalancesResult> {
   const targetYear = options.year ?? new Date().getFullYear();
@@ -476,18 +521,25 @@ export async function fetchStaffLeaveBalances(
       : null;
 
   try {
+    const validUuidFilter =
+      options.employeeIds && options.employeeIds.length > 0
+        ? options.employeeIds.filter((id) => UUID_REGEX.test(String(id).trim()))
+        : [];
+
     let leavesQuery = hrSupabase
       .from('leave_requests')
       .select('id, employee_id, leave_type, start_date, end_date, status, created_at');
 
-    if (options.employeeIds && options.employeeIds.length > 0) {
-      const validUuids = options.employeeIds.filter((id) => UUID_REGEX.test(String(id).trim()));
-      if (validUuids.length > 0) {
-        leavesQuery = leavesQuery.in('employee_id', validUuids);
-      }
+    let allowancesQuery = hrSupabase.from('employee_allowances').select('*');
+
+    if (validUuidFilter.length > 0) {
+      leavesQuery = leavesQuery.in('employee_id', validUuidFilter);
+      allowancesQuery = allowancesQuery.in('employee_id', validUuidFilter);
     }
 
-    const [employeesRes, profilesRes, leavesRes] = await Promise.all([
+    const [allowancesRes, leavesRes, employeesRes, profilesRes] = await Promise.all([
+      allowancesQuery,
+      leavesQuery,
       hrSupabase
         .from('employees')
         .select('id, first_name, last_name, email, job_title, department, status')
@@ -496,17 +548,57 @@ export async function fetchStaffLeaveBalances(
         .from('profiles')
         .select('id, full_name, email, role, role_title, branch, branch_name')
         .order('full_name', { ascending: true }),
-      leavesQuery,
     ]);
 
-    if (employeesRes.error && profilesRes.error && leavesRes.error) {
+    if (allowancesRes.error && leavesRes.error && employeesRes.error && profilesRes.error) {
       return {
         success: false,
         balances: [],
         byEmployeeId: {},
         byEmail: {},
-        error: leavesRes.error.message || employeesRes.error.message || 'Failed to fetch staff leave balances.',
+        error:
+          leavesRes.error.message ||
+          allowancesRes.error.message ||
+          employeesRes.error.message ||
+          'Failed to fetch staff leave balances.',
       };
+    }
+
+    // Resolve per-employee entitlement from `employee_allowances` (preferring rows for targetYear)
+    const allowanceByEmp = new Map<
+      string,
+      { totalDays: number; carryOverDays: number; matchedYear: boolean }
+    >();
+
+    if (!allowancesRes.error && Array.isArray(allowancesRes.data)) {
+      (allowancesRes.data as EmployeeAllowanceRecord[]).forEach((row) => {
+        if (!row?.employee_id) return;
+        const empKey = String(row.employee_id).trim().toLowerCase();
+        if (filterIdSet && !filterIdSet.has(empKey)) return;
+
+        const rowYear =
+          typeof row.year === 'number'
+            ? row.year
+            : typeof row.allowance_year === 'number'
+            ? row.allowance_year
+            : null;
+        if (rowYear !== null && rowYear !== targetYear) {
+          // Ignore rows explicitly scoped to a different calendar year
+          return;
+        }
+
+        const { totalDays, carryOverDays } = resolveAllowanceDaysFromRow(row, defaultAllowance);
+        const existing = allowanceByEmp.get(empKey);
+        const isExactYear = rowYear === targetYear;
+
+        if (!existing || (isExactYear && !existing.matchedYear)) {
+          allowanceByEmp.set(empKey, {
+            totalDays,
+            carryOverDays,
+            matchedYear: isExactYear,
+          });
+        }
+      });
     }
 
     // Build unified staff registry keyed by lowercased employee_id
@@ -518,7 +610,6 @@ export async function fetchStaffLeaveBalances(
         full_name: string;
         job_title: string | null;
         department: string | null;
-        annual_allowance: number;
       }
     >();
 
@@ -535,7 +626,6 @@ export async function fetchStaffLeaveBalances(
         full_name: String(p.full_name || em.split('@')[0] || 'Firm Staff').trim(),
         job_title: p.role_title || p.role || null,
         department: p.branch_name || p.branch || null,
-        annual_allowance: defaultAllowance,
       });
     });
 
@@ -556,8 +646,23 @@ export async function fetchStaffLeaveBalances(
         full_name: fullName,
         job_title: emp.job_title || existing?.job_title || null,
         department: emp.department || existing?.department || null,
-        annual_allowance: existing?.annual_allowance ?? defaultAllowance,
       });
+    });
+
+    // Include any employee IDs present in `employee_allowances` not yet in `staffMap`
+    allowanceByEmp.forEach((_val, empKey) => {
+      if (!staffMap.has(empKey)) {
+        const rawRow = (allowancesRes.data as EmployeeAllowanceRecord[] | null)?.find(
+          (r) => String(r?.employee_id || '').trim().toLowerCase() === empKey
+        );
+        staffMap.set(empKey, {
+          employee_id: String(rawRow?.employee_id || empKey),
+          email: null,
+          full_name: 'Firm Staff',
+          job_title: null,
+          department: null,
+        });
+      }
     });
 
     // Aggregate approved annual, pending annual, and approved non-annual leave days per employee_id
@@ -592,7 +697,6 @@ export async function fetchStaffLeaveBalances(
           full_name: 'Firm Staff',
           job_title: null,
           department: null,
-          annual_allowance: defaultAllowance,
         });
       }
     });
@@ -602,7 +706,13 @@ export async function fetchStaffLeaveBalances(
     const byEmail: Record<string, StaffLeaveBalance> = {};
 
     staffMap.forEach((member, empKey) => {
-      const allowance = Math.max(1, member.annual_allowance);
+      const customAllowance = allowanceByEmp.get(empKey);
+      const allowance = Math.max(1, customAllowance?.totalDays ?? defaultAllowance);
+      const carryOverDays = customAllowance?.carryOverDays ?? 0;
+      const allowanceSource: 'employee_allowances' | 'default' = customAllowance
+        ? 'employee_allowances'
+        : 'default';
+
       const usedDays = usedAnnualByEmp.get(empKey) || 0;
       const pendingDays = pendingAnnualByEmp.get(empKey) || 0;
       const otherUsedDays = otherUsedByEmp.get(empKey) || 0;
@@ -617,6 +727,8 @@ export async function fetchStaffLeaveBalances(
         department: member.department,
         year: targetYear,
         annual_allowance: allowance,
+        carry_over_days: carryOverDays,
+        allowance_source: allowanceSource,
         used_days: usedDays,
         pending_days: pendingDays,
         other_used_days: otherUsedDays,
@@ -652,6 +764,15 @@ export async function fetchStaffLeaveBalances(
 }
 
 /**
+ * Alias for `getStaffLeaveBalances` retained for backwards compatibility.
+ */
+export async function fetchStaffLeaveBalances(
+  options: FetchStaffLeaveBalancesOptions = {}
+): Promise<FetchStaffLeaveBalancesResult> {
+  return getStaffLeaveBalances(options);
+}
+
+/**
  * Convenience helper to fetch a single employee's annual leave balance by ID.
  */
 export async function fetchEmployeeLeaveBalance(
@@ -660,7 +781,7 @@ export async function fetchEmployeeLeaveBalance(
 ): Promise<StaffLeaveBalance | null> {
   const cleanId = String(employeeId || '').trim();
   if (!cleanId) return null;
-  const res = await fetchStaffLeaveBalances({ ...options, employeeIds: [cleanId] });
+  const res = await getStaffLeaveBalances({ ...options, employeeIds: [cleanId] });
   if (!res.success) return null;
   return res.byEmployeeId[cleanId.toLowerCase()] || res.balances[0] || null;
 }
