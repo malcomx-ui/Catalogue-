@@ -29,6 +29,13 @@ import {
   type CreateCashRequisitionInput,
 } from '../lib/cashRequisitionStore';
 import {
+  fetchAnnouncementsFromSupabase,
+  formatAnnouncementTimestamp,
+  loadLocalAnnouncements,
+  subscribeToAnnouncements,
+  type FirmAnnouncement,
+} from '../lib/announcementsStore';
+import {
   Search,
   Building2,
   Plus,
@@ -132,39 +139,6 @@ const DEFAULT_BRANCH_OPTIONS = [
   { id: 'jnj', name: 'Jinja Branch' },
   { id: 'msd', name: 'Masindi Branch' },
   { id: 'glu', name: 'Gulu Branch' },
-];
-
-const INITIAL_NOTICES: DashboardNotice[] = [
-  {
-    id: 'notice-1',
-    pinned: true,
-    category: 'Practice Directive',
-    title: 'High Court Commercial Division E-Filing & Bundle Index Protocol',
-    body: 'All trial bundles, written submissions, and mortgage perfection affidavits must carry the standardized MK Case File code and Vault Custody reference prior to registry dispatch.',
-    issuer: 'Managing Partner Chambers',
-    date: 'Today · 08:30 AM',
-    branchScope: 'All Branches',
-  },
-  {
-    id: 'notice-2',
-    pinned: false,
-    category: 'Vault Custody',
-    title: 'Weekly Original Title Deeds Audit — Centenary & Commercial Banks',
-    body: 'Branch clerks must reconcile physical strongroom custody logs against digital custody entries before Friday 3:00 PM EAT.',
-    issuer: 'Registry & Custody Desk',
-    date: 'Yesterday · 04:15 PM',
-    branchScope: 'Kampala Central (Head Office)',
-  },
-  {
-    id: 'notice-3',
-    pinned: false,
-    category: 'Court Registry',
-    title: 'Updated Regional Circuit Cause List Sync Window',
-    body: 'Fort Portal, Mbarara, and Jinja chambers are advised to log adjournment orders and next hearing dates within 2 hours of court rising.',
-    issuer: 'Litigation Operations',
-    date: '2 days ago',
-    branchScope: 'Regional Chambers',
-  },
 ];
 
 const DEFAULT_TASKS: StaffWorkflowTask[] = [
@@ -434,6 +408,23 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   const [activeModal, setActiveModal] = useState<QuickModalType>(null);
   const [mortgages, setMortgages] = useState<any[]>([]);
   const [leaveRefreshKey, setLeaveRefreshKey] = useState<number>(0);
+  const [firmAnnouncements, setFirmAnnouncements] = useState<FirmAnnouncement[]>(() =>
+    loadLocalAnnouncements()
+  );
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeToAnnouncements((next) => {
+      if (active) setFirmAnnouncements(next);
+    });
+    fetchAnnouncementsFromSupabase().then((items) => {
+      if (active) setFirmAnnouncements(items);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1990,7 +1981,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
         {/* RIGHT COLUMN (lg:col-span-4 space-y-5): 1) Firm Announcements -> 2) Staff Birthdays & Wishes -> 3) Upcoming Deadlines */}
         <div className="lg:col-span-4 space-y-5">
-          {/* 1. Firm Announcements (capped to 2 items) */}
+          {/* 1. Firm Announcements (live feed, capped to 2 latest) */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#DFE5F2] dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,101,0.03)] overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[#DFE5F2] dark:border-slate-800 bg-[#F8FAFE] dark:bg-slate-900 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
@@ -1999,40 +1990,56 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   Firm Announcements
                 </h2>
               </div>
-              <span className="text-[11px] font-semibold text-slate-400 tabular-nums">
-                2 latest
-              </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('announcements')}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#000065] hover:text-[#121285] dark:text-[#E8C06B] dark:hover:text-[#F5D28B] transition-colors shrink-0 cursor-pointer"
+              >
+                <span>Post / View All</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             <div className="divide-y divide-[#DFE5F2]/80 dark:divide-slate-800">
-              {INITIAL_NOTICES.slice(0, 2).map((notice) => (
+              {firmAnnouncements.slice(0, 2).map((notice) => (
                 <article
                   key={notice.id}
-                  className={`px-4 py-3.5 space-y-1.5 transition-colors duration-150 ${
+                  onClick={() => setActiveTab('announcements')}
+                  className={`px-4 py-3.5 space-y-1.5 transition-colors duration-150 cursor-pointer ${
                     notice.pinned
                       ? 'bg-[#FBF7EE] hover:bg-[#F7F0DF] dark:bg-[#D99B26]/[0.06] dark:hover:bg-[#D99B26]/[0.10]'
                       : 'hover:bg-[#F5F7FC] dark:hover:bg-slate-800/40'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {notice.pinned && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#000065] text-[#E8C06B]">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#000065] text-[#E8C06B] shrink-0">
                           <Pin className="w-2.5 h-2.5" />
                           Pinned
                         </span>
                       )}
-                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      {notice.priority === 'Urgent' && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 shrink-0">
+                          Urgent
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
                         {notice.category}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{notice.date}</span>
+                    <span className="text-[10px] text-slate-400 tabular-nums shrink-0">
+                      {formatAnnouncementTimestamp(notice.createdAtIso, notice.date)}
+                    </span>
                   </div>
                   <h3 className="font-display text-xs font-bold text-[#000065] dark:text-white leading-snug">
                     {notice.title}
                   </h3>
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">
                     {notice.body}
+                  </p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate pt-0.5">
+                    {notice.issuer} · {notice.branchScope}
                   </p>
                 </article>
               ))}

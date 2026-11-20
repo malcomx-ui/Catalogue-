@@ -1,13 +1,17 @@
 import type { CaseItem, CourtHearing, NotificationRulesConfig } from '../types';
 import type { RequisitionNotification } from '../lib/cashRequisitionStore';
+import {
+  formatAnnouncementTimestamp,
+  type FirmAnnouncement,
+} from '../lib/announcementsStore';
 import { DEFAULT_NOTIFICATION_RULES } from '../data/defaultSettings';
 
-export type UnifiedNotificationCategory = 'requisition' | 'hearing' | 'approval';
+export type UnifiedNotificationCategory = 'announcement' | 'requisition' | 'hearing' | 'approval';
 
 export interface UnifiedNotificationItem {
   id: string;
   category: UnifiedNotificationCategory;
-  /** Lower number = higher priority (1 = urgent/today, 2 = decision/approval, 3 = upcoming deadline) */
+  /** Lower number = higher priority (1 = urgent/today/new announcement, 2 = decision/approval, 3 = upcoming deadline) */
   priority: 1 | 2 | 3;
   unread: boolean;
   code: string;
@@ -17,11 +21,13 @@ export interface UnifiedNotificationItem {
   subtitle: string;
   body: string;
   timestampLabel: string;
-  targetTab: 'cash_requisitions' | 'causelist' | 'approvals';
+  targetTab: 'announcements' | 'cash_requisitions' | 'causelist' | 'approvals';
   /** Original RequisitionNotification id when category === 'requisition' */
   requisitionNotificationId?: string;
   /** Days until hearing/deadline (0 = today, >0 = future) when category === 'hearing' */
   daysUntil?: number;
+  /** Epoch ms for recency sorting on newly posted announcements */
+  createdAtMs?: number;
 }
 
 export interface EvaluateNotificationRulesParams {
@@ -36,6 +42,7 @@ export interface EvaluateNotificationRulesParams {
   cases: CaseItem[];
   approvalsBadgeCount: number;
   readAlertIds: string[];
+  announcements?: FirmAnnouncement[];
 }
 
 export function resolveNotificationRules(
@@ -166,6 +173,55 @@ export function evaluateNotificationRules(
   const readSet = new Set(params.readAlertIds);
   const todayIso = getLocalTodayIso();
   const items: UnifiedNotificationItem[] = [];
+
+  // 0. Firm Announcements (staff-published notices immediately trigger bell + persistent unread popup)
+  if (Array.isArray(params.announcements) && params.announcements.length > 0) {
+    params.announcements.forEach((ann) => {
+      if (ann.isSeed) return;
+      const scopeNorm = String(ann.branchScope || '').trim().toLowerCase();
+      const isFirmWide =
+        !scopeNorm ||
+        scopeNorm === 'all branches' ||
+        scopeNorm === 'all firm branches' ||
+        scopeNorm === 'all' ||
+        scopeNorm === 'regional chambers';
+
+      if (
+        !isFirmWide &&
+        !matchesBranchScope(
+          undefined,
+          ann.branchScope,
+          params.selectedBranchFilter,
+          params.userBranchId,
+          params.userBranchName,
+          params.isSuperAdmin,
+          rules.branchScopedAlerts
+        )
+      ) {
+        return;
+      }
+
+      const alertId = `announcement_${ann.id}`;
+      const isUrgent = ann.priority === 'Urgent';
+      const createdAtMs = new Date(ann.createdAtIso || 0).getTime() || Date.now();
+
+      items.push({
+        id: alertId,
+        category: 'announcement',
+        priority: 1,
+        unread: !readSet.has(alertId),
+        code: isUrgent ? 'URGENT NOTICE' : 'ANNOUNCEMENT',
+        badgeLabel: isUrgent ? 'Urgent' : ann.pinned ? 'Pinned' : ann.category,
+        badgeTone: isUrgent ? 'danger' : 'gold',
+        title: ann.title,
+        subtitle: `By ${ann.issuer}${ann.issuerRole ? ` · ${ann.issuerRole}` : ''} · ${ann.branchScope}`,
+        body: ann.body,
+        timestampLabel: formatAnnouncementTimestamp(ann.createdAtIso, ann.date),
+        targetTab: 'announcements',
+        createdAtMs,
+      });
+    });
+  }
 
   // 1. Restricted Cash Requisition Decision Notifications (RBAC-enforced)
   if (params.canAccessRestrictedWorkflow && rules.enableCashRequisitionAlerts) {
@@ -340,10 +396,15 @@ export function evaluateNotificationRules(
     });
   }
 
-  // Sort: Unread first, then priority (1 -> 2 -> 3), then soonest hearing daysUntil ascending
+  // Sort: Unread first, then priority (1 -> 2 -> 3), then newest announcements first, then soonest hearing daysUntil ascending
   items.sort((a, b) => {
     if (a.unread !== b.unread) return a.unread ? -1 : 1;
     if (a.priority !== b.priority) return a.priority - b.priority;
+    if (a.category === 'announcement' && b.category !== 'announcement') return -1;
+    if (b.category === 'announcement' && a.category !== 'announcement') return 1;
+    if (a.createdAtMs !== undefined && b.createdAtMs !== undefined && a.createdAtMs !== b.createdAtMs) {
+      return b.createdAtMs - a.createdAtMs;
+    }
     if (a.daysUntil !== undefined && b.daysUntil !== undefined && a.daysUntil !== b.daysUntil) {
       return a.daysUntil - b.daysUntil;
     }

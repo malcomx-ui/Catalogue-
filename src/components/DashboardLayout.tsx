@@ -12,12 +12,19 @@ import {
 } from '../utils/notificationRules';
 import { dedupeBranches } from '../utils/globalSearch';
 import {
+  fetchAnnouncementsFromSupabase,
+  loadLocalAnnouncements,
+  subscribeToAnnouncements,
+  type FirmAnnouncement,
+} from '../lib/announcementsStore';
+import {
   LayoutGrid,
   Briefcase,
   FilePlus2,
   FolderLock,
   ClipboardCheck,
   MessageSquare,
+  Megaphone,
   Landmark,
   Users,
   Calendar,
@@ -78,6 +85,7 @@ const VIEW_TITLES: Record<NavigationTab, string> = {
   cash_requisitions: 'Cash Requisitions',
   approvals: 'Approvals Queue',
   messenger: 'Team Messenger',
+  announcements: 'Firm Announcements',
   legal_team: 'Staff & Workflow',
   branches: 'Firm Branches',
   audit_trail: 'Audit Trail & Security',
@@ -173,6 +181,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setReadAlertIds(loadReadAlertIds(alertReadStorageKey));
   }, [alertReadStorageKey]);
 
+  const [firmAnnouncements, setFirmAnnouncements] = useState<FirmAnnouncement[]>(() =>
+    loadLocalAnnouncements()
+  );
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeToAnnouncements((next) => {
+      if (active) setFirmAnnouncements(next);
+    });
+    fetchAnnouncementsFromSupabase().then((items) => {
+      if (active) setFirmAnnouncements(items);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+
   const {
     rules: activeNotificationRules,
     allItems: unifiedNotifications,
@@ -192,6 +218,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         cases,
         approvalsBadgeCount,
         readAlertIds,
+        announcements: firmAnnouncements,
       }),
     [
       systemSettings?.notificationRules,
@@ -205,7 +232,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       cases,
       approvalsBadgeCount,
       readAlertIds,
+      firmAnnouncements,
     ]
+  );
+
+  const unreadAnnouncementsCount = useMemo(
+    () => unreadUnifiedNotifications.filter((item) => item.category === 'announcement').length,
+    [unreadUnifiedNotifications]
   );
 
   const markUnifiedNotificationRead = (item: UnifiedNotificationItem) => {
@@ -263,6 +296,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const getCategoryLabel = (category: UnifiedNotificationItem['category']) => {
+    if (category === 'announcement') return 'Firm Announcement';
     if (category === 'requisition') return 'Cash Requisition';
     if (category === 'approval') return 'Approvals Queue';
     return 'Court & Deadline';
@@ -371,6 +405,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'messenger',
         badge: messengerBadgeCount > 0 ? messengerBadgeCount : undefined,
       },
+      {
+        id: 'announcements',
+        label: 'Announcements',
+        icon: Megaphone,
+        tab: 'announcements',
+        badge: unreadAnnouncementsCount > 0 ? unreadAnnouncementsCount : undefined,
+      },
     ];
 
     if (canAccessRestrictedWorkflow) {
@@ -428,6 +469,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     approvalsBadgeCount,
     cashRequisitionsBadgeCount,
     messengerBadgeCount,
+    unreadAnnouncementsCount,
     setActiveTab,
     setIsNewCaseModalOpen,
   ]);
@@ -831,6 +873,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                   <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('announcements');
+                          setNotifPopoverOpen(false);
+                        }}
+                        className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white cursor-pointer"
+                      >
+                        Announcements
+                      </button>
                       {canAccessRestrictedWorkflow && (
                         <button
                           type="button"
@@ -852,7 +904,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                           }}
                           className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white cursor-pointer"
                         >
-                          Notification Rules
+                          Rules
                         </button>
                       )}
                     </div>

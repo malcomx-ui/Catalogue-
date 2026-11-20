@@ -14,6 +14,7 @@ import {
   INITIAL_APPROVAL_ITEMS,
   ApprovalWorkflowItem,
 } from './components/ErpWorkspaceViews';
+import { AnnouncementsHub } from './components/AnnouncementsHub';
 import CashRequisitionModule from './components/CashRequisitionModule';
 import {
   type ApprovalActionType,
@@ -430,6 +431,7 @@ const MainLayout: React.FC = () => {
             onMarkAllRead={() => setUnreadMessagesCount(0)}
           />
         )}
+        {activeTab === 'announcements' && <AnnouncementsHub searchQuery={globalSearchQuery} />}
         {activeTab === 'audit_trail' &&
           (canAccessRestrictedWorkflow ? <AuditTrailSecurityView /> : renderStaffDashboard())}
         {activeTab === 'synchub' && (isAdmin ? <BranchSyncHub /> : renderStaffDashboard())}
