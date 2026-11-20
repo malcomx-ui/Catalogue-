@@ -9,18 +9,28 @@ export default {
     extend: {
       colors: {
         mk: {
-          navy: '#0B132B',
+          navy: '#162238',
           royal: '#000065',
-          'navy-mid': '#131C42',
-          'navy-light': '#1E2B58',
-          gold: '#C5A880',
-          'gold-dark': '#9E7B46',
-          'gold-light': '#E2CFAF',
-          'gold-soft': '#F7F1E7',
+          'navy-mid': '#1E2F4D',
+          'navy-light': '#263B61',
+          gold: '#D99B26',
+          'gold-dark': '#B57E1A',
+          'gold-light': '#E8C06B',
+          'gold-soft': '#FBF5E8',
+          canvas: '#F4F6F9',
+          border: '#E2E8F0',
         },
       },
       fontFamily: {
+        display: [
+          '"Plus Jakarta Sans"',
+          '"Inter"',
+          'system-ui',
+          '-apple-system',
+          'sans-serif',
+        ],
         sans: [
+          '"Inter"',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',

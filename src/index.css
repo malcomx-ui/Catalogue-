@@ -3,37 +3,47 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --color-mk-navy: #0B132B;
+  --color-mk-navy: #162238;
   --color-mk-royal: #000065;
-  --color-mk-navy-mid: #131C42;
-  --color-mk-navy-light: #1E2B58;
-  --color-mk-gold: #C5A880;
-  --color-mk-gold-dark: #9E7B46;
-  --color-mk-gold-light: #E2CFAF;
-  --color-mk-gold-soft: #F7F1E7;
+  --color-mk-navy-mid: #1E2F4D;
+  --color-mk-navy-light: #263B61;
+  --color-mk-gold: #D99B26;
+  --color-mk-gold-dark: #B57E1A;
+  --color-mk-gold-light: #E8C06B;
+  --color-mk-gold-soft: #FBF5E8;
+  --color-mk-canvas: #F4F6F9;
+  --color-mk-border: #E2E8F0;
 }
 
 @layer base {
   :root {
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --mk-navy: #0B132B;
+    --mk-navy: #162238;
     --mk-royal: #000065;
-    --mk-navy-mid: #131C42;
-    --mk-gold: #C5A880;
-    --mk-gold-dark: #9E7B46;
-    --mk-gold-light: #E2CFAF;
-    --mk-gold-soft: #F7F1E7;
+    --mk-navy-mid: #1E2F4D;
+    --mk-gold: #D99B26;
+    --mk-gold-dark: #B57E1A;
+    --mk-gold-light: #E8C06B;
+    --mk-gold-soft: #FBF5E8;
+    --mk-canvas: #F4F6F9;
+    --mk-border: #E2E8F0;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #f8fafc;
-    color: #0B132B;
+    background-color: #F4F6F9;
+    color: #162238;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
   }
 
   /* Enforce vertical alignment across all data tables, dates, and numeric controls */
@@ -45,6 +55,10 @@
   time {
     font-variant-numeric: tabular-nums;
   }
+}
+
+.font-display {
+  font-family: var(--font-display);
 }
 
 .font-sans-legal {

@@ -1,32 +1,29 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getEffectiveUser } from '../lib/supabase';
-import { hrSupabase, isSuperAdminUser, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
-import { LockedBirthdayWidget } from './LockedHrComponents';
+import { hrSupabase, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
+import { MortgageService, getVisibleBanksForUser } from '../services/mortgageService';
+import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
+import type { CaseItem, PleadingDocument, ProgressiveNote } from '../types';
 import {
+  Briefcase,
+  Clock,
+  ClipboardCheck,
+  CalendarClock,
+  FolderLock,
+  ArrowRight,
+  Upload,
+  FileText,
+  CalendarDays,
+  Plus,
+  X,
   Search,
   Building2,
-  Plus,
-  Gavel,
-  FolderClock,
-  Award,
-  Lock,
-  ClipboardList,
-  Megaphone,
-  Pin,
-  Cake,
-  Send,
-  ListChecks,
-  Calendar,
-  Clock,
-  MapPin,
   CheckCircle2,
-  X,
+  AlertCircle,
   ArrowUpRight,
-  ChevronRight,
-  Loader2,
-  Users,
+  Landmark,
 } from 'lucide-react';
 
 export type TaskStatus = 'Todo' | 'In Progress' | 'Completed';
@@ -66,7 +63,6 @@ export interface BirthdayCelebrant {
 
 export interface StaffDashboardProps {
   currentUser?: any;
-  /** Controlled props passed from DashboardLayout so header & dashboard stay in sync */
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   activeBranchId?: string;
@@ -82,162 +78,184 @@ export interface StaffDashboardProps {
   onOpenWorkload?: () => void;
   onOpenHearings?: () => void;
   onOpenHrModule?: () => void;
-  /** Hide internal sticky header when already rendered by DashboardLayout */
   hideTopHeader?: boolean;
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TASKS_STORAGE_KEY = 'mk_staff_dashboard_tasks_v1';
-const LOCAL_WISHES_STORAGE_KEY = 'mk_staff_dashboard_wishes_v1';
-const LOCAL_HR_OVERRIDES_KEY = 'mk_hr_employee_overrides_v1';
+type CaseFilterTab = 'All' | 'Litigation' | 'Corporate' | 'Mortgages';
+type QuickModalType = 'time' | 'document' | 'note' | 'leave' | null;
 
-const DEFAULT_BRANCH_OPTIONS = [
-  { id: 'all', name: 'All Firm Branches' },
-  { id: 'kla-hq', name: 'Kampala Central (Head Office)' },
-  { id: 'fpt', name: 'Fort Portal Branch' },
-  { id: 'mbr', name: 'Mbarara Branch' },
-  { id: 'msk', name: 'Masaka Branch' },
-  { id: 'jnj', name: 'Jinja Branch' },
-  { id: 'msd', name: 'Masindi Branch' },
-  { id: 'glu', name: 'Gulu Branch' },
-];
+interface TimeLogEntry {
+  id: string;
+  caseId: string;
+  caseCode: string;
+  matterTitle: string;
+  hours: number;
+  date: string;
+  description: string;
+  billable: boolean;
+  author: string;
+  createdAt: string;
+}
 
-const INITIAL_NOTICES: DashboardNotice[] = [
-  {
-    id: 'notice-1',
-    pinned: true,
-    category: 'Practice Directive',
-    title: 'High Court Commercial Division E-Filing & Bundle Index Protocol',
-    body: 'All trial bundles, written submissions, and mortgage perfection affidavits must carry the standardized MK Case File code and Vault Custody reference prior to registry dispatch.',
-    issuer: 'Managing Partner Chambers',
-    date: 'Today · 08:30 AM',
-    branchScope: 'All Branches',
-  },
-  {
-    id: 'notice-2',
-    pinned: false,
-    category: 'Vault Custody',
-    title: 'Weekly Original Title Deeds Audit — Centenary & Commercial Banks',
-    body: 'Branch clerks must reconcile physical strongroom custody logs against digital custody entries before Friday 3:00 PM EAT.',
-    issuer: 'Registry & Custody Desk',
-    date: 'Yesterday · 04:15 PM',
-    branchScope: 'Kampala Central (Head Office)',
-  },
-  {
-    id: 'notice-3',
-    pinned: false,
-    category: 'Court Registry',
-    title: 'Updated Regional Circuit Cause List Sync Window',
-    body: 'Fort Portal, Mbarara, and Jinja chambers are advised to log adjournment orders and next hearing dates within 2 hours of court rising.',
-    issuer: 'Litigation Operations',
-    date: '2 days ago',
-    branchScope: 'Regional Chambers',
-  },
-];
+interface ActivityTimelineItem {
+  id: string;
+  title: string;
+  detail: string;
+  timestamp: string;
+  sortTime: number;
+}
 
-const DEFAULT_TASKS: StaffWorkflowTask[] = [
+interface UnifiedCaseRow {
+  id: string;
+  code: string;
+  title: string;
+  client: string;
+  practice: 'Litigation' | 'Corporate' | 'Mortgages';
+  practiceLabel: string;
+  branch: string;
+  stage: string;
+  nextDeadline: string;
+  rawCase?: CaseItem;
+  isMortgage?: boolean;
+}
+
+const TIME_LOGS_STORAGE_KEY = 'mk_clio_time_logs_v1';
+const LOCAL_ACTIVITY_STORAGE_KEY = 'mk_clio_local_activity_v1';
+const LOCAL_LEAVE_REQUESTS_KEY = 'mk_clio_quick_leave_requests_v1';
+const MONTHLY_BILLABLE_TARGET = 150;
+
+const INITIAL_TIME_LOGS: TimeLogEntry[] = [
   {
-    id: 'tsk-1',
-    priority: 'URGENT',
-    title: 'File Written Submissions & Index of Authorities before Commercial Court',
-    caseCode: 'LF-2026-0142',
-    assignee: 'Lilian Kobusinge',
-    dueDate: 'Today, 04:00 PM',
-    status: 'In Progress',
+    id: 'tl-seed-1',
+    caseId: 'seed-1',
+    caseCode: 'HCT-00-CC-CS-0142',
+    matterTitle: 'Commercial Division Summary Suit Submissions',
+    hours: 42.5,
+    date: new Date().toISOString().slice(0, 10),
+    description: 'Drafting written submissions, authorities bundle & client conference.',
+    billable: true,
+    author: 'Litigation Chambers',
+    createdAt: 'MTD Ledger',
   },
   {
-    id: 'tsk-2',
-    priority: 'HIGH',
-    title: 'Verify Original Mailo Certificate & Mortgage Deed Registration',
-    caseCode: 'DOC-PLD-0891',
-    assignee: 'Phionah Adoch',
-    dueDate: 'Tomorrow, 11:00 AM',
-    status: 'Todo',
+    id: 'tl-seed-2',
+    caseId: 'seed-2',
+    caseCode: 'MK-CORP-2026-019',
+    matterTitle: 'Syndicated Facility & Security Perfection Review',
+    hours: 51.0,
+    date: new Date().toISOString().slice(0, 10),
+    description: 'Corporate governance opinions, mortgage deeds & title due diligence.',
+    billable: true,
+    author: 'Corporate & Banking Desk',
+    createdAt: 'MTD Ledger',
   },
   {
-    id: 'tsk-3',
-    priority: 'HIGH',
-    title: 'Prepare Witness Statement Bundle & Serve Opposing Counsel',
-    caseCode: 'LF-2026-0118',
-    assignee: 'Bright Arinaitwe Bujara',
-    dueDate: 'Nov 21, 2026',
-    status: 'In Progress',
-  },
-  {
-    id: 'tsk-4',
-    priority: 'MEDIUM',
-    title: 'Reconcile Centenary Bank Disbursement Fee Note & Client Ledger',
-    caseCode: 'DOC-FEE-0442',
-    assignee: 'Martin Twomo',
-    dueDate: 'Nov 23, 2026',
-    status: 'Todo',
-  },
-  {
-    id: 'tsk-5',
-    priority: 'MEDIUM',
-    title: 'Archive Concluded Consent Decree & Update Physical Vault Register',
-    caseCode: 'LF-2025-0904',
-    assignee: 'Janet Kemigisa',
-    dueDate: 'Nov 24, 2026',
-    status: 'Completed',
+    id: 'tl-seed-3',
+    caseId: 'seed-3',
+    caseCode: 'HCT-00-LD-CS-0088',
+    matterTitle: 'Witness Cross-Examination & Trial Preparation',
+    hours: 31.0,
+    date: new Date().toISOString().slice(0, 10),
+    description: 'Trial bundle pagination, witness proofing and High Court attendance.',
+    billable: true,
+    author: 'Litigation Chambers',
+    createdAt: 'MTD Ledger',
   },
 ];
 
-function getInitials(name?: string | null): string {
-  const parts = String(name || 'MK')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+function classifyCasePractice(c: CaseItem): 'Litigation' | 'Corporate' | 'Mortgages' {
+  const haystack = `${c.case_type || ''} ${c.division || ''} ${c.title || ''} ${c.subject_matter || ''}`.toLowerCase();
+  if (
+    haystack.includes('mortgage') ||
+    haystack.includes('debenture') ||
+    haystack.includes('perfection') ||
+    haystack.includes('title deed')
+  ) {
+    return 'Mortgages';
   }
-  return (parts[0] || 'MK').slice(0, 2).toUpperCase();
+  if (
+    haystack.includes('corporate') ||
+    haystack.includes('commercial') ||
+    haystack.includes('tax') ||
+    haystack.includes('arbitration') ||
+    haystack.includes('contract') ||
+    haystack.includes('advisory') ||
+    haystack.includes('company')
+  ) {
+    return 'Corporate';
+  }
+  return 'Litigation';
 }
 
-function getNextTaskStatus(current: TaskStatus): TaskStatus {
-  if (current === 'Todo') return 'In Progress';
-  if (current === 'In Progress') return 'Completed';
-  return 'Todo';
+function isCaseClosed(c: CaseItem): boolean {
+  const s = String(c.status || 'Active').trim().toLowerCase();
+  const stage = String(c.stage || '').trim().toLowerCase();
+  return (
+    s === 'closed' ||
+    s === 'concluded' ||
+    s === 'archived' ||
+    s === 'disposed' ||
+    s === 'completed' ||
+    s.includes('closed') ||
+    s.includes('concluded') ||
+    s.includes('disposed') ||
+    stage.includes('disposed') ||
+    stage.includes('closed') ||
+    Boolean(c.year_of_closure)
+  );
 }
 
-function formatBirthdayDate(dob?: string | null): { label: string; isToday: boolean; daysUntil: number } {
-  if (!dob) return { label: 'Upcoming', isToday: false, daysUntil: 365 };
-  const parts = String(dob).slice(0, 10).split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
-    return { label: String(dob), isToday: false, daysUntil: 365 };
+function parseDateParts(raw?: string | null): { month: string; day: string; formatted: string; timestamp: number } {
+  if (!raw) {
+    return { month: 'TBD', day: '--', formatted: 'Not scheduled', timestamp: Number.MAX_SAFE_INTEGER };
   }
-  const [, month, day] = parts;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let next = new Date(now.getFullYear(), month - 1, day);
-  if (next < today) next = new Date(now.getFullYear() + 1, month - 1, day);
-  const diffDays = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const label = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  return { label: diffDays === 0 ? `${label} (Today)` : label, isToday: diffDays === 0, daysUntil: diffDays };
+  const clean = String(raw).trim().slice(0, 10);
+  const parts = clean.split('-').map(Number);
+  let dt: Date | null = null;
+  if (parts.length === 3 && !parts.some((n) => Number.isNaN(n))) {
+    dt = new Date(parts[0], parts[1] - 1, parts[2]);
+  } else {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) dt = parsed;
+  }
+
+  if (!dt) {
+    return { month: 'TBD', day: '--', formatted: String(raw), timestamp: Number.MAX_SAFE_INTEGER };
+  }
+
+  const month = dt.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  const day = String(dt.getDate()).padStart(2, '0');
+  const formatted = dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return { month, day, formatted, timestamp: dt.getTime() };
 }
 
-function readLocalWishes(): Record<string, Array<{ id: string; sender: string; message: string; createdAt: string }>> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(LOCAL_WISHES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+function formatRelativeTime(isoOrText?: string | null): string {
+  if (!isoOrText) return 'Recently';
+  const dt = new Date(isoOrText);
+  if (Number.isNaN(dt.getTime())) return String(isoOrText);
+  const diffMs = Date.now() - dt.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
-function saveLocalWish(
-  celebrantId: string,
-  wish: { id: string; sender: string; message: string; createdAt: string }
-): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const map = readLocalWishes();
-    map[celebrantId] = [...(map[celebrantId] || []), wish];
-    window.localStorage.setItem(LOCAL_WISHES_STORAGE_KEY, JSON.stringify(map));
-  } catch {
-    // ignore storage quota errors
+function getStageTone(stage: string): string {
+  const s = stage.toLowerCase();
+  if (s.includes('judgment') || s.includes('ruling') || s.includes('submission') || s.includes('execution')) {
+    return 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60';
   }
+  if (s.includes('disposed') || s.includes('closed') || s.includes('perfected') || s.includes('registered')) {
+    return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/60';
+  }
+  if (s.includes('trial') || s.includes('hearing')) {
+    return 'bg-[#162238]/8 dark:bg-sky-950/50 text-[#162238] dark:text-sky-300 border-[#162238]/15 dark:border-sky-800/60';
+  }
+  return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
 }
 
 export const StaffDashboard: React.FC<StaffDashboardProps> = ({
@@ -248,15 +266,12 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   activeBranchLabel: controlledBranchLabel,
   branchOptions: controlledBranchOptions,
   onBranchChange,
-  pendingApprovalsCount = 3,
+  pendingApprovalsCount = 0,
   onOpenNewCase,
-  onOpenLitigationForm,
   onOpenApprovals,
   onOpenDocuments,
   onOpenCases,
-  onOpenWorkload,
   onOpenHearings,
-  onOpenHrModule,
   hideTopHeader = false,
 }) => {
   const {
@@ -264,23 +279,106 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     hearings,
     documents,
     branches,
-    availableUsers,
     currentUser: ctxUser,
     selectedBranchFilter,
     setSelectedBranchFilter,
     setActiveTab,
     setIsNewCaseModalOpen,
     setSelectedCase,
+    addDocument,
+    addProgressiveNote,
+    systemSettings,
   } = useApp();
 
   const effectiveUser = useMemo(() => getEffectiveUser(propUser || ctxUser), [propUser, ctxUser]);
-  const isSuperAdmin = isSuperAdminUser(effectiveUser);
+  const canAccessRestrictedWorkflow = canAccessRestrictedWorkflowNav(effectiveUser);
 
-  // Local fallback when StaffDashboard is mounted standalone outside DashboardLayout
   const [internalSearch, setInternalSearch] = useState('');
-
   const searchQuery = controlledSearch !== undefined ? controlledSearch : internalSearch;
   const handleSearchChange = onSearchChange || setInternalSearch;
+
+  const [activeCaseFilter, setActiveCaseFilter] = useState<CaseFilterTab>('All');
+  const [activeModal, setActiveModal] = useState<QuickModalType>(null);
+
+  // Live mortgages fetched via shared MortgageService (no duplicate Supabase clients)
+  const [mortgages, setMortgages] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const banks = getVisibleBanksForUser(effectiveUser);
+    Promise.all(
+      banks.map((bank) => MortgageService.fetchMortgages(bank, effectiveUser).catch(() => []))
+    ).then((batches) => {
+      if (!mounted) return;
+      const merged = batches.flat().filter(Boolean);
+      setMortgages(merged);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [effectiveUser]);
+
+  // Persisted MTD Time Logs
+  const [timeLogs, setTimeLogs] = useState<TimeLogEntry[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(TIME_LOGS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // fallback to defaults
+      }
+    }
+    return INITIAL_TIME_LOGS;
+  });
+
+  // Persisted Quick Action Activity Feed
+  const [localActivities, setLocalActivities] = useState<ActivityTimelineItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(LOCAL_ACTIVITY_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(TIME_LOGS_STORAGE_KEY, JSON.stringify(timeLogs));
+      } catch {
+        // ignore
+      }
+    }
+  }, [timeLogs]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(LOCAL_ACTIVITY_STORAGE_KEY, JSON.stringify(localActivities.slice(0, 20)));
+      } catch {
+        // ignore
+      }
+    }
+  }, [localActivities]);
+
+  // Close active modal on Escape
+  useEffect(() => {
+    if (!activeModal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveModal(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [activeModal]);
 
   const resolvedBranchOptions = useMemo(() => {
     if (controlledBranchOptions && controlledBranchOptions.length > 0) return controlledBranchOptions;
@@ -290,7 +388,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         ...branches.map((b) => ({ id: b.id, name: b.name })),
       ];
     }
-    return DEFAULT_BRANCH_OPTIONS;
+    return [{ id: 'all', name: 'All Firm Branches' }];
   }, [controlledBranchOptions, branches]);
 
   const activeBranchId = controlledBranchId !== undefined ? controlledBranchId : selectedBranchFilter || 'all';
@@ -298,34 +396,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     if (controlledBranchLabel) return controlledBranchLabel;
     const found = resolvedBranchOptions.find((b) => b.id === activeBranchId);
     if (found && found.id !== 'all') return found.name;
-    return effectiveUser?.branchName || 'Kampala Central (Head Office)';
+    return effectiveUser?.branchName || 'All Firm Branches';
   }, [controlledBranchLabel, resolvedBranchOptions, activeBranchId, effectiveUser?.branchName]);
 
   const handleBranchSelect = (branchId: string) => {
-    if (onBranchChange) {
-      onBranchChange(branchId);
-    } else {
-      setSelectedBranchFilter(branchId);
-    }
+    if (onBranchChange) onBranchChange(branchId);
+    else setSelectedBranchFilter(branchId);
   };
-
-  // Live date/time string for Hero Banner
-  const [nowDate, setNowDate] = useState<Date>(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowDate(new Date()), 60000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const formattedDateTime = useMemo(() => {
-    const datePart = nowDate.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-    const timePart = nowDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `${datePart} · ${timePart}`;
-  }, [nowDate]);
 
   // Branch-scoped live cases
   const branchScopedCases = useMemo(() => {
@@ -356,379 +433,44 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     });
   }, [cases, activeBranchId, branches, activeBranchLabel]);
 
-  // Live KPI metrics (strictly tallied from branchScopedCases)
-  const kpiMetrics = useMemo(() => {
-    let pendingCount = 0;
-    let activePendingCount = 0;
-    let inactivePendingCount = 0;
-    let accomplishedCount = 0;
+  // Branch-scoped mortgages
+  const branchScopedMortgages = useMemo(() => {
+    const normalizedBranchId = String(activeBranchId || '').trim().toLowerCase();
+    if (!normalizedBranchId || normalizedBranchId === 'all' || normalizedBranchId === 'all firm branches') {
+      return mortgages;
+    }
+    const targetBranch = branches.find((b) => b.id.toLowerCase() === normalizedBranchId);
+    const targetCity = (targetBranch?.city || '').trim().toLowerCase();
+    const targetName = (targetBranch?.name || activeBranchLabel || '').trim().toLowerCase();
 
-    branchScopedCases.forEach((c) => {
-      const s = String(c.status || 'Active').trim().toLowerCase();
-      const stage = String(c.stage || '').trim().toLowerCase();
-      const isClosed =
-        s === 'closed' ||
-        s === 'concluded' ||
-        s === 'archived' ||
-        s === 'disposed' ||
-        s === 'completed' ||
-        s.includes('closed') ||
-        s.includes('concluded') ||
-        s.includes('disposed') ||
-        s.includes('judgment') ||
-        stage.includes('disposed') ||
-        stage.includes('closed') ||
-        Boolean(c.year_of_closure);
-
-      if (isClosed) {
-        accomplishedCount += 1;
-      } else {
-        pendingCount += 1;
-        const explicitInactiveFlag =
-          (c as any).is_active === false || (c as any).isActive === false;
-        const isInactiveStatus =
-          explicitInactiveFlag ||
-          s.includes('inactive') ||
-          s.includes('innactive') ||
-          s.includes('dormant') ||
-          s.includes('on_hold') ||
-          s.includes('on hold') ||
-          s.includes('on-hold') ||
-          s.includes('paused') ||
-          s.includes('stayed') ||
-          s.includes('suspended') ||
-          s.includes('abeyance');
-
-        if (isInactiveStatus) {
-          inactivePendingCount += 1;
-        } else {
-          activePendingCount += 1;
-        }
-      }
+    return mortgages.filter((m) => {
+      const bId = String(m.branch_id || '').trim().toLowerCase();
+      const bName = String(m.firm_branch_station || m.branch_name || m.bank_branch_station || '').trim().toLowerCase();
+      return (
+        (bId !== '' && bId === normalizedBranchId) ||
+        (targetCity !== '' && bName.includes(targetCity)) ||
+        (targetName !== '' && bName !== '' && (bName.includes(targetName) || targetName.includes(bName)))
+      );
     });
+  }, [mortgages, activeBranchId, branches, activeBranchLabel]);
 
-    const vaultCustodyCount = Math.max(
-      documents.length,
-      branchScopedCases.length > 0 ? Math.min(branchScopedCases.length, 48) : 14
-    );
-
-    return {
-      pendingCases: pendingCount,
-      activePendingCases: activePendingCount,
-      inactivePendingCases: inactivePendingCount,
-      accomplishedCases: accomplishedCount,
-      vaultCustody: vaultCustodyCount,
-      approvals: pendingApprovalsCount,
-    };
-  }, [branchScopedCases, documents.length, pendingApprovalsCount]);
-
-  // Block B — Birthday Celebrants & Live Supabase `birthday_wishes` integration
-  const [celebrants, setCelebrants] = useState<BirthdayCelebrant[]>([]);
-  const [loadingBirthdays, setLoadingBirthdays] = useState<boolean>(true);
-  const [activeWishId, setActiveWishId] = useState<string | null>(null);
-  const [wishDraft, setWishDraft] = useState<string>('');
-  const [sendingWishId, setSendingWishId] = useState<string | null>(null);
-
-  const loadBirthdayCelebrants = useCallback(async () => {
-    setLoadingBirthdays(true);
-    try {
-      const currentYear = new Date().getFullYear();
-      const [empRes, wishesRes] = await Promise.all([
-        hrSupabase
-          .from('employees')
-          .select('id, first_name, last_name, job_title, department, date_of_birth, status')
-          .neq('status', 'Terminated'),
-        hrSupabase
-          .from('birthday_wishes')
-          .select('id, celebrant_id, sender_id, message, wish_year, created_at')
-          .eq('wish_year', currentYear)
-          .order('created_at', { ascending: false }),
-      ]);
-
-      const localWishesMap = readLocalWishes();
-      const dbWishesByCelebrant = new Map<string, Array<{ id: string; sender: string; message: string; createdAt: string }>>();
-      if (!wishesRes.error && Array.isArray(wishesRes.data)) {
-        wishesRes.data.forEach((w: any) => {
-          const list = dbWishesByCelebrant.get(w.celebrant_id) || [];
-          const matchedSender = availableUsers.find((u) => u.id === w.sender_id);
-          list.push({
-            id: w.id,
-            sender: matchedSender?.name || 'Colleague',
-            message: w.message,
-            createdAt: w.created_at
-              ? new Date(w.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : 'Just now',
-          });
-          dbWishesByCelebrant.set(w.celebrant_id, list);
-        });
-      }
-
-      // Merge local HR overrides if any DOBs were saved locally
-      let localOverrides: Record<string, any> = {};
-      if (typeof window !== 'undefined') {
-        try {
-          const raw = window.localStorage.getItem(LOCAL_HR_OVERRIDES_KEY);
-          if (raw) localOverrides = JSON.parse(raw);
-        } catch {
-          // ignore
-        }
-      }
-
-      const rawList: Array<{ id: string; name: string; role: string; dob: string | null }> = [];
-      const seenIds = new Set<string>();
-
-      if (!empRes.error && Array.isArray(empRes.data)) {
-        empRes.data.forEach((e: any) => {
-          const ov = localOverrides[String(e.id || '').toLowerCase()] || {};
-          const dob = ov.date_of_birth || e.date_of_birth || null;
-          if (dob) {
-            seenIds.add(e.id);
-            rawList.push({
-              id: e.id,
-              name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || 'Firm Staff',
-              role: e.job_title || e.department || 'Legal Counsel',
-              dob,
-            });
-          }
-        });
-      }
-
-      Object.entries(localOverrides).forEach(([key, ov]) => {
-        if (ov?.date_of_birth && ov?.first_name && !seenIds.has(ov.id || key)) {
-          const id = ov.id || key;
-          seenIds.add(id);
-          rawList.push({
-            id,
-            name: `${ov.first_name} ${ov.last_name || ''}`.trim(),
-            role: ov.job_title || ov.department || 'Firm Staff',
-            dob: ov.date_of_birth,
-          });
-        }
-      });
-
-      const computed: BirthdayCelebrant[] = rawList
-        .map((item) => {
-          const meta = formatBirthdayDate(item.dob);
-          const mergedWishes = [
-            ...(dbWishesByCelebrant.get(item.id) || []),
-            ...(localWishesMap[item.id] || []),
-          ];
-          return {
-            id: item.id,
-            name: item.name,
-            role: item.role,
-            dateLabel: meta.label,
-            isToday: meta.isToday,
-            isUuid: UUID_REGEX.test(item.id),
-            wishes: mergedWishes,
-            _daysUntil: meta.daysUntil,
-          };
-        })
-        .sort((a, b) => a._daysUntil - b._daysUntil)
-        .slice(0, 4)
-        .map(({ _daysUntil, ...rest }) => rest);
-
-      // If no DOBs are set in Supabase yet, display upcoming firm team highlights using real connected firm staff
-      if (computed.length === 0) {
-        const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-        const nextWeek = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-        });
-        const realStaff = availableUsers.filter((u) => u?.name && u.email !== effectiveUser?.email).slice(0, 2);
-        const fallbackCelebrants: BirthdayCelebrant[] =
-          realStaff.length > 0
-            ? realStaff.map((u, idx) => ({
-                id: u.id,
-                name: u.name,
-                role: u.roleTitle || u.role || 'Legal Counsel',
-                dateLabel: idx === 0 ? `${todayLabel} (Today)` : nextWeek,
-                isToday: idx === 0,
-                isUuid: UUID_REGEX.test(u.id),
-                wishes: [
-                  ...(dbWishesByCelebrant.get(u.id) || []),
-                  ...(localWishesMap[u.id] || []),
-                ],
-              }))
-            : [
-                {
-                  id: 'celebrant-1',
-                  name: 'Lilian Kobusinge',
-                  role: 'Senior Litigation Associate',
-                  dateLabel: `${todayLabel} (Today)`,
-                  isToday: true,
-                  isUuid: false,
-                  wishes: localWishesMap['celebrant-1'] || [],
-                },
-                {
-                  id: 'celebrant-2',
-                  name: 'Phionah Adoch',
-                  role: 'Admin & Finance Assistant',
-                  dateLabel: nextWeek,
-                  isToday: false,
-                  isUuid: false,
-                  wishes: localWishesMap['celebrant-2'] || [],
-                },
-              ];
-        setCelebrants(fallbackCelebrants);
-      } else {
-        setCelebrants(computed);
-      }
-    } catch {
-      const localWishesMap = readLocalWishes();
-      setCelebrants([
-        {
-          id: 'celebrant-1',
-          name: 'Lilian Kobusinge',
-          role: 'Senior Litigation Associate',
-          dateLabel: 'Today',
-          isToday: true,
-          isUuid: false,
-          wishes: localWishesMap['celebrant-1'] || [],
-        },
-        {
-          id: 'celebrant-2',
-          name: 'Phionah Adoch',
-          role: 'Admin & Finance Assistant',
-          dateLabel: 'Next Week',
-          isToday: false,
-          isUuid: false,
-          wishes: localWishesMap['celebrant-2'] || [],
-        },
-      ]);
-    } finally {
-      setLoadingBirthdays(false);
-    }
-  }, [availableUsers, effectiveUser?.email]);
-
-  useEffect(() => {
-    loadBirthdayCelebrants();
-  }, [loadBirthdayCelebrants]);
-
-  const handleSendBirthdayWish = async (celebrant: BirthdayCelebrant) => {
-    const cleanMsg = wishDraft.trim();
-    if (!cleanMsg) return;
-
-    setSendingWishId(celebrant.id);
-    const senderName = effectiveUser?.name || 'Colleague';
-    const newWish = {
-      id: `wish-${Date.now()}`,
-      sender: senderName,
-      message: cleanMsg,
-      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    try {
-      // Attempt Supabase insert into `birthday_wishes` via shared hrSupabase client
-      let persistedToCloud = false;
-      if (celebrant.isUuid) {
-        let senderUuid: string | null =
-          effectiveUser?.id && UUID_REGEX.test(String(effectiveUser.id)) ? String(effectiveUser.id) : null;
-        if (!senderUuid) {
-          const { data: authData } = await hrSupabase.auth.getUser().catch(() => ({ data: { user: null } } as any));
-          if (authData?.user?.id && UUID_REGEX.test(authData.user.id)) {
-            senderUuid = authData.user.id;
-          }
-        }
-
-        const { data: inserted, error } = await hrSupabase
-          .from('birthday_wishes')
-          .insert([
-            {
-              celebrant_id: celebrant.id,
-              sender_id: senderUuid,
-              message: cleanMsg,
-              wish_year: new Date().getFullYear(),
-            },
-          ])
-          .select('id')
-          .maybeSingle();
-
-        if (!error) {
-          persistedToCloud = true;
-          if (inserted?.id) newWish.id = inserted.id;
-        }
-      }
-
-      if (!persistedToCloud) {
-        saveLocalWish(celebrant.id, newWish);
-      }
-
-      setCelebrants((prev) =>
-        prev.map((c) => (c.id === celebrant.id ? { ...c, wishes: [newWish, ...c.wishes] } : c))
-      );
-      setWishDraft('');
-      setActiveWishId(null);
-      showCleanMessage(`Birthday wish sent to ${celebrant.name}!`, 'success');
-    } catch {
-      saveLocalWish(celebrant.id, newWish);
-      setCelebrants((prev) =>
-        prev.map((c) => (c.id === celebrant.id ? { ...c, wishes: [newWish, ...c.wishes] } : c))
-      );
-      setWishDraft('');
-      setActiveWishId(null);
-      showCleanMessage(`Birthday wish posted for ${celebrant.name}.`, 'success');
-    } finally {
-      setSendingWishId(null);
-    }
-  };
-
-  // Block C — Staff Tasks & Workflow Visibility (interactive cycling Todo -> In Progress -> Completed)
-  const [tasks, setTasks] = useState<StaffWorkflowTask[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const raw = window.localStorage.getItem(TASKS_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    return DEFAULT_TASKS;
-  });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
-      } catch {
-        // ignore
-      }
-    }
-  }, [tasks]);
-
-  const handleCycleTaskStatus = (taskId: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: getNextTaskStatus(t.status) } : t))
-    );
-  };
-
-  const filteredTasks = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return tasks;
-    return tasks.filter(
-      (t) =>
-        t.title.toLowerCase().includes(q) ||
-        t.caseCode.toLowerCase().includes(q) ||
-        t.assignee.toLowerCase().includes(q) ||
-        t.priority.toLowerCase().includes(q) ||
-        t.status.toLowerCase().includes(q)
-    );
-  }, [tasks, searchQuery]);
-
-  // Block D — Upcoming Hearings & Deadlines (merged from live hearings & case next court dates, filtered by search & branch)
-  const upcomingHearings = useMemo(() => {
+  // Upcoming Deadlines (real hearings + case next hearing dates)
+  const upcomingDeadlines = useMemo(() => {
     const items: Array<{
       id: string;
-      badge: string;
-      dateTime: string;
+      rawDate: string;
+      month: string;
+      day: string;
+      formattedDate: string;
+      sortTs: number;
       title: string;
       caseCode: string;
-      courtDivision: string;
-      linkedCase?: any;
+      venue: string;
+      badge: string;
+      linkedCase?: CaseItem;
     }> = [];
+
+    const seenCodes = new Set<string>();
 
     hearings
       .filter((h) => h.status !== 'Completed')
@@ -737,158 +479,522 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         if (activeBranchId && activeBranchId !== 'all' && linked && linked.branchId && linked.branchId !== activeBranchId) {
           return;
         }
+        const dp = parseDateParts(h.hearingDate);
+        const code = h.suitNumber || linked?.suitNumber || 'HCT-2026';
+        seenCodes.add(`${code}-${h.hearingDate}`);
         items.push({
           id: h.id,
-          badge: h.hearingPurpose || 'Court Hearing',
-          dateTime: `${h.hearingDate}${h.hearingTime ? ` · ${h.hearingTime}` : ' · 09:30 AM'}`,
-          title: h.caseTitle || linked?.title || h.suitNumber || 'Scheduled Court Appearance',
-          caseCode: h.suitNumber || linked?.suitNumber || 'HCT-2026',
-          courtDivision: h.courtRoom || h.courtName || h.division || linked?.court || 'High Court Commercial Division',
+          rawDate: h.hearingDate,
+          month: dp.month,
+          day: dp.day,
+          formattedDate: dp.formatted,
+          sortTs: dp.timestamp,
+          title: h.hearingPurpose || h.caseTitle || 'Scheduled Court Appearance',
+          caseCode: code,
+          venue: h.courtRoom || h.courtName || linked?.court || 'High Court Commercial Division',
+          badge: h.status || 'Scheduled',
           linkedCase: linked,
         });
       });
 
-    if (items.length < 4) {
-      branchScopedCases
-        .filter((c) => c.nextHearingDate || c.hearing_date)
-        .slice(0, 4)
-        .forEach((c) => {
-          const code = c.suitNumber || c.firmRefNumber || c.case_number || 'LF-2026';
-          if (items.some((i) => i.caseCode === code)) return;
-          items.push({
-            id: `case-hr-${c.id}`,
-            badge: c.nextHearingPurpose || c.stage || 'Mention / Hearing',
-            dateTime: `${String(c.nextHearingDate || c.hearing_date).slice(0, 10)} · 09:00 AM`,
-            title: c.title || c.clientName || c.client || 'Active Litigation Matter',
-            caseCode: code,
-            courtDivision: c.court || c.division || `${c.branchName || activeBranchLabel} Registry`,
-            linkedCase: c,
-          });
+    branchScopedCases
+      .filter((c) => !isCaseClosed(c) && (c.nextHearingDate || c.hearing_date))
+      .forEach((c) => {
+        const dateVal = String(c.nextHearingDate || c.hearing_date || '').slice(0, 10);
+        const code = c.suitNumber || c.firmRefNumber || c.case_number || 'MK-FILE';
+        if (seenCodes.has(`${code}-${dateVal}`)) return;
+        const dp = parseDateParts(dateVal);
+        items.push({
+          id: `case-dl-${c.id}`,
+          rawDate: dateVal,
+          month: dp.month,
+          day: dp.day,
+          formattedDate: dp.formatted,
+          sortTs: dp.timestamp,
+          title: c.nextHearingPurpose || c.title || 'Court Mention / Filing Deadline',
+          caseCode: code,
+          venue: c.court || c.branchName || 'Firm Registry',
+          badge: c.stage || 'Hearing',
+          linkedCase: c,
         });
-    }
+      });
 
-    if (items.length === 0) {
-      items.push(
-        {
-          id: 'def-hr-1',
-          badge: 'Commercial Hearing',
-          dateTime: 'Tomorrow · 09:30 AM',
-          title: 'Centenary Bank Ltd v. KAMP Holdings Ltd — Summary Suit Hearing',
-          caseCode: 'LF-2026-0142',
-          courtDivision: 'High Court Commercial Division · Courtroom 4',
-        },
-        {
-          id: 'def-hr-2',
-          badge: 'Mediation Session',
-          dateTime: 'Nov 22, 2026 · 11:00 AM',
-          title: 'Estate of Ssemakula v. Nakawa Land Ventures — Pre-Trial Conference',
-          caseCode: 'LF-2026-0118',
-          courtDivision: 'High Court Land Division · Chambers B',
-        },
-        {
-          id: 'def-hr-3',
-          badge: 'Filing Deadline',
-          dateTime: 'Nov 24, 2026 · 04:00 PM',
-          title: 'Written Submissions & Mortgage Valuation Affidavit Reply',
-          caseCode: 'DOC-PLD-0891',
-          courtDivision: 'Civil Registry · Central Chambers',
-        },
-        {
-          id: 'def-hr-4',
-          badge: 'Ruling Delivery',
-          dateTime: 'Nov 26, 2026 · 10:00 AM',
-          title: 'Application for Temporary Injunction & Caveat Extension',
-          caseCode: 'LF-2026-0094',
-          courtDivision: `${activeBranchLabel} Circuit High Court`,
-        }
-      );
-    }
+    const sorted = items.sort((a, b) => a.sortTs - b.sortTs);
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter(
+      (i) =>
+        i.title.toLowerCase().includes(q) ||
+        i.caseCode.toLowerCase().includes(q) ||
+        i.venue.toLowerCase().includes(q)
+    );
+  }, [hearings, cases, branchScopedCases, activeBranchId, searchQuery]);
+
+  // 4-Column KPI Metrics (strictly tallied from live data)
+  const kpiStats = useMemo(() => {
+    let activeOpenCases = 0;
+    let closedCases = 0;
+    branchScopedCases.forEach((c) => {
+      if (isCaseClosed(c)) closedCases += 1;
+      else activeOpenCases += 1;
+    });
+
+    const billableHoursMtd = timeLogs
+      .filter((l) => l.billable)
+      .reduce((sum, l) => sum + (Number(l.hours) || 0), 0);
+    const billablePct = Math.min(100, Math.round((billableHoursMtd / MONTHLY_BILLABLE_TARGET) * 100));
+
+    const nowTs = new Date(new Date().toDateString()).getTime();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const dueWithin7Days = upcomingDeadlines.filter(
+      (d) => d.sortTs >= nowTs && d.sortTs <= nowTs + sevenDaysMs
+    ).length;
+
+    // Hardcopy Physical File Custody calculation
+    let checkedOutFiles = 0;
+    let vaultSecuredFiles = 0;
+
+    branchScopedCases.forEach((c) => {
+      const latestMovement =
+        Array.isArray(c.fileMovementHistory) && c.fileMovementHistory.length > 0
+          ? c.fileMovementHistory[c.fileMovementHistory.length - 1]
+          : null;
+      const loc = String(latestMovement?.toLocation || c.file_location || '').toLowerCase();
+      const moveStatus = String(latestMovement?.status || '').toLowerCase();
+
+      const isCheckedOut =
+        moveStatus === 'with advocate' ||
+        moveStatus === 'in transit' ||
+        moveStatus === 'in court' ||
+        loc.includes('advocate') ||
+        loc.includes('court') ||
+        loc.includes('counsel') ||
+        loc.includes('transit') ||
+        loc.includes('checked out') ||
+        loc.includes('desk');
+
+      if (isCheckedOut) {
+        checkedOutFiles += 1;
+      } else {
+        vaultSecuredFiles += 1;
+      }
+    });
+
+    return {
+      activeOpenCases,
+      closedCases,
+      totalCases: branchScopedCases.length,
+      billableHoursMtd,
+      billablePct,
+      pendingApprovals: canAccessRestrictedWorkflow ? pendingApprovalsCount : 0,
+      upcomingDeadlinesCount: upcomingDeadlines.length,
+      dueWithin7Days,
+      checkedOutFiles,
+      vaultSecuredFiles,
+      indexedDocuments: documents.length,
+    };
+  }, [
+    branchScopedCases,
+    timeLogs,
+    upcomingDeadlines,
+    canAccessRestrictedWorkflow,
+    pendingApprovalsCount,
+    documents.length,
+  ]);
+
+  // Unified rows for the Active Cases Table (All | Litigation | Corporate | Mortgages)
+  const activeTableRows = useMemo<UnifiedCaseRow[]>(() => {
+    const caseRows: UnifiedCaseRow[] = branchScopedCases
+      .filter((c) => !isCaseClosed(c))
+      .map((c) => {
+        const practice = classifyCasePractice(c);
+        const deadlineDate = c.nextHearingDate || c.hearing_date || '';
+        const dp = parseDateParts(deadlineDate);
+        const primaryClient =
+          c.clientName ||
+          c.client ||
+          (Array.isArray(c.parties) && c.parties.length > 0 ? c.parties[0].name : '') ||
+          'Firm Client';
+        return {
+          id: c.id,
+          code: c.suitNumber || c.firmRefNumber || c.case_number || 'MK-MATTER',
+          title: c.title || primaryClient,
+          client: primaryClient,
+          practice,
+          practiceLabel: c.case_type || practice,
+          branch: c.branchName || c.branch || 'Kampala Central',
+          stage: c.stage || c.status || 'Active',
+          nextDeadline: deadlineDate ? dp.formatted : 'TBD',
+          rawCase: c,
+        };
+      });
+
+    const mortgageRows: UnifiedCaseRow[] = branchScopedMortgages.map((m) => {
+      const dp = parseDateParts(m.date_of_receipt || m.updated_at || '');
+      return {
+        id: `mtg-${m.id}`,
+        code: m.file_ref || m.mortgage_ref || m.bank_name || 'MTG-FILE',
+        title: m.borrower_name || m.mortgagor_name || m.client_name || 'Mortgage Perfection Matter',
+        client: m.bank_name || m.client_bank_name || 'Partner Financial Institution',
+        practice: 'Mortgages',
+        practiceLabel: m.bank_name || 'Mortgages & Securities',
+        branch: m.firm_branch_station || m.branch_name || m.bank_branch_station || 'Kampala Central',
+        stage: m.status || m.perfection_status || 'In Perfection',
+        nextDeadline: m.date_of_receipt ? dp.formatted : 'Ongoing',
+        isMortgage: true,
+      };
+    });
+
+    const combined =
+      activeCaseFilter === 'Mortgages'
+        ? [...mortgageRows, ...caseRows.filter((r) => r.practice === 'Mortgages')]
+        : activeCaseFilter === 'All'
+        ? [...caseRows, ...mortgageRows.slice(0, 4)]
+        : caseRows.filter((r) => r.practice === activeCaseFilter);
 
     const q = searchQuery.trim().toLowerCase();
     const filtered = q
-      ? items.filter(
-          (item) =>
-            item.title.toLowerCase().includes(q) ||
-            item.caseCode.toLowerCase().includes(q) ||
-            item.courtDivision.toLowerCase().includes(q) ||
-            item.badge.toLowerCase().includes(q)
+      ? combined.filter(
+          (r) =>
+            r.code.toLowerCase().includes(q) ||
+            r.title.toLowerCase().includes(q) ||
+            r.client.toLowerCase().includes(q) ||
+            r.branch.toLowerCase().includes(q) ||
+            r.stage.toLowerCase().includes(q) ||
+            r.practiceLabel.toLowerCase().includes(q)
         )
-      : items;
+      : combined;
 
-    return filtered.slice(0, 6);
-  }, [hearings, cases, branchScopedCases, activeBranchId, activeBranchLabel, searchQuery]);
+    return filtered.slice(0, 8);
+  }, [branchScopedCases, branchScopedMortgages, activeCaseFilter, searchQuery]);
 
-  // Live matter search results banner when user types in top search input
-  const matchingCases = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return branchScopedCases
-      .filter((c) => {
-        const partiesText = Array.isArray(c.parties) ? c.parties.map((p) => p.name).join(' ') : '';
-        return (
-          (c.suitNumber || '').toLowerCase().includes(q) ||
-          (c.firmRefNumber || '').toLowerCase().includes(q) ||
-          (c.case_number || '').toLowerCase().includes(q) ||
-          (c.title || '').toLowerCase().includes(q) ||
-          partiesText.toLowerCase().includes(q) ||
-          (c.clientName || c.client || '').toLowerCase().includes(q) ||
-          (c.court || '').toLowerCase().includes(q)
-        );
-      })
-      .slice(0, 5);
-  }, [branchScopedCases, searchQuery]);
+  // Recent Activity Timeline (merged from live actions, progressive notes, documents, and recent case updates)
+  const recentActivity = useMemo<ActivityTimelineItem[]>(() => {
+    const feed: ActivityTimelineItem[] = [...localActivities];
 
-  const firstName = useMemo(() => {
-    const full = String(effectiveUser?.name || 'Counsel').trim();
-    return full.split(/\s+/)[0] || full;
-  }, [effectiveUser?.name]);
+    // Add progressive notes from branch cases
+    branchScopedCases.forEach((c) => {
+      if (Array.isArray(c.progressiveNotes)) {
+        c.progressiveNotes.slice(-2).forEach((note) => {
+          const ts = new Date(note.timestamp).getTime();
+          feed.push({
+            id: `note-${note.id}`,
+            title: `${note.category} logged on ${c.suitNumber || c.firmRefNumber}`,
+            detail: `${note.author}: ${note.content}`,
+            timestamp: formatRelativeTime(note.timestamp),
+            sortTime: Number.isNaN(ts) ? Date.now() - 3600000 : ts,
+          });
+        });
+      }
+    });
 
-  const departmentLabel = effectiveUser?.roleTitle || 'Litigation & Corporate Chambers';
+    // Add recent documents
+    documents.slice(0, 4).forEach((doc, idx) => {
+      const ts = new Date(doc.filingDate).getTime();
+      feed.push({
+        id: `doc-${doc.id}`,
+        title: `${doc.documentType} filed — ${doc.suitNumber}`,
+        detail: `${doc.title} · Filed by ${doc.filedBy}`,
+        timestamp: formatRelativeTime(doc.filingDate),
+        sortTime: Number.isNaN(ts) ? Date.now() - (idx + 2) * 7200000 : ts,
+      });
+    });
 
-  const triggerNewCase = () => {
-    if (onOpenNewCase) onOpenNewCase();
-    else setIsNewCaseModalOpen(true);
+    // Add recent case updates if feed is light
+    if (feed.length < 5) {
+      branchScopedCases.slice(0, 4).forEach((c, idx) => {
+        const ts = new Date(c.lastUpdated).getTime();
+        feed.push({
+          id: `upd-${c.id}`,
+          title: `Matter updated — ${c.suitNumber || c.firmRefNumber}`,
+          detail: `${c.title} (${c.stage || c.status})`,
+          timestamp: formatRelativeTime(c.lastUpdated),
+          sortTime: Number.isNaN(ts) ? Date.now() - (idx + 5) * 10800000 : ts,
+        });
+      });
+    }
+
+    return feed.sort((a, b) => b.sortTime - a.sortTime).slice(0, 6);
+  }, [localActivities, branchScopedCases, documents]);
+
+  // Quick Action Modal States
+  const defaultCaseId = branchScopedCases[0]?.id || cases[0]?.id || '';
+
+  // 1. Log Time form state
+  const [timeCaseId, setTimeCaseId] = useState<string>('');
+  const [timeHours, setTimeHours] = useState<string>('1.5');
+  const [timeDate, setTimeDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [timeBillable, setTimeBillable] = useState<boolean>(true);
+  const [timeDescription, setTimeDescription] = useState<string>('');
+
+  // 2. Upload Document form state
+  const [docCaseId, setDocCaseId] = useState<string>('');
+  const [docTitle, setDocTitle] = useState<string>('');
+  const [docType, setDocType] = useState<PleadingDocument['documentType']>('Legal Submissions');
+  const [docFileName, setDocFileName] = useState<string>('');
+  const [docFileSize, setDocFileSize] = useState<string>('1.2 MB');
+
+  // 3. New Case Note form state
+  const [noteCaseId, setNoteCaseId] = useState<string>('');
+  const [noteCategory, setNoteCategory] = useState<ProgressiveNote['category']>('Court Milestone');
+  const [noteContent, setNoteContent] = useState<string>('');
+  const [submittingNote, setSubmittingNote] = useState<boolean>(false);
+
+  // 4. Request Leave form state
+  const [leaveType, setLeaveType] = useState<string>('Annual Leave');
+  const [leaveStart, setLeaveStart] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [leaveEnd, setLeaveEnd] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [leaveReason, setLeaveReason] = useState<string>('');
+  const [submittingLeave, setSubmittingLeave] = useState<boolean>(false);
+
+  const leaveBreakdown = useMemo(
+    () => calculateUgandaLeaveBreakdown(leaveStart, leaveEnd, systemSettings?.publicHolidays),
+    [leaveStart, leaveEnd, systemSettings?.publicHolidays]
+  );
+
+  const openQuickModal = (modal: QuickModalType) => {
+    if (modal === 'time' && !timeCaseId) setTimeCaseId(defaultCaseId);
+    if (modal === 'document' && !docCaseId) setDocCaseId(defaultCaseId);
+    if (modal === 'note' && !noteCaseId) setNoteCaseId(defaultCaseId);
+    setActiveModal(modal);
   };
 
-  const triggerLitigationForm = () => {
-    if (onOpenLitigationForm) onOpenLitigationForm();
-    else setIsNewCaseModalOpen(true);
+  const pushLocalActivity = (title: string, detail: string) => {
+    setLocalActivities((prev) => [
+      {
+        id: `act-${Date.now()}`,
+        title,
+        detail,
+        timestamp: 'Just now',
+        sortTime: Date.now(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleSubmitTimeLog = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericHours = parseFloat(timeHours);
+    if (Number.isNaN(numericHours) || numericHours <= 0 || numericHours > 24) {
+      showCleanMessage('Enter valid hours between 0.1 and 24.0.', 'warning');
+      return;
+    }
+    if (!timeDescription.trim()) {
+      showCleanMessage('Please provide a brief work narrative for the time entry.', 'warning');
+      return;
+    }
+
+    const matchedCase = cases.find((c) => c.id === timeCaseId);
+    const code = matchedCase?.suitNumber || matchedCase?.firmRefNumber || 'FIRM-GEN';
+    const matterTitle = matchedCase?.title || 'General Legal Advisory';
+
+    const newEntry: TimeLogEntry = {
+      id: `tl-${Date.now()}`,
+      caseId: matchedCase?.id || 'general',
+      caseCode: code,
+      matterTitle,
+      hours: numericHours,
+      date: timeDate,
+      description: timeDescription.trim(),
+      billable: timeBillable,
+      author: effectiveUser?.name || 'Advocate',
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setTimeLogs((prev) => [newEntry, ...prev]);
+    pushLocalActivity(
+      `Logged ${numericHours.toFixed(1)}h ${timeBillable ? 'billable' : 'non-billable'} — ${code}`,
+      `${effectiveUser?.name || 'Advocate'}: ${timeDescription.trim()}`
+    );
+    setTimeDescription('');
+    setTimeHours('1.5');
+    setActiveModal(null);
+    showCleanMessage(`Logged ${numericHours.toFixed(1)} hours to ${code}.`, 'success');
+  };
+
+  const handleSubmitDocument = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docTitle.trim()) {
+      showCleanMessage('Enter a document title before uploading.', 'warning');
+      return;
+    }
+    const matchedCase = cases.find((c) => c.id === docCaseId) || branchScopedCases[0] || cases[0];
+    const suitNo = matchedCase?.suitNumber || matchedCase?.firmRefNumber || 'MK-REG-2026';
+
+    const ext = docFileName.split('.').pop()?.toLowerCase();
+    const fileFormat: PleadingDocument['fileFormat'] =
+      ext === 'docx' || ext === 'doc'
+        ? 'docx'
+        : ext === 'xlsx' || ext === 'xls'
+        ? 'xlsx'
+        : 'pdf';
+
+    addDocument({
+      caseId: matchedCase?.id || 'general',
+      suitNumber: suitNo,
+      title: docTitle.trim(),
+      documentType: docType,
+      fileFormat,
+      fileSize: docFileSize,
+      filingDate: new Date().toISOString().slice(0, 10),
+      filedBy: effectiveUser?.name || 'Advocate',
+      courtRegistryStamp: false,
+      summary: docFileName ? `Uploaded file: ${docFileName}` : 'Uploaded via Executive Workspace',
+      version: 1,
+    });
+
+    pushLocalActivity(
+      `Uploaded ${docType} — ${suitNo}`,
+      `${docTitle.trim()} (${docFileSize}) by ${effectiveUser?.name || 'Advocate'}`
+    );
+
+    setDocTitle('');
+    setDocFileName('');
+    setDocFileSize('1.2 MB');
+    setActiveModal(null);
+    showCleanMessage(`Document "${docTitle.trim()}" added to ${suitNo}.`, 'success');
+  };
+
+  const handleSubmitCaseNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!noteContent.trim()) {
+      showCleanMessage('Enter case note details before saving.', 'warning');
+      return;
+    }
+    const matchedCase = cases.find((c) => c.id === noteCaseId) || branchScopedCases[0] || cases[0];
+    if (!matchedCase) {
+      showCleanMessage('Select an active matter to attach this note.', 'warning');
+      return;
+    }
+
+    setSubmittingNote(true);
+    try {
+      await addProgressiveNote(matchedCase.id, {
+        author: effectiveUser?.name || 'Advocate',
+        authorRole: effectiveUser?.roleTitle || effectiveUser?.role || 'Advocate',
+        category: noteCategory,
+        content: noteContent.trim(),
+      });
+
+      const code = matchedCase.suitNumber || matchedCase.firmRefNumber || 'MATTER';
+      pushLocalActivity(
+        `${noteCategory} added — ${code}`,
+        `${effectiveUser?.name || 'Advocate'}: ${noteContent.trim()}`
+      );
+      setNoteContent('');
+      setActiveModal(null);
+      showCleanMessage(`Case note saved to ${code}.`, 'success');
+    } catch {
+      showCleanMessage('Unable to save case note. Please try again.', 'error');
+    } finally {
+      setSubmittingNote(false);
+    }
+  };
+
+  const handleSubmitLeaveRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!leaveBreakdown.isValidRange || leaveBreakdown.workingDays <= 0) {
+      showCleanMessage('Select a valid date range containing at least 1 working day.', 'warning');
+      return;
+    }
+    if (!leaveReason.trim()) {
+      showCleanMessage('Please provide a short reason for your leave request.', 'warning');
+      return;
+    }
+
+    setSubmittingLeave(true);
+    const payload = {
+      id: `lv-${Date.now()}`,
+      employee_name: effectiveUser?.name || 'Firm Staff',
+      employee_email: effectiveUser?.email || '',
+      leave_type: leaveType,
+      start_date: leaveStart,
+      end_date: leaveEnd,
+      days_requested: leaveBreakdown.workingDays,
+      reason: leaveReason.trim(),
+      status: 'Pending',
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      // Save locally and attempt non-blocking HR Supabase persistence
+      if (typeof window !== 'undefined') {
+        try {
+          const prev = JSON.parse(window.localStorage.getItem(LOCAL_LEAVE_REQUESTS_KEY) || '[]');
+          window.localStorage.setItem(LOCAL_LEAVE_REQUESTS_KEY, JSON.stringify([payload, ...prev]));
+        } catch {
+          // ignore
+        }
+      }
+
+      if (effectiveUser?.email) {
+        const { data: emp } = await hrSupabase
+          .from('employees')
+          .select('id')
+          .ilike('email', effectiveUser.email)
+          .maybeSingle();
+
+        if (emp?.id) {
+          await hrSupabase.from('leave_requests').insert([
+            {
+              employee_id: emp.id,
+              leave_type: leaveType,
+              start_date: leaveStart,
+              end_date: leaveEnd,
+              total_days: leaveBreakdown.workingDays,
+              reason: leaveReason.trim(),
+              status: 'Pending',
+            },
+          ]);
+        }
+      }
+
+      pushLocalActivity(
+        `Leave request submitted (${leaveBreakdown.workingDays} working day${leaveBreakdown.workingDays === 1 ? '' : 's'})`,
+        `${leaveType} · ${leaveStart} to ${leaveEnd}`
+      );
+      setLeaveReason('');
+      setActiveModal(null);
+      showCleanMessage(
+        `${leaveType} request (${leaveBreakdown.workingDays} working day${leaveBreakdown.workingDays === 1 ? '' : 's'}) submitted for approval.`,
+        'success'
+      );
+    } catch {
+      pushLocalActivity(
+        `Leave request recorded (${leaveBreakdown.workingDays} working days)`,
+        `${leaveType} · ${leaveStart} to ${leaveEnd}`
+      );
+      setLeaveReason('');
+      setActiveModal(null);
+      showCleanMessage('Leave request recorded and queued for HR approval.', 'success');
+    } finally {
+      setSubmittingLeave(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Standalone Top Header Bar (shown only if StaffDashboard is rendered outside DashboardLayout) */}
+      {/* Standalone fallback header only if mounted outside DashboardLayout */}
       {!hideTopHeader && (
-        <header className="sticky top-0 z-20 -mx-3 sm:-mx-6 lg:-mx-8 px-3 sm:px-6 lg:px-8 py-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
-          <div className="relative flex-1 min-w-[240px] max-w-xl">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-xl px-5 py-3.5">
+          <div className="relative flex-1 min-w-[220px] max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search Case File # (e.g. LF-2026), Doc Code (e.g. DOC-PLD), or Client..."
-              className="w-full pl-10 pr-9 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
+              placeholder="Search matter, suit #, client..."
+              className="w-full h-9 pl-9 pr-7 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => handleSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                aria-label="Clear search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2.5">
             <div className="relative flex items-center">
-              <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
+              <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 pointer-events-none" />
               <select
-                aria-label="Active branch context"
+                aria-label="Branch scope"
                 value={activeBranchId}
                 onChange={(e) => handleBranchSelect(e.target.value)}
-                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] cursor-pointer"
+                className="h-9 pl-8 pr-7 text-xs font-medium bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-200 cursor-pointer"
               >
                 {resolvedBranchOptions.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -897,581 +1003,1049 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 ))}
               </select>
             </div>
-          </div>
-        </header>
-      )}
-
-      {/* Live Search Matters Bar (only appears when user types into the top search bar) */}
-      {searchQuery.trim() && (
-        <section className="bg-white dark:bg-slate-900 border border-[#C5A880]/60 dark:border-[#C5A880]/40 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#000065] dark:text-[#E2CFAF]">
-              <Search className="w-3.5 h-3.5" />
-              <span>
-                Live filter active for &ldquo;{searchQuery.trim()}&rdquo; — {matchingCases.length} matter(s),{' '}
-                {filteredTasks.length} task(s), {upcomingHearings.length} hearing(s)
-              </span>
-            </div>
             <button
               type="button"
-              onClick={() => handleSearchChange('')}
-              className="text-xs font-medium text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+              onClick={() => (onOpenNewCase ? onOpenNewCase() : setIsNewCaseModalOpen(true))}
+              className="h-9 px-3.5 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
             >
-              Clear filter
-            </button>
-          </div>
-          {matchingCases.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {matchingCases.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCase(c)}
-                  className="text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-[#F7F1E7]/70 dark:hover:bg-[#000065]/30 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-mono font-semibold text-[#000065] dark:text-[#E2CFAF] truncate">
-                      {c.suitNumber || c.firmRefNumber || c.case_number}
-                    </p>
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                      {c.title || c.clientName || c.client || 'Active Firm Matter'}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {c.branchName || activeBranchLabel} · {c.status || 'Active'}
-                    </p>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 3. HERO BANNER (Muhumuza-Kiiza Firm Midnight Navy & Legal Gold) */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#131C42] to-[#000065] border border-[#C5A880]/30 text-white p-6 sm:p-7 shadow-sm">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-12 -top-12 w-72 h-72 rounded-full bg-[#C5A880]/15 blur-3xl"
-        />
-        <div className="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-[#E2CFAF] font-medium">
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
-                {activeBranchLabel}
-              </span>
-              <span aria-hidden="true" className="text-[#C5A880]/60">·</span>
-              <span className="text-slate-200">{departmentLabel}</span>
-              <span aria-hidden="true" className="text-[#C5A880]/60">·</span>
-              <span className="tabular-nums text-slate-300">{formattedDateTime}</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-serif-legal" style={{ textWrap: 'balance' }}>
-              Good day, {firstName}
-            </h1>
-
-            <p className="text-sm text-slate-200/90 leading-relaxed">
-              You have{' '}
-              <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.pendingCases} active case matters</span>
-              {canAccessRestrictedWorkflowNav(effectiveUser) ? (
-                <>
-                  ,{' '}
-                  <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.approvals} pending approvals</span>,
-                </>
-              ) : null}{' '}
-              and{' '}
-              <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.vaultCustody} files in physical custody</span>{' '}
-              under {activeBranchLabel}.
-            </p>
-          </div>
-
-          {/* Hero Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <button
-              type="button"
-              onClick={triggerNewCase}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C5A880] hover:bg-[#D4BA94] text-[#0B132B] text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer whitespace-nowrap"
-            >
-              <Plus className="w-4 h-4 shrink-0" />
-              <span>+ New Case File</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={triggerLitigationForm}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-[#C5A880]/40 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap"
-            >
-              <Gavel className="w-4 h-4 text-[#C5A880] shrink-0" />
-              <span>Branch Litigation Form</span>
+              <Plus className="w-3.5 h-3.5 text-[#D99B26]" />
+              <span>New Matter</span>
             </button>
           </div>
         </div>
-      </section>
+      )}
 
-      {/* KPI STAT CARDS */}
-      <section
-        className={`grid grid-cols-1 sm:grid-cols-2 ${
-          canAccessRestrictedWorkflowNav(effectiveUser) ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
-        } gap-4`}
-      >
-        <button
-          type="button"
-          onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#000065]/40 dark:hover:border-[#C5A880]/50 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pending Case Files</p>
-              <p className="text-3xl font-bold text-[#0B132B] dark:text-white tabular-nums tracking-tight">
-                {kpiMetrics.pendingCases}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
-              <FolderClock className="w-5 h-5" />
-            </div>
+      {/* Active Search Indicator Strip */}
+      {searchQuery.trim() && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-[#D99B26]/50 text-xs">
+          <div className="flex items-center gap-2 text-[#162238] dark:text-slate-200 font-medium">
+            <Search className="w-3.5 h-3.5 text-[#D99B26]" />
+            <span>
+              Filtering workspace for &ldquo;{searchQuery.trim()}&rdquo; —{' '}
+              <span className="tabular-nums font-semibold">{activeTableRows.length}</span> matching matters,{' '}
+              <span className="tabular-nums font-semibold">{upcomingDeadlines.length}</span> deadlines
+            </span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs tabular-nums">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
-                <span>Active:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{kpiMetrics.activePendingCases}</span>
-              </span>
-              <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
-                <span>Innactive:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{kpiMetrics.inactivePendingCases}</span>
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-              {activeBranchLabel}
-            </p>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Accomplished Cases</p>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
-                {kpiMetrics.accomplishedCases}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <Award className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Concluded &amp; closed</span>
-            <span className="text-slate-500 dark:text-slate-400">Judgments &amp; settlements</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => (onOpenDocuments ? onOpenDocuments() : setActiveTab('documents'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#C5A880] dark:hover:border-[#C5A880]/60 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Vault File Custody</p>
-              <p className="text-3xl font-bold text-[#0B132B] dark:text-white tabular-nums tracking-tight">
-                {kpiMetrics.vaultCustody}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#9E7B46] dark:text-[#C5A880] flex items-center justify-center shrink-0">
-              <Lock className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="font-semibold text-[#9E7B46] dark:text-[#C5A880]">Secured in registry</span>
-            <span className="text-slate-500 dark:text-slate-400">Titles &amp; original deeds</span>
-          </div>
-        </button>
-
-        {canAccessRestrictedWorkflowNav(effectiveUser) && (
           <button
             type="button"
-            onClick={() => (onOpenApprovals ? onOpenApprovals() : setActiveTab('approvals'))}
-            className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
+            onClick={() => handleSearchChange('')}
+            className="text-slate-500 hover:text-[#162238] dark:hover:text-white font-semibold cursor-pointer"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Approval Workflows</p>
-                <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
-                  {kpiMetrics.approvals}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                <ClipboardList className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-              <span className="font-semibold text-amber-700 dark:text-amber-400">Awaiting sign-off</span>
-              <span className="text-slate-500 dark:text-slate-400">Fee notes &amp; releases</span>
-            </div>
+            Clear
           </button>
-        )}
-      </section>
-
-      {/* BLOCK A — Company Dashboard Notices & Announcements */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
-              <Megaphone className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Company Dashboard Notices &amp; Announcements
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Official practice directives and registry circulars for {activeBranchLabel}
-              </p>
-            </div>
-          </div>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border border-[#C5A880]/50 dark:border-[#C5A880]/35 tabular-nums">
-            {INITIAL_NOTICES.length} Active Broadcasts
-          </span>
         </div>
+      )}
 
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {INITIAL_NOTICES.map((notice) => (
-            <article key={notice.id} className="py-4 first:pt-1 last:pb-1 space-y-2">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {notice.pinned && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[11px] font-bold">
-                    <Pin className="w-3 h-3" />
-                    PINNED
-                  </span>
-                )}
-                <span className="font-semibold text-[#000065] dark:text-[#C5A880]">{notice.category}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{notice.title}</h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{notice.body}</p>
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                <span className="font-medium text-slate-700 dark:text-slate-300">{notice.issuer}</span>
-                <span aria-hidden="true">·</span>
-                <span className="tabular-nums">{notice.date}</span>
-                <span aria-hidden="true">·</span>
-                <span>{notice.branchScope}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      {/* BLOCK B — Staff Birthday Celebrations & Wishes */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-              <Cake className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Staff Birthday Celebrations &amp; Wishes
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Celebrate team milestones and send warm wishes directly to colleagues
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800 tabular-nums">
-              {celebrants.length} Celebrations
+      {/* ROW 1: 4-Column KPI Strip (equal-height cards, label + icon top, large tabular value bottom-left, status badge bottom-right) */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {/* KPI 1: Active Cases */}
+        <button
+          type="button"
+          onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[126px] transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide">
+              Active Cases
             </span>
-            {isSuperAdmin && (
+            <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-[#D99B26] flex items-center justify-center shrink-0">
+              <Briefcase className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+              {kpiStats.activeOpenCases}
+            </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tabular-nums bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/50">
+              {kpiStats.closedCases} closed
+            </span>
+          </div>
+        </button>
+
+        {/* KPI 2: Billable Hours (MTD) */}
+        <button
+          type="button"
+          onClick={() => openQuickModal('time')}
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[126px] transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide">
+              Billable Hours (MTD)
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#B57E1A] dark:text-[#D99B26] flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+              {kpiStats.billableHoursMtd.toFixed(1)}h
+            </span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tabular-nums bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#B57E1A] dark:text-[#E8C06B] border border-[#D99B26]/30">
+              {kpiStats.billablePct}% of {MONTHLY_BILLABLE_TARGET}h
+            </span>
+          </div>
+        </button>
+
+        {/* KPI 3: Pending Approvals */}
+        <button
+          type="button"
+          onClick={() => {
+            if (canAccessRestrictedWorkflow) {
+              if (onOpenApprovals) onOpenApprovals();
+              else setActiveTab('approvals');
+            } else {
+              if (onOpenCases) onOpenCases();
+              else setActiveTab('catalogue');
+            }
+          }}
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[126px] transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide">
+              Pending Approvals
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <ClipboardCheck className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+              {kpiStats.pendingApprovals}
+            </span>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                kpiStats.pendingApprovals > 0
+                  ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/50'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {kpiStats.pendingApprovals > 0 ? 'Needs review' : 'All clear'}
+            </span>
+          </div>
+        </button>
+
+        {/* KPI 4: Upcoming Deadlines */}
+        <button
+          type="button"
+          onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[126px] transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide">
+              Upcoming Deadlines
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-slate-200 flex items-center justify-center shrink-0">
+              <CalendarClock className="w-4 h-4" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+              {kpiStats.upcomingDeadlinesCount}
+            </span>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold tabular-nums ${
+                kpiStats.dueWithin7Days > 0
+                  ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/50'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              {kpiStats.dueWithin7Days} next 7d
+            </span>
+          </div>
+        </button>
+      </section>
+
+      {/* ROW 2: Main Workspace Split (lg:col-span-8 Active Cases Table | lg:col-span-4 Deadlines & Hardcopy Registry Rail) */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left (lg:col-span-8): Active Cases Table */}
+        <div className="lg:col-span-8 rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+                Active Cases
+              </h2>
+              <span className="text-xs text-slate-400 font-medium tabular-nums">
+                ({activeTableRows.length})
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Segmented Filter Tabs */}
+              <div
+                role="tablist"
+                aria-label="Filter matters by practice area"
+                className="inline-flex items-center p-0.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700"
+              >
+                {(['All', 'Litigation', 'Corporate', 'Mortgages'] as CaseFilterTab[]).map((tab) => {
+                  const selected = activeCaseFilter === tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => setActiveCaseFilter(tab)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                        selected
+                          ? 'bg-white dark:bg-slate-900 text-[#162238] dark:text-white shadow-2xs'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-[#162238] dark:hover:text-slate-200'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  );
+                })}
+              </div>
+
               <button
                 type="button"
-                onClick={() => (onOpenHrModule ? onOpenHrModule() : setActiveTab('hr'))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 text-xs font-semibold hover:bg-slate-800 transition cursor-pointer whitespace-nowrap"
+                onClick={() => {
+                  if (activeCaseFilter === 'Mortgages') setActiveTab('mortgages');
+                  else if (onOpenCases) onOpenCases();
+                  else setActiveTab('catalogue');
+                }}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] dark:hover:text-[#E8C06B] transition cursor-pointer whitespace-nowrap"
               >
-                <Users className="w-3.5 h-3.5" />
-                HR Admin
+                <span>View All</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            {activeTableRows.length === 0 ? (
+              <div className="px-6 py-12 text-center space-y-3">
+                <p className="text-sm font-semibold text-[#162238] dark:text-white">
+                  No active matters match this view
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                  Switch practice filters, adjust the active branch scope, or register a new case file to populate the docket.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => (onOpenNewCase ? onOpenNewCase() : setIsNewCaseModalOpen(true))}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#D99B26]" />
+                  <span>New Matter</span>
+                </button>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9]/70 dark:bg-slate-800/40 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th className="py-3 pl-5 pr-3">Case ID &amp; Matter</th>
+                    <th className="py-3 px-3">Practice / Branch</th>
+                    <th className="py-3 px-3">Stage</th>
+                    <th className="py-3 pl-3 pr-5 text-right">Next Deadline</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]/80 dark:divide-slate-800 text-xs">
+                  {activeTableRows.map((row) => (
+                    <tr
+                      key={row.id}
+                      onClick={() => {
+                        if (row.rawCase) setSelectedCase(row.rawCase);
+                        else if (row.isMortgage) setActiveTab('mortgages');
+                      }}
+                      className="hover:bg-[#F4F6F9]/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
+                    >
+                      <td className="py-3.5 pl-5 pr-3 max-w-[290px]">
+                        <div className="flex items-center gap-1.5">
+                          {row.isMortgage && (
+                            <Landmark className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
+                          )}
+                          <span className="font-mono text-[11px] font-semibold text-[#162238] dark:text-[#E8C06B] tabular-nums truncate">
+                            {row.code}
+                          </span>
+                        </div>
+                        <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 truncate mt-0.5 group-hover:text-[#162238] dark:group-hover:text-white">
+                          {row.title}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {row.client}
+                        </p>
+                      </td>
+
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                          {row.practiceLabel}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[165px]">
+                          {row.branch}
+                        </p>
+                      </td>
+
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${getStageTone(
+                            row.stage
+                          )}`}
+                        >
+                          {row.stage}
+                        </span>
+                      </td>
+
+                      <td className="py-3.5 pl-3 pr-5 text-right whitespace-nowrap tabular-nums">
+                        <span className="font-medium text-slate-700 dark:text-slate-200">
+                          {row.nextDeadline}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
 
-        {loadingBirthdays ? (
-          <div className="py-8 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <Loader2 className="w-4 h-4 animate-spin text-[#000065] dark:text-[#C5A880]" />
-            <span>Loading staff celebrations...</span>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {celebrants.map((celebrant) => {
-              const isOpen = activeWishId === celebrant.id;
-              return (
-                <div
-                  key={celebrant.id}
-                  className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#0B132B] to-[#000065] ring-1 ring-[#C5A880]/50 text-[#E2CFAF] font-bold text-xs flex items-center justify-center shrink-0">
-                        {getInitials(celebrant.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                          {celebrant.name}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{celebrant.role}</p>
-                        <p className="text-xs font-medium text-rose-600 dark:text-rose-400 mt-0.5 inline-flex items-center gap-1 tabular-nums">
-                          <Cake className="w-3.5 h-3.5 shrink-0" />
-                          <span>{celebrant.dateLabel}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isOpen) {
-                          setActiveWishId(null);
-                          setWishDraft('');
-                        } else {
-                          setActiveWishId(celebrant.id);
-                          setWishDraft(`Happy Birthday ${celebrant.name.split(' ')[0]}! Wishing you a fantastic year ahead.`);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-rose-300 hover:text-rose-600 text-xs font-semibold text-slate-700 dark:text-slate-200 transition cursor-pointer shrink-0"
-                    >
-                      <Cake className="w-3.5 h-3.5" />
-                      <span>{isOpen ? 'Close' : 'Wish'}</span>
-                    </button>
-                  </div>
-
-                  {isOpen && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="text"
-                        value={wishDraft}
-                        onChange={(e) => setWishDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSendBirthdayWish(celebrant);
-                          }
-                        }}
-                        placeholder={`Write a birthday wish for ${celebrant.name}...`}
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
-                      />
-                      <button
-                        type="button"
-                        disabled={sendingWishId === celebrant.id || !wishDraft.trim()}
-                        onClick={() => handleSendBirthdayWish(celebrant)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0B132B] hover:bg-[#000065] disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer shrink-0"
-                      >
-                        {sendingWishId === celebrant.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5" />
-                        )}
-                        <span>Send</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {celebrant.wishes.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200/70 dark:border-slate-700/70 space-y-1.5">
-                      {celebrant.wishes.slice(0, 3).map((w) => (
-                        <div key={w.id} className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">{w.sender}:</span>{' '}
-                          <span>{w.message}</span>{' '}
-                          <span className="text-[10px] text-slate-400 tabular-nums">({w.createdAt})</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Super Admin-only HR Birthday Rollout Widget (strictly gated by isSuperAdminUser) */}
-        {isSuperAdmin && (
-          <div className="pt-2">
-            <LockedBirthdayWidget
-              currentUser={effectiveUser}
-              onOpenHrModule={() => (onOpenHrModule ? onOpenHrModule() : setActiveTab('hr'))}
-            />
-          </div>
-        )}
-      </section>
-
-      {/* BLOCK C — Staff Tasks & Workflow Visibility */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
-              <ListChecks className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Staff Tasks &amp; Workflow Visibility
+        {/* Right (lg:col-span-4): Deadlines & Hardcopy Registry Rail */}
+        <div className="lg:col-span-4 space-y-5">
+          {/* Upcoming Deadlines Card */}
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-5">
+            <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#E2E8F0] dark:border-slate-800">
+              <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+                Upcoming Deadlines
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Click any task status badge to cycle Todo → In Progress → Completed
-              </p>
+              <button
+                type="button"
+                onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
+                className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer"
+              >
+                Calendar →
+              </button>
             </div>
+
+            {upcomingDeadlines.length === 0 ? (
+              <div className="py-7 text-center space-y-2">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  No court hearings or filing deadlines scheduled.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('causelist')}
+                  className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                >
+                  Schedule in Cause List
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E2E8F0]/80 dark:divide-slate-800">
+                {upcomingDeadlines.slice(0, 4).map((dl) => (
+                  <button
+                    key={dl.id}
+                    type="button"
+                    onClick={() => {
+                      if (dl.linkedCase) setSelectedCase(dl.linkedCase);
+                      else setActiveTab('causelist');
+                    }}
+                    className="w-full py-3 first:pt-3.5 last:pb-0 flex items-start gap-3 text-left hover:opacity-85 transition cursor-pointer group"
+                  >
+                    {/* Crisp Date Tile (MMM / DD) */}
+                    <div className="w-11 h-12 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 flex flex-col items-center justify-center shrink-0 tabular-nums">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#B57E1A] dark:text-[#D99B26] leading-none">
+                        {dl.month}
+                      </span>
+                      <span className="font-display text-base font-bold text-[#162238] dark:text-white leading-tight mt-0.5">
+                        {dl.day}
+                      </span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-[#162238] dark:text-slate-100 leading-snug line-clamp-1 group-hover:text-[#B57E1A] dark:group-hover:text-[#D99B26] transition-colors">
+                        {dl.title}
+                      </p>
+                      <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5 tabular-nums">
+                        {dl.caseCode}
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                        {dl.venue}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {canAccessRestrictedWorkflowNav(effectiveUser) && (
+          {/* Hardcopy File Status Card */}
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+                  Hardcopy File Status
+                </h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Physical Registry &amp; Strongroom Custody
+                </p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#B57E1A] dark:text-[#D99B26] flex items-center justify-center shrink-0">
+                <FolderLock className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="flex items-baseline justify-between gap-3 pt-1">
+              <div>
+                <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight">
+                  {kpiStats.checkedOutFiles}
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Physical files currently checked out
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-[#B57E1A] dark:text-[#D99B26] bg-[#FBF5E8] dark:bg-[#D99B26]/15 border border-[#D99B26]/30 px-2 py-0.5 rounded-md tabular-nums">
+                {kpiStats.vaultSecuredFiles} in vault
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#E2E8F0] dark:border-slate-800 text-xs">
+              <div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Indexed Deeds &amp; Filings</p>
+                <p className="font-display font-bold text-[#162238] dark:text-white tabular-nums mt-0.5">
+                  {kpiStats.indexedDocuments}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Active Branch Scope</p>
+                <p className="font-semibold text-[#162238] dark:text-white truncate mt-0.5">
+                  {activeBranchLabel}
+                </p>
+              </div>
+            </div>
+
             <button
               type="button"
-              onClick={() => (onOpenWorkload ? onOpenWorkload() : setActiveTab('legal_team'))}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B132B] dark:bg-[#C5A880] hover:bg-[#000065] dark:hover:bg-[#D4BA94] text-white dark:text-[#0B132B] text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+              onClick={() => (onOpenDocuments ? onOpenDocuments() : setActiveTab('documents'))}
+              className="w-full py-2.5 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
             >
-              <span>Manage Workload</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <span>Manage Physical Files</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-[#D99B26]" />
             </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ROW 3: Bottom Operational Row (lg:col-span-6 Recent Activity | lg:col-span-6 Quick Actions 2x2) */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left (lg:col-span-6): Recent Activity Timeline */}
+        <div className="lg:col-span-6 rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-5 flex flex-col">
+          <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#E2E8F0] dark:border-slate-800">
+            <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+              Recent Activity
+            </h2>
+            <span className="text-[11px] font-medium text-slate-400">
+              Latest matter &amp; filing events
+            </span>
+          </div>
+
+          {recentActivity.length === 0 ? (
+            <div className="py-10 text-center text-xs text-slate-500 dark:text-slate-400">
+              Activity logged from time entries, uploads, and case notes will appear here.
+            </div>
+          ) : (
+            <ol className="relative mt-4 ml-2 border-l border-[#E2E8F0] dark:border-slate-800 space-y-4">
+              {recentActivity.map((item) => (
+                <li key={item.id} className="pl-5 relative">
+                  {/* Warm Gold #D99B26 Timeline Dot */}
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-[#D99B26] ring-4 ring-white dark:ring-slate-900"
+                  />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-[#162238] dark:text-slate-100 leading-snug">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                        {item.detail}
+                      </p>
+                    </div>
+                    <time className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 tabular-nums">
+                      {item.timestamp}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
 
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {filteredTasks.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-500">
-              No workflow tasks match &ldquo;{searchQuery}&rdquo;.
-            </div>
-          ) : (
-            filteredTasks.map((task) => {
-              const priorityStyle =
-                task.priority === 'URGENT'
-                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-                  : task.priority === 'HIGH'
-                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                  : 'bg-[#000065]/8 dark:bg-[#000065]/40 text-[#000065] dark:text-[#E2CFAF] border-[#000065]/20 dark:border-[#C5A880]/30';
+        {/* Right (lg:col-span-6): Symmetrical 2x2 Quick Actions */}
+        <div className="lg:col-span-6 rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-5 flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-[#E2E8F0] dark:border-slate-800">
+            <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+              Quick Actions
+            </h2>
+            <span className="text-[11px] font-medium text-slate-400">
+              In-place workspace tools
+            </span>
+          </div>
 
-              const statusStyle =
-                task.status === 'Completed'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
-                  : task.status === 'In Progress'
-                  ? 'bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border-[#C5A880]/60 dark:border-[#C5A880]/40 hover:bg-[#EFE4D2]'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200';
+          <div className="grid grid-cols-2 gap-3.5 mt-4 flex-1">
+            {/* Tile 1: Log Time */}
+            <button
+              type="button"
+              onClick={() => openQuickModal('time')}
+              className="text-left p-4 rounded-xl bg-[#F4F6F9]/80 dark:bg-slate-800/60 hover:bg-[#162238] dark:hover:bg-[#162238] border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] transition-colors cursor-pointer group flex flex-col justify-between min-h-[108px]"
+            >
+              <div className="w-9 h-9 rounded-lg bg-white dark:bg-slate-900 group-hover:bg-white/10 border border-[#E2E8F0] dark:border-slate-700 group-hover:border-white/15 flex items-center justify-center text-[#162238] dark:text-[#D99B26] group-hover:text-[#D99B26] transition-colors">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div className="mt-3">
+                <p className="font-display text-sm font-bold text-[#162238] dark:text-white group-hover:text-white transition-colors">
+                  Log Time
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-slate-300 mt-0.5 transition-colors">
+                  Record billable counsel hours
+                </p>
+              </div>
+            </button>
 
-              return (
-                <div
-                  key={task.id}
-                  className="py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 mt-0.5 ${priorityStyle}`}
+            {/* Tile 2: Upload Document */}
+            <button
+              type="button"
+              onClick={() => openQuickModal('document')}
+              className="text-left p-4 rounded-xl bg-[#F4F6F9]/80 dark:bg-slate-800/60 hover:bg-[#162238] dark:hover:bg-[#162238] border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] transition-colors cursor-pointer group flex flex-col justify-between min-h-[108px]"
+            >
+              <div className="w-9 h-9 rounded-lg bg-white dark:bg-slate-900 group-hover:bg-white/10 border border-[#E2E8F0] dark:border-slate-700 group-hover:border-white/15 flex items-center justify-center text-[#162238] dark:text-[#D99B26] group-hover:text-[#D99B26] transition-colors">
+                <Upload className="w-4 h-4" />
+              </div>
+              <div className="mt-3">
+                <p className="font-display text-sm font-bold text-[#162238] dark:text-white group-hover:text-white transition-colors">
+                  Upload Document
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-slate-300 mt-0.5 transition-colors">
+                  File pleading or deed to docket
+                </p>
+              </div>
+            </button>
+
+            {/* Tile 3: New Case Note */}
+            <button
+              type="button"
+              onClick={() => openQuickModal('note')}
+              className="text-left p-4 rounded-xl bg-[#F4F6F9]/80 dark:bg-slate-800/60 hover:bg-[#162238] dark:hover:bg-[#162238] border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] transition-colors cursor-pointer group flex flex-col justify-between min-h-[108px]"
+            >
+              <div className="w-9 h-9 rounded-lg bg-white dark:bg-slate-900 group-hover:bg-white/10 border border-[#E2E8F0] dark:border-slate-700 group-hover:border-white/15 flex items-center justify-center text-[#162238] dark:text-[#D99B26] group-hover:text-[#D99B26] transition-colors">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div className="mt-3">
+                <p className="font-display text-sm font-bold text-[#162238] dark:text-white group-hover:text-white transition-colors">
+                  New Case Note
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-slate-300 mt-0.5 transition-colors">
+                  Log court progress or strategy
+                </p>
+              </div>
+            </button>
+
+            {/* Tile 4: Request Leave */}
+            <button
+              type="button"
+              onClick={() => openQuickModal('leave')}
+              className="text-left p-4 rounded-xl bg-[#F4F6F9]/80 dark:bg-slate-800/60 hover:bg-[#162238] dark:hover:bg-[#162238] border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] transition-colors cursor-pointer group flex flex-col justify-between min-h-[108px]"
+            >
+              <div className="w-9 h-9 rounded-lg bg-white dark:bg-slate-900 group-hover:bg-white/10 border border-[#E2E8F0] dark:border-slate-700 group-hover:border-white/15 flex items-center justify-center text-[#162238] dark:text-[#D99B26] group-hover:text-[#D99B26] transition-colors">
+                <CalendarDays className="w-4 h-4" />
+              </div>
+              <div className="mt-3">
+                <p className="font-display text-sm font-bold text-[#162238] dark:text-white group-hover:text-white transition-colors">
+                  Request Leave
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 group-hover:text-slate-300 mt-0.5 transition-colors">
+                  Excludes weekends &amp; UG holidays
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* IN-PLACE QUICK ACTION MODALS */}
+      {activeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#162238]/60 backdrop-blur-xs"
+          onClick={() => setActiveModal(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 shadow-2xl overflow-hidden"
+          >
+            {/* Modal 1: Log Time */}
+            {activeModal === 'time' && (
+              <form onSubmit={handleSubmitTimeLog}>
+                <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBF5E8] text-[#B57E1A] flex items-center justify-center">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                        Log Time Entry
+                      </h3>
+                      <p className="text-[11px] text-slate-500">Updates MTD billable hours immediately</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer"
+                    aria-label="Close modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Matter / Case File
+                    </label>
+                    <select
+                      value={timeCaseId}
+                      onChange={(e) => setTimeCaseId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
                     >
-                      {task.priority}
-                    </span>
-                    <div className="min-w-0 space-y-1">
-                      <p
-                        className={`text-sm font-semibold ${
-                          task.status === 'Completed'
-                            ? 'line-through text-slate-400 dark:text-slate-500'
-                            : 'text-slate-900 dark:text-slate-100'
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="font-mono font-semibold text-[#000065] dark:text-[#E2CFAF]">{task.caseCode}</span>
-                        <span aria-hidden="true">·</span>
-                        <span>{task.assignee}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="tabular-nums">Due {task.dueDate}</span>
-                      </div>
+                      <option value="">General Advisory / Non-Matter</option>
+                      {cases.slice(0, 60).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.suitNumber || c.firmRefNumber} — {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Hours Worked
+                      </label>
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0.25"
+                        max="24"
+                        required
+                        value={timeHours}
+                        onChange={(e) => setTimeHours(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums focus:outline-none focus:border-[#162238]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={timeDate}
+                        onChange={(e) => setTimeDate(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums focus:outline-none focus:border-[#162238]"
+                      />
                     </div>
                   </div>
 
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Work Narrative
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={timeDescription}
+                      onChange={(e) => setTimeDescription(e.target.value)}
+                      placeholder="e.g. Attended Commercial Court hearing for interim injunction and drafted order..."
+                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    />
+                  </div>
+
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={timeBillable}
+                      onChange={(e) => setTimeBillable(e.target.checked)}
+                      className="rounded border-slate-300 text-[#162238] focus:ring-[#162238]"
+                    />
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Billable client time (include in MTD billable ledger)
+                    </span>
+                  </label>
+                </div>
+
+                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-end gap-2.5">
                   <button
                     type="button"
-                    onClick={() => handleCycleTaskStatus(task.id)}
-                    title="Click to cycle status (Todo → In Progress → Completed)"
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition cursor-pointer shrink-0 self-start md:self-center whitespace-nowrap ${statusStyle}`}
+                    onClick={() => setActiveModal(null)}
+                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
                   >
-                    {task.status === 'Completed' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    <span>{task.status}</span>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Save Time Entry
                   </button>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </section>
+              </form>
+            )}
 
-      {/* BLOCK D — Upcoming Hearings & Deadlines */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <Calendar className="w-4 h-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Upcoming Hearings &amp; Deadlines
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Scheduled court appearances, mentions, and statutory filing cut-offs
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer whitespace-nowrap"
-          >
-            <span>View All</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {upcomingHearings.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            No upcoming hearings match &ldquo;{searchQuery}&rdquo;.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingHearings.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  if (item.linkedCase) setSelectedCase(item.linkedCase);
-                  else if (onOpenHearings) onOpenHearings();
-                  else setActiveTab('causelist');
-                }}
-                className="text-left p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 hover:border-[#C5A880] dark:hover:border-[#C5A880]/60 transition cursor-pointer space-y-2"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#000065] dark:text-[#E2CFAF]">
-                    <Gavel className="w-3.5 h-3.5 text-[#9E7B46] dark:text-[#C5A880] shrink-0" />
-                    {item.badge}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 tabular-nums">
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    {item.dateTime}
-                  </span>
+            {/* Modal 2: Upload Document */}
+            {activeModal === 'document' && (
+              <form onSubmit={handleSubmitDocument}>
+                <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-[#D99B26] flex items-center justify-center">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                        Upload Document to Registry
+                      </h3>
+                      <p className="text-[11px] text-slate-500">Attach pleadings, affidavits, or title deeds</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer"
+                    aria-label="Close modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
-                  {item.title}
-                </h3>
+                <div className="p-5 space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Linked Matter
+                    </label>
+                    <select
+                      value={docCaseId}
+                      onChange={(e) => setDocCaseId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    >
+                      {cases.slice(0, 60).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.suitNumber || c.firmRefNumber} — {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{item.caseCode}</span>
-                  <span aria-hidden="true">·</span>
-                  <span className="truncate">{item.courtDivision}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Document Title
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder="e.g. Affidavit in Reply"
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Document Type
+                      </label>
+                      <select
+                        value={docType}
+                        onChange={(e) => setDocType(e.target.value as PleadingDocument['documentType'])}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                      >
+                        <option value="Legal Submissions">Legal Submissions</option>
+                        <option value="Plaint">Plaint</option>
+                        <option value="Written Statement of Defense">Written Statement of Defense</option>
+                        <option value="Affidavit">Affidavit</option>
+                        <option value="Court Order">Court Order</option>
+                        <option value="Trial Bundle">Trial Bundle</option>
+                        <option value="Exhibit">Exhibit</option>
+                        <option value="Correspondence">Correspondence</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Attach File (Optional)
+                    </label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xlsx,.xls,.png,.jpg"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setDocFileName(file.name);
+                          const kb = file.size / 1024;
+                          setDocFileSize(kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(kb))} KB`);
+                          if (!docTitle.trim()) setDocTitle(file.name.replace(/\.[^.]+$/, ''));
+                        }
+                      }}
+                      className="w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#F4F6F9] file:text-[#162238] hover:file:bg-[#E2E8F0] cursor-pointer"
+                    />
+                  </div>
                 </div>
-              </button>
-            ))}
+
+                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Index Document
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal 3: New Case Note */}
+            {activeModal === 'note' && (
+              <form onSubmit={handleSubmitCaseNote}>
+                <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-[#D99B26] flex items-center justify-center">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                        New Case Note
+                      </h3>
+                      <p className="text-[11px] text-slate-500">Appends directly to the matter progress log</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer"
+                    aria-label="Close modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Matter / Case File
+                    </label>
+                    <select
+                      value={noteCaseId}
+                      onChange={(e) => setNoteCaseId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    >
+                      {cases.slice(0, 60).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.suitNumber || c.firmRefNumber} — {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Note Category
+                    </label>
+                    <select
+                      value={noteCategory}
+                      onChange={(e) => setNoteCategory(e.target.value as ProgressiveNote['category'])}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    >
+                      <option value="Court Milestone">Court Milestone</option>
+                      <option value="Client Communication">Client Communication</option>
+                      <option value="Strategy">Strategy</option>
+                      <option value="Registry & Filing">Registry &amp; Filing</option>
+                      <option value="Settlement / Recovery">Settlement / Recovery</option>
+                      <option value="General">General</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Note Details
+                    </label>
+                    <textarea
+                      rows={4}
+                      required
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder="Record court directions, client instructions, or next procedural steps..."
+                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingNote}
+                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] disabled:opacity-60 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    {submittingNote ? 'Saving...' : 'Save Case Note'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal 4: Request Leave (with Uganda Public Holidays & Weekends exclusion) */}
+            {activeModal === 'leave' && (
+              <form onSubmit={handleSubmitLeaveRequest}>
+                <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBF5E8] text-[#B57E1A] flex items-center justify-center">
+                      <CalendarDays className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                        Request Leave
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Automatically skips weekends &amp; configured Uganda public holidays
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer"
+                    aria-label="Close modal"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-5 space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Leave Type
+                    </label>
+                    <select
+                      value={leaveType}
+                      onChange={(e) => setLeaveType(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    >
+                      <option value="Annual Leave">Annual Leave</option>
+                      <option value="Sick Leave">Sick Leave</option>
+                      <option value="Compassionate Leave">Compassionate Leave</option>
+                      <option value="Study / Bar Exam Leave">Study / Bar Exam Leave</option>
+                      <option value="Maternity / Paternity Leave">Maternity / Paternity Leave</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={leaveStart}
+                        onChange={(e) => setLeaveStart(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums focus:outline-none focus:border-[#162238]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={leaveEnd}
+                        onChange={(e) => setLeaveEnd(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums focus:outline-none focus:border-[#162238]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Working Days Summary */}
+                  <div className="rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700 p-3 space-y-1">
+                    {leaveBreakdown.isValidRange ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#162238] dark:text-white">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Deductible Working Days
+                          </span>
+                          <span className="font-display text-sm font-bold text-[#162238] dark:text-[#D99B26] tabular-nums">
+                            {leaveBreakdown.workingDays} day{leaveBreakdown.workingDays === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
+                          {leaveBreakdown.totalCalendarDays} calendar days · {leaveBreakdown.weekendDays} weekend day(s) excluded
+                          {leaveBreakdown.excludedHolidays.length > 0
+                            ? ` · ${leaveBreakdown.excludedHolidays.length} public holiday(s) skipped (${leaveBreakdown.excludedHolidays
+                                .map((h) => h.name)
+                                .join(', ')})`
+                            : ''}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>End date must be on or after the start date.</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Reason / Handover Note
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={leaveReason}
+                      onChange={(e) => setLeaveReason(e.target.value)}
+                      placeholder="State handover advocate and brief reason..."
+                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal(null)}
+                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingLeave || !leaveBreakdown.isValidRange || leaveBreakdown.workingDays <= 0}
+                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    {submittingLeave ? 'Submitting...' : 'Submit Leave Request'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 };

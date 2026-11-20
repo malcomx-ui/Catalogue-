@@ -26,6 +26,8 @@ import {
   Sliders,
   Banknote,
   Bell,
+  Plus,
+  ChevronDown,
 } from 'lucide-react';
 
 export interface DashboardLayoutProps {
@@ -48,8 +50,35 @@ interface SidebarNavItem {
   tab?: NavigationTab;
   badge?: number;
   action?: () => void;
-  superAdminOnly?: boolean;
 }
+
+interface SidebarNavGroup {
+  id: string;
+  label: string;
+  items: SidebarNavItem[];
+}
+
+const VIEW_TITLES: Record<NavigationTab, string> = {
+  dashboard: 'Executive Workspace',
+  catalogue: 'Cases & Matters',
+  clients: 'Clients Directory',
+  causelist: 'Calendar & Deadlines',
+  documents: 'Documents & Custody',
+  mortgages: 'Mortgages & Securities',
+  debt_recovery: 'Debt Recovery',
+  cash_requisitions: 'Cash Requisitions',
+  approvals: 'Approvals Queue',
+  messenger: 'Team Messenger',
+  legal_team: 'Staff & Workflow',
+  branches: 'Firm Branches',
+  audit_trail: 'Audit Trail & Security',
+  synchub: 'Branch Sync Hub',
+  conflicts: 'Conflict Checker',
+  analytics: 'Litigation Analytics',
+  hr: 'HR Management',
+  roles: 'Access Roles',
+  settings: 'System Settings',
+};
 
 function getUserInitials(name?: string | null): string {
   const parts = String(name || 'MK')
@@ -82,6 +111,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     selectedBranchFilter,
     setSelectedBranchFilter,
     currentUser: ctxUser,
+    hearings,
     logout,
   } = useApp();
 
@@ -97,9 +127,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const notifRef = useRef<HTMLDivElement | null>(null);
 
   const unreadDecisionCount = useMemo(
-    () => decisionNotifications.filter((n) => n.unread).length,
-    [decisionNotifications]
+    () => (canAccessRestrictedWorkflow ? decisionNotifications.filter((n) => n.unread).length : 0),
+    [decisionNotifications, canAccessRestrictedWorkflow]
   );
+
+  const upcomingHearingAlertsCount = useMemo(
+    () => hearings.filter((h) => h.status === 'Scheduled').length,
+    [hearings]
+  );
+
+  const bellUnreadCount = canAccessRestrictedWorkflow
+    ? unreadDecisionCount
+    : Math.min(upcomingHearingAlertsCount, 9);
 
   useEffect(() => {
     if (!notifPopoverOpen) return;
@@ -108,8 +147,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         setNotifPopoverOpen(false);
       }
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNotifPopoverOpen(false);
+    };
     document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, [notifPopoverOpen]);
 
   const firmLogoSrc =
@@ -140,8 +186,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     ];
   }, [branches]);
 
-  const primaryNavItems: SidebarNavItem[] = useMemo(() => {
-    const items: SidebarNavItem[] = [
+  const activeBranchLabel = useMemo(() => {
+    const found = branchOptions.find((b) => b.id === (selectedBranchFilter || 'all'));
+    if (found) return found.name;
+    return effectiveUser?.branchName || 'Kampala Central (Head Office)';
+  }, [branchOptions, selectedBranchFilter, effectiveUser?.branchName]);
+
+  const activeViewTitle = VIEW_TITLES[activeTab] || 'Executive Workspace';
+
+  // Clio Manage Grouped Navigation: PRACTICE | FINANCE & SECURITIES | OPERATIONS & HR
+  const navGroups: SidebarNavGroup[] = useMemo(() => {
+    const practiceItems: SidebarNavItem[] = [
       { id: 'workspace', label: 'Workspace', icon: LayoutGrid, tab: 'dashboard' },
       { id: 'cases', label: 'Cases & Matters', icon: Briefcase, tab: 'catalogue' },
       {
@@ -153,29 +208,34 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           setIsNewCaseModalOpen(true);
         },
       },
+      { id: 'calendar', label: 'Calendar & Deadlines', icon: Calendar, tab: 'causelist' },
       { id: 'documents', label: 'Documents & Custody', icon: FolderLock, tab: 'documents' },
     ];
 
+    const financeItems: SidebarNavItem[] = [
+      { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' },
+    ];
+
     if (canAccessRestrictedWorkflow) {
-      items.push(
-        {
-          id: 'approvals',
-          label: 'Approvals',
-          icon: ClipboardCheck,
-          tab: 'approvals',
-          badge: approvalsBadgeCount > 0 ? approvalsBadgeCount : undefined,
-        },
+      financeItems.push(
         {
           id: 'cash_requisitions',
           label: 'Cash Requisitions',
           icon: Banknote,
           tab: 'cash_requisitions',
           badge: cashRequisitionsBadgeCount > 0 ? cashRequisitionsBadgeCount : undefined,
+        },
+        {
+          id: 'approvals',
+          label: 'Approvals',
+          icon: ClipboardCheck,
+          tab: 'approvals',
+          badge: approvalsBadgeCount > 0 ? approvalsBadgeCount : undefined,
         }
       );
     }
 
-    items.push(
+    const operationsItems: SidebarNavItem[] = [
       {
         id: 'messenger',
         label: 'Team Messenger',
@@ -183,20 +243,26 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'messenger',
         badge: messengerBadgeCount > 0 ? messengerBadgeCount : undefined,
       },
-      { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' }
-    );
+    ];
 
     if (canAccessRestrictedWorkflow) {
-      items.push({ id: 'staff_workflow', label: 'Staff & Workflow', icon: Users, tab: 'legal_team' });
+      operationsItems.push({
+        id: 'staff_workflow',
+        label: 'Staff & Workflow',
+        icon: Users,
+        tab: 'legal_team',
+      });
     }
 
-    items.push(
-      { id: 'calendar', label: 'Calendar & Deadlines', icon: Calendar, tab: 'causelist' },
-      { id: 'branches', label: 'Branches', icon: Building2, tab: 'branches' }
-    );
+    operationsItems.push({
+      id: 'branches',
+      label: 'Branches',
+      icon: Building2,
+      tab: 'branches',
+    });
 
     if (canAccessRestrictedWorkflow) {
-      items.push({
+      operationsItems.push({
         id: 'audit',
         label: 'Audit Trail & Security',
         icon: ShieldCheck,
@@ -204,38 +270,39 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       });
     }
 
-    return items;
-  }, [
-    canAccessRestrictedWorkflow,
-    approvalsBadgeCount,
-    cashRequisitionsBadgeCount,
-    messengerBadgeCount,
-    setActiveTab,
-    setIsNewCaseModalOpen,
-  ]);
-
-  const adminNavItems: SidebarNavItem[] = useMemo(() => {
-    const list: SidebarNavItem[] = [];
-    // Strictly gated by isSuperAdminUser so non-Super Admin staff never see HR Management until rollout
     if (isSuperAdmin) {
-      list.push({
+      operationsItems.push({
         id: 'hr_admin',
-        label: 'HR Management (Admin Only)',
+        label: 'HR Management',
         icon: UserCog,
         tab: 'hr',
-        superAdminOnly: true,
       });
     }
+
     if (isAdmin) {
-      list.push({
+      operationsItems.push({
         id: 'settings',
         label: 'System Settings',
         icon: Sliders,
         tab: 'settings',
       });
     }
-    return list;
-  }, [isSuperAdmin, isAdmin]);
+
+    return [
+      { id: 'practice', label: 'PRACTICE', items: practiceItems },
+      { id: 'finance', label: 'FINANCE & SECURITIES', items: financeItems },
+      { id: 'operations', label: 'OPERATIONS & HR', items: operationsItems },
+    ];
+  }, [
+    canAccessRestrictedWorkflow,
+    isSuperAdmin,
+    isAdmin,
+    approvalsBadgeCount,
+    cashRequisitionsBadgeCount,
+    messengerBadgeCount,
+    setActiveTab,
+    setIsNewCaseModalOpen,
+  ]);
 
   const handleNavClick = (item: SidebarNavItem) => {
     if (item.action) {
@@ -247,36 +314,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const renderSidebarContent = (compact: boolean) => (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-900 select-none">
+    <div className="flex flex-col h-full bg-[#162238] text-slate-200 select-none">
       {/* Brand Header */}
-      <div className="h-16 px-4 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
+      <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
             setActiveTab('dashboard');
             setMobileDrawerOpen(false);
           }}
-          className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left"
+          className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none"
         >
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-950 p-1 border border-[#C5A880]/60 dark:border-[#C5A880]/40 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
-                alt="Muhumuza - Kiiza Advocates Firm Logo"
+                alt="Muhumuza - Kiiza Advocates"
                 referrerPolicy="no-referrer"
                 onError={() => setLogoErrorStep((s) => s + 1)}
                 className="w-full h-full object-contain"
               />
             ) : (
-              <Scale className="w-5 h-5 text-[#000065] dark:text-[#C5A880]" />
+              <Scale className="w-4.5 h-4.5 text-[#162238]" />
             )}
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="text-sm font-bold text-[#0B132B] dark:text-white tracking-tight truncate">
+              <p className="font-display text-sm font-bold text-white tracking-tight truncate leading-tight">
                 MK Case Catalogue
               </p>
-              <p className="text-[11px] text-[#9E7B46] dark:text-[#C5A880] font-medium truncate">
+              <p className="text-[11px] text-[#D99B26] font-medium truncate leading-tight mt-0.5">
                 Muhumuza - Kiiza Advocates
               </p>
             </div>
@@ -287,116 +354,98 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+          className="lg:hidden p-1.5 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white cursor-pointer"
           aria-label="Close navigation menu"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        {primaryNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = Boolean(item.tab && activeTab === item.tab);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              title={compact ? item.label : undefined}
-              onClick={() => handleNavClick(item)}
-              className={`w-full flex items-center ${
-                compact ? 'justify-center px-2' : 'justify-between px-3'
-              } py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer group ${
-                isActive
-                  ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-[#0B132B] dark:hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <Icon
-                  className={`w-4 h-4 shrink-0 ${
-                    isActive
-                      ? 'text-[#C5A880]'
-                      : 'text-slate-400 group-hover:text-[#000065] dark:group-hover:text-[#C5A880]'
-                  }`}
-                />
-                {!compact && <span className="truncate">{item.label}</span>}
-              </div>
-
-              {!compact && item.badge !== undefined && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums shrink-0 ${
-                    isActive
-                      ? 'bg-[#C5A880]/20 text-[#E2CFAF]'
-                      : 'bg-[#000065]/8 dark:bg-[#C5A880]/15 text-[#000065] dark:text-[#E2CFAF]'
-                  }`}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {adminNavItems.length > 0 && (
-          <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
-            {!compact && (
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#9E7B46] dark:text-[#C5A880]/80">
-                Administration
+      {/* Grouped Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 space-y-5">
+        {navGroups.map((group) => (
+          <div key={group.id} className="space-y-1">
+            {!compact ? (
+              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400/90">
+                {group.label}
               </p>
+            ) : (
+              <div className="mx-3 mb-2 border-t border-white/10 first:hidden" />
             )}
-            {adminNavItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = Boolean(item.tab && activeTab === item.tab);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  title={compact ? item.label : undefined}
-                  onClick={() => handleNavClick(item)}
-                  className={`w-full flex items-center ${
-                    compact ? 'justify-center px-2' : 'justify-between px-3'
-                  } py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer group ${
-                    isActive
-                      ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-[#0B132B] dark:hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive
-                          ? 'text-[#C5A880]'
-                          : 'text-slate-400 group-hover:text-[#000065] dark:group-hover:text-[#C5A880]'
-                      }`}
-                    />
-                    {!compact && <span className="truncate">{item.label}</span>}
-                  </div>
-                </button>
-              );
-            })}
+
+            <div className="space-y-0.5 px-2.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = Boolean(item.tab && activeTab === item.tab);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={compact ? item.label : undefined}
+                    onClick={() => handleNavClick(item)}
+                    className={`relative w-full flex items-center ${
+                      compact ? 'justify-center px-2' : 'justify-between px-3'
+                    } py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer group ${
+                      isActive
+                        ? 'bg-white/[0.10] text-white font-semibold'
+                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                    }`}
+                  >
+                    {/* Warm Gold Active Left Indicator Bar */}
+                    {isActive && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#D99B26]"
+                      />
+                    )}
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon
+                        className={`w-4 h-4 shrink-0 transition-colors ${
+                          isActive
+                            ? 'text-[#D99B26]'
+                            : 'text-slate-400 group-hover:text-slate-200'
+                        }`}
+                      />
+                      {!compact && <span className="truncate">{item.label}</span>}
+                    </div>
+
+                    {!compact && item.badge !== undefined && (
+                      <span
+                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-bold tabular-nums shrink-0 ${
+                          isActive
+                            ? 'bg-[#D99B26] text-[#162238]'
+                            : 'bg-white/10 text-slate-200'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        )}
+        ))}
       </nav>
 
-      {/* Bottom User Card */}
-      <div className="p-3 border-t border-slate-200/80 dark:border-slate-800 shrink-0">
+      {/* Compact Anchored Staff Profile Card */}
+      <div className="p-3 border-t border-white/10 shrink-0">
         <div
           className={`flex items-center ${
             compact ? 'justify-center' : 'justify-between gap-2.5'
-          } p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70`}
+          } p-2 rounded-xl bg-white/[0.06] border border-white/10`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0B132B] to-[#000065] ring-1 ring-[#C5A880]/50 text-[#E2CFAF] text-xs font-bold flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#D99B26]/20 border border-[#D99B26]/60 text-[#E8C06B] text-xs font-display font-bold flex items-center justify-center shrink-0">
               {getUserInitials(effectiveUser?.name)}
             </div>
             {!compact && (
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                <p className="text-xs font-semibold text-white truncate leading-tight">
                   {effectiveUser?.name || 'Firm Staff'}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5">
                   {effectiveUser?.roleTitle || effectiveUser?.role || 'Advocate'}
                 </p>
               </div>
@@ -409,7 +458,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onClick={logout}
               title="Sign Out"
               aria-label="Sign Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-white/10 transition cursor-pointer shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -420,10 +469,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen w-full flex bg-[#f8fafc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans print:bg-white">
-      {/* Desktop Fixed / Collapsible Sidebar */}
+    <div className="min-h-screen w-full flex bg-[#F4F6F9] dark:bg-slate-950 text-[#162238] dark:text-slate-100 font-sans print:bg-white">
+      {/* Desktop Fixed / Collapsible Left Sidebar (#162238 Deep Navy, w-64) */}
       <aside
-        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-slate-200 dark:border-slate-800 sticky top-0 h-screen transition-[width] duration-200 ${
+        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-[#162238] sticky top-0 h-screen transition-[width] duration-200 ${
           sidebarCollapsed ? 'w-[74px]' : 'w-64'
         }`}
       >
@@ -434,7 +483,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {mobileDrawerOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-[#162238]/60 backdrop-blur-xs"
             onClick={() => setMobileDrawerOpen(false)}
           />
           <div className="relative z-10 w-64 max-w-[82vw] h-full shadow-2xl">
@@ -445,14 +494,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Main Content Column */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Sticky Top Header Bar */}
-        <header className="no-print sticky top-0 z-30 h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 flex items-center justify-between gap-3">
-          {/* Left: Sidebar toggles + Live Global Search */}
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+        {/* Clio-Style Top Header Bar (h-16 bg-white border-b border-[#E2E8F0] px-6) */}
+        <header className="no-print sticky top-0 z-30 h-16 bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-4">
+          {/* Left: Toggles + Active View Title & Branch/Staff Context */}
+          <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileDrawerOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
+              className="lg:hidden p-2 -ml-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
@@ -461,174 +510,264 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
-              className="hidden lg:inline-flex p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer shrink-0"
+              className="hidden lg:inline-flex p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0 transition"
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
+              )}
             </button>
 
-            <div className="relative flex-1 max-w-xl min-w-0">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <h1 className="font-display text-[15px] sm:text-base font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                  {activeViewTitle}
+                </h1>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+                <div className="relative inline-flex items-center max-w-[190px]">
+                  <select
+                    aria-label="Select active branch"
+                    value={selectedBranchFilter || 'all'}
+                    onChange={(e) => setSelectedBranchFilter(e.target.value)}
+                    className="appearance-none bg-transparent pr-4 font-medium text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white focus:outline-none cursor-pointer truncate max-w-[180px]"
+                  >
+                    {branchOptions.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3 h-3 text-slate-400 pointer-events-none -ml-3.5 shrink-0" />
+                </div>
+                <span aria-hidden="true" className="hidden sm:inline text-slate-300 dark:text-slate-700">
+                  /
+                </span>
+                <span className="hidden sm:inline truncate text-slate-500 dark:text-slate-400">
+                  {effectiveUser?.name || 'Firm Staff'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Search Input, Notification Bell, and Primary + New Matter Button on one baseline */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Search Input */}
+            <div className="relative hidden md:block w-52 lg:w-64 xl:w-72">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                placeholder="Search Case File # (e.g. LF-2026), Doc Code (e.g. DOC-PLD), or Client..."
-                className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] transition"
+                placeholder="Search matter, suit #, client..."
+                className="w-full h-9 pl-9 pr-7 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238] dark:focus:border-[#D99B26] transition"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => onSearchChange?.('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#162238] dark:hover:text-white p-0.5 cursor-pointer"
                   aria-label="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Right: Decision Notifications Bell (restricted workflow users only) + Branch selector dropdown */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            {canAccessRestrictedWorkflow && (
-              <div ref={notifRef} className="relative">
+            {/* Notification Bell with Unread Counter */}
+            <div ref={notifRef} className="relative">
               <button
                 type="button"
                 onClick={() => setNotifPopoverOpen((o) => !o)}
-                aria-label="Decision notifications"
-                title="Cash Requisition Decision Notifications"
-                className="relative p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition cursor-pointer"
+                aria-label="Notifications"
+                title="Notifications"
+                className="relative w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-700/80 transition flex items-center justify-center cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
-                {unreadDecisionCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#000065] text-[#E2CFAF] ring-1 ring-[#C5A880]/60 text-[10px] font-bold flex items-center justify-center tabular-nums shadow-xs">
-                    {unreadDecisionCount > 9 ? '9+' : unreadDecisionCount}
+                {bellUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#D99B26] text-[#162238] text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-slate-900">
+                    {bellUnreadCount > 9 ? '9+' : bellUnreadCount}
                   </span>
                 )}
               </button>
 
               {notifPopoverOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">
-                        Decision Notifications
+                      <p className="font-display text-xs font-bold text-[#162238] dark:text-white">
+                        {canAccessRestrictedWorkflow ? 'Decision & Workflow Alerts' : 'Court & Matter Alerts'}
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                        {unreadDecisionCount} unread notice{unreadDecisionCount === 1 ? '' : 's'}
+                        {canAccessRestrictedWorkflow
+                          ? `${unreadDecisionCount} unread notice${unreadDecisionCount === 1 ? '' : 's'}`
+                          : `${upcomingHearingAlertsCount} scheduled court appearance${upcomingHearingAlertsCount === 1 ? '' : 's'}`}
                       </p>
                     </div>
-                    {unreadDecisionCount > 0 && onMarkAllDecisionNotificationsRead && (
+                    {canAccessRestrictedWorkflow && unreadDecisionCount > 0 && onMarkAllDecisionNotificationsRead && (
                       <button
                         type="button"
                         onClick={onMarkAllDecisionNotificationsRead}
-                        className="text-[11px] font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer shrink-0"
+                        className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
                       >
                         Mark all read
                       </button>
                     )}
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                    {decisionNotifications.length === 0 ? (
-                      <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                        No cash requisition decision notices yet.
+                  {canAccessRestrictedWorkflow ? (
+                    <>
+                      <div className="max-h-80 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
+                        {decisionNotifications.length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                            No cash requisition decision notices yet.
+                          </div>
+                        ) : (
+                          decisionNotifications.slice(0, 8).map((n) => (
+                            <button
+                              key={n.id}
+                              type="button"
+                              onClick={() => {
+                                onMarkDecisionNotificationRead?.(n.id);
+                                setActiveTab('cash_requisitions');
+                                setNotifPopoverOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-1 ${
+                                n.unread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5">
+                                  {n.unread && (
+                                    <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
+                                  )}
+                                  {n.referenceCode}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                    n.status === 'Denied'
+                                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                      : n.status === 'Approved'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                                  }`}
+                                >
+                                  {n.status}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                For <strong className="text-slate-700 dark:text-slate-200">{n.recipientName}</strong> · By{' '}
+                                <strong className="text-slate-700 dark:text-slate-200">{n.actorName}</strong>
+                              </p>
+                              <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
+                                Reason: &ldquo;{n.reason}&rdquo;
+                              </p>
+                              <p className="text-[10px] text-slate-400 tabular-nums">{n.createdAt}</p>
+                            </button>
+                          ))
+                        )}
                       </div>
-                    ) : (
-                      decisionNotifications.slice(0, 8).map((n) => (
+
+                      <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex items-center justify-between">
                         <button
-                          key={n.id}
                           type="button"
                           onClick={() => {
-                            onMarkDecisionNotificationRead?.(n.id);
+                            setActiveTab('approvals');
+                            setNotifPopoverOpen(false);
+                          }}
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
+                        >
+                          View Approvals
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
                             setActiveTab('cash_requisitions');
                             setNotifPopoverOpen(false);
                           }}
-                          className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer space-y-1 ${
-                            n.unread ? 'bg-[#F7F1E7]/50 dark:bg-[#000065]/25' : ''
-                          }`}
+                          className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
                         >
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
-                              {n.unread && (
-                                <span className="w-2 h-2 rounded-full bg-[#000065] dark:bg-[#C5A880] shrink-0" />
-                              )}
-                              {n.referenceCode}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                                n.status === 'Denied'
-                                  ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                                  : n.status === 'Approved'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                                  : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                              }`}
-                            >
-                              {n.status}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                            For <strong className="text-slate-700 dark:text-slate-200">{n.recipientName}</strong> · By{' '}
-                            <strong className="text-slate-700 dark:text-slate-200">{n.actorName}</strong>
-                          </p>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
-                            Reason: &ldquo;{n.reason}&rdquo;
-                          </p>
-                          <p className="text-[10px] text-slate-400 tabular-nums">{n.createdAt}</p>
+                          Cash Requisitions →
                         </button>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('approvals');
-                        setNotifPopoverOpen(false);
-                      }}
-                      className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                    >
-                      View Approvals
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('cash_requisitions');
-                        setNotifPopoverOpen(false);
-                      }}
-                      className="text-xs font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer"
-                    >
-                      Open Cash Requisitions →
-                    </button>
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="max-h-72 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
+                        {hearings.filter((h) => h.status === 'Scheduled').length === 0 ? (
+                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                            No upcoming court notices for {activeBranchLabel}.
+                          </div>
+                        ) : (
+                          hearings
+                            .filter((h) => h.status === 'Scheduled')
+                            .slice(0, 5)
+                            .map((h) => (
+                              <button
+                                key={h.id}
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab('causelist');
+                                  setNotifPopoverOpen(false);
+                                }}
+                                className="w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-0.5"
+                              >
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="font-mono font-semibold text-[#162238] dark:text-white">
+                                    {h.suitNumber}
+                                  </span>
+                                  <span className="text-[11px] font-medium text-[#D99B26] tabular-nums">
+                                    {h.hearingDate}
+                                  </span>
+                                </div>
+                                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                                  {h.caseTitle}
+                                </p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                                  {h.hearingPurpose} · {h.courtName}
+                                </p>
+                              </button>
+                            ))
+                        )}
+                      </div>
+                      <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('causelist');
+                            setNotifPopoverOpen(false);
+                          }}
+                          className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                        >
+                          Open Calendar &amp; Deadlines →
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
-              </div>
-            )}
-
-            <div className="relative flex items-center">
-              <Building2 className="w-3.5 h-3.5 text-[#000065] dark:text-[#C5A880] absolute left-3 pointer-events-none" />
-              <select
-                aria-label="Select active branch"
-                value={selectedBranchFilter || 'all'}
-                onChange={(e) => setSelectedBranchFilter(e.target.value)}
-                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] cursor-pointer max-w-[210px] truncate"
-              >
-                {branchOptions.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
             </div>
+
+            {/* Primary CTA: + New Matter */}
+            <button
+              type="button"
+              onClick={() => setIsNewCaseModalOpen(true)}
+              className="h-9 px-3.5 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
+              <span>New Matter</span>
+            </button>
           </div>
         </header>
 
-        {/* Main Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-24 lg:pb-8 print:p-0">
-          {children}
+        {/* Main Viewport Canvas (#F4F6F9, max-w-[1440px] mx-auto p-6 space-y-6) */}
+        <main className="flex-1 min-w-0 bg-[#F4F6F9] dark:bg-slate-950 print:bg-white">
+          <div className="w-full max-w-[1440px] mx-auto p-4 sm:p-6 space-y-6 pb-24 lg:pb-8 print:p-0">
+            {children}
+          </div>
         </main>
       </div>
     </div>
