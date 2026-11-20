@@ -556,7 +556,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {/* Right: Search Input, Notification Bell, and Primary + New Matter Button on one baseline */}
           <div className="flex items-center gap-2.5 shrink-0">
             {/* Search Input */}
-            <div className="relative hidden md:block w-52 lg:w-64 xl:w-72">
+            <div className="relative hidden sm:block w-44 md:w-56 lg:w-64 xl:w-72">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
