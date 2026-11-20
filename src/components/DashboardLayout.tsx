@@ -4,6 +4,13 @@ import { getEffectiveUser, isUserAdmin } from '../lib/supabase';
 import { isSuperAdminUser, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
 import type { RequisitionNotification } from '../lib/cashRequisitionStore';
 import {
+  evaluateNotificationRules,
+  getAlertReadStorageKey,
+  loadReadAlertIds,
+  persistReadAlertIds,
+  type UnifiedNotificationItem,
+} from '../utils/notificationRules';
+import {
   LayoutGrid,
   Briefcase,
   FilePlus2,
@@ -113,7 +120,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     selectedBranchFilter,
     setSelectedBranchFilter,
     currentUser: ctxUser,
+    cases,
     hearings,
+    systemSettings,
     logout,
   } = useApp();
 
@@ -128,87 +137,113 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [notifPopoverOpen, setNotifPopoverOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
 
-  const hearingReadStorageKey = useMemo(() => {
-    const userKey = effectiveUser?.id || effectiveUser?.email || 'staff';
-    return `mk_read_hearing_alerts_v1_${String(userKey).toLowerCase()}`;
-  }, [effectiveUser?.id, effectiveUser?.email]);
+  const alertReadStorageKey = useMemo(
+    () => getAlertReadStorageKey(effectiveUser?.id, effectiveUser?.email),
+    [effectiveUser?.id, effectiveUser?.email]
+  );
 
-  const [readHearingIds, setReadHearingIds] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem(hearingReadStorageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
-    } catch {
-      return [];
-    }
-  });
+  const [readAlertIds, setReadAlertIds] = useState<string[]>(() =>
+    loadReadAlertIds(alertReadStorageKey)
+  );
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(hearingReadStorageKey);
-      const parsed = raw ? JSON.parse(raw) : [];
-      setReadHearingIds(
-        Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
-      );
-    } catch {
-      setReadHearingIds([]);
-    }
-  }, [hearingReadStorageKey]);
+    setReadAlertIds(loadReadAlertIds(alertReadStorageKey));
+  }, [alertReadStorageKey]);
 
-  const markHearingAlertRead = (hearingId: string) => {
-    setReadHearingIds((prev) => {
-      if (prev.includes(hearingId)) return prev;
-      const next = [...prev, hearingId];
-      try {
-        localStorage.setItem(hearingReadStorageKey, JSON.stringify(next));
-      } catch {
-        // Ignore storage quota errors
-      }
+  const {
+    rules: activeNotificationRules,
+    allItems: unifiedNotifications,
+    unreadItems: unreadUnifiedNotifications,
+    latestUnread: latestUnreadNotification,
+  } = useMemo(
+    () =>
+      evaluateNotificationRules({
+        rules: systemSettings?.notificationRules,
+        canAccessRestrictedWorkflow,
+        isSuperAdmin,
+        selectedBranchFilter,
+        userBranchId: effectiveUser?.branchId,
+        userBranchName: effectiveUser?.branchName,
+        decisionNotifications,
+        hearings,
+        cases,
+        approvalsBadgeCount,
+        readAlertIds,
+      }),
+    [
+      systemSettings?.notificationRules,
+      canAccessRestrictedWorkflow,
+      isSuperAdmin,
+      selectedBranchFilter,
+      effectiveUser?.branchId,
+      effectiveUser?.branchName,
+      decisionNotifications,
+      hearings,
+      cases,
+      approvalsBadgeCount,
+      readAlertIds,
+    ]
+  );
+
+  const markUnifiedNotificationRead = (item: UnifiedNotificationItem) => {
+    if (item.requisitionNotificationId) {
+      onMarkDecisionNotificationRead?.(item.requisitionNotificationId);
+      return;
+    }
+    setReadAlertIds((prev) => {
+      if (prev.includes(item.id)) return prev;
+      const next = [...prev, item.id];
+      persistReadAlertIds(alertReadStorageKey, next);
       return next;
     });
   };
 
-  const unreadDecisionNotifications = useMemo(
-    () => (canAccessRestrictedWorkflow ? decisionNotifications.filter((n) => n.unread) : []),
-    [decisionNotifications, canAccessRestrictedWorkflow]
-  );
-
-  const unreadDecisionCount = unreadDecisionNotifications.length;
-
-  const scheduledHearings = useMemo(
-    () =>
-      hearings
-        .filter((h) => h.status === 'Scheduled')
-        .sort((a, b) => String(a.hearingDate || '').localeCompare(String(b.hearingDate || ''))),
-    [hearings]
-  );
-
-  const unreadHearingAlerts = useMemo(
-    () => scheduledHearings.filter((h) => !readHearingIds.includes(h.id)),
-    [scheduledHearings, readHearingIds]
-  );
-
-  const markAllHearingAlertsRead = () => {
-    const allIds = Array.from(new Set([...readHearingIds, ...scheduledHearings.map((h) => h.id)]));
-    setReadHearingIds(allIds);
-    try {
-      localStorage.setItem(hearingReadStorageKey, JSON.stringify(allIds));
-    } catch {
-      // Ignore storage quota errors
+  const markAllUnifiedNotificationsRead = () => {
+    if (canAccessRestrictedWorkflow && onMarkAllDecisionNotificationsRead) {
+      onMarkAllDecisionNotificationsRead();
+    }
+    const localIds = unifiedNotifications
+      .filter((item) => !item.requisitionNotificationId)
+      .map((item) => item.id);
+    if (localIds.length > 0) {
+      setReadAlertIds((prev) => {
+        const next = Array.from(new Set([...prev, ...localIds]));
+        persistReadAlertIds(alertReadStorageKey, next);
+        return next;
+      });
     }
   };
 
-  const latestUnreadDecision = canAccessRestrictedWorkflow
-    ? unreadDecisionNotifications[0] ?? null
-    : null;
+  const handleOpenUnifiedNotification = (item: UnifiedNotificationItem) => {
+    if (activeNotificationRules.markReadOnOpen) {
+      markUnifiedNotificationRead(item);
+    }
+    setActiveTab(item.targetTab);
+    setNotifPopoverOpen(false);
+  };
 
-  const latestUnreadHearing = !canAccessRestrictedWorkflow
-    ? unreadHearingAlerts[0] ?? null
-    : null;
+  const bellUnreadCount = unreadUnifiedNotifications.length;
 
-  const bellUnreadCount = canAccessRestrictedWorkflow
-    ? unreadDecisionCount
-    : unreadHearingAlerts.length;
+  const getBadgeToneClass = (tone: UnifiedNotificationItem['badgeTone']) => {
+    switch (tone) {
+      case 'danger':
+        return 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300';
+      case 'success':
+        return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300';
+      case 'warning':
+        return 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300';
+      case 'gold':
+        return 'bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#9A6B11] dark:text-[#F5D28B]';
+      default:
+        return 'bg-slate-100 dark:bg-slate-800 text-[#162238] dark:text-slate-200';
+    }
+  };
+
+  const getCategoryLabel = (category: UnifiedNotificationItem['category']) => {
+    if (category === 'requisition') return 'Cash Requisition';
+    if (category === 'approval') return 'Approvals Queue';
+    return 'Court & Deadline';
+  };
 
   useEffect(() => {
     if (!notifPopoverOpen) return;
@@ -669,27 +704,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-display text-xs font-bold text-[#162238] dark:text-white">
-                        {canAccessRestrictedWorkflow ? 'Decision & Workflow Alerts' : 'Court & Matter Alerts'}
+                        {canAccessRestrictedWorkflow ? 'Firm & Workflow Notifications' : 'Court & Matter Notifications'}
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
-                        {canAccessRestrictedWorkflow
-                          ? `${unreadDecisionCount} unread notice${unreadDecisionCount === 1 ? '' : 's'}`
-                          : `${unreadHearingAlerts.length} unread of ${scheduledHearings.length} scheduled appearance${scheduledHearings.length === 1 ? '' : 's'}`}
+                        {bellUnreadCount} unread · {activeNotificationRules.hearingLeadDays}d lead window
+                        {activeNotificationRules.branchScopedAlerts ? ` · ${activeBranchLabel}` : ' · All branches'}
                       </p>
                     </div>
-                    {canAccessRestrictedWorkflow && unreadDecisionCount > 0 && onMarkAllDecisionNotificationsRead && (
+                    {activeNotificationRules.allowMarkAllRead && bellUnreadCount > 0 && (
                       <button
                         type="button"
-                        onClick={onMarkAllDecisionNotificationsRead}
-                        className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
-                      >
-                        Mark all read
-                      </button>
-                    )}
-                    {!canAccessRestrictedWorkflow && unreadHearingAlerts.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={markAllHearingAlertsRead}
+                        onClick={markAllUnifiedNotificationsRead}
                         className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
                       >
                         Mark all read
@@ -697,141 +722,114 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     )}
                   </div>
 
-                  {canAccessRestrictedWorkflow ? (
-                    <>
-                      <div className="max-h-80 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
-                        {decisionNotifications.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                            No cash requisition decision notices yet.
-                          </div>
-                        ) : (
-                          decisionNotifications.slice(0, 8).map((n) => (
-                            <button
-                              key={n.id}
-                              type="button"
-                              onClick={() => {
-                                onMarkDecisionNotificationRead?.(n.id);
-                                setActiveTab('cash_requisitions');
-                                setNotifPopoverOpen(false);
-                              }}
-                              className={`w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-1 ${
-                                n.unread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5">
-                                  {n.unread && (
-                                    <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
-                                  )}
-                                  {n.referenceCode}
-                                </span>
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                    n.status === 'Denied'
-                                      ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                                      : n.status === 'Approved'
-                                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                                  }`}
-                                >
-                                  {n.status}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                                For <strong className="text-slate-700 dark:text-slate-200">{n.recipientName}</strong> · By{' '}
-                                <strong className="text-slate-700 dark:text-slate-200">{n.actorName}</strong>
-                              </p>
-                              <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
-                                Reason: &ldquo;{n.reason}&rdquo;
-                              </p>
-                              <p className="text-[10px] text-slate-400 tabular-nums">{n.createdAt}</p>
-                            </button>
-                          ))
-                        )}
+                  <div className="max-h-80 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
+                    {unifiedNotifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        No notifications matching active rules for {activeBranchLabel}.
                       </div>
-
-                      <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab('approvals');
-                            setNotifPopoverOpen(false);
-                          }}
-                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
+                    ) : (
+                      unifiedNotifications.slice(0, 10).map((item) => (
+                        <div
+                          key={item.id}
+                          className={`px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition space-y-1 ${
+                            item.unread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
+                          }`}
                         >
-                          View Approvals
-                        </button>
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenUnifiedNotification(item)}
+                              className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5 min-w-0 truncate cursor-pointer text-left"
+                            >
+                              {item.unread && (
+                                <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
+                              )}
+                              <span className="truncate">{item.code}</span>
+                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold ${getBadgeToneClass(
+                                  item.badgeTone
+                                )}`}
+                              >
+                                {item.badgeLabel}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenUnifiedNotification(item)}
+                            className="w-full text-left cursor-pointer space-y-0.5"
+                          >
+                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                              {item.title}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                              {item.subtitle}
+                            </p>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
+                              {item.body}
+                            </p>
+                          </button>
+
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <span className="text-[10px] text-slate-400 tabular-nums">
+                              {getCategoryLabel(item.category)} · {item.timestampLabel}
+                            </span>
+                            {item.unread && (
+                              <button
+                                type="button"
+                                onClick={() => markUnifiedNotificationRead(item)}
+                                className="text-[10px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
+                              >
+                                Mark read
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      {canAccessRestrictedWorkflow && (
                         <button
                           type="button"
                           onClick={() => {
                             setActiveTab('cash_requisitions');
                             setNotifPopoverOpen(false);
                           }}
-                          className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
                         >
-                          Cash Requisitions →
+                          Requisitions
                         </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="max-h-72 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
-                        {scheduledHearings.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
-                            No upcoming court notices for {activeBranchLabel}.
-                          </div>
-                        ) : (
-                          scheduledHearings.slice(0, 8).map((h) => {
-                            const isUnread = !readHearingIds.includes(h.id);
-                            return (
-                              <button
-                                key={h.id}
-                                type="button"
-                                onClick={() => {
-                                  markHearingAlertRead(h.id);
-                                  setActiveTab('causelist');
-                                  setNotifPopoverOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-0.5 ${
-                                  isUnread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-2 text-xs">
-                                  <span className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5">
-                                    {isUnread && (
-                                      <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
-                                    )}
-                                    {h.suitNumber}
-                                  </span>
-                                  <span className="text-[11px] font-medium text-[#D99B26] tabular-nums">
-                                    {h.hearingDate}
-                                  </span>
-                                </div>
-                                <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                                  {h.caseTitle}
-                                </p>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                                  {h.hearingPurpose} · {h.courtName}
-                                </p>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                      <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex justify-end">
+                      )}
+                      {isAdmin && (
                         <button
                           type="button"
                           onClick={() => {
-                            setActiveTab('causelist');
+                            setActiveTab('settings');
                             setNotifPopoverOpen(false);
                           }}
-                          className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
                         >
-                          Open Calendar &amp; Deadlines →
+                          Notification Rules
                         </button>
-                      </div>
-                    </>
-                  )}
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('causelist');
+                        setNotifPopoverOpen(false);
+                      }}
+                      className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                    >
+                      Calendar &amp; Deadlines →
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -856,12 +854,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </main>
       </div>
 
-      {/* Persistent Latest Unread Notification Popup — stays visible until explicitly marked read */}
-      {(latestUnreadDecision || latestUnreadHearing) && (
+      {/* Persistent Latest Unread Notification Popup — governed by System Settings Notification Rules */}
+      {activeNotificationRules.persistentUnreadPopup && latestUnreadNotification && (
         <aside
           role="alert"
           aria-live="polite"
-          className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[392px] z-40 no-print bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 border-l-4 border-l-[#D99B26] rounded-xl shadow-2xl overflow-hidden"
+          className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[396px] z-40 no-print bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 border-l-4 border-l-[#D99B26] rounded-xl shadow-2xl overflow-hidden"
         >
           {/* Navy Header Bar */}
           <div className="bg-[#162238] text-white px-4 py-2.5 flex items-center justify-between gap-2">
@@ -872,7 +870,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </span>
               <Bell className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
               <span className="font-display text-xs font-bold tracking-tight truncate">
-                Latest Unread Notification
+                Latest Unread · {getCategoryLabel(latestUnreadNotification.category)}
               </span>
             </div>
             <span className="px-2 py-0.5 rounded bg-[#D99B26]/20 text-[#F5D28B] border border-[#D99B26]/30 text-[10px] font-semibold tabular-nums shrink-0">
@@ -881,134 +879,70 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           {/* Notification Body */}
-          {latestUnreadDecision ? (
-            <>
-              <div className="px-4 py-3.5 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
-                    {latestUnreadDecision.referenceCode}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
-                      latestUnreadDecision.status === 'Denied'
-                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
-                        : latestUnreadDecision.status === 'Approved'
-                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
-                    }`}
-                  >
-                    {latestUnreadDecision.status}
-                  </span>
-                </div>
+          <div className="px-4 py-3.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
+                {latestUnreadNotification.code}
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 tabular-nums ${getBadgeToneClass(
+                  latestUnreadNotification.badgeTone
+                )}`}
+              >
+                {latestUnreadNotification.badgeLabel}
+              </span>
+            </div>
 
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  For <strong className="text-[#162238] dark:text-white">{latestUnreadDecision.recipientName}</strong> · By{' '}
-                  <strong className="text-[#162238] dark:text-white">{latestUnreadDecision.actorName}</strong>
-                </p>
+            <p className="text-xs font-semibold text-[#162238] dark:text-white leading-snug">
+              {latestUnreadNotification.title}
+            </p>
 
-                <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
-                  Reason: &ldquo;{latestUnreadDecision.reason}&rdquo;
-                </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300">
+              {latestUnreadNotification.subtitle}
+            </p>
 
-                <p className="text-[11px] text-slate-400 tabular-nums">
-                  {latestUnreadDecision.createdAt}
-                </p>
-              </div>
+            <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+              {latestUnreadNotification.body}
+            </div>
 
-              <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
-                {unreadDecisionCount > 1 && onMarkAllDecisionNotificationsRead ? (
-                  <button
-                    type="button"
-                    onClick={onMarkAllDecisionNotificationsRead}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
-                  >
-                    Mark all read
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-400">Remains visible until read</span>
-                )}
+            <p className="text-[11px] text-slate-400 tabular-nums">
+              {latestUnreadNotification.timestampLabel}
+            </p>
+          </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onMarkDecisionNotificationRead?.(latestUnreadDecision.id)}
-                    className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5 text-[#D99B26]" />
-                    <span>Mark Read</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onMarkDecisionNotificationRead?.(latestUnreadDecision.id);
-                      setActiveTab('cash_requisitions');
-                    }}
-                    className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <span>Open &amp; Read</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : latestUnreadHearing ? (
-            <>
-              <div className="px-4 py-3.5 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
-                    {latestUnreadHearing.suitNumber}
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#9A6B11] dark:text-[#F5D28B] text-[10px] font-semibold tabular-nums shrink-0">
-                    {latestUnreadHearing.hearingDate}
-                  </span>
-                </div>
+          {/* Footer Actions */}
+          <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+            {activeNotificationRules.allowMarkAllRead && bellUnreadCount > 1 ? (
+              <button
+                type="button"
+                onClick={markAllUnifiedNotificationsRead}
+                className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
+              >
+                Mark all read
+              </button>
+            ) : (
+              <span className="text-[10px] text-slate-400">Remains visible until read</span>
+            )}
 
-                <p className="text-xs font-semibold text-[#162238] dark:text-white leading-snug">
-                  {latestUnreadHearing.caseTitle}
-                </p>
-
-                <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  {latestUnreadHearing.hearingPurpose} · {latestUnreadHearing.courtName}
-                </div>
-              </div>
-
-              <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
-                {unreadHearingAlerts.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={markAllHearingAlertsRead}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
-                  >
-                    Mark all read
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-slate-400">Remains visible until read</span>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => markHearingAlertRead(latestUnreadHearing.id)}
-                    className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <Check className="w-3.5 h-3.5 text-[#D99B26]" />
-                    <span>Mark Read</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      markHearingAlertRead(latestUnreadHearing.id);
-                      setActiveTab('causelist');
-                    }}
-                    className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
-                  >
-                    <span>Open &amp; Read</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : null}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => markUnifiedNotificationRead(latestUnreadNotification)}
+                className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5 text-[#D99B26]" />
+                <span>Mark Read</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleOpenUnifiedNotification(latestUnreadNotification)}
+                className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+              >
+                <span>{activeNotificationRules.markReadOnOpen ? 'Open & Read' : 'Open'}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
+              </button>
+            </div>
+          </div>
         </aside>
       )}
     </div>

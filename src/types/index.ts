@@ -470,6 +470,18 @@ export interface PublicHolidayConfig {
   category: 'Statutory' | 'Religious' | 'Custom';
 }
 
+export interface NotificationRulesConfig {
+  persistentUnreadPopup: boolean;
+  allowMarkAllRead: boolean;
+  hearingLeadDays: number;
+  enableHearingAlerts: boolean;
+  enableCashRequisitionAlerts: boolean;
+  enableApprovalAlerts: boolean;
+  branchScopedAlerts: boolean;
+  excludePastHearings: boolean;
+  markReadOnOpen: boolean;
+}
+
 export interface SystemSettings {
   version: string;
   lastUpdated: string;
@@ -481,6 +493,7 @@ export interface SystemSettings {
   courtList: string[];
   practiceAreas: string[];
   publicHolidays: PublicHolidayConfig[];
+  notificationRules: NotificationRulesConfig;
 }
 
 export interface AuditLog {

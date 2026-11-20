@@ -1,5 +1,17 @@
-import { SystemSettings } from '../types';
+import { NotificationRulesConfig, SystemSettings } from '../types';
 import { DEFAULT_UGANDA_HOLIDAYS } from '../utils/ugandaHolidays';
+
+export const DEFAULT_NOTIFICATION_RULES: NotificationRulesConfig = {
+  persistentUnreadPopup: true,
+  allowMarkAllRead: true,
+  hearingLeadDays: 7,
+  enableHearingAlerts: true,
+  enableCashRequisitionAlerts: true,
+  enableApprovalAlerts: true,
+  branchScopedAlerts: true,
+  excludePastHearings: true,
+  markReadOnOpen: true,
+};
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   version: '2.0',
@@ -184,4 +196,5 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
     'Intellectual Property & Technology',
   ],
   publicHolidays: DEFAULT_UGANDA_HOLIDAYS,
+  notificationRules: DEFAULT_NOTIFICATION_RULES,
 };

@@ -466,6 +466,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             courtList: Array.isArray(parsed.courtList) && parsed.courtList.length > 0 ? parsed.courtList : DEFAULT_SYSTEM_SETTINGS.courtList,
             practiceAreas: Array.isArray(parsed.practiceAreas) && parsed.practiceAreas.length > 0 ? parsed.practiceAreas : DEFAULT_SYSTEM_SETTINGS.practiceAreas,
             publicHolidays: Array.isArray(parsed.publicHolidays) ? parsed.publicHolidays : DEFAULT_UGANDA_HOLIDAYS,
+            notificationRules: {
+              ...DEFAULT_SYSTEM_SETTINGS.notificationRules,
+              ...(parsed.notificationRules || {}),
+            },
           };
         }
       }

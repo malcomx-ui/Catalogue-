@@ -1751,85 +1751,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
         </div>
 
-        {/* RIGHT COLUMN (lg:col-span-4 space-y-5): Upcoming Deadlines (2) -> Firm Announcements (2) -> Staff Birthdays & Wishes */}
+        {/* RIGHT COLUMN (lg:col-span-4 space-y-5): 1) Firm Announcements -> 2) Staff Birthdays & Wishes -> 3) Upcoming Deadlines */}
         <div className="lg:col-span-4 space-y-5">
-          {/* 1. Upcoming Deadlines (strictly 2 items + arrow to open Deadlines page) */}
-          <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <Calendar className="w-4 h-4 text-[#D99B26] shrink-0" />
-                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight truncate">
-                  Upcoming Deadlines
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
-                title="Open Deadlines & Cause List"
-                aria-label="Open Deadlines page"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
-              >
-                <span>All</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {upcomingHearings.length === 0 ? (
-              <div className="p-5 text-center text-xs text-slate-500 dark:text-slate-400">
-                No upcoming court dates scheduled for this branch.
-              </div>
-            ) : (
-              <div className="divide-y divide-[#E2E8F0]/80 dark:divide-slate-800">
-                {upcomingHearings.slice(0, 2).map((item) => {
-                  const tile = parseDateTile(item.rawDate || item.dateTime);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        if (item.linkedCase) setSelectedCase(item.linkedCase);
-                        else if (onOpenHearings) onOpenHearings();
-                        else setActiveTab('causelist');
-                      }}
-                      className="w-full text-left px-4 py-3 hover:bg-[#F4F6F9]/70 dark:hover:bg-slate-800/40 transition cursor-pointer flex items-start gap-3 group"
-                    >
-                      <div className="w-11 h-12 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 flex flex-col items-center justify-center shrink-0 tabular-nums">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#B57E1A] dark:text-[#D99B26] leading-none">
-                          {tile.month}
-                        </span>
-                        <span className="font-display text-base font-bold text-[#162238] dark:text-white leading-tight mt-0.5">
-                          {tile.day}
-                        </span>
-                      </div>
-
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="text-xs font-semibold text-[#162238] dark:text-slate-100 line-clamp-1 group-hover:text-[#B57E1A] dark:group-hover:text-[#D99B26]">
-                          {item.title}
-                        </p>
-                        <p className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate tabular-nums">
-                          {item.caseCode}
-                        </p>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
-                          {item.courtDivision}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
-              className="w-full px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9]/60 dark:bg-slate-800/40 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 text-xs font-semibold text-[#162238] dark:text-[#D99B26] flex items-center justify-between transition cursor-pointer"
-            >
-              <span>Open Deadlines &amp; Cause List</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* 2. Firm Announcements (capped to 2 items) */}
+          {/* 1. Firm Announcements (capped to 2 items) */}
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
@@ -1876,7 +1800,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             </div>
           </div>
 
-          {/* 3. Staff Birthdays & Wishes (with Super Admin LockedBirthdayWidget + Live Wishes) */}
+          {/* 2. Staff Birthdays & Wishes (with Super Admin LockedBirthdayWidget + Live Wishes) */}
           {isSuperAdmin && (
             <LockedBirthdayWidget
               currentUser={effectiveUser}
@@ -1981,6 +1905,82 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 );
               })}
             </div>
+          </div>
+
+          {/* 3. Upcoming Deadlines (strictly 2 items + arrow to open Deadlines page) */}
+          <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="w-4 h-4 text-[#D99B26] shrink-0" />
+                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                  Upcoming Deadlines
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
+                title="Open Deadlines & Cause List"
+                aria-label="Open Deadlines page"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
+              >
+                <span>All</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {upcomingHearings.length === 0 ? (
+              <div className="p-5 text-center text-xs text-slate-500 dark:text-slate-400">
+                No upcoming court dates scheduled for this branch.
+              </div>
+            ) : (
+              <div className="divide-y divide-[#E2E8F0]/80 dark:divide-slate-800">
+                {upcomingHearings.slice(0, 2).map((item) => {
+                  const tile = parseDateTile(item.rawDate || item.dateTime);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        if (item.linkedCase) setSelectedCase(item.linkedCase);
+                        else if (onOpenHearings) onOpenHearings();
+                        else setActiveTab('causelist');
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-[#F4F6F9]/70 dark:hover:bg-slate-800/40 transition cursor-pointer flex items-start gap-3 group"
+                    >
+                      <div className="w-11 h-12 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 flex flex-col items-center justify-center shrink-0 tabular-nums">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#B57E1A] dark:text-[#D99B26] leading-none">
+                          {tile.month}
+                        </span>
+                        <span className="font-display text-base font-bold text-[#162238] dark:text-white leading-tight mt-0.5">
+                          {tile.day}
+                        </span>
+                      </div>
+
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="text-xs font-semibold text-[#162238] dark:text-slate-100 line-clamp-1 group-hover:text-[#B57E1A] dark:group-hover:text-[#D99B26]">
+                          {item.title}
+                        </p>
+                        <p className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate tabular-nums">
+                          {item.caseCode}
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                          {item.courtDivision}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
+              className="w-full px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9]/60 dark:bg-slate-800/40 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 text-xs font-semibold text-[#162238] dark:text-[#D99B26] flex items-center justify-between transition cursor-pointer"
+            >
+              <span>Open Deadlines &amp; Cause List</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </section>

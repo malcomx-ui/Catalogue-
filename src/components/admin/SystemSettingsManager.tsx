@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { IntakeFieldConfig, CustomFieldDefinition, FieldRequirementLevel, PublicHolidayConfig } from '../../types';
+import {
+  IntakeFieldConfig,
+  CustomFieldDefinition,
+  FieldRequirementLevel,
+  PublicHolidayConfig,
+  NotificationRulesConfig,
+} from '../../types';
 import { DEFAULT_UGANDA_HOLIDAYS } from '../../utils/ugandaHolidays';
+import { DEFAULT_NOTIFICATION_RULES } from '../../data/defaultSettings';
 import {
   Sliders,
   CheckCircle2,
@@ -29,6 +36,7 @@ import {
   Lock,
   CalendarDays,
   Repeat,
+  Bell,
 } from 'lucide-react';
 
 import { isUserAdmin } from '../../lib/supabase';
@@ -37,7 +45,7 @@ export const SystemSettingsManager: React.FC = () => {
   const { systemSettings, updateSystemSettings, currentUser, userPermissions, setActiveTab: setMainTab } = useApp();
   const isSuperAdmin = isUserAdmin(currentUser) || userPermissions.canManageSettings;
 
-  const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'holidays' | 'firm'>('intake');
+  const [activeTab, setActiveTab] = useState<'intake' | 'features' | 'courts' | 'practice' | 'holidays' | 'notifications' | 'firm'>('intake');
   const [formData, setFormData] = useState(systemSettings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [newCourt, setNewCourt] = useState('');
@@ -436,6 +444,18 @@ export const SystemSettingsManager: React.FC = () => {
         >
           <CalendarDays className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           <span>Public Holidays ({configuredHolidays.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'notifications'
+              ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 shadow-2xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+          }`}
+        >
+          <Bell className="w-3.5 h-3.5 text-[#D99B26]" />
+          <span>Notification Rules</span>
         </button>
 
         <button
@@ -1398,6 +1418,333 @@ export const SystemSettingsManager: React.FC = () => {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* TAB 6: NOTIFICATION RULES CONFIGURATION */}
+      {activeTab === 'notifications' && (() => {
+        const notifRules: NotificationRulesConfig = {
+          ...DEFAULT_NOTIFICATION_RULES,
+          ...(formData.notificationRules || {}),
+        };
+
+        const toggleNotificationRule = (
+          key: Exclude<keyof NotificationRulesConfig, 'hearingLeadDays'>
+        ) => {
+          setFormData((prev) => ({
+            ...prev,
+            notificationRules: {
+              ...DEFAULT_NOTIFICATION_RULES,
+              ...(prev.notificationRules || {}),
+              [key]: !(prev.notificationRules?.[key] ?? DEFAULT_NOTIFICATION_RULES[key]),
+            },
+          }));
+        };
+
+        const setLeadDays = (days: number) => {
+          const clamped = Math.max(1, Math.min(60, Math.round(days || 7)));
+          setFormData((prev) => ({
+            ...prev,
+            notificationRules: {
+              ...DEFAULT_NOTIFICATION_RULES,
+              ...(prev.notificationRules || {}),
+              hearingLeadDays: clamped,
+            },
+          }));
+        };
+
+        const resetNotificationRules = () => {
+          setFormData((prev) => ({
+            ...prev,
+            notificationRules: { ...DEFAULT_NOTIFICATION_RULES },
+          }));
+        };
+
+        return (
+          <div className="space-y-5 text-xs">
+            {/* Overview Banner */}
+            <div className="bg-[#162238] text-white rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#1E2F4D]">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-[#D99B26]" />
+                  <h4 className="font-display text-sm font-bold tracking-tight">
+                    Firm Notification Rules &amp; Unread Alert Governance
+                  </h4>
+                </div>
+                <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                  Control how unread notifications pop up, how far ahead upcoming court appearances alert staff, and how role-restricted financial workflow notices are scoped. Click <strong>Save &amp; Publish Changes</strong> above to apply firm-wide.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={resetNotificationRules}
+                className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-semibold text-white inline-flex items-center gap-1.5 transition cursor-pointer shrink-0 self-start md:self-center"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-[#D99B26]" />
+                <span>Restore Rule Defaults</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Persistent Popup & Read Behavior */}
+              <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 space-y-4">
+                <div>
+                  <h5 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                    Unread Popup &amp; Read Behavior
+                  </h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Enforces persistent delivery of unread notices until acknowledged.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Always Pop Up Latest Unread Notification Until Read
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Keeps the highest-priority unread notification pinned on screen with no auto-dismiss timer until the user clicks Mark Read or opens it.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('persistentUnreadPopup')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle persistent unread popup"
+                    >
+                      {notifRules.persistentUnreadPopup ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Mark Notification Read Automatically on Open
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Clicking &ldquo;Open &amp; Read&rdquo; or selecting an alert in the header bell marks it read while navigating to the matter or queue.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('markReadOnOpen')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle mark read on open"
+                    >
+                      {notifRules.markReadOnOpen ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Allow Bulk &ldquo;Mark All Read&rdquo; Action
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Disable to require staff to review and acknowledge each unread notification individually.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('allowMarkAllRead')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle allow mark all read"
+                    >
+                      {notifRules.allowMarkAllRead ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Court Deadlines, Scope & RBAC Channels */}
+              <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 space-y-4">
+                <div>
+                  <h5 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                    Alert Channels, Lead Window &amp; Role Scope
+                  </h5>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Controls which modules trigger alerts and enforces branch &amp; RBAC boundaries.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Upcoming Court Hearings &amp; Deadlines
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Triggers alerts for scheduled hearings and active case deadlines within the lead window.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('enableHearingAlerts')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle court hearing alerts"
+                    >
+                      {notifRules.enableHearingAlerts ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Lead Time Window Control */}
+                  <div className="py-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="font-semibold text-[#162238] dark:text-slate-100">
+                        Hearing &amp; Deadline Lead-Time Window
+                      </label>
+                      <span className="font-mono font-bold text-[#162238] dark:text-[#D99B26] tabular-nums">
+                        {notifRules.hearingLeadDays} day{notifRules.hearingLeadDays === 1 ? '' : 's'} ahead
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {[3, 7, 14, 30].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setLeadDays(preset)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold tabular-nums transition cursor-pointer border ${
+                            notifRules.hearingLeadDays === preset
+                              ? 'bg-[#162238] text-white border-[#162238]'
+                              : 'bg-[#F4F6F9] dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238]'
+                          }`}
+                        >
+                          {preset} days
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={notifRules.hearingLeadDays}
+                        onChange={(e) => setLeadDays(Number(e.target.value))}
+                        className="w-20 h-7 px-2 text-xs font-mono tabular-nums border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-[#162238] dark:text-white focus:outline-none focus:border-[#162238]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Exclude Past / Expired Hearing Dates
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Prevents historical scheduled court rows from triggering unread popups.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('excludePastHearings')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle exclude past hearings"
+                    >
+                      {notifRules.excludePastHearings ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        Scope Matter &amp; Hearing Alerts to Active Branch
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Limits staff deadline alerts to their assigned branch or the currently selected branch filter.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('branchScopedAlerts')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle branch scoped alerts"
+                    >
+                      {notifRules.branchScopedAlerts ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#162238] dark:text-slate-100">
+                          Cash Requisition Decision Alerts
+                        </p>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
+                          RBAC Restricted
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Notifies authorized workflow roles on Approved, Reviewed, and Denied requisitions.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('enableCashRequisitionAlerts')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle cash requisition alerts"
+                    >
+                      {notifRules.enableCashRequisitionAlerts ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="py-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#162238] dark:text-slate-100">
+                          Pending Approval Queue Alerts
+                        </p>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
+                          RBAC Restricted
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Alerts authorized approvers whenever pending workflow items require executive sign-off.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleNotificationRule('enableApprovalAlerts')}
+                      className="shrink-0 cursor-pointer"
+                      aria-label="Toggle approval queue alerts"
+                    >
+                      {notifRules.enableApprovalAlerts ? (
+                        <ToggleRight className="w-8 h-8 text-[#D99B26]" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );
