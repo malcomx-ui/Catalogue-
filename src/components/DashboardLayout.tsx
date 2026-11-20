@@ -33,7 +33,6 @@ import {
   Sliders,
   Banknote,
   Bell,
-  Plus,
   ChevronDown,
   Check,
   ArrowRight,
@@ -834,15 +833,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               )}
             </div>
 
-            {/* Primary CTA: + New Matter */}
-            <button
-              type="button"
-              onClick={() => setIsNewCaseModalOpen(true)}
-              className="h-9 px-3.5 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap shrink-0 shadow-xs"
+            {/* Logged-in User Display */}
+            <div
+              className="h-9 pl-1.5 pr-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 inline-flex items-center gap-2 shrink-0 max-w-[210px] sm:max-w-[240px]"
+              title={`${effectiveUser?.name || 'Firm Staff'}${effectiveUser?.roleTitle || effectiveUser?.role ? ` · ${effectiveUser?.roleTitle || effectiveUser?.role}` : ''}`}
             >
-              <Plus className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
-              <span>New Matter</span>
-            </button>
+              <div className="w-6 h-6 rounded-md bg-[#162238] text-[#E8C06B] text-[10px] font-display font-bold flex items-center justify-center shrink-0">
+                {getUserInitials(effectiveUser?.name)}
+              </div>
+              <div className="min-w-0 leading-tight">
+                <p className="font-display text-xs font-bold text-[#162238] dark:text-white truncate">
+                  {effectiveUser?.name || 'Firm Staff'}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate hidden sm:block">
+                  {effectiveUser?.roleTitle || effectiveUser?.role || 'Legal Staff'}
+                </p>
+              </div>
+            </div>
           </div>
         </header>
 

@@ -333,13 +333,13 @@ const MainLayout: React.FC = () => {
       onSearchChange={setGlobalSearchQuery}
       pendingApprovalsCount={pendingApprovalsCount}
       onOpenNewCase={() => setIsNewCaseModalOpen(true)}
-      onOpenLitigationForm={() => {
-        setActiveTab('catalogue');
-        setIsNewCaseModalOpen(true);
-      }}
       onOpenApprovals={() => {
         if (canAccessRestrictedWorkflow) setActiveTab('approvals');
       }}
+      onOpenCashRequisitions={() => {
+        if (canAccessRestrictedWorkflow) setActiveTab('cash_requisitions');
+      }}
+      onCreateCashRequisition={handleCreateCashRequisition}
       onOpenDocuments={() => setActiveTab('documents')}
       onOpenCases={() => setActiveTab('catalogue')}
       onOpenWorkload={() => {

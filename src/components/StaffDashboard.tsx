@@ -8,10 +8,17 @@ import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
 import type { CaseItem, PleadingDocument, ProgressiveNote } from '../types';
 import {
+  buildNewCashRequisition,
+  loadLocalRequisitions,
+  saveLocalRequisitions,
+  syncCashRequisitionToSupabase,
+  type CashRequisitionItem,
+  type CreateCashRequisitionInput,
+} from '../lib/cashRequisitionStore';
+import {
   Search,
   Building2,
   Plus,
-  Gavel,
   FolderClock,
   Award,
   Lock,
@@ -21,7 +28,6 @@ import {
   Cake,
   Send,
   Calendar,
-  Clock,
   MapPin,
   X,
   ArrowUpRight,
@@ -33,6 +39,7 @@ import {
   AlertCircle,
   Landmark,
   Zap,
+  Banknote,
 } from 'lucide-react';
 
 export type TaskStatus = 'Todo' | 'In Progress' | 'Completed';
@@ -83,6 +90,8 @@ export interface StaffDashboardProps {
   onOpenNewCase?: () => void;
   onOpenLitigationForm?: () => void;
   onOpenApprovals?: () => void;
+  onOpenCashRequisitions?: () => void;
+  onCreateCashRequisition?: (input: CreateCashRequisitionInput) => CashRequisitionItem;
   onOpenDocuments?: () => void;
   onOpenCases?: () => void;
   onOpenWorkload?: () => void;
@@ -93,13 +102,12 @@ export interface StaffDashboardProps {
 }
 
 type CaseFilterTab = 'All' | 'Litigation' | 'Corporate' | 'Mortgages';
-type QuickModalType = 'time' | 'document' | 'note' | 'leave' | null;
+type QuickModalType = 'requisition' | 'document' | 'note' | 'leave' | null;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TASKS_STORAGE_KEY = 'mk_staff_dashboard_tasks_v1';
 const LOCAL_WISHES_STORAGE_KEY = 'mk_staff_dashboard_wishes_v1';
 const LOCAL_HR_OVERRIDES_KEY = 'mk_hr_employee_overrides_v1';
-const TIME_LOGS_STORAGE_KEY = 'mk_clio_time_logs_v1';
 const LOCAL_LEAVE_REQUESTS_KEY = 'mk_clio_quick_leave_requests_v1';
 
 const DEFAULT_BRANCH_OPTIONS = [
@@ -373,8 +381,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   onBranchChange,
   pendingApprovalsCount = 3,
   onOpenNewCase,
-  onOpenLitigationForm,
   onOpenApprovals,
+  onOpenCashRequisitions,
+  onCreateCashRequisition,
   onOpenDocuments,
   onOpenCases,
   onOpenWorkload,
@@ -1002,10 +1011,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
   // Quick Action Modal States
   const defaultCaseId = branchScopedCases[0]?.id || cases[0]?.id || '';
-  const [timeCaseId, setTimeCaseId] = useState('');
-  const [timeHours, setTimeHours] = useState('1.5');
-  const [timeDate, setTimeDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [timeDescription, setTimeDescription] = useState('');
+  const [reqPurpose, setReqPurpose] = useState('');
+  const [reqAmount, setReqAmount] = useState('');
+  const [reqCurrency, setReqCurrency] = useState<'UGX' | 'USD'>('UGX');
+  const [reqCaseRef, setReqCaseRef] = useState('');
 
   const [docCaseId, setDocCaseId] = useState('');
   const [docTitle, setDocTitle] = useState('');
@@ -1039,41 +1048,47 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   }, [activeModal]);
 
   const openQuickModal = (modal: QuickModalType) => {
-    if (modal === 'time' && !timeCaseId) setTimeCaseId(defaultCaseId);
     if (modal === 'document' && !docCaseId) setDocCaseId(defaultCaseId);
     if (modal === 'note' && !noteCaseId) setNoteCaseId(defaultCaseId);
     setActiveModal(modal);
   };
 
-  const handleSubmitTimeLog = (e: React.FormEvent) => {
+  const handleSubmitRequisition = (e: React.FormEvent) => {
     e.preventDefault();
-    const numericHours = parseFloat(timeHours);
-    if (Number.isNaN(numericHours) || numericHours <= 0 || numericHours > 24 || !timeDescription.trim()) {
-      showCleanMessage('Enter valid hours and a work description.', 'warning');
+    const parsedAmount = parseFloat(reqAmount);
+    if (!reqPurpose.trim() || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      showCleanMessage('Enter a valid disbursement purpose and amount.', 'warning');
       return;
     }
-    const matchedCase = cases.find((c) => c.id === timeCaseId);
-    const code = matchedCase?.suitNumber || matchedCase?.firmRefNumber || 'FIRM-GEN';
-    try {
-      const existing = JSON.parse(window.localStorage.getItem(TIME_LOGS_STORAGE_KEY) || '[]');
-      existing.unshift({
-        id: `tl-${Date.now()}`,
-        caseId: matchedCase?.id || 'general',
-        caseCode: code,
-        hours: numericHours,
-        date: timeDate,
-        description: timeDescription.trim(),
-        billable: true,
-        author: effectiveUser?.name || 'Advocate',
-      });
-      window.localStorage.setItem(TIME_LOGS_STORAGE_KEY, JSON.stringify(existing));
-    } catch {
-      // ignore
+
+    const input: CreateCashRequisitionInput = {
+      purpose: reqPurpose.trim(),
+      amount: parsedAmount,
+      currency: reqCurrency,
+      branch: activeBranchLabel,
+      caseRef: reqCaseRef.trim() || undefined,
+      requesterName: effectiveUser?.name || 'Firm Staff',
+      requesterRole: effectiveUser?.roleTitle || effectiveUser?.role || 'Staff Member',
+    };
+
+    if (onCreateCashRequisition) {
+      onCreateCashRequisition(input);
+    } else {
+      const existing = loadLocalRequisitions();
+      const created = buildNewCashRequisition(existing, input);
+      saveLocalRequisitions([created, ...existing]);
+      void syncCashRequisitionToSupabase(created);
+      showCleanMessage(
+        `eRequisition ${created.referenceCode} submitted for Level 1 review.`,
+        'success'
+      );
     }
-    setTimeDescription('');
-    setTimeHours('1.5');
+
+    setReqPurpose('');
+    setReqAmount('');
+    setReqCurrency('UGX');
+    setReqCaseRef('');
     setActiveModal(null);
-    showCleanMessage(`Logged ${numericHours.toFixed(1)} billable hours to ${code}.`, 'success');
   };
 
   const handleSubmitDocument = (e: React.FormEvent) => {
@@ -1206,11 +1221,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     else setIsNewCaseModalOpen(true);
   };
 
-  const triggerLitigationForm = () => {
-    if (onOpenLitigationForm) onOpenLitigationForm();
-    else setIsNewCaseModalOpen(true);
-  };
-
   return (
     <div className="space-y-5">
       {/* Standalone fallback header only if mounted outside DashboardLayout */}
@@ -1332,20 +1342,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
           <button
             type="button"
-            onClick={triggerLitigationForm}
+            onClick={() => openQuickModal('requisition')}
             className="h-9 px-3.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
           >
-            <Gavel className="w-3.5 h-3.5 text-[#B57E1A] group-hover:text-[#D99B26] shrink-0" />
-            <span>Litigation Form</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openQuickModal('time')}
-            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
-          >
-            <Clock className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#D99B26] shrink-0" />
-            <span>Log Time</span>
+            <Banknote className="w-3.5 h-3.5 text-[#B57E1A] group-hover:text-[#D99B26] shrink-0" />
+            <span>eRequisition</span>
           </button>
 
           <button
@@ -1997,12 +1998,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 shadow-2xl overflow-hidden"
           >
-            {activeModal === 'time' && (
-              <form onSubmit={handleSubmitTimeLog}>
+            {activeModal === 'requisition' && (
+              <form onSubmit={handleSubmitRequisition}>
                 <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
-                    Log Time Entry
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-[#D99B26]" />
+                    <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                      New eRequisition
+                    </h3>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
@@ -2013,80 +2017,112 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   </button>
                 </div>
                 <div className="p-5 space-y-4 text-xs">
+                  <div className="px-3 py-2 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Requester: <strong className="text-[#162238] dark:text-white">{effectiveUser?.name || 'Firm Staff'}</strong>
+                    </span>
+                    <span className="font-semibold text-[#162238] dark:text-[#E8C06B]">
+                      {activeBranchLabel}
+                    </span>
+                  </div>
+
                   <div>
                     <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Matter / Case File
-                    </label>
-                    <select
-                      value={timeCaseId}
-                      onChange={(e) => setTimeCaseId(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
-                    >
-                      <option value="">General Advisory</option>
-                      {cases.slice(0, 60).map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.suitNumber || c.firmRefNumber} — {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Hours
-                      </label>
-                      <input
-                        type="number"
-                        step="0.25"
-                        min="0.25"
-                        max="24"
-                        required
-                        value={timeHours}
-                        onChange={(e) => setTimeHours(e.target.value)}
-                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 tabular-nums"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                        Date
-                      </label>
-                      <input
-                        type="date"
-                        required
-                        value={timeDate}
-                        onChange={(e) => setTimeDate(e.target.value)}
-                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 tabular-nums"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Work Narrative
+                      Disbursement Purpose / Particulars
                     </label>
                     <textarea
                       rows={3}
                       required
-                      value={timeDescription}
-                      onChange={(e) => setTimeDescription(e.target.value)}
-                      placeholder="Describe legal work performed..."
-                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700"
+                      value={reqPurpose}
+                      onChange={(e) => setReqPurpose(e.target.value)}
+                      placeholder="e.g. Court filing fees, process service, registry search stamps, or witness facilitation..."
+                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
                     />
                   </div>
+
+                  <div className="grid grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Currency
+                      </label>
+                      <select
+                        value={reqCurrency}
+                        onChange={(e) => setReqCurrency(e.target.value as 'UGX' | 'USD')}
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
+                      >
+                        <option value="UGX">UGX</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Amount
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="1"
+                        required
+                        value={reqAmount}
+                        onChange={(e) => setReqAmount(e.target.value)}
+                        placeholder="e.g. 250000"
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Linked Matter / Case Reference (Optional)
+                    </label>
+                    <select
+                      value={reqCaseRef}
+                      onChange={(e) => setReqCaseRef(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
+                    >
+                      <option value="">General Office / Non-Matter Expense</option>
+                      {cases.slice(0, 60).map((c) => {
+                        const code = c.suitNumber || c.firmRefNumber || c.case_number || c.id;
+                        return (
+                          <option key={c.id} value={code}>
+                            {code} — {c.title}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
                 </div>
-                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal(null)}
-                    className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white dark:bg-slate-800 text-xs font-semibold cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
-                  >
-                    Save Entry
-                  </button>
+                <div className="px-5 py-3.5 bg-[#F4F6F9] dark:bg-slate-800/50 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+                  <div>
+                    {canAccessRestrictedWorkflow && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveModal(null);
+                          if (onOpenCashRequisitions) onOpenCashRequisitions();
+                          else setActiveTab('cash_requisitions');
+                        }}
+                        className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                      >
+                        Open All eRequisitions →
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white dark:bg-slate-800 text-xs font-semibold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
+                    >
+                      Submit eRequisition
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
