@@ -1249,6 +1249,9 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
             : item
         )
       );
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('mk_leave_status_changed'));
+      }
       showCleanMessage(`Leave request marked as ${decision}.`, 'success');
     } catch (err: any) {
       const msg = err?.message || `Failed to update leave request status.`;

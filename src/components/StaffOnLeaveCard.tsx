@@ -31,6 +31,8 @@ const LOCAL_LEAVES_STORAGE_KEYS = [
   'mk_clio_quick_leave_requests_v1',
 ];
 
+export const LEAVE_STATUS_CHANGED_EVENT = 'mk_leave_status_changed';
+
 function getTodayIso(): string {
   const now = new Date();
   const y = now.getFullYear();
@@ -59,9 +61,9 @@ function formatReadableDate(iso?: string | null): string {
   const dt = parseIsoToMidnight(iso);
   if (!dt) return 'TBD';
   return dt.toLocaleDateString('en-GB', {
-    weekday: 'short',
     day: 'numeric',
     month: 'short',
+    year: 'numeric',
   });
 }
 
@@ -98,7 +100,7 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
         hrSupabase
           .from('leave_requests')
           .select('id, employee_id, leave_type, start_date, end_date, status, created_at')
-          .order('end_date', { ascending: true }),
+          .order('start_date', { ascending: true }),
         hrSupabase
           .from('employees')
           .select('id, first_name, last_name, email, job_title, department, status'),
@@ -165,12 +167,16 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
 
       const resolveStaffMeta = (
         employeeId?: string | null,
+        employeeEmail?: string | null,
         fallbackName?: string | null,
         fallbackBranch?: string | null
       ) => {
-        const key = String(employeeId || '').trim().toLowerCase();
-        const fromEmp = key ? empById.get(key) : undefined;
-        const fromUser = key ? userById.get(key) : undefined;
+        const idKey = String(employeeId || '').trim().toLowerCase();
+        const emailKey = String(employeeEmail || '').trim().toLowerCase();
+        const fromEmp = idKey ? empById.get(idKey) : undefined;
+        const fromUser =
+          (idKey ? userById.get(idKey) : undefined) ||
+          (emailKey ? userByEmail.get(emailKey) : undefined);
         const meta = fromEmp || fromUser;
         return {
           name: meta?.name || String(fallbackName || '').trim() || 'Firm Staff',
@@ -186,40 +192,33 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
       const collected: StaffOnLeaveRecord[] = [];
       const activeEmployeeIds = new Set<string>();
 
-      const ingestLeaveRow = (row: {
-        id: string;
-        employee_id?: string | null;
-        employee_name?: string | null;
-        branch_name?: string | null;
-        leave_type?: string | null;
-        start_date?: string | null;
-        end_date?: string | null;
-        status?: string | null;
-      }) => {
+      const ingestLeaveRow = (row: Record<string, any>) => {
         if (!isApprovedLeaveStatus(row.status)) return;
-        const startIso = String(row.start_date || '').trim().slice(0, 10);
-        const endIso = String(row.end_date || '').trim().slice(0, 10);
+        const startIso = String(row.start_date || row.startDate || '').trim().slice(0, 10);
+        const endIso = String(row.end_date || row.endDate || '').trim().slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(startIso) || !/^\d{4}-\d{2}-\d{2}$/.test(endIso)) {
           return;
         }
-        // Only include currently active leave OR upcoming approved leave starting within 14 days
+
+        // Include every approved leave that has not yet ended (both currently away and approved upcoming)
+        if (endIso < todayIso) return;
+
         const isCurrentlyAway = startIso <= todayIso && endIso >= todayIso;
         const daysUntilStart = diffCalendarDays(todayIso, startIso);
-        const isUpcomingSoon =
-          !isCurrentlyAway &&
-          daysUntilStart !== null &&
-          daysUntilStart > 0 &&
-          daysUntilStart <= 14;
 
-        if (!isCurrentlyAway && !isUpcomingSoon) return;
+        const employeeId = row.employee_id || row.employeeId || null;
+        const employeeEmail = row.employee_email || row.employeeEmail || null;
+        const fallbackName = row.employee_name || row.employeeName || null;
+        const fallbackBranch = row.branch_name || row.branchName || null;
+        const leaveTypeRaw = row.leave_type || row.leaveType || 'Leave';
 
-        const meta = resolveStaffMeta(row.employee_id, row.employee_name, row.branch_name);
-        const dedupeKey = `${String(row.employee_id || meta.name).toLowerCase()}|${startIso}|${endIso}`;
+        const meta = resolveStaffMeta(employeeId, employeeEmail, fallbackName, fallbackBranch);
+        const dedupeKey = `${String(employeeId || meta.name).toLowerCase()}|${startIso}|${endIso}`;
         if (seenKeys.has(dedupeKey)) return;
         seenKeys.add(dedupeKey);
 
-        if (isCurrentlyAway && row.employee_id) {
-          activeEmployeeIds.add(String(row.employee_id).trim().toLowerCase());
+        if (isCurrentlyAway && employeeId) {
+          activeEmployeeIds.add(String(employeeId).trim().toLowerCase());
         }
 
         const returnDate = getNextWorkingReturnDate(endIso);
@@ -230,7 +229,7 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
           employeeName: meta.name,
           roleTitle: meta.role,
           branchName: meta.branch,
-          leaveType: String(row.leave_type || 'Leave').trim(),
+          leaveType: String(leaveTypeRaw).trim(),
           startDate: startIso,
           endDate: endIso,
           returnDate,
@@ -284,7 +283,7 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
         }
       });
 
-      // Sort: currently away first (soonest return date first), then upcoming (soonest start first)
+      // Sort: currently away first (soonest return date first), then upcoming approved (soonest start date first)
       collected.sort((a, b) => {
         if (a.isCurrentlyAway !== b.isCurrentlyAway) {
           return a.isCurrentlyAway ? -1 : 1;
@@ -307,6 +306,24 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
     void loadFirmWideLeaves();
   }, [loadFirmWideLeaves, refreshKey]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleLeaveChange = () => {
+      void loadFirmWideLeaves();
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key && LOCAL_LEAVES_STORAGE_KEYS.includes(event.key)) {
+        void loadFirmWideLeaves();
+      }
+    };
+    window.addEventListener(LEAVE_STATUS_CHANGED_EVENT, handleLeaveChange);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener(LEAVE_STATUS_CHANGED_EVENT, handleLeaveChange);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [loadFirmWideLeaves]);
+
   const filteredRecords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return records;
@@ -323,18 +340,69 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
   );
 
   const upcomingApproved = useMemo(
-    () => filteredRecords.filter((r) => !r.isCurrentlyAway).slice(0, 3),
+    () => filteredRecords.filter((r) => !r.isCurrentlyAway),
     [filteredRecords]
   );
 
-  const renderReturnNote = (rec: StaffOnLeaveRecord) => {
-    if (!rec.returnDate) return 'Return date TBD';
-    const label = formatReadableDate(rec.returnDate);
-    if (rec.daysUntilReturn === null) return `Returns ${label}`;
-    if (rec.daysUntilReturn <= 0) return `Returns today (${label})`;
-    if (rec.daysUntilReturn === 1) return `Returns tomorrow · ${label}`;
-    return `Returns ${label}`;
-  };
+  const totalApprovedCount = currentlyAway.length + upcomingApproved.length;
+
+  const renderLeaveItem = (rec: StaffOnLeaveRecord) => (
+    <div
+      key={rec.id}
+      className="px-4 py-3 hover:bg-[#F1F4FC] dark:hover:bg-[#000065]/20 transition-colors duration-150 flex items-start gap-2.5"
+    >
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#000065] to-[#121285] text-[#E8C06B] text-[11px] font-display font-bold flex items-center justify-center shrink-0 mt-0.5">
+        {getInitials(rec.employeeName)}
+      </div>
+
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-[#000065] dark:text-white truncate">
+              {rec.employeeName}
+            </p>
+            <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
+              {rec.leaveType}
+              {rec.branchName && rec.branchName !== 'Firm-Wide' ? (
+                <span className="text-slate-400 dark:text-slate-500 font-normal">
+                  {' '}
+                  · {rec.branchName}
+                </span>
+              ) : null}
+            </p>
+          </div>
+          <span
+            className={`text-[10px] font-semibold shrink-0 tabular-nums mt-0.5 ${
+              rec.isCurrentlyAway
+                ? 'text-[#B57E1A] dark:text-[#E8C06B]'
+                : 'text-emerald-700 dark:text-emerald-400'
+            }`}
+          >
+            {rec.isCurrentlyAway ? 'On Leave' : 'Approved'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#DFE5F2]/70 dark:border-slate-800/80 tabular-nums">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              From Date
+            </p>
+            <p className="text-[11px] font-semibold text-[#0F1336] dark:text-slate-200">
+              {formatReadableDate(rec.startDate)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Return Date
+            </p>
+            <p className="text-[11px] font-semibold text-[#B57E1A] dark:text-[#E8C06B]">
+              {formatReadableDate(rec.returnDate)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#DFE5F2] dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,101,0.03)] overflow-hidden">
@@ -351,7 +419,7 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
 
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-            Firm-Wide · {currentlyAway.length} away
+            Firm-Wide · {totalApprovedCount}
           </span>
           <button
             type="button"
@@ -372,76 +440,28 @@ export const StaffOnLeaveCard: React.FC<StaffOnLeaveCardProps> = ({
           <Loader2 className="w-3.5 h-3.5 animate-spin text-[#000065] dark:text-[#D99B26]" />
           <span>Checking firm-wide leave registry...</span>
         </div>
-      ) : currentlyAway.length === 0 && upcomingApproved.length === 0 ? (
+      ) : totalApprovedCount === 0 ? (
         <div className="px-4 py-5 text-center space-y-1">
           <p className="text-xs font-semibold text-[#000065] dark:text-slate-100">
             All firm staff are currently on duty
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            No approved staff leaves across branches right now or in the next 14 days.
+            Approved staff leaves will appear here with leave type, from date, and return date.
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-[#DFE5F2]/80 dark:divide-slate-800 max-h-80 overflow-y-auto">
-          {currentlyAway.map((rec) => (
-            <div
-              key={rec.id}
-              className="px-4 py-3 hover:bg-[#F1F4FC] dark:hover:bg-[#000065]/20 transition-colors duration-150 flex items-start justify-between gap-3"
-            >
-              <div className="flex items-start gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#000065] to-[#121285] text-[#E8C06B] text-[11px] font-display font-bold flex items-center justify-center shrink-0 mt-0.5">
-                  {getInitials(rec.employeeName)}
-                </div>
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-xs font-bold text-[#000065] dark:text-white truncate">
-                    {rec.employeeName}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {rec.branchName} · {rec.leaveType}
-                  </p>
-                  <p className="text-[11px] font-semibold text-[#B57E1A] dark:text-[#E8C06B] tabular-nums">
-                    {renderReturnNote(rec)}
-                  </p>
-                </div>
-              </div>
-
-              {rec.daysUntilReturn !== null && rec.daysUntilReturn > 1 && (
-                <span className="text-[10px] font-mono font-semibold text-slate-500 dark:text-slate-400 tabular-nums shrink-0 mt-0.5">
-                  {rec.daysUntilReturn}d left
-                </span>
-              )}
-            </div>
-          ))}
+        <div className="divide-y divide-[#DFE5F2]/80 dark:divide-slate-800 max-h-96 overflow-y-auto">
+          {currentlyAway.map((rec) => renderLeaveItem(rec))}
 
           {upcomingApproved.length > 0 && (
             <div className="bg-[#F8FAFE]/70 dark:bg-slate-800/30">
-              <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Upcoming Approved Leave
-              </div>
+              {currentlyAway.length > 0 && (
+                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-[#DFE5F2]/60 dark:border-slate-800/80">
+                  Upcoming Approved Leave
+                </div>
+              )}
               <div className="divide-y divide-[#DFE5F2]/70 dark:divide-slate-800/80">
-                {upcomingApproved.map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="px-4 py-2.5 hover:bg-[#F1F4FC] dark:hover:bg-[#000065]/20 transition-colors duration-150 flex items-center justify-between gap-2.5"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[#000065] dark:text-slate-100 truncate">
-                        {rec.employeeName}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                        {rec.branchName} · {rec.leaveType}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0 tabular-nums">
-                      <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-                        From {formatReadableDate(rec.startDate)}
-                      </p>
-                      <p className="text-[10px] font-semibold text-[#B57E1A] dark:text-[#E8C06B]">
-                        Returns {formatReadableDate(rec.returnDate)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                {upcomingApproved.map((rec) => renderLeaveItem(rec))}
               </div>
             </div>
           )}

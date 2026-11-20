@@ -371,6 +371,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.setItem(LOCAL_LEAVES_STORAGE_KEY, JSON.stringify(leaveRequests));
+        window.dispatchEvent(new CustomEvent('mk_leave_status_changed'));
       } catch {
         // ignore
       }
@@ -1062,6 +1063,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       } catch {
         // local state already updated
       }
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('mk_leave_status_changed'));
     }
     showCleanMessage(
       `${record.employeeName}'s ${record.leave_type} marked as ${nextStatus}.`,
