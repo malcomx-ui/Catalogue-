@@ -442,18 +442,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const renderSidebarContent = (compact: boolean) => (
-    <div className="flex flex-col h-full bg-[#000065] text-slate-200 select-none">
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#000065] via-[#00005B] to-[#000048] text-slate-200 select-none">
       {/* Brand Header */}
-      <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+      <div className="h-16 px-4 border-b border-white/[0.10] flex items-center justify-between gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
             setActiveTab('dashboard');
             setMobileDrawerOpen(false);
           }}
-          className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none"
+          className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none group"
         >
-          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/50 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/60 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-200">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
@@ -471,7 +471,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <p className="font-display text-sm font-bold text-white tracking-tight truncate leading-tight">
                 MK Case Catalogue
               </p>
-              <p className="text-[11px] text-[#D99B26] font-medium truncate leading-tight mt-0.5">
+              <p className="text-[11px] text-[#E8C06B] font-medium truncate leading-tight mt-0.5">
                 Muhumuza - Kiiza Advocates
               </p>
             </div>
@@ -482,7 +482,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white cursor-pointer"
+          className="lg:hidden p-1.5 rounded-lg text-blue-200 hover:bg-white/12 hover:text-white transition-colors duration-150 cursor-pointer"
           aria-label="Close navigation menu"
         >
           <X className="w-4 h-4" />
@@ -494,7 +494,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {navGroups.map((group) => (
           <div key={group.id} className="space-y-1">
             {!compact ? (
-              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-200/70">
+              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-200/65">
                 {group.label}
               </p>
             ) : (
@@ -513,26 +513,26 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     onClick={() => handleNavClick(item)}
                     className={`relative w-full flex items-center ${
                       compact ? 'justify-center px-2' : 'justify-between px-3'
-                    } py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer group ${
+                    } py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 cursor-pointer group ${
                       isActive
-                        ? 'bg-white/[0.13] text-white font-semibold'
-                        : 'text-blue-100/85 hover:bg-white/[0.08] hover:text-white'
+                        ? 'bg-white/[0.15] text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                        : 'text-blue-100/80 hover:bg-white/[0.09] hover:text-white'
                     }`}
                   >
                     {/* Warm Gold Active Left Indicator Bar */}
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#D99B26]"
+                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-[#E8C06B]"
                       />
                     )}
 
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon
-                        className={`w-4 h-4 shrink-0 transition-colors ${
+                        className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
                           isActive
-                            ? 'text-[#D99B26]'
-                            : 'text-blue-200/75 group-hover:text-white'
+                            ? 'text-[#E8C06B]'
+                            : 'text-blue-200/70 group-hover:text-[#E8C06B]'
                         }`}
                       />
                       {!compact && <span className="truncate">{item.label}</span>}
@@ -540,10 +540,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                     {!compact && item.badge !== undefined && (
                       <span
-                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-bold tabular-nums shrink-0 ${
+                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-bold tabular-nums shrink-0 transition-colors duration-200 ${
                           isActive
                             ? 'bg-[#D99B26] text-[#000065]'
-                            : 'bg-white/10 text-slate-200'
+                            : 'bg-white/12 text-blue-100 group-hover:bg-white/20 group-hover:text-white'
                         }`}
                       >
                         {item.badge}
@@ -558,14 +558,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </nav>
 
       {/* Compact Anchored Staff Profile Card */}
-      <div className="p-3 border-t border-white/10 shrink-0">
+      <div className="p-3 border-t border-white/[0.10] shrink-0">
         <div
           className={`flex items-center ${
             compact ? 'justify-center' : 'justify-between gap-2.5'
-          } p-2 rounded-xl bg-white/[0.06] border border-white/10`}
+          } p-2 rounded-xl bg-white/[0.07] hover:bg-white/[0.10] border border-white/[0.10] transition-colors duration-200`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#D99B26]/20 border border-[#D99B26]/60 text-[#E8C06B] text-xs font-display font-bold flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#D99B26]/20 border border-[#E8C06B]/55 text-[#E8C06B] text-xs font-display font-bold flex items-center justify-center shrink-0">
               {getUserInitials(effectiveUser?.name)}
             </div>
             {!compact && (
@@ -586,7 +586,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onClick={logout}
               title="Sign Out"
               aria-label="Sign Out"
-              className="p-1.5 rounded-lg text-blue-200/75 hover:text-rose-300 hover:bg-white/10 transition cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-blue-200/75 hover:text-rose-200 hover:bg-rose-500/20 transition-colors duration-150 cursor-pointer shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -597,10 +597,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen w-full flex bg-[#F4F6F9] dark:bg-slate-950 text-[#000065] dark:text-slate-100 font-sans print:bg-white">
-      {/* Desktop Fixed / Collapsible Left Sidebar (#000065 Deep Navy, w-64) */}
+    <div className="min-h-screen w-full flex bg-[#F5F7FB] dark:bg-slate-950 text-[#0F1336] dark:text-slate-100 font-sans print:bg-white">
+      {/* Desktop Fixed / Collapsible Left Sidebar (#000065 Firm Navy, w-64) */}
       <aside
-        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-[#000065] sticky top-0 h-screen transition-[width] duration-200 ${
+        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-[#00004A] sticky top-0 h-screen transition-[width] duration-200 ${
           sidebarCollapsed ? 'w-[74px]' : 'w-64'
         }`}
       >
@@ -611,7 +611,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {mobileDrawerOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-[#000065]/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-[#00004A]/60 backdrop-blur-xs"
             onClick={() => setMobileDrawerOpen(false)}
           />
           <div className="relative z-10 w-64 max-w-[82vw] h-full shadow-2xl">
@@ -622,14 +622,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
       {/* Main Content Column */}
       <div className="flex-1 min-w-0 flex flex-col">
-        {/* Clio-Style Top Header Bar (h-16 bg-white border-b border-[#E2E8F0] px-6) */}
-        <header className="no-print sticky top-0 z-30 h-16 bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-4">
+        {/* Top Header Bar */}
+        <header className="no-print sticky top-0 z-30 h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-[#DFE5F2] dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between gap-4">
           {/* Left: Toggles + Active View Title & Branch/Staff Context */}
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileDrawerOpen(true)}
-              className="lg:hidden p-2 -ml-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0"
+              className="lg:hidden p-2 -ml-1 rounded-lg text-slate-600 dark:text-slate-300 hover:text-[#000065] hover:bg-[#EEF1FA] dark:hover:bg-slate-800 transition-colors duration-150 cursor-pointer shrink-0"
               aria-label="Open navigation menu"
             >
               <Menu className="w-5 h-5" />
@@ -638,7 +638,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
-              className="hidden lg:inline-flex p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-[#000065] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0 transition"
+              className="hidden lg:inline-flex p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-[#000065] dark:hover:text-white hover:bg-[#EEF1FA] dark:hover:bg-slate-800 cursor-pointer shrink-0 transition-colors duration-150"
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
@@ -697,23 +697,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder="Search Case ID, client, branch code..."
                 aria-label="Global search across Case ID, client names, and branch codes"
-                className={`w-full h-9 pl-9 pr-8 text-xs rounded-lg text-[#000065] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none transition border ${
+                className={`w-full h-9 pl-9 pr-8 text-xs rounded-lg text-[#0F1336] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none transition-all duration-200 border ${
                   searchQuery
                     ? 'bg-white dark:bg-slate-800 border-[#D99B26] ring-2 ring-[#D99B26]/20'
-                    : 'bg-[#F4F6F9] dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065] dark:focus:border-[#D99B26]'
+                    : 'bg-[#F5F7FB] dark:bg-slate-800 border-[#DFE5F2] dark:border-slate-700 hover:border-[#000065]/30 focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065] focus:ring-2 focus:ring-[#000065]/12 dark:focus:border-[#D99B26]'
                 }`}
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchChange?.('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#000065] dark:hover:text-white p-0.5 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#000065] dark:hover:text-white p-0.5 transition-colors cursor-pointer"
                   aria-label="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <kbd className="hidden lg:inline-flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded pointer-events-none">
+                <kbd className="hidden lg:inline-flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-white dark:bg-slate-900 border border-[#DFE5F2] dark:border-slate-700 rounded pointer-events-none">
                   /
                 </kbd>
               )}
@@ -726,7 +726,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 onClick={() => setNotifPopoverOpen((o) => !o)}
                 aria-label="Notifications"
                 title="Notifications"
-                className="relative w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-700/80 transition flex items-center justify-center cursor-pointer"
+                className="relative w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-[#DFE5F2] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white hover:bg-[#EEF1FA] dark:hover:bg-slate-700/80 hover:border-[#000065]/30 transition-all duration-150 flex items-center justify-center cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
                 {bellUnreadCount > 0 && (
@@ -737,8 +737,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </button>
 
               {notifPopoverOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-[#DFE5F2] dark:border-slate-800 rounded-xl shadow-[0_18px_40px_-14px_rgba(0,0,101,0.22)] z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[#DFE5F2] dark:border-slate-800 bg-[#F8FAFE] dark:bg-slate-900 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-display text-xs font-bold text-[#000065] dark:text-white">
                         {canAccessRestrictedWorkflow ? 'Firm & Workflow Notifications' : 'Court & Matter Notifications'}
@@ -873,10 +873,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
             {/* Logged-in User Display */}
             <div
-              className="h-9 pl-1.5 pr-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 inline-flex items-center gap-2 shrink-0 max-w-[210px] sm:max-w-[240px]"
+              className="h-9 pl-1.5 pr-3 rounded-lg bg-[#F5F7FB] hover:bg-[#EEF1FA] dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-[#DFE5F2] hover:border-[#000065]/25 dark:border-slate-700 transition-colors duration-150 inline-flex items-center gap-2 shrink-0 max-w-[210px] sm:max-w-[240px]"
               title={`${effectiveUser?.name || 'Firm Staff'}${effectiveUser?.roleTitle || effectiveUser?.role ? ` · ${effectiveUser?.roleTitle || effectiveUser?.role}` : ''}`}
             >
-              <div className="w-6 h-6 rounded-md bg-[#000065] text-[#E8C06B] text-[10px] font-display font-bold flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#000065] to-[#121285] text-[#E8C06B] text-[10px] font-display font-bold flex items-center justify-center shrink-0">
                 {getUserInitials(effectiveUser?.name)}
               </div>
               <div className="min-w-0 leading-tight">
@@ -892,7 +892,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </header>
 
         {/* Mobile Global Search Bar (< sm screens) */}
-        <div className="sm:hidden px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 no-print">
+        <div className="sm:hidden px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-[#DFE5F2] dark:border-slate-800 no-print">
           <div className="relative">
             <Search
               className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${
@@ -905,7 +905,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onChange={(e) => onSearchChange?.(e.target.value)}
               placeholder="Search Case ID, client, branch code..."
               aria-label="Global search across Case ID, client names, and branch codes"
-              className="w-full h-9 pl-9 pr-8 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#000065] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065]"
+              className="w-full h-9 pl-9 pr-8 text-xs bg-[#F5F7FB] dark:bg-slate-800 border border-[#DFE5F2] dark:border-slate-700 rounded-lg text-[#0F1336] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065] focus:ring-2 focus:ring-[#000065]/12 transition-all duration-150"
             />
             {searchQuery && (
               <button
@@ -920,8 +920,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </div>
 
-        {/* Main Viewport Canvas (#F4F6F9, max-w-[1440px] mx-auto p-6 space-y-6) */}
-        <main className="flex-1 min-w-0 bg-[#F4F6F9] dark:bg-slate-950 print:bg-white">
+        {/* Main Viewport Canvas */}
+        <main className="flex-1 min-w-0 bg-[#F5F7FB] dark:bg-slate-950 print:bg-white">
           <div className="w-full max-w-[1440px] mx-auto p-4 sm:p-6 space-y-6 pb-24 lg:pb-8 print:p-0">
             {children}
           </div>
@@ -933,21 +933,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <aside
           role="alert"
           aria-live="polite"
-          className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[396px] z-40 no-print bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 border-l-4 border-l-[#D99B26] rounded-xl shadow-2xl overflow-hidden"
+          className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[396px] z-40 no-print bg-white dark:bg-slate-900 border border-[#000065]/20 dark:border-slate-700 rounded-xl shadow-[0_20px_45px_-14px_rgba(0,0,101,0.28)] overflow-hidden"
         >
-          {/* Navy Header Bar */}
-          <div className="bg-[#000065] text-white px-4 py-2.5 flex items-center justify-between gap-2">
+          {/* Firm Navy Header Bar */}
+          <div className="bg-gradient-to-r from-[#000065] to-[#121285] border-b border-[#D99B26]/35 text-white px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D99B26] opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D99B26]" />
-              </span>
-              <Bell className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
+              <Bell className="w-3.5 h-3.5 text-[#E8C06B] shrink-0" />
               <span className="font-display text-xs font-bold tracking-tight truncate">
                 Latest Unread · {getCategoryLabel(latestUnreadNotification.category)}
               </span>
             </div>
-            <span className="px-2 py-0.5 rounded bg-[#D99B26]/20 text-[#F5D28B] border border-[#D99B26]/30 text-[10px] font-semibold tabular-nums shrink-0">
+            <span className="px-2 py-0.5 rounded bg-white/12 text-[#F5D28B] text-[10px] font-semibold tabular-nums shrink-0">
               {bellUnreadCount > 1 ? `1 of ${bellUnreadCount} unread` : '1 unread'}
             </span>
           </div>
@@ -975,7 +971,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               {latestUnreadNotification.subtitle}
             </p>
 
-            <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+            <div className="bg-[#F5F7FB] dark:bg-slate-800/70 border border-[#DFE5F2] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
               {latestUnreadNotification.body}
             </div>
 
@@ -985,12 +981,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+          <div className="px-4 py-2.5 bg-[#F8FAFE] dark:bg-slate-800/60 border-t border-[#DFE5F2] dark:border-slate-800 flex items-center justify-between gap-2">
             {activeNotificationRules.allowMarkAllRead && bellUnreadCount > 1 ? (
               <button
                 type="button"
                 onClick={markAllUnifiedNotificationsRead}
-                className="text-[11px] font-semibold text-slate-500 hover:text-[#000065] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
+                className="text-[11px] font-semibold text-slate-500 hover:text-[#000065] dark:text-slate-400 dark:hover:text-[#D99B26] transition-colors cursor-pointer"
               >
                 Mark all read
               </button>
@@ -1002,7 +998,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <button
                 type="button"
                 onClick={() => markUnifiedNotificationRead(latestUnreadNotification)}
-                className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#000065] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                className="h-8 px-2.5 rounded-lg border border-[#DFE5F2] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-[#EEF1FA] hover:border-[#000065]/30 dark:hover:bg-slate-800 text-[#000065] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition-all duration-150 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5 text-[#D99B26]" />
                 <span>Mark Read</span>
@@ -1010,10 +1006,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <button
                 type="button"
                 onClick={() => handleOpenUnifiedNotification(latestUnreadNotification)}
-                className="h-8 px-3 rounded-lg bg-[#000065] hover:bg-[#0F0F80] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                className="h-8 px-3 rounded-lg bg-[#000065] hover:bg-[#121285] active:bg-[#00004A] text-white text-xs font-semibold inline-flex items-center gap-1 shadow-[0_2px_8px_rgba(0,0,101,0.2)] hover:shadow-[0_4px_12px_rgba(0,0,101,0.3)] transition-all duration-150 cursor-pointer"
               >
                 <span>{activeNotificationRules.markReadOnOpen ? 'Open & Read' : 'Open'}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
+                <ArrowRight className="w-3.5 h-3.5 text-[#E8C06B]" />
               </button>
             </div>
           </div>
