@@ -10,6 +10,7 @@ import {
   persistReadAlertIds,
   type UnifiedNotificationItem,
 } from '../utils/notificationRules';
+import { dedupeBranches } from '../utils/globalSearch';
 import {
   LayoutGrid,
   Briefcase,
@@ -298,7 +299,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (Array.isArray(branches) && branches.length > 0) {
       return [
         { id: 'all', name: 'All Firm Branches' },
-        ...branches.map((b) => ({ id: b.id, name: b.name })),
+        ...dedupeBranches(branches).map(({ primary }) => ({ id: primary.id, name: primary.name })),
       ];
     }
     return [

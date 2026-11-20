@@ -7,6 +7,7 @@ import { MortgageService, getVisibleBanksForUser } from '../services/mortgageSer
 import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
 import {
+  dedupeBranches,
   getBranchCode,
   getBranchSearchTokens,
   getCaseMatchDimensions,
@@ -450,7 +451,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     if (Array.isArray(branches) && branches.length > 0) {
       return [
         { id: 'all', name: 'All Firm Branches' },
-        ...branches.map((b) => ({ id: b.id, name: b.name })),
+        ...dedupeBranches(branches).map(({ primary }) => ({ id: primary.id, name: primary.name })),
       ];
     }
     return DEFAULT_BRANCH_OPTIONS;
@@ -566,9 +567,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     pendingApprovalsCount,
   ]);
 
-  // Branch Case Blocks (accurate per-branch breakdown tallied directly from live cases + mortgages, live-filtered by global search)
+  // Branch Case Blocks (deduplicated per station with accurate live cases + mortgages tallies, live-filtered by global search)
   const branchCaseBlocks = useMemo(() => {
-    const sourceBranches =
+    const rawSourceBranches =
       Array.isArray(branches) && branches.length > 0
         ? branches
         : DEFAULT_BRANCH_OPTIONS.filter((b) => b.id !== 'all').map((b) => ({
@@ -578,11 +579,18 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             isHeadquarters: b.id === 'kla-hq',
           }));
 
-    const mapped = sourceBranches.map((branch) => {
+    const dedupedBranches = dedupeBranches(rawSourceBranches);
+
+    const mapped = dedupedBranches.map(({ primary: branch, mergedIds, mergedNames }) => {
       const branchCity = (branch as any).city || branch.name;
       const branchCode = getBranchCode(branch.id, branch.name, branchCity);
       const branchDirectlyMatches = isGlobalSearchActive
-        ? matchesBranchGlobalSearch({ id: branch.id, name: branch.name, city: branchCity }, trimmedSearchQuery)
+        ? mergedIds.some((id) =>
+            matchesBranchGlobalSearch({ id, name: branch.name, city: branchCity }, trimmedSearchQuery)
+          ) ||
+          mergedNames.some((name) =>
+            matchesBranchGlobalSearch({ id: branch.id, name, city: branchCity }, trimmedSearchQuery)
+          )
         : false;
 
       const caseSource =
@@ -591,7 +599,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         isGlobalSearchActive && !branchDirectlyMatches ? searchMatchedMortgages : mortgages;
 
       const bCases = caseSource.filter((c) =>
-        matchesBranchRecord(c.branchId, c.branch || c.branchName, branch.id, branch.name, branchCity)
+        mergedIds.some((id) =>
+          matchesBranchRecord(c.branchId, c.branch || c.branchName, id, branch.name, branchCity)
+        )
       );
       let pending = 0;
       let active = 0;
@@ -609,12 +619,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       });
 
       const bMortgages = mortgageSource.filter((m) =>
-        matchesBranchRecord(
-          m.branch_id,
-          m.firm_branch_station || m.branch_name || m.bank_branch_station,
-          branch.id,
-          branch.name,
-          branchCity
+        mergedIds.some((id) =>
+          matchesBranchRecord(
+            m.branch_id,
+            m.firm_branch_station || m.branch_name || m.bank_branch_station,
+            id,
+            branch.name,
+            branchCity
+          )
         )
       ).length;
 

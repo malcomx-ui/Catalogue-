@@ -23,6 +23,64 @@ export function getBranchCode(
   return token.slice(0, 3) || 'FIRM';
 }
 
+export function getBranchStationKey(
+  branchId?: string | null,
+  branchName?: string | null,
+  city?: string | null
+): string {
+  const rawName = String(city || branchName || '').trim().toLowerCase();
+  const cleaned = rawName
+    .replace(/\s*\(.*?\)\s*/g, '')
+    .replace(/\b(branch|office|station|regional|central|headquarters|hq|main)\b/gi, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  if (cleaned) return cleaned;
+  return String(branchId || '').trim().toLowerCase();
+}
+
+export interface DeduplicatedBranch<T extends { id: string; name: string; city?: string; isHeadquarters?: boolean }> {
+  primary: T;
+  mergedIds: string[];
+  mergedNames: string[];
+}
+
+export function dedupeBranches<
+  T extends { id: string; name: string; city?: string; isHeadquarters?: boolean }
+>(branches: T[]): Array<DeduplicatedBranch<T>> {
+  const map = new Map<string, DeduplicatedBranch<T>>();
+
+  branches.forEach((branch) => {
+    if (!branch) return;
+    const key = getBranchStationKey(branch.id, branch.name, branch.city) || branch.id.toLowerCase();
+    const existing = map.get(key);
+
+    if (!existing) {
+      map.set(key, {
+        primary: branch,
+        mergedIds: [branch.id],
+        mergedNames: [branch.name],
+      });
+      return;
+    }
+
+    const preferIncoming =
+      (branch.id.toLowerCase() === 'kla-hq' && existing.primary.id.toLowerCase() !== 'kla-hq') ||
+      (Boolean(branch.isHeadquarters) && !existing.primary.isHeadquarters);
+
+    if (preferIncoming) {
+      existing.primary = branch;
+    }
+    if (branch.id && !existing.mergedIds.includes(branch.id)) {
+      existing.mergedIds.push(branch.id);
+    }
+    if (branch.name && !existing.mergedNames.includes(branch.name)) {
+      existing.mergedNames.push(branch.name);
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 /**
  * Returns all searchable branch code & label aliases for a branch
  * (full ID code, short 3-letter prefix before '-', city 3-letter code, full name, city).
