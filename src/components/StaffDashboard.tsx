@@ -6,6 +6,16 @@ import { LockedBirthdayWidget } from './LockedHrComponents';
 import { MortgageService, getVisibleBanksForUser } from '../services/mortgageService';
 import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
+import {
+  getBranchCode,
+  getBranchSearchTokens,
+  getCaseMatchDimensions,
+  matchesBranchGlobalSearch,
+  matchesCaseGlobalSearch,
+  matchesMortgageGlobalSearch,
+  matchesMultiTokenQuery,
+  resolveBranchForRecord,
+} from '../utils/globalSearch';
 import type { CaseItem, PleadingDocument, ProgressiveNote } from '../types';
 import {
   buildNewCashRequisition,
@@ -501,14 +511,28 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     );
   }, [mortgages, activeBranchId, branches, activeBranchLabel]);
 
-  // Live KPI metrics for the 4 Signed-In Branch Stat Blocks
+  const trimmedSearchQuery = searchQuery.trim();
+  const isGlobalSearchActive = Boolean(trimmedSearchQuery);
+
+  // Live global search across Case ID, client names, and branch codes
+  const searchMatchedCases = useMemo(() => {
+    if (!isGlobalSearchActive) return branchScopedCases;
+    return cases.filter((c) => matchesCaseGlobalSearch(c, trimmedSearchQuery, branches));
+  }, [isGlobalSearchActive, branchScopedCases, cases, trimmedSearchQuery, branches]);
+
+  const searchMatchedMortgages = useMemo(() => {
+    if (!isGlobalSearchActive) return branchScopedMortgages;
+    return mortgages.filter((m) => matchesMortgageGlobalSearch(m, trimmedSearchQuery, branches));
+  }, [isGlobalSearchActive, branchScopedMortgages, mortgages, trimmedSearchQuery, branches]);
+
+  // Live KPI metrics for the 4 Signed-In Branch Stat Blocks (dynamically reflects global search as user types)
   const kpiMetrics = useMemo(() => {
     let pendingCount = 0;
     let activePendingCount = 0;
     let inactivePendingCount = 0;
     let accomplishedCount = 0;
 
-    branchScopedCases.forEach((c) => {
+    searchMatchedCases.forEach((c) => {
       if (isCaseClosed(c)) {
         accomplishedCount += 1;
       } else {
@@ -518,10 +542,12 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       }
     });
 
-    const vaultCustodyCount = Math.max(
-      documents.length,
-      branchScopedCases.length > 0 ? Math.min(branchScopedCases.length, 48) : 14
-    );
+    const vaultCustodyCount = isGlobalSearchActive
+      ? searchMatchedCases.length
+      : Math.max(
+          documents.length,
+          searchMatchedCases.length > 0 ? Math.min(searchMatchedCases.length, 48) : 14
+        );
 
     return {
       pendingCases: pendingCount,
@@ -530,10 +556,17 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       accomplishedCases: accomplishedCount,
       vaultCustody: vaultCustodyCount,
       approvals: pendingApprovalsCount,
+      mortgagesCount: searchMatchedMortgages.length,
     };
-  }, [branchScopedCases, documents.length, pendingApprovalsCount]);
+  }, [
+    searchMatchedCases,
+    searchMatchedMortgages.length,
+    isGlobalSearchActive,
+    documents.length,
+    pendingApprovalsCount,
+  ]);
 
-  // Branch Case Blocks (accurate per-branch breakdown tallied directly from live cases + mortgages)
+  // Branch Case Blocks (accurate per-branch breakdown tallied directly from live cases + mortgages, live-filtered by global search)
   const branchCaseBlocks = useMemo(() => {
     const sourceBranches =
       Array.isArray(branches) && branches.length > 0
@@ -545,9 +578,20 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             isHeadquarters: b.id === 'kla-hq',
           }));
 
-    return sourceBranches.map((branch) => {
-      const bCases = cases.filter((c) =>
-        matchesBranchRecord(c.branchId, c.branch || c.branchName, branch.id, branch.name, (branch as any).city)
+    const mapped = sourceBranches.map((branch) => {
+      const branchCity = (branch as any).city || branch.name;
+      const branchCode = getBranchCode(branch.id, branch.name, branchCity);
+      const branchDirectlyMatches = isGlobalSearchActive
+        ? matchesBranchGlobalSearch({ id: branch.id, name: branch.name, city: branchCity }, trimmedSearchQuery)
+        : false;
+
+      const caseSource =
+        isGlobalSearchActive && !branchDirectlyMatches ? searchMatchedCases : cases;
+      const mortgageSource =
+        isGlobalSearchActive && !branchDirectlyMatches ? searchMatchedMortgages : mortgages;
+
+      const bCases = caseSource.filter((c) =>
+        matchesBranchRecord(c.branchId, c.branch || c.branchName, branch.id, branch.name, branchCity)
       );
       let pending = 0;
       let active = 0;
@@ -564,20 +608,21 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         }
       });
 
-      const bMortgages = mortgages.filter((m) =>
+      const bMortgages = mortgageSource.filter((m) =>
         matchesBranchRecord(
           m.branch_id,
           m.firm_branch_station || m.branch_name || m.bank_branch_station,
           branch.id,
           branch.name,
-          (branch as any).city
+          branchCity
         )
       ).length;
 
       return {
         id: branch.id,
+        code: branchCode,
         name: branch.name,
-        city: (branch as any).city || branch.name,
+        city: branchCity,
         isHeadquarters: Boolean((branch as any).isHeadquarters),
         total: bCases.length,
         pending,
@@ -585,9 +630,23 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         inactive,
         accomplished,
         mortgages: bMortgages,
+        branchDirectlyMatches,
       };
     });
-  }, [branches, cases, mortgages]);
+
+    if (!isGlobalSearchActive) return mapped;
+    return mapped.filter(
+      (b) => b.branchDirectlyMatches || b.total > 0 || b.mortgages > 0
+    );
+  }, [
+    branches,
+    cases,
+    mortgages,
+    searchMatchedCases,
+    searchMatchedMortgages,
+    isGlobalSearchActive,
+    trimmedSearchQuery,
+  ]);
 
   // Birthday Celebrants & Live Supabase `birthday_wishes` integration
   const [celebrants, setCelebrants] = useState<BirthdayCelebrant[]>([]);
@@ -844,7 +903,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     }
   };
 
-  // Upcoming Hearings & Deadlines (capped to 2 displayed items on dashboard rail, arrow opens full deadlines page)
+  // Upcoming Hearings & Deadlines (capped to 2 displayed items on dashboard rail, live-filtered across Case ID, client names & branch codes)
   const upcomingHearings = useMemo(() => {
     const items: Array<{
       id: string;
@@ -855,6 +914,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       caseCode: string;
       courtDivision: string;
       linkedCase?: CaseItem;
+      searchFields: Array<string | null | undefined>;
     }> = [];
 
     hearings
@@ -862,6 +922,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       .forEach((h) => {
         const linked = cases.find((c) => c.id === h.caseId || c.suitNumber === h.suitNumber);
         if (
+          !isGlobalSearchActive &&
           activeBranchId &&
           activeBranchId !== 'all' &&
           linked &&
@@ -870,27 +931,69 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         ) {
           return;
         }
+        const matchedBranch = resolveBranchForRecord(
+          h.branchId || linked?.branchId,
+          linked?.branchName || linked?.branch,
+          branches
+        );
+        const branchTokens = getBranchSearchTokens(
+          h.branchId || linked?.branchId || matchedBranch?.id,
+          linked?.branchName || linked?.branch || matchedBranch?.name,
+          matchedBranch?.city
+        );
+        const partiesText = Array.isArray(linked?.parties)
+          ? linked.parties.map((p) => p?.name || '').filter(Boolean)
+          : [];
+
         items.push({
           id: h.id,
           badge: h.hearingPurpose || 'Court Hearing',
           dateTime: `${h.hearingDate}${h.hearingTime ? ` · ${h.hearingTime}` : ' · 09:30 AM'}`,
           rawDate: h.hearingDate,
           title: h.caseTitle || linked?.title || h.suitNumber || 'Scheduled Court Appearance',
-          caseCode: h.suitNumber || linked?.suitNumber || 'HCT-2026',
+          caseCode: h.suitNumber || linked?.suitNumber || linked?.case_number || 'HCT-2026',
           courtDivision:
             h.courtRoom || h.courtName || h.division || linked?.court || 'High Court Commercial Division',
           linkedCase: linked,
+          searchFields: [
+            h.id,
+            h.caseId,
+            h.suitNumber,
+            h.caseTitle,
+            h.hearingPurpose,
+            h.courtName,
+            h.courtRoom,
+            linked?.id,
+            linked?.case_number,
+            linked?.firmRefNumber,
+            linked?.suitNumber,
+            linked?.suit_no,
+            linked?.clientName,
+            linked?.client,
+            linked?.title,
+            ...partiesText,
+            ...branchTokens,
+          ],
         });
       });
 
-    if (items.length < 4) {
-      branchScopedCases
+    if (items.length < 4 || isGlobalSearchActive) {
+      searchMatchedCases
         .filter((c) => !isCaseClosed(c) && (c.nextHearingDate || c.hearing_date))
-        .slice(0, 6)
+        .slice(0, isGlobalSearchActive ? 12 : 6)
         .forEach((c) => {
           const code = c.suitNumber || c.firmRefNumber || c.case_number || 'LF-2026';
           if (items.some((i) => i.caseCode === code)) return;
           const dateVal = String(c.nextHearingDate || c.hearing_date).slice(0, 10);
+          const matchedBranch = resolveBranchForRecord(c.branchId, c.branch || c.branchName, branches);
+          const branchTokens = getBranchSearchTokens(
+            c.branchId || matchedBranch?.id,
+            c.branchName || c.branch || matchedBranch?.name,
+            matchedBranch?.city
+          );
+          const partiesText = Array.isArray(c.parties)
+            ? c.parties.map((p) => p?.name || '').filter(Boolean)
+            : [];
           items.push({
             id: `case-hr-${c.id}`,
             badge: c.nextHearingPurpose || c.stage || 'Mention / Hearing',
@@ -900,28 +1003,44 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             caseCode: code,
             courtDivision: c.court || c.division || `${c.branchName || activeBranchLabel} Registry`,
             linkedCase: c,
+            searchFields: [
+              c.id,
+              c.case_number,
+              c.firmRefNumber,
+              c.suitNumber,
+              c.suit_no,
+              c.clientName,
+              c.client,
+              c.title,
+              c.court,
+              c.nextHearingPurpose,
+              ...partiesText,
+              ...branchTokens,
+            ],
           });
         });
     }
 
-    const q = searchQuery.trim().toLowerCase();
-    const filtered = q
-      ? items.filter(
-          (item) =>
-            item.title.toLowerCase().includes(q) ||
-            item.caseCode.toLowerCase().includes(q) ||
-            item.courtDivision.toLowerCase().includes(q) ||
-            item.badge.toLowerCase().includes(q)
-        )
+    const filtered = isGlobalSearchActive
+      ? items.filter((item) => matchesMultiTokenQuery(item.searchFields, trimmedSearchQuery))
       : items;
 
     return filtered.slice(0, 5);
-  }, [hearings, cases, branchScopedCases, activeBranchId, activeBranchLabel, searchQuery]);
+  }, [
+    hearings,
+    cases,
+    branches,
+    searchMatchedCases,
+    activeBranchId,
+    activeBranchLabel,
+    isGlobalSearchActive,
+    trimmedSearchQuery,
+  ]);
 
-  // Upcoming Cases Table Rows (prioritizes matters with upcoming dates, supports All | Litigation | Corporate | Mortgages)
+  // Upcoming Cases Table Rows (live-filtered across Case ID, client names & branch codes; supports All | Litigation | Corporate | Mortgages)
   const upcomingCasesRows = useMemo(() => {
-    const caseRows = branchScopedCases
-      .filter((c) => !isCaseClosed(c))
+    const caseRows = searchMatchedCases
+      .filter((c) => (isGlobalSearchActive ? true : !isCaseClosed(c)))
       .map((c) => {
         const practice = classifyCasePractice(c);
         const deadline = c.nextHearingDate || c.hearing_date || '';
@@ -931,14 +1050,21 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           c.client ||
           (Array.isArray(c.parties) && c.parties.length > 0 ? c.parties[0].name : '') ||
           'Firm Client';
+        const matchedBranch = resolveBranchForRecord(c.branchId, c.branch || c.branchName, branches);
+        const branchCode = getBranchCode(
+          c.branchId || matchedBranch?.id,
+          c.branchName || c.branch || matchedBranch?.name,
+          matchedBranch?.city
+        );
         return {
           id: c.id,
-          code: c.suitNumber || c.firmRefNumber || c.case_number || 'MK-MATTER',
+          code: c.suitNumber || c.firmRefNumber || c.case_number || c.id || 'MK-MATTER',
           title: c.title || primaryClient,
           client: primaryClient,
           practice,
           practiceLabel: c.case_type || practice,
-          branch: c.branchName || c.branch || activeBranchLabel,
+          branch: c.branchName || c.branch || matchedBranch?.name || activeBranchLabel,
+          branchCode,
           stage: c.nextHearingPurpose || c.stage || c.status || 'Active',
           nextDateLabel: deadline ? dt.formatted : 'TBD',
           sortTs: dt.sortTs,
@@ -947,8 +1073,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         };
       });
 
-    const mortgageRows = branchScopedMortgages.map((m) => {
+    const mortgageRows = searchMatchedMortgages.map((m) => {
       const dt = parseDateTile(m.date_of_receipt || m.updated_at || '');
+      const branchLabel =
+        m.firm_branch_station || m.branch_name || m.bank_branch_station || activeBranchLabel;
+      const matchedBranch = resolveBranchForRecord(m.branch_id, branchLabel, branches);
+      const branchCode = getBranchCode(
+        m.branch_id || matchedBranch?.id,
+        branchLabel || matchedBranch?.name,
+        matchedBranch?.city
+      );
       return {
         id: `mtg-${m.id}`,
         code: m.file_ref || m.mortgage_ref || m.bank_name || 'MTG-FILE',
@@ -956,7 +1090,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         client: m.bank_name || m.client_bank_name || 'Partner Bank',
         practice: 'Mortgages' as const,
         practiceLabel: m.bank_name || 'Mortgages',
-        branch: m.firm_branch_station || m.branch_name || m.bank_branch_station || activeBranchLabel,
+        branch: branchLabel,
+        branchCode,
         stage: m.status || m.perfection_status || 'In Perfection',
         nextDateLabel: m.date_of_receipt ? dt.formatted : 'Ongoing',
         sortTs: dt.sortTs,
@@ -969,45 +1104,25 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       activeCaseFilter === 'Mortgages'
         ? [...mortgageRows, ...caseRows.filter((r) => r.practice === 'Mortgages')]
         : activeCaseFilter === 'All'
-        ? [...caseRows, ...mortgageRows.slice(0, 3)]
+        ? [...caseRows, ...mortgageRows.slice(0, isGlobalSearchActive ? 6 : 3)]
         : caseRows.filter((r) => r.practice === activeCaseFilter);
 
     const sorted = combined.sort((a, b) => a.sortTs - b.sortTs);
+    return sorted.slice(0, isGlobalSearchActive ? 12 : 7);
+  }, [
+    searchMatchedCases,
+    searchMatchedMortgages,
+    branches,
+    activeCaseFilter,
+    isGlobalSearchActive,
+    activeBranchLabel,
+  ]);
 
-    const q = searchQuery.trim().toLowerCase();
-    const filtered = q
-      ? sorted.filter(
-          (r) =>
-            r.code.toLowerCase().includes(q) ||
-            r.title.toLowerCase().includes(q) ||
-            r.client.toLowerCase().includes(q) ||
-            r.branch.toLowerCase().includes(q) ||
-            r.stage.toLowerCase().includes(q)
-        )
-      : sorted;
-
-    return filtered.slice(0, 7);
-  }, [branchScopedCases, branchScopedMortgages, activeCaseFilter, searchQuery, activeBranchLabel]);
-
-  // Live matter search results banner
+  // Live matter search results banner (top matched cases with match-dimension badges)
   const matchingCases = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return branchScopedCases
-      .filter((c) => {
-        const partiesText = Array.isArray(c.parties) ? c.parties.map((p) => p.name).join(' ') : '';
-        return (
-          (c.suitNumber || '').toLowerCase().includes(q) ||
-          (c.firmRefNumber || '').toLowerCase().includes(q) ||
-          (c.case_number || '').toLowerCase().includes(q) ||
-          (c.title || '').toLowerCase().includes(q) ||
-          partiesText.toLowerCase().includes(q) ||
-          (c.clientName || c.client || '').toLowerCase().includes(q) ||
-          (c.court || '').toLowerCase().includes(q)
-        );
-      })
-      .slice(0, 4);
-  }, [branchScopedCases, searchQuery]);
+    if (!isGlobalSearchActive) return [];
+    return searchMatchedCases.slice(0, 6);
+  }, [isGlobalSearchActive, searchMatchedCases]);
 
   // Quick Action Modal States
   const defaultCaseId = branchScopedCases[0]?.id || cases[0]?.id || '';
@@ -1265,50 +1380,86 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </header>
       )}
 
-      {/* Live Search Matters Bar (only appears when user types into the top search bar) */}
-      {searchQuery.trim() && (
-        <section className="bg-white dark:bg-slate-900 border border-[#D99B26]/60 rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#162238] dark:text-[#E8C06B]">
-              <Search className="w-3.5 h-3.5 text-[#D99B26]" />
+      {/* Live Global Search Results Bar (filters Case ID, Client Names & Branch Codes across the dashboard) */}
+      {isGlobalSearchActive && (
+        <section className="bg-white dark:bg-slate-900 border border-[#D99B26]/70 rounded-xl p-4 space-y-3 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#162238] dark:text-[#E8C06B] flex-wrap">
+              <Search className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
               <span>
-                Live filter active for &ldquo;{searchQuery.trim()}&rdquo; —{' '}
-                <span className="tabular-nums">{matchingCases.length}</span> matter(s),{' '}
-                <span className="tabular-nums">{upcomingHearings.length}</span> deadline(s)
+                Global search for &ldquo;{trimmedSearchQuery}&rdquo; —{' '}
+                <span className="tabular-nums font-bold">{searchMatchedCases.length}</span> case(s),{' '}
+                <span className="tabular-nums font-bold">{searchMatchedMortgages.length}</span> mortgage(s),{' '}
+                <span className="tabular-nums font-bold">{branchCaseBlocks.length}</span> branch(es),{' '}
+                <span className="tabular-nums font-bold">{upcomingHearings.length}</span> deadline(s)
               </span>
             </div>
             <button
               type="button"
               onClick={() => handleSearchChange('')}
-              className="text-xs font-semibold text-slate-500 hover:text-[#162238] dark:hover:text-white cursor-pointer"
+              className="text-xs font-semibold text-slate-500 hover:text-[#162238] dark:hover:text-white inline-flex items-center gap-1 cursor-pointer shrink-0"
             >
-              Clear filter
+              <X className="w-3.5 h-3.5" />
+              <span>Clear search</span>
             </button>
           </div>
-          {matchingCases.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {matchingCases.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCase(c)}
-                  className="text-left p-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 hover:bg-[#FBF5E8] dark:hover:bg-[#162238]/60 border border-[#E2E8F0] dark:border-slate-700 transition cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-mono font-semibold text-[#162238] dark:text-[#E8C06B] truncate tabular-nums">
-                      {c.suitNumber || c.firmRefNumber || c.case_number}
-                    </p>
-                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate mt-0.5">
-                      {c.title || c.clientName || c.client || 'Active Firm Matter'}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {c.branchName || activeBranchLabel} · {c.status || 'Active'}
-                    </p>
-                  </div>
-                  <ArrowUpRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-              ))}
+
+          {matchingCases.length === 0 && searchMatchedMortgages.length === 0 && branchCaseBlocks.length === 0 ? (
+            <div className="px-3 py-2.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/60 text-xs text-slate-500 dark:text-slate-400">
+              No records matched &ldquo;{trimmedSearchQuery}&rdquo; across Case IDs, client names, or branch codes.
             </div>
+          ) : (
+            matchingCases.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                {matchingCases.map((c) => {
+                  const matchedBranch = resolveBranchForRecord(c.branchId, c.branch || c.branchName, branches);
+                  const branchCode = getBranchCode(
+                    c.branchId || matchedBranch?.id,
+                    c.branchName || c.branch || matchedBranch?.name,
+                    matchedBranch?.city
+                  );
+                  const matchDims = getCaseMatchDimensions(c, trimmedSearchQuery, branches);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCase(c)}
+                      className="text-left p-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 hover:bg-[#FBF5E8] dark:hover:bg-[#162238]/60 border border-[#E2E8F0] dark:border-slate-700 transition cursor-pointer flex items-start justify-between gap-2.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-mono font-bold text-[#162238] dark:text-[#E8C06B] truncate tabular-nums">
+                            {c.suitNumber || c.firmRefNumber || c.case_number || c.id}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#162238] text-[#E8C06B] font-mono text-[10px] font-semibold shrink-0">
+                            {branchCode}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate mt-1">
+                          {c.title || c.clientName || c.client || 'Active Firm Matter'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {c.clientName || c.client || 'Firm Client'} · {c.status || 'Active'}
+                        </p>
+                        {matchDims.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            {matchDims.map((dim) => (
+                              <span
+                                key={dim}
+                                className="px-1.5 py-0.5 rounded bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#9A6B11] dark:text-[#F5D28B] text-[9px] font-semibold uppercase tracking-wider"
+                              >
+                                {dim}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <ArrowUpRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    </button>
+                  );
+                })}
+              </div>
+            )
           )}
         </section>
       )}
@@ -1463,11 +1614,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
           <div className="mt-4 flex items-end justify-between gap-2">
             <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
-              {canAccessRestrictedWorkflow ? kpiMetrics.approvals : branchScopedMortgages.length}
+              {canAccessRestrictedWorkflow ? kpiMetrics.approvals : kpiMetrics.mortgagesCount}
             </span>
             <span
               className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
-                (canAccessRestrictedWorkflow ? kpiMetrics.approvals : branchScopedMortgages.length) > 0
+                (canAccessRestrictedWorkflow ? kpiMetrics.approvals : kpiMetrics.mortgagesCount) > 0
                   ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200/70 dark:border-amber-800/50'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
               }`}
@@ -1476,6 +1627,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 ? kpiMetrics.approvals > 0
                   ? 'Awaiting review'
                   : 'All clear'
+                : isGlobalSearchActive
+                ? 'Search matched'
                 : 'Securities active'}
             </span>
           </div>
@@ -1616,9 +1769,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <p className="font-medium text-slate-800 dark:text-slate-200">{row.practiceLabel}</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[155px]">
-                            {row.branch}
-                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="px-1.5 py-0.2 rounded bg-[#162238]/[0.07] dark:bg-slate-800 text-[#162238] dark:text-[#E8C06B] font-mono text-[10px] font-semibold">
+                              {row.branchCode}
+                            </span>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[130px]">
+                              {row.branch}
+                            </p>
+                          </div>
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4F6F9] dark:bg-slate-800 text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 max-w-[165px] truncate">
@@ -1674,6 +1832,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               </div>
             </div>
 
+            {branchCaseBlocks.length === 0 ? (
+              <div className="p-6 text-center rounded-xl bg-[#F4F6F9]/70 dark:bg-slate-800/40 border border-dashed border-[#E2E8F0] dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                No branches matched &ldquo;{trimmedSearchQuery}&rdquo;. Try searching a branch code (e.g. KLA-HQ, MSK-REG, MBR-REG), Case ID, or client name.
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {branchCaseBlocks.map((branch) => {
                 const isSelected = activeBranchId.toLowerCase() === branch.id.toLowerCase();
@@ -1690,13 +1853,24 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p
-                          className={`font-display text-[13px] font-bold truncate ${
-                            isSelected ? 'text-white' : 'text-[#162238] dark:text-white'
-                          }`}
-                        >
-                          {branch.name}
-                        </p>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p
+                            className={`font-display text-[13px] font-bold truncate ${
+                              isSelected ? 'text-white' : 'text-[#162238] dark:text-white'
+                            }`}
+                          >
+                            {branch.name}
+                          </p>
+                          <span
+                            className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold shrink-0 ${
+                              isSelected
+                                ? 'bg-[#D99B26]/20 text-[#F5D28B]'
+                                : 'bg-[#162238]/[0.07] dark:bg-slate-700 text-[#162238] dark:text-[#E8C06B]'
+                            }`}
+                          >
+                            {branch.code}
+                          </span>
+                        </div>
                         <p
                           className={`text-[11px] truncate mt-0.5 ${
                             isSelected ? 'text-[#E8C06B]' : 'text-slate-500 dark:text-slate-400'
@@ -1748,6 +1922,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 );
               })}
             </div>
+            )}
           </div>
 
         </div>

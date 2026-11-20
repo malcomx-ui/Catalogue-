@@ -135,6 +135,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [logoErrorStep, setLogoErrorStep] = useState(0);
   const [notifPopoverOpen, setNotifPopoverOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Keyboard shortcut: press '/' anywhere (outside inputs) to focus Global Search, 'Esc' to clear
+  useEffect(() => {
+    const handleGlobalSearchKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditing =
+        tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable;
+
+      if (e.key === '/' && !isEditing && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === 'Escape' && document.activeElement === searchInputRef.current) {
+        if (searchQuery) {
+          onSearchChange?.('');
+        }
+        searchInputRef.current?.blur();
+      }
+    };
+    document.addEventListener('keydown', handleGlobalSearchKey);
+    return () => document.removeEventListener('keydown', handleGlobalSearchKey);
+  }, [searchQuery, onSearchChange]);
 
   const alertReadStorageKey = useMemo(
     () => getAlertReadStorageKey(effectiveUser?.id, effectiveUser?.email),
@@ -657,19 +680,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
 
-          {/* Right: Search Input, Notification Bell, and Primary + New Matter Button on one baseline */}
+          {/* Right: Global Search Input, Notification Bell, and Logged-In User Display on one baseline */}
           <div className="flex items-center gap-2.5 shrink-0">
-            {/* Search Input */}
-            <div className="relative hidden sm:block w-44 md:w-56 lg:w-64 xl:w-72">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Global Search Input (Case ID, Client Name, Branch Code) */}
+            <div className="relative hidden sm:block w-52 md:w-64 lg:w-72 xl:w-80">
+              <Search
+                className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  searchQuery ? 'text-[#D99B26]' : 'text-slate-400'
+                }`}
+              />
               <input
+                ref={searchInputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                placeholder="Search matter, suit #, client..."
-                className="w-full h-9 pl-9 pr-7 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238] dark:focus:border-[#D99B26] transition"
+                placeholder="Search Case ID, client, branch code..."
+                aria-label="Global search across Case ID, client names, and branch codes"
+                className={`w-full h-9 pl-9 pr-8 text-xs rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none transition border ${
+                  searchQuery
+                    ? 'bg-white dark:bg-slate-800 border-[#D99B26] ring-2 ring-[#D99B26]/20'
+                    : 'bg-[#F4F6F9] dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238] dark:focus:border-[#D99B26]'
+                }`}
               />
-              {searchQuery && (
+              {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchChange?.('')}
@@ -678,6 +711,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
+              ) : (
+                <kbd className="hidden lg:inline-flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 rounded pointer-events-none">
+                  /
+                </kbd>
               )}
             </div>
 
@@ -852,6 +889,35 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
         </header>
+
+        {/* Mobile Global Search Bar (< sm screens) */}
+        <div className="sm:hidden px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 no-print">
+          <div className="relative">
+            <Search
+              className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${
+                searchQuery ? 'text-[#D99B26]' : 'text-slate-400'
+              }`}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Search Case ID, client, branch code..."
+              aria-label="Global search across Case ID, client names, and branch codes"
+              className="w-full h-9 pl-9 pr-8 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => onSearchChange?.('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#162238] dark:hover:text-white p-0.5 cursor-pointer"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Main Viewport Canvas (#F4F6F9, max-w-[1440px] mx-auto p-6 space-y-6) */}
         <main className="flex-1 min-w-0 bg-[#F4F6F9] dark:bg-slate-950 print:bg-white">
