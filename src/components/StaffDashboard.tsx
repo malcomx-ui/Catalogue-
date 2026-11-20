@@ -1360,13 +1360,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search Case File # (e.g. LF-2026), Doc Code (e.g. DOC-PLD), or Client..."
-              className="w-full h-9 pl-10 pr-8 text-xs sm:text-sm bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#162238]"
+              className="w-full h-9 pl-10 pr-8 text-xs sm:text-sm bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#000065] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#000065]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => handleSearchChange('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#162238] p-1 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#000065] p-1 cursor-pointer"
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1380,7 +1380,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               aria-label="Active branch context"
               value={activeBranchId}
               onChange={(e) => handleBranchSelect(e.target.value)}
-              className="h-9 pl-8 pr-7 text-xs font-semibold bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-200 focus:outline-none focus:border-[#162238] cursor-pointer"
+              className="h-9 pl-8 pr-7 text-xs font-semibold bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#000065] dark:text-slate-200 focus:outline-none focus:border-[#000065] cursor-pointer"
             >
               {resolvedBranchOptions.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -1396,7 +1396,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       {isGlobalSearchActive && (
         <section className="bg-white dark:bg-slate-900 border border-[#D99B26]/70 rounded-xl p-4 space-y-3 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#162238] dark:text-[#E8C06B] flex-wrap">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#000065] dark:text-[#E8C06B] flex-wrap">
               <Search className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
               <span>
                 Global search for &ldquo;{trimmedSearchQuery}&rdquo; —{' '}
@@ -1409,7 +1409,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <button
               type="button"
               onClick={() => handleSearchChange('')}
-              className="text-xs font-semibold text-slate-500 hover:text-[#162238] dark:hover:text-white inline-flex items-center gap-1 cursor-pointer shrink-0"
+              className="text-xs font-semibold text-slate-500 hover:text-[#000065] dark:hover:text-white inline-flex items-center gap-1 cursor-pointer shrink-0"
             >
               <X className="w-3.5 h-3.5" />
               <span>Clear search</span>
@@ -1436,14 +1436,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       key={c.id}
                       type="button"
                       onClick={() => setSelectedCase(c)}
-                      className="text-left p-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 hover:bg-[#FBF5E8] dark:hover:bg-[#162238]/60 border border-[#E2E8F0] dark:border-slate-700 transition cursor-pointer flex items-start justify-between gap-2.5"
+                      className="text-left p-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 hover:bg-[#FBF5E8] dark:hover:bg-[#000065]/60 border border-[#E2E8F0] dark:border-slate-700 transition cursor-pointer flex items-start justify-between gap-2.5"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-xs font-mono font-bold text-[#162238] dark:text-[#E8C06B] truncate tabular-nums">
+                          <span className="text-xs font-mono font-bold text-[#000065] dark:text-[#E8C06B] truncate tabular-nums">
                             {c.suitNumber || c.firmRefNumber || c.case_number || c.id}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded bg-[#162238] text-[#E8C06B] font-mono text-[10px] font-semibold shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-[#000065] text-[#E8C06B] font-mono text-[10px] font-semibold shrink-0">
                             {branchCode}
                           </span>
                         </div>
@@ -1479,11 +1479,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       {/* ROW 1 — Top Quick Actions Ribbon (Single Sleek Horizontal Bar) */}
       <section className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 px-5 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-[#162238] text-[#D99B26] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#000065] text-[#D99B26] flex items-center justify-center shrink-0">
             <Zap className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight leading-tight">
+            <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight leading-tight">
               Quick Actions
             </h2>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 mt-0.5">
@@ -1497,7 +1497,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={triggerNewCase}
-            className="h-9 px-3.5 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap"
+            className="h-9 px-3.5 rounded-lg bg-[#000065] hover:bg-[#0F0F80] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap"
           >
             <Plus className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
             <span>New Case File</span>
@@ -1506,7 +1506,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={() => openQuickModal('requisition')}
-            className="h-9 px-3.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
+            className="h-9 px-3.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#000065] hover:text-white text-[#000065] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
           >
             <Banknote className="w-3.5 h-3.5 text-[#B57E1A] group-hover:text-[#D99B26] shrink-0" />
             <span>eRequisition</span>
@@ -1515,7 +1515,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={() => openQuickModal('document')}
-            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
+            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#000065] hover:text-white text-[#000065] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
           >
             <Upload className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#D99B26] shrink-0" />
             <span>Upload Doc</span>
@@ -1524,7 +1524,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={() => openQuickModal('note')}
-            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
+            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#000065] hover:text-white text-[#000065] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
           >
             <FileText className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#D99B26] shrink-0" />
             <span>Case Note</span>
@@ -1533,7 +1533,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={() => openQuickModal('leave')}
-            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
+            className="h-9 px-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#000065] hover:text-white text-[#000065] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065] text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap group"
           >
             <CalendarDays className="w-3.5 h-3.5 text-slate-500 group-hover:text-[#D99B26] shrink-0" />
             <span>Request Leave</span>
@@ -1547,19 +1547,19 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#000065]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
               Pending Cases
             </span>
-            <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-[#D99B26] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-[#000065]/[0.06] dark:bg-slate-800 text-[#000065] dark:text-[#D99B26] flex items-center justify-center shrink-0">
               <FolderClock className="w-4 h-4" />
             </div>
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+            <span className="font-display text-3xl font-bold text-[#000065] dark:text-white tabular-nums tracking-tight leading-none">
               {kpiMetrics.pendingCases}
             </span>
             <div className="flex items-center gap-1.5 text-[11px] tabular-nums">
@@ -1577,7 +1577,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#000065]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1589,7 +1589,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+            <span className="font-display text-3xl font-bold text-[#000065] dark:text-white tabular-nums tracking-tight leading-none">
               {kpiMetrics.accomplishedCases}
             </span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold border border-emerald-200/70 dark:border-emerald-800/50">
@@ -1609,7 +1609,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               setActiveTab('mortgages');
             }
           }}
-          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#000065]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1625,7 +1625,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+            <span className="font-display text-3xl font-bold text-[#000065] dark:text-white tabular-nums tracking-tight leading-none">
               {canAccessRestrictedWorkflow ? kpiMetrics.approvals : kpiMetrics.mortgagesCount}
             </span>
             <span
@@ -1650,7 +1650,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenDocuments ? onOpenDocuments() : setActiveTab('documents'))}
-          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#162238]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
+          className="text-left rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 hover:border-[#000065]/35 dark:hover:border-[#D99B26]/50 p-5 flex flex-col justify-between min-h-[130px] transition cursor-pointer"
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1662,7 +1662,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="font-display text-3xl font-bold text-[#162238] dark:text-white tabular-nums tracking-tight leading-none">
+            <span className="font-display text-3xl font-bold text-[#000065] dark:text-white tabular-nums tracking-tight leading-none">
               {kpiMetrics.vaultCustody}
             </span>
             <span className="px-2 py-0.5 rounded-md bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#B57E1A] dark:text-[#E8C06B] text-[11px] font-semibold border border-[#D99B26]/30">
@@ -1680,7 +1680,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
             <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+                <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight">
                   Upcoming Cases
                 </h2>
                 <span className="text-xs text-slate-400 font-medium tabular-nums">
@@ -1705,8 +1705,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         onClick={() => setActiveCaseFilter(tab)}
                         className={`px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
                           selected
-                            ? 'bg-white dark:bg-slate-900 text-[#162238] dark:text-white shadow-2xs'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-[#162238] dark:hover:text-slate-200'
+                            ? 'bg-white dark:bg-slate-900 text-[#000065] dark:text-white shadow-2xs'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-[#000065] dark:hover:text-slate-200'
                         }`}
                       >
                         {tab}
@@ -1722,7 +1722,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     else if (onOpenCases) onOpenCases();
                     else setActiveTab('catalogue');
                   }}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#000065] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
                 >
                   <span>View All</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1733,13 +1733,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <div className="overflow-x-auto">
               {upcomingCasesRows.length === 0 ? (
                 <div className="px-6 py-10 text-center space-y-2.5">
-                  <p className="text-xs font-semibold text-[#162238] dark:text-white">
+                  <p className="text-xs font-semibold text-[#000065] dark:text-white">
                     No upcoming cases found for {activeBranchLabel}.
                   </p>
                   <button
                     type="button"
                     onClick={triggerNewCase}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#162238] text-white text-xs font-semibold cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#000065] text-white text-xs font-semibold cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5 text-[#D99B26]" />
                     <span>New Case File</span>
@@ -1768,7 +1768,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <td className="py-3 pl-5 pr-3 max-w-[270px]">
                           <div className="flex items-center gap-1.5">
                             {row.isMortgage && <Landmark className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />}
-                            <span className="font-mono text-[11px] font-semibold text-[#162238] dark:text-[#E8C06B] tabular-nums truncate">
+                            <span className="font-mono text-[11px] font-semibold text-[#000065] dark:text-[#E8C06B] tabular-nums truncate">
                               {row.code}
                             </span>
                           </div>
@@ -1782,7 +1782,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <td className="py-3 px-3 whitespace-nowrap">
                           <p className="font-medium text-slate-800 dark:text-slate-200">{row.practiceLabel}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="px-1.5 py-0.2 rounded bg-[#162238]/[0.07] dark:bg-slate-800 text-[#162238] dark:text-[#E8C06B] font-mono text-[10px] font-semibold">
+                            <span className="px-1.5 py-0.2 rounded bg-[#000065]/[0.07] dark:bg-slate-800 text-[#000065] dark:text-[#E8C06B] font-mono text-[10px] font-semibold">
                               {row.branchCode}
                             </span>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-[130px]">
@@ -1791,7 +1791,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                           </div>
                         </td>
                         <td className="py-3 px-3 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4F6F9] dark:bg-slate-800 text-[#162238] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 max-w-[165px] truncate">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#F4F6F9] dark:bg-slate-800 text-[#000065] dark:text-slate-200 border border-[#E2E8F0] dark:border-slate-700 max-w-[165px] truncate">
                             {row.stage}
                           </span>
                         </td>
@@ -1810,11 +1810,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-[#E2E8F0] dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#162238]/[0.06] dark:bg-slate-800 text-[#162238] dark:text-[#D99B26] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-[#000065]/[0.06] dark:bg-slate-800 text-[#000065] dark:text-[#D99B26] flex items-center justify-center shrink-0">
                   <Building2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight">
+                  <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight">
                     Branch Case Blocks
                   </h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -1836,7 +1836,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('branches')}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#000065] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer"
                 >
                   <span>Directory</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1859,8 +1859,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     onClick={() => handleBranchSelect(isSelected ? 'all' : branch.id)}
                     className={`text-left rounded-xl p-4 border transition cursor-pointer flex flex-col justify-between gap-3 ${
                       isSelected
-                        ? 'bg-[#162238] text-white border-[#162238] shadow-xs'
-                        : 'bg-[#F4F6F9]/75 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238]/40'
+                        ? 'bg-[#000065] text-white border-[#000065] shadow-xs'
+                        : 'bg-[#F4F6F9]/75 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065]/40'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -1868,7 +1868,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <div className="flex items-center gap-1.5 min-w-0">
                           <p
                             className={`font-display text-[13px] font-bold truncate ${
-                              isSelected ? 'text-white' : 'text-[#162238] dark:text-white'
+                              isSelected ? 'text-white' : 'text-[#000065] dark:text-white'
                             }`}
                           >
                             {branch.name}
@@ -1877,7 +1877,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                             className={`px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold shrink-0 ${
                               isSelected
                                 ? 'bg-[#D99B26]/20 text-[#F5D28B]'
-                                : 'bg-[#162238]/[0.07] dark:bg-slate-700 text-[#162238] dark:text-[#E8C06B]'
+                                : 'bg-[#000065]/[0.07] dark:bg-slate-700 text-[#000065] dark:text-[#E8C06B]'
                             }`}
                           >
                             {branch.code}
@@ -1893,7 +1893,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       </div>
                       <span
                         className={`font-display text-lg font-bold tabular-nums leading-none shrink-0 ${
-                          isSelected ? 'text-[#D99B26]' : 'text-[#162238] dark:text-white'
+                          isSelected ? 'text-[#D99B26]' : 'text-[#000065] dark:text-white'
                         }`}
                       >
                         {branch.total}
@@ -1909,7 +1909,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <p className={isSelected ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}>
                           Pending
                         </p>
-                        <p className={`font-bold mt-0.5 ${isSelected ? 'text-white' : 'text-[#162238] dark:text-slate-100'}`}>
+                        <p className={`font-bold mt-0.5 ${isSelected ? 'text-white' : 'text-[#000065] dark:text-slate-100'}`}>
                           {branch.pending}
                         </p>
                       </div>
@@ -1945,8 +1945,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <div className="rounded-xl bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <Megaphone className="w-4 h-4 text-[#162238] dark:text-[#D99B26] shrink-0" />
-                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                <Megaphone className="w-4 h-4 text-[#000065] dark:text-[#D99B26] shrink-0" />
+                <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight truncate">
                   Firm Announcements
                 </h2>
               </div>
@@ -1966,7 +1966,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       {notice.pinned && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#162238] text-[#E8C06B]">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#000065] text-[#E8C06B]">
                           <Pin className="w-2.5 h-2.5" />
                           Pinned
                         </span>
@@ -1977,7 +1977,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     </div>
                     <span className="text-[10px] text-slate-400 tabular-nums shrink-0">{notice.date}</span>
                   </div>
-                  <h3 className="font-display text-xs font-bold text-[#162238] dark:text-white leading-snug">
+                  <h3 className="font-display text-xs font-bold text-[#000065] dark:text-white leading-snug">
                     {notice.title}
                   </h3>
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed line-clamp-2">
@@ -2000,7 +2000,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Cake className="w-4 h-4 text-[#D99B26] shrink-0" />
-                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight truncate">
                   Staff Birthdays &amp; Wishes
                 </h2>
               </div>
@@ -2014,11 +2014,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   <div key={celebrant.id} className="p-4 space-y-2.5">
                     <div className="flex items-center justify-between gap-2.5">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-[#162238] text-[#E8C06B] text-[11px] font-display font-bold flex items-center justify-center shrink-0">
+                        <div className="w-8 h-8 rounded-lg bg-[#000065] text-[#E8C06B] text-[11px] font-display font-bold flex items-center justify-center shrink-0">
                           {getInitials(celebrant.name)}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#162238] dark:text-white truncate">
+                          <p className="text-xs font-bold text-[#000065] dark:text-white truncate">
                             {celebrant.name}
                           </p>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -2037,7 +2037,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                           setActiveWishId(isWishOpen ? null : celebrant.id);
                           setWishDraft('');
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#162238] hover:text-white border border-[#E2E8F0] dark:border-slate-700 text-[11px] font-semibold text-[#162238] dark:text-slate-200 transition cursor-pointer shrink-0"
+                        className="px-2.5 py-1 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 hover:bg-[#000065] hover:text-white border border-[#E2E8F0] dark:border-slate-700 text-[11px] font-semibold text-[#000065] dark:text-slate-200 transition cursor-pointer shrink-0"
                       >
                         {isWishOpen ? 'Close' : 'Wish'}
                       </button>
@@ -2056,13 +2056,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                             }
                           }}
                           placeholder={`Wish ${celebrant.name.split(' ')[0]}...`}
-                          className="flex-1 h-8 px-2.5 text-xs rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 focus:outline-none focus:border-[#162238]"
+                          className="flex-1 h-8 px-2.5 text-xs rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#000065] dark:text-slate-100 focus:outline-none focus:border-[#000065]"
                         />
                         <button
                           type="button"
                           disabled={sendingWishId === celebrant.id || !wishDraft.trim()}
                           onClick={() => void handleSendBirthdayWish(celebrant)}
-                          className="h-8 px-2.5 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0"
+                          className="h-8 px-2.5 rounded-lg bg-[#000065] hover:bg-[#0F0F80] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shrink-0"
                         >
                           {sendingWishId === celebrant.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2081,7 +2081,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                             className="px-2.5 py-1.5 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/60 border border-[#E2E8F0]/80 dark:border-slate-700/70 text-[11px]"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="font-semibold text-[#162238] dark:text-slate-200">{w.sender}</span>
+                              <span className="font-semibold text-[#000065] dark:text-slate-200">{w.sender}</span>
                               <span className="text-[10px] text-slate-400 tabular-nums">{w.createdAt}</span>
                             </div>
                             <p className="text-slate-600 dark:text-slate-300 mt-0.5">{w.message}</p>
@@ -2100,7 +2100,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <div className="px-5 py-3.5 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Calendar className="w-4 h-4 text-[#D99B26] shrink-0" />
-                <h2 className="font-display text-sm font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                <h2 className="font-display text-sm font-bold text-[#000065] dark:text-white tracking-tight truncate">
                   Upcoming Deadlines
                 </h2>
               </div>
@@ -2109,7 +2109,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
                 title="Open Deadlines & Cause List"
                 aria-label="Open Deadlines page"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#000065] dark:text-[#D99B26] hover:text-[#D99B26] transition cursor-pointer whitespace-nowrap"
               >
                 <span>All</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -2139,13 +2139,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <span className="text-[10px] font-bold uppercase tracking-wider text-[#B57E1A] dark:text-[#D99B26] leading-none">
                           {tile.month}
                         </span>
-                        <span className="font-display text-base font-bold text-[#162238] dark:text-white leading-tight mt-0.5">
+                        <span className="font-display text-base font-bold text-[#000065] dark:text-white leading-tight mt-0.5">
                           {tile.day}
                         </span>
                       </div>
 
                       <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="text-xs font-semibold text-[#162238] dark:text-slate-100 line-clamp-1 group-hover:text-[#B57E1A] dark:group-hover:text-[#D99B26]">
+                        <p className="text-xs font-semibold text-[#000065] dark:text-slate-100 line-clamp-1 group-hover:text-[#B57E1A] dark:group-hover:text-[#D99B26]">
                           {item.title}
                         </p>
                         <p className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate tabular-nums">
@@ -2164,7 +2164,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <button
               type="button"
               onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
-              className="w-full px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9]/60 dark:bg-slate-800/40 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 text-xs font-semibold text-[#162238] dark:text-[#D99B26] flex items-center justify-between transition cursor-pointer"
+              className="w-full px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9]/60 dark:bg-slate-800/40 hover:bg-[#F4F6F9] dark:hover:bg-slate-800 text-xs font-semibold text-[#000065] dark:text-[#D99B26] flex items-center justify-between transition cursor-pointer"
             >
               <span>Open Deadlines &amp; Cause List</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -2176,7 +2176,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       {/* IN-PLACE QUICK ACTION MODALS */}
       {activeModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#162238]/60 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#000065]/60 backdrop-blur-xs"
           onClick={() => setActiveModal(null)}
         >
           <div
@@ -2190,14 +2190,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Banknote className="w-4 h-4 text-[#D99B26]" />
-                    <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                    <h3 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                       New eRequisition
                     </h3>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#000065] cursor-pointer"
                     aria-label="Close modal"
                   >
                     <X className="w-4 h-4" />
@@ -2206,9 +2206,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <div className="p-5 space-y-4 text-xs">
                   <div className="px-3 py-2 rounded-lg bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between gap-2 text-[11px]">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Requester: <strong className="text-[#162238] dark:text-white">{effectiveUser?.name || 'Firm Staff'}</strong>
+                      Requester: <strong className="text-[#000065] dark:text-white">{effectiveUser?.name || 'Firm Staff'}</strong>
                     </span>
-                    <span className="font-semibold text-[#162238] dark:text-[#E8C06B]">
+                    <span className="font-semibold text-[#000065] dark:text-[#E8C06B]">
                       {activeBranchLabel}
                     </span>
                   </div>
@@ -2223,7 +2223,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       value={reqPurpose}
                       onChange={(e) => setReqPurpose(e.target.value)}
                       placeholder="e.g. Court filing fees, process service, registry search stamps, or witness facilitation..."
-                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
+                      className="w-full p-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#000065] dark:text-slate-100"
                     />
                   </div>
 
@@ -2235,7 +2235,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       <select
                         value={reqCurrency}
                         onChange={(e) => setReqCurrency(e.target.value as 'UGX' | 'USD')}
-                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#000065] dark:text-slate-100"
                       >
                         <option value="UGX">UGX</option>
                         <option value="USD">USD</option>
@@ -2253,7 +2253,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         value={reqAmount}
                         onChange={(e) => setReqAmount(e.target.value)}
                         placeholder="e.g. 250000"
-                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100 tabular-nums"
+                        className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#000065] dark:text-slate-100 tabular-nums"
                       />
                     </div>
                   </div>
@@ -2265,7 +2265,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     <select
                       value={reqCaseRef}
                       onChange={(e) => setReqCaseRef(e.target.value)}
-                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#162238] dark:text-slate-100"
+                      className="w-full h-10 px-3 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#000065] dark:text-slate-100"
                     >
                       <option value="">General Office / Non-Matter Expense</option>
                       {cases.slice(0, 60).map((c) => {
@@ -2289,7 +2289,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                           if (onOpenCashRequisitions) onOpenCashRequisitions();
                           else setActiveTab('cash_requisitions');
                         }}
-                        className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                        className="text-xs font-semibold text-[#000065] dark:text-[#D99B26] hover:underline cursor-pointer"
                       >
                         Open All eRequisitions →
                       </button>
@@ -2305,7 +2305,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     </button>
                     <button
                       type="submit"
-                      className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
+                      className="h-9 px-4 rounded-lg bg-[#000065] hover:bg-[#0F0F80] text-white text-xs font-semibold cursor-pointer"
                     >
                       Submit eRequisition
                     </button>
@@ -2317,13 +2317,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             {activeModal === 'document' && (
               <form onSubmit={handleSubmitDocument}>
                 <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                  <h3 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                     Upload Document to Registry
                   </h3>
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#000065] cursor-pointer"
                     aria-label="Close modal"
                   >
                     <X className="w-4 h-4" />
@@ -2396,7 +2396,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                           if (!docTitle.trim()) setDocTitle(file.name.replace(/\.[^.]+$/, ''));
                         }
                       }}
-                      className="w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#F4F6F9] file:text-[#162238] cursor-pointer"
+                      className="w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#F4F6F9] file:text-[#000065] cursor-pointer"
                     />
                   </div>
                 </div>
@@ -2410,7 +2410,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold cursor-pointer"
+                    className="h-9 px-4 rounded-lg bg-[#000065] hover:bg-[#0F0F80] text-white text-xs font-semibold cursor-pointer"
                   >
                     Index Document
                   </button>
@@ -2421,13 +2421,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             {activeModal === 'note' && (
               <form onSubmit={handleSubmitCaseNote}>
                 <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                  <h3 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                     New Case Note
                   </h3>
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#000065] cursor-pointer"
                     aria-label="Close modal"
                   >
                     <X className="w-4 h-4" />
@@ -2492,7 +2492,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   <button
                     type="submit"
                     disabled={submittingNote}
-                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+                    className="h-9 px-4 rounded-lg bg-[#000065] hover:bg-[#0F0F80] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
                   >
                     {submittingNote ? 'Saving...' : 'Save Note'}
                   </button>
@@ -2503,13 +2503,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             {activeModal === 'leave' && (
               <form onSubmit={handleSubmitLeaveRequest}>
                 <div className="px-5 py-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                  <h3 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                     Request Leave
                   </h3>
                   <button
                     type="button"
                     onClick={() => setActiveModal(null)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#162238] cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-[#000065] cursor-pointer"
                     aria-label="Close modal"
                   >
                     <X className="w-4 h-4" />
@@ -2562,10 +2562,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     {leaveBreakdown.isValidRange ? (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-[#162238] dark:text-white">
+                          <span className="font-semibold text-[#000065] dark:text-white">
                             Deductible Working Days
                           </span>
-                          <span className="font-display text-sm font-bold text-[#162238] dark:text-[#D99B26] tabular-nums">
+                          <span className="font-display text-sm font-bold text-[#000065] dark:text-[#D99B26] tabular-nums">
                             {leaveBreakdown.workingDays} day{leaveBreakdown.workingDays === 1 ? '' : 's'}
                           </span>
                         </div>
@@ -2610,7 +2610,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   <button
                     type="submit"
                     disabled={submittingLeave || !leaveBreakdown.isValidRange || leaveBreakdown.workingDays <= 0}
-                    className="h-9 px-4 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+                    className="h-9 px-4 rounded-lg bg-[#000065] hover:bg-[#0F0F80] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
                   >
                     {submittingLeave ? 'Submitting...' : 'Submit Leave Request'}
                   </button>

@@ -6,10 +6,10 @@
   --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --color-mk-navy: #162238;
+  --color-mk-navy: #000065;
   --color-mk-royal: #000065;
-  --color-mk-navy-mid: #1E2F4D;
-  --color-mk-navy-light: #263B61;
+  --color-mk-navy-mid: #0F0F80;
+  --color-mk-navy-light: #1C1C96;
   --color-mk-gold: #D99B26;
   --color-mk-gold-dark: #B57E1A;
   --color-mk-gold-light: #E8C06B;
@@ -23,9 +23,9 @@
     --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
     --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --mk-navy: #162238;
+    --mk-navy: #000065;
     --mk-royal: #000065;
-    --mk-navy-mid: #1E2F4D;
+    --mk-navy-mid: #0F0F80;
     --mk-gold: #D99B26;
     --mk-gold-dark: #B57E1A;
     --mk-gold-light: #E8C06B;
@@ -37,7 +37,7 @@
   body {
     font-family: var(--font-sans);
     background-color: #F4F6F9;
-    color: #162238;
+    color: #000065;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

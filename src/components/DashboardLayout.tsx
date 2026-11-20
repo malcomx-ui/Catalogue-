@@ -258,7 +258,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       case 'gold':
         return 'bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#9A6B11] dark:text-[#F5D28B]';
       default:
-        return 'bg-slate-100 dark:bg-slate-800 text-[#162238] dark:text-slate-200';
+        return 'bg-slate-100 dark:bg-slate-800 text-[#000065] dark:text-slate-200';
     }
   };
 
@@ -442,7 +442,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const renderSidebarContent = (compact: boolean) => (
-    <div className="flex flex-col h-full bg-[#162238] text-slate-200 select-none">
+    <div className="flex flex-col h-full bg-[#000065] text-slate-200 select-none">
       {/* Brand Header */}
       <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
         <button
@@ -463,7 +463,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 className="w-full h-full object-contain"
               />
             ) : (
-              <Scale className="w-4.5 h-4.5 text-[#162238]" />
+              <Scale className="w-4.5 h-4.5 text-[#000065]" />
             )}
           </div>
           {!compact && (
@@ -494,7 +494,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {navGroups.map((group) => (
           <div key={group.id} className="space-y-1">
             {!compact ? (
-              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400/90">
+              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-200/70">
                 {group.label}
               </p>
             ) : (
@@ -515,8 +515,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       compact ? 'justify-center px-2' : 'justify-between px-3'
                     } py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer group ${
                       isActive
-                        ? 'bg-white/[0.10] text-white font-semibold'
-                        : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                        ? 'bg-white/[0.13] text-white font-semibold'
+                        : 'text-blue-100/85 hover:bg-white/[0.08] hover:text-white'
                     }`}
                   >
                     {/* Warm Gold Active Left Indicator Bar */}
@@ -532,7 +532,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         className={`w-4 h-4 shrink-0 transition-colors ${
                           isActive
                             ? 'text-[#D99B26]'
-                            : 'text-slate-400 group-hover:text-slate-200'
+                            : 'text-blue-200/75 group-hover:text-white'
                         }`}
                       />
                       {!compact && <span className="truncate">{item.label}</span>}
@@ -542,7 +542,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <span
                         className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-bold tabular-nums shrink-0 ${
                           isActive
-                            ? 'bg-[#D99B26] text-[#162238]'
+                            ? 'bg-[#D99B26] text-[#000065]'
                             : 'bg-white/10 text-slate-200'
                         }`}
                       >
@@ -573,7 +573,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <p className="text-xs font-semibold text-white truncate leading-tight">
                   {effectiveUser?.name || 'Firm Staff'}
                 </p>
-                <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5">
+                <p className="text-[11px] text-blue-200/75 truncate leading-tight mt-0.5">
                   {effectiveUser?.roleTitle || effectiveUser?.role || 'Advocate'}
                 </p>
               </div>
@@ -586,7 +586,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onClick={logout}
               title="Sign Out"
               aria-label="Sign Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-white/10 transition cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-blue-200/75 hover:text-rose-300 hover:bg-white/10 transition cursor-pointer shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -597,10 +597,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   );
 
   return (
-    <div className="min-h-screen w-full flex bg-[#F4F6F9] dark:bg-slate-950 text-[#162238] dark:text-slate-100 font-sans print:bg-white">
-      {/* Desktop Fixed / Collapsible Left Sidebar (#162238 Deep Navy, w-64) */}
+    <div className="min-h-screen w-full flex bg-[#F4F6F9] dark:bg-slate-950 text-[#000065] dark:text-slate-100 font-sans print:bg-white">
+      {/* Desktop Fixed / Collapsible Left Sidebar (#000065 Deep Navy, w-64) */}
       <aside
-        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-[#162238] sticky top-0 h-screen transition-[width] duration-200 ${
+        className={`no-print hidden lg:flex flex-col shrink-0 border-r border-[#000065] sticky top-0 h-screen transition-[width] duration-200 ${
           sidebarCollapsed ? 'w-[74px]' : 'w-64'
         }`}
       >
@@ -611,7 +611,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {mobileDrawerOpen && (
         <div className="no-print fixed inset-0 z-50 lg:hidden flex">
           <div
-            className="fixed inset-0 bg-[#162238]/60 backdrop-blur-xs"
+            className="fixed inset-0 bg-[#000065]/60 backdrop-blur-xs"
             onClick={() => setMobileDrawerOpen(false)}
           />
           <div className="relative z-10 w-64 max-w-[82vw] h-full shadow-2xl">
@@ -638,7 +638,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <button
               type="button"
               onClick={() => setSidebarCollapsed((c) => !c)}
-              className="hidden lg:inline-flex p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0 transition"
+              className="hidden lg:inline-flex p-1.5 -ml-1 rounded-lg text-slate-400 hover:text-[#000065] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-800 cursor-pointer shrink-0 transition"
               aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
@@ -651,7 +651,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
             <div className="min-w-0">
               <div className="flex items-center gap-2.5 min-w-0">
-                <h1 className="font-display text-[15px] sm:text-base font-bold text-[#162238] dark:text-white tracking-tight truncate">
+                <h1 className="font-display text-[15px] sm:text-base font-bold text-[#000065] dark:text-white tracking-tight truncate">
                   {activeViewTitle}
                 </h1>
               </div>
@@ -661,7 +661,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     aria-label="Select active branch"
                     value={selectedBranchFilter || 'all'}
                     onChange={(e) => setSelectedBranchFilter(e.target.value)}
-                    className="appearance-none bg-transparent pr-4 font-medium text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white focus:outline-none cursor-pointer truncate max-w-[180px]"
+                    className="appearance-none bg-transparent pr-4 font-medium text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white focus:outline-none cursor-pointer truncate max-w-[180px]"
                   >
                     {branchOptions.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -697,17 +697,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder="Search Case ID, client, branch code..."
                 aria-label="Global search across Case ID, client names, and branch codes"
-                className={`w-full h-9 pl-9 pr-8 text-xs rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none transition border ${
+                className={`w-full h-9 pl-9 pr-8 text-xs rounded-lg text-[#000065] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none transition border ${
                   searchQuery
                     ? 'bg-white dark:bg-slate-800 border-[#D99B26] ring-2 ring-[#D99B26]/20'
-                    : 'bg-[#F4F6F9] dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238] dark:focus:border-[#D99B26]'
+                    : 'bg-[#F4F6F9] dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065] dark:focus:border-[#D99B26]'
                 }`}
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => onSearchChange?.('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#162238] dark:hover:text-white p-0.5 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#000065] dark:hover:text-white p-0.5 cursor-pointer"
                   aria-label="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -726,11 +726,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 onClick={() => setNotifPopoverOpen((o) => !o)}
                 aria-label="Notifications"
                 title="Notifications"
-                className="relative w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-700/80 transition flex items-center justify-center cursor-pointer"
+                className="relative w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white hover:bg-[#F4F6F9] dark:hover:bg-slate-700/80 transition flex items-center justify-center cursor-pointer"
               >
                 <Bell className="w-4 h-4" />
                 {bellUnreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#D99B26] text-[#162238] text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-slate-900">
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[#D99B26] text-[#000065] text-[10px] font-bold flex items-center justify-center tabular-nums ring-2 ring-white dark:ring-slate-900">
                     {bellUnreadCount > 9 ? '9+' : bellUnreadCount}
                   </span>
                 )}
@@ -740,7 +740,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <div className="absolute right-0 mt-2 w-80 sm:w-96 max-w-[90vw] bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="px-4 py-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-display text-xs font-bold text-[#162238] dark:text-white">
+                      <p className="font-display text-xs font-bold text-[#000065] dark:text-white">
                         {canAccessRestrictedWorkflow ? 'Firm & Workflow Notifications' : 'Court & Matter Notifications'}
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
@@ -752,7 +752,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <button
                         type="button"
                         onClick={markAllUnifiedNotificationsRead}
-                        className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
+                        className="text-[11px] font-semibold text-[#000065] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
                       >
                         Mark all read
                       </button>
@@ -769,14 +769,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         <div
                           key={item.id}
                           className={`px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition space-y-1 ${
-                            item.unread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
+                            item.unread ? 'bg-[#FBF5E8]/60 dark:bg-[#000065]/40' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 text-xs">
                             <button
                               type="button"
                               onClick={() => handleOpenUnifiedNotification(item)}
-                              className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5 min-w-0 truncate cursor-pointer text-left"
+                              className="font-mono font-semibold text-[#000065] dark:text-white inline-flex items-center gap-1.5 min-w-0 truncate cursor-pointer text-left"
                             >
                               {item.unread && (
                                 <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
@@ -818,7 +818,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                               <button
                                 type="button"
                                 onClick={() => markUnifiedNotificationRead(item)}
-                                className="text-[10px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
+                                className="text-[10px] font-semibold text-[#000065] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
                               >
                                 Mark read
                               </button>
@@ -838,7 +838,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             setActiveTab('cash_requisitions');
                             setNotifPopoverOpen(false);
                           }}
-                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white cursor-pointer"
                         >
                           Requisitions
                         </button>
@@ -850,7 +850,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             setActiveTab('settings');
                             setNotifPopoverOpen(false);
                           }}
-                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#162238] dark:hover:text-white cursor-pointer"
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-[#000065] dark:hover:text-white cursor-pointer"
                         >
                           Notification Rules
                         </button>
@@ -862,7 +862,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         setActiveTab('causelist');
                         setNotifPopoverOpen(false);
                       }}
-                      className="text-xs font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-[#000065] dark:text-[#D99B26] hover:underline cursor-pointer"
                     >
                       Calendar &amp; Deadlines →
                     </button>
@@ -876,11 +876,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               className="h-9 pl-1.5 pr-3 rounded-lg bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 inline-flex items-center gap-2 shrink-0 max-w-[210px] sm:max-w-[240px]"
               title={`${effectiveUser?.name || 'Firm Staff'}${effectiveUser?.roleTitle || effectiveUser?.role ? ` · ${effectiveUser?.roleTitle || effectiveUser?.role}` : ''}`}
             >
-              <div className="w-6 h-6 rounded-md bg-[#162238] text-[#E8C06B] text-[10px] font-display font-bold flex items-center justify-center shrink-0">
+              <div className="w-6 h-6 rounded-md bg-[#000065] text-[#E8C06B] text-[10px] font-display font-bold flex items-center justify-center shrink-0">
                 {getUserInitials(effectiveUser?.name)}
               </div>
               <div className="min-w-0 leading-tight">
-                <p className="font-display text-xs font-bold text-[#162238] dark:text-white truncate">
+                <p className="font-display text-xs font-bold text-[#000065] dark:text-white truncate">
                   {effectiveUser?.name || 'Firm Staff'}
                 </p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate hidden sm:block">
@@ -905,13 +905,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onChange={(e) => onSearchChange?.(e.target.value)}
               placeholder="Search Case ID, client, branch code..."
               aria-label="Global search across Case ID, client names, and branch codes"
-              className="w-full h-9 pl-9 pr-8 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#162238] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#162238]"
+              className="w-full h-9 pl-9 pr-8 text-xs bg-[#F4F6F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-lg text-[#000065] dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:bg-white dark:focus:bg-slate-800 focus:border-[#000065]"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => onSearchChange?.('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#162238] dark:hover:text-white p-0.5 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#000065] dark:hover:text-white p-0.5 cursor-pointer"
                 aria-label="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -936,7 +936,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[396px] z-40 no-print bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 border-l-4 border-l-[#D99B26] rounded-xl shadow-2xl overflow-hidden"
         >
           {/* Navy Header Bar */}
-          <div className="bg-[#162238] text-white px-4 py-2.5 flex items-center justify-between gap-2">
+          <div className="bg-[#000065] text-white px-4 py-2.5 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <span className="relative flex h-2 w-2 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D99B26] opacity-75" />
@@ -955,7 +955,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           {/* Notification Body */}
           <div className="px-4 py-3.5 space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
+              <span className="font-mono text-xs font-bold text-[#000065] dark:text-white truncate">
                 {latestUnreadNotification.code}
               </span>
               <span
@@ -967,7 +967,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </span>
             </div>
 
-            <p className="text-xs font-semibold text-[#162238] dark:text-white leading-snug">
+            <p className="text-xs font-semibold text-[#000065] dark:text-white leading-snug">
               {latestUnreadNotification.title}
             </p>
 
@@ -990,7 +990,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <button
                 type="button"
                 onClick={markAllUnifiedNotificationsRead}
-                className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
+                className="text-[11px] font-semibold text-slate-500 hover:text-[#000065] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
               >
                 Mark all read
               </button>
@@ -1002,7 +1002,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <button
                 type="button"
                 onClick={() => markUnifiedNotificationRead(latestUnreadNotification)}
-                className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#000065] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5 text-[#D99B26]" />
                 <span>Mark Read</span>
@@ -1010,7 +1010,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <button
                 type="button"
                 onClick={() => handleOpenUnifiedNotification(latestUnreadNotification)}
-                className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                className="h-8 px-3 rounded-lg bg-[#000065] hover:bg-[#0F0F80] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
               >
                 <span>{activeNotificationRules.markReadOnOpen ? 'Open & Read' : 'Open'}</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />

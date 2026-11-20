@@ -1465,7 +1465,7 @@ export const SystemSettingsManager: React.FC = () => {
         return (
           <div className="space-y-5 text-xs">
             {/* Overview Banner */}
-            <div className="bg-[#162238] text-white rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#1E2F4D]">
+            <div className="bg-[#000065] text-white rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#0F0F80]">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Bell className="w-4 h-4 text-[#D99B26]" />
@@ -1491,7 +1491,7 @@ export const SystemSettingsManager: React.FC = () => {
               {/* Persistent Popup & Read Behavior */}
               <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 space-y-4">
                 <div>
-                  <h5 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                  <h5 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                     Unread Popup &amp; Read Behavior
                   </h5>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1502,7 +1502,7 @@ export const SystemSettingsManager: React.FC = () => {
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Always Pop Up Latest Unread Notification Until Read
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1525,7 +1525,7 @@ export const SystemSettingsManager: React.FC = () => {
 
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Mark Notification Read Automatically on Open
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1548,7 +1548,7 @@ export const SystemSettingsManager: React.FC = () => {
 
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Allow Bulk &ldquo;Mark All Read&rdquo; Action
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1574,7 +1574,7 @@ export const SystemSettingsManager: React.FC = () => {
               {/* Court Deadlines, Scope & RBAC Channels */}
               <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-2xl p-5 space-y-4">
                 <div>
-                  <h5 className="font-display text-sm font-bold text-[#162238] dark:text-white">
+                  <h5 className="font-display text-sm font-bold text-[#000065] dark:text-white">
                     Alert Channels, Lead Window &amp; Role Scope
                   </h5>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1585,7 +1585,7 @@ export const SystemSettingsManager: React.FC = () => {
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Upcoming Court Hearings &amp; Deadlines
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1609,10 +1609,10 @@ export const SystemSettingsManager: React.FC = () => {
                   {/* Lead Time Window Control */}
                   <div className="py-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="font-semibold text-[#162238] dark:text-slate-100">
+                      <label className="font-semibold text-[#000065] dark:text-slate-100">
                         Hearing &amp; Deadline Lead-Time Window
                       </label>
-                      <span className="font-mono font-bold text-[#162238] dark:text-[#D99B26] tabular-nums">
+                      <span className="font-mono font-bold text-[#000065] dark:text-[#D99B26] tabular-nums">
                         {notifRules.hearingLeadDays} day{notifRules.hearingLeadDays === 1 ? '' : 's'} ahead
                       </span>
                     </div>
@@ -1624,8 +1624,8 @@ export const SystemSettingsManager: React.FC = () => {
                           onClick={() => setLeadDays(preset)}
                           className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold tabular-nums transition cursor-pointer border ${
                             notifRules.hearingLeadDays === preset
-                              ? 'bg-[#162238] text-white border-[#162238]'
-                              : 'bg-[#F4F6F9] dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-[#E2E8F0] dark:border-slate-700 hover:border-[#162238]'
+                              ? 'bg-[#000065] text-white border-[#000065]'
+                              : 'bg-[#F4F6F9] dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-[#E2E8F0] dark:border-slate-700 hover:border-[#000065]'
                           }`}
                         >
                           {preset} days
@@ -1637,14 +1637,14 @@ export const SystemSettingsManager: React.FC = () => {
                         max={60}
                         value={notifRules.hearingLeadDays}
                         onChange={(e) => setLeadDays(Number(e.target.value))}
-                        className="w-20 h-7 px-2 text-xs font-mono tabular-nums border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-[#162238] dark:text-white focus:outline-none focus:border-[#162238]"
+                        className="w-20 h-7 px-2 text-xs font-mono tabular-nums border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg text-[#000065] dark:text-white focus:outline-none focus:border-[#000065]"
                       />
                     </div>
                   </div>
 
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Exclude Past / Expired Hearing Dates
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1667,7 +1667,7 @@ export const SystemSettingsManager: React.FC = () => {
 
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold text-[#162238] dark:text-slate-100">
+                      <p className="font-semibold text-[#000065] dark:text-slate-100">
                         Scope Matter &amp; Hearing Alerts to Active Branch
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1691,7 +1691,7 @@ export const SystemSettingsManager: React.FC = () => {
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        <p className="font-semibold text-[#000065] dark:text-slate-100">
                           Cash Requisition Decision Alerts
                         </p>
                         <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">
@@ -1719,7 +1719,7 @@ export const SystemSettingsManager: React.FC = () => {
                   <div className="py-3 flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-[#162238] dark:text-slate-100">
+                        <p className="font-semibold text-[#000065] dark:text-slate-100">
                           Pending Approval Queue Alerts
                         </p>
                         <span className="px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-semibold">

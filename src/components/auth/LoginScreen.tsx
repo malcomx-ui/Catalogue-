@@ -179,7 +179,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen w-full font-sans bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 lg:grid lg:grid-cols-12">
       {/* Left Panel: Corporate Law Firm Identity & Architectural Hero */}
-      <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col justify-between bg-gradient-to-br from-[#0B132B] via-[#0F183B] to-[#000065] text-white px-12 py-12 xl:px-16 xl:py-14 overflow-hidden select-none">
+      <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col justify-between bg-gradient-to-br from-[#00004A] via-[#000065] to-[#0E0E7E] text-white px-12 py-12 xl:px-16 xl:py-14 overflow-hidden select-none">
         {/* Subtle Architectural Grid & Classical Columns Linework */}
         <div
           aria-hidden="true"
@@ -418,7 +418,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-[#0B132B] hover:bg-[#000065] active:bg-[#080E20] dark:bg-[#C5A880] dark:hover:bg-[#D4BA94] dark:text-[#0B132B] text-white font-semibold py-3 px-5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-55 cursor-pointer min-h-[46px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#000065] focus-visible:ring-offset-2"
+                  className="w-full bg-[#000065] hover:bg-[#0F0F80] active:bg-[#00004A] dark:bg-[#C5A880] dark:hover:bg-[#D4BA94] dark:text-[#000065] text-white font-semibold py-3 px-5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-55 cursor-pointer min-h-[46px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#000065] focus-visible:ring-offset-2"
                 >
                   {isLoading ? (
                     <>

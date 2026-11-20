@@ -9,10 +9,10 @@ export default {
     extend: {
       colors: {
         mk: {
-          navy: '#162238',
+          navy: '#000065',
           royal: '#000065',
-          'navy-mid': '#1E2F4D',
-          'navy-light': '#263B61',
+          'navy-mid': '#0F0F80',
+          'navy-light': '#1C1C96',
           gold: '#D99B26',
           'gold-dark': '#B57E1A',
           'gold-light': '#E8C06B',
