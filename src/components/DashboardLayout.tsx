@@ -28,6 +28,8 @@ import {
   Bell,
   Plus,
   ChevronDown,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 
 export interface DashboardLayoutProps {
@@ -126,19 +128,87 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const [notifPopoverOpen, setNotifPopoverOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement | null>(null);
 
-  const unreadDecisionCount = useMemo(
-    () => (canAccessRestrictedWorkflow ? decisionNotifications.filter((n) => n.unread).length : 0),
+  const hearingReadStorageKey = useMemo(() => {
+    const userKey = effectiveUser?.id || effectiveUser?.email || 'staff';
+    return `mk_read_hearing_alerts_v1_${String(userKey).toLowerCase()}`;
+  }, [effectiveUser?.id, effectiveUser?.email]);
+
+  const [readHearingIds, setReadHearingIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(hearingReadStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(hearingReadStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setReadHearingIds(
+        Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : []
+      );
+    } catch {
+      setReadHearingIds([]);
+    }
+  }, [hearingReadStorageKey]);
+
+  const markHearingAlertRead = (hearingId: string) => {
+    setReadHearingIds((prev) => {
+      if (prev.includes(hearingId)) return prev;
+      const next = [...prev, hearingId];
+      try {
+        localStorage.setItem(hearingReadStorageKey, JSON.stringify(next));
+      } catch {
+        // Ignore storage quota errors
+      }
+      return next;
+    });
+  };
+
+  const unreadDecisionNotifications = useMemo(
+    () => (canAccessRestrictedWorkflow ? decisionNotifications.filter((n) => n.unread) : []),
     [decisionNotifications, canAccessRestrictedWorkflow]
   );
 
-  const upcomingHearingAlertsCount = useMemo(
-    () => hearings.filter((h) => h.status === 'Scheduled').length,
+  const unreadDecisionCount = unreadDecisionNotifications.length;
+
+  const scheduledHearings = useMemo(
+    () =>
+      hearings
+        .filter((h) => h.status === 'Scheduled')
+        .sort((a, b) => String(a.hearingDate || '').localeCompare(String(b.hearingDate || ''))),
     [hearings]
   );
 
+  const unreadHearingAlerts = useMemo(
+    () => scheduledHearings.filter((h) => !readHearingIds.includes(h.id)),
+    [scheduledHearings, readHearingIds]
+  );
+
+  const markAllHearingAlertsRead = () => {
+    const allIds = Array.from(new Set([...readHearingIds, ...scheduledHearings.map((h) => h.id)]));
+    setReadHearingIds(allIds);
+    try {
+      localStorage.setItem(hearingReadStorageKey, JSON.stringify(allIds));
+    } catch {
+      // Ignore storage quota errors
+    }
+  };
+
+  const latestUnreadDecision = canAccessRestrictedWorkflow
+    ? unreadDecisionNotifications[0] ?? null
+    : null;
+
+  const latestUnreadHearing = !canAccessRestrictedWorkflow
+    ? unreadHearingAlerts[0] ?? null
+    : null;
+
   const bellUnreadCount = canAccessRestrictedWorkflow
     ? unreadDecisionCount
-    : Math.min(upcomingHearingAlertsCount, 9);
+    : unreadHearingAlerts.length;
 
   useEffect(() => {
     if (!notifPopoverOpen) return;
@@ -604,13 +674,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                         {canAccessRestrictedWorkflow
                           ? `${unreadDecisionCount} unread notice${unreadDecisionCount === 1 ? '' : 's'}`
-                          : `${upcomingHearingAlertsCount} scheduled court appearance${upcomingHearingAlertsCount === 1 ? '' : 's'}`}
+                          : `${unreadHearingAlerts.length} unread of ${scheduledHearings.length} scheduled appearance${scheduledHearings.length === 1 ? '' : 's'}`}
                       </p>
                     </div>
                     {canAccessRestrictedWorkflow && unreadDecisionCount > 0 && onMarkAllDecisionNotificationsRead && (
                       <button
                         type="button"
                         onClick={onMarkAllDecisionNotificationsRead}
+                        className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                    {!canAccessRestrictedWorkflow && unreadHearingAlerts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllHearingAlertsRead}
                         className="text-[11px] font-semibold text-[#162238] dark:text-[#D99B26] hover:underline cursor-pointer shrink-0"
                       >
                         Mark all read
@@ -697,26 +776,31 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   ) : (
                     <>
                       <div className="max-h-72 overflow-y-auto divide-y divide-[#E2E8F0]/70 dark:divide-slate-800">
-                        {hearings.filter((h) => h.status === 'Scheduled').length === 0 ? (
+                        {scheduledHearings.length === 0 ? (
                           <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
                             No upcoming court notices for {activeBranchLabel}.
                           </div>
                         ) : (
-                          hearings
-                            .filter((h) => h.status === 'Scheduled')
-                            .slice(0, 5)
-                            .map((h) => (
+                          scheduledHearings.slice(0, 8).map((h) => {
+                            const isUnread = !readHearingIds.includes(h.id);
+                            return (
                               <button
                                 key={h.id}
                                 type="button"
                                 onClick={() => {
+                                  markHearingAlertRead(h.id);
                                   setActiveTab('causelist');
                                   setNotifPopoverOpen(false);
                                 }}
-                                className="w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-0.5"
+                                className={`w-full text-left px-4 py-3 hover:bg-[#F4F6F9] dark:hover:bg-slate-800/60 transition cursor-pointer space-y-0.5 ${
+                                  isUnread ? 'bg-[#FBF5E8]/60 dark:bg-[#162238]/40' : ''
+                                }`}
                               >
                                 <div className="flex items-center justify-between gap-2 text-xs">
-                                  <span className="font-mono font-semibold text-[#162238] dark:text-white">
+                                  <span className="font-mono font-semibold text-[#162238] dark:text-white inline-flex items-center gap-1.5">
+                                    {isUnread && (
+                                      <span className="w-2 h-2 rounded-full bg-[#D99B26] shrink-0" />
+                                    )}
                                     {h.suitNumber}
                                   </span>
                                   <span className="text-[11px] font-medium text-[#D99B26] tabular-nums">
@@ -730,7 +814,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                                   {h.hearingPurpose} · {h.courtName}
                                 </p>
                               </button>
-                            ))
+                            );
+                          })
                         )}
                       </div>
                       <div className="px-4 py-2.5 border-t border-[#E2E8F0] dark:border-slate-800 bg-[#F4F6F9] dark:bg-slate-800/40 flex justify-end">
@@ -770,6 +855,162 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
         </main>
       </div>
+
+      {/* Persistent Latest Unread Notification Popup — stays visible until explicitly marked read */}
+      {(latestUnreadDecision || latestUnreadHearing) && (
+        <aside
+          role="alert"
+          aria-live="polite"
+          className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-5 sm:right-5 sm:w-[392px] z-40 no-print bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-700 border-l-4 border-l-[#D99B26] rounded-xl shadow-2xl overflow-hidden"
+        >
+          {/* Navy Header Bar */}
+          <div className="bg-[#162238] text-white px-4 py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D99B26] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D99B26]" />
+              </span>
+              <Bell className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
+              <span className="font-display text-xs font-bold tracking-tight truncate">
+                Latest Unread Notification
+              </span>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-[#D99B26]/20 text-[#F5D28B] border border-[#D99B26]/30 text-[10px] font-semibold tabular-nums shrink-0">
+              {bellUnreadCount > 1 ? `1 of ${bellUnreadCount} unread` : '1 unread'}
+            </span>
+          </div>
+
+          {/* Notification Body */}
+          {latestUnreadDecision ? (
+            <>
+              <div className="px-4 py-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
+                    {latestUnreadDecision.referenceCode}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                      latestUnreadDecision.status === 'Denied'
+                        ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                        : latestUnreadDecision.status === 'Approved'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                    }`}
+                  >
+                    {latestUnreadDecision.status}
+                  </span>
+                </div>
+
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  For <strong className="text-[#162238] dark:text-white">{latestUnreadDecision.recipientName}</strong> · By{' '}
+                  <strong className="text-[#162238] dark:text-white">{latestUnreadDecision.actorName}</strong>
+                </p>
+
+                <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+                  Reason: &ldquo;{latestUnreadDecision.reason}&rdquo;
+                </div>
+
+                <p className="text-[11px] text-slate-400 tabular-nums">
+                  {latestUnreadDecision.createdAt}
+                </p>
+              </div>
+
+              <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+                {unreadDecisionCount > 1 && onMarkAllDecisionNotificationsRead ? (
+                  <button
+                    type="button"
+                    onClick={onMarkAllDecisionNotificationsRead}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400">Remains visible until read</span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onMarkDecisionNotificationRead?.(latestUnreadDecision.id)}
+                    className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 text-[#D99B26]" />
+                    <span>Mark Read</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onMarkDecisionNotificationRead?.(latestUnreadDecision.id);
+                      setActiveTab('cash_requisitions');
+                    }}
+                    className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <span>Open &amp; Read</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : latestUnreadHearing ? (
+            <>
+              <div className="px-4 py-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-bold text-[#162238] dark:text-white truncate">
+                    {latestUnreadHearing.suitNumber}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-[#FBF5E8] dark:bg-[#D99B26]/15 text-[#9A6B11] dark:text-[#F5D28B] text-[10px] font-semibold tabular-nums shrink-0">
+                    {latestUnreadHearing.hearingDate}
+                  </span>
+                </div>
+
+                <p className="text-xs font-semibold text-[#162238] dark:text-white leading-snug">
+                  {latestUnreadHearing.caseTitle}
+                </p>
+
+                <div className="bg-[#F4F6F9] dark:bg-slate-800/70 border border-[#E2E8F0] dark:border-slate-700/80 rounded-lg px-3 py-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {latestUnreadHearing.hearingPurpose} · {latestUnreadHearing.courtName}
+                </div>
+              </div>
+
+              <div className="px-4 py-2.5 bg-[#F4F6F9] dark:bg-slate-800/60 border-t border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between gap-2">
+                {unreadHearingAlerts.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={markAllHearingAlertsRead}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-[#162238] dark:text-slate-400 dark:hover:text-[#D99B26] transition cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-400">Remains visible until read</span>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => markHearingAlertRead(latestUnreadHearing.id)}
+                    className="h-8 px-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-[#162238] dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 text-[#D99B26]" />
+                    <span>Mark Read</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markHearingAlertRead(latestUnreadHearing.id);
+                      setActiveTab('causelist');
+                    }}
+                    className="h-8 px-3 rounded-lg bg-[#162238] hover:bg-[#1E2F4D] text-white text-xs font-semibold inline-flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <span>Open &amp; Read</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-[#D99B26]" />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </aside>
+      )}
     </div>
   );
 };
