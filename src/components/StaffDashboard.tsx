@@ -10,6 +10,7 @@ import {
   dedupeBranches,
   getBranchCode,
   getBranchSearchTokens,
+  getBranchStationKey,
   getCaseMatchDimensions,
   matchesBranchGlobalSearch,
   matchesCaseGlobalSearch,
@@ -567,7 +568,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     pendingApprovalsCount,
   ]);
 
-  // Branch Case Blocks (deduplicated per station with accurate live cases + mortgages tallies, live-filtered by global search)
+  // Branch Case Blocks (deduplicated per station, excluding the signed-in user's branch which is already represented in the 4 main stat blocks)
   const branchCaseBlocks = useMemo(() => {
     const rawSourceBranches =
       Array.isArray(branches) && branches.length > 0
@@ -581,7 +582,49 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
     const dedupedBranches = dedupeBranches(rawSourceBranches);
 
-    const mapped = dedupedBranches.map(({ primary: branch, mergedIds, mergedNames }) => {
+    // Resolve signed-in user's home branch so it is excluded from Branch Case Blocks
+    const userBranchId = String(effectiveUser?.branchId || '').trim().toLowerCase();
+    const userBranchRecord = rawSourceBranches.find(
+      (b) => b.id.toLowerCase() === userBranchId
+    );
+    const rawUserBranchName = String(
+      userBranchRecord?.name || effectiveUser?.branchName || ''
+    ).trim();
+    const normalizedUserBranchName = rawUserBranchName.toLowerCase();
+    const hasSpecificUserBranch =
+      (Boolean(userBranchId) && userBranchId !== 'all') ||
+      (Boolean(normalizedUserBranchName) &&
+        normalizedUserBranchName !== 'all' &&
+        !normalizedUserBranchName.includes('all firm'));
+
+    const userStationKey = hasSpecificUserBranch
+      ? getBranchStationKey(
+          userBranchId !== 'all' ? userBranchId : undefined,
+          rawUserBranchName,
+          (userBranchRecord as any)?.city
+        )
+      : '';
+
+    const otherBranches = hasSpecificUserBranch
+      ? dedupedBranches.filter(({ primary: branch, mergedIds }) => {
+          const matchesUserId =
+            Boolean(userBranchId) &&
+            userBranchId !== 'all' &&
+            mergedIds.some((id) => id.toLowerCase() === userBranchId);
+          const branchStationKey = getBranchStationKey(
+            branch.id,
+            branch.name,
+            (branch as any).city
+          );
+          const matchesUserStation =
+            Boolean(userStationKey) &&
+            userStationKey !== 'all' &&
+            branchStationKey === userStationKey;
+          return !matchesUserId && !matchesUserStation;
+        })
+      : dedupedBranches;
+
+    const mapped = otherBranches.map(({ primary: branch, mergedIds, mergedNames }) => {
       const branchCity = (branch as any).city || branch.name;
       const branchCode = getBranchCode(branch.id, branch.name, branchCity);
       const branchDirectlyMatches = isGlobalSearchActive
@@ -658,6 +701,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     searchMatchedMortgages,
     isGlobalSearchActive,
     trimmedSearchQuery,
+    effectiveUser?.branchId,
+    effectiveUser?.branchName,
   ]);
 
   // Birthday Celebrants & Live Supabase `birthday_wishes` integration
@@ -1846,7 +1891,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
             {branchCaseBlocks.length === 0 ? (
               <div className="p-6 text-center rounded-xl bg-[#F4F6F9]/70 dark:bg-slate-800/40 border border-dashed border-[#E2E8F0] dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                No branches matched &ldquo;{trimmedSearchQuery}&rdquo;. Try searching a branch code (e.g. KLA-HQ, MSK-REG, MBR-REG), Case ID, or client name.
+                {isGlobalSearchActive
+                  ? `No other branches matched “${trimmedSearchQuery}”. Try searching a branch code (e.g. MSK-REG, MBR-REG), Case ID, or client name.`
+                  : 'No other firm branches are currently listed.'}
               </div>
             ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
