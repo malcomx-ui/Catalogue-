@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { getEffectiveUser } from '../lib/supabase';
 import { hrSupabase, isSuperAdminUser, canAccessRestrictedWorkflowNav } from '../lib/hrSupabase';
 import { LockedBirthdayWidget } from './LockedHrComponents';
+import { StaffOnLeaveCard } from './StaffOnLeaveCard';
 import { MortgageService, getVisibleBanksForUser } from '../services/mortgageService';
 import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
@@ -113,7 +114,7 @@ export interface StaffDashboardProps {
   hideTopHeader?: boolean;
 }
 
-type CaseFilterTab = 'All' | 'Litigation' | 'Mortgages';
+type CaseFilterTab = 'Litigation' | 'Mortgages';
 type QuickModalType = 'requisition' | 'document' | 'note' | 'leave' | null;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -429,9 +430,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   const searchQuery = controlledSearch !== undefined ? controlledSearch : internalSearch;
   const handleSearchChange = onSearchChange || setInternalSearch;
 
-  const [activeCaseFilter, setActiveCaseFilter] = useState<CaseFilterTab>('All');
+  const [activeCaseFilter, setActiveCaseFilter] = useState<CaseFilterTab>('Litigation');
   const [activeModal, setActiveModal] = useState<QuickModalType>(null);
   const [mortgages, setMortgages] = useState<any[]>([]);
+  const [leaveRefreshKey, setLeaveRefreshKey] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
@@ -1094,7 +1096,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     trimmedSearchQuery,
   ]);
 
-  // Upcoming Cases Table Rows (live-filtered across Case ID, client names & branch codes; supports All | Litigation | Mortgages)
+  // Upcoming Cases Table Rows (live-filtered across Case ID, client names & branch codes; supports Litigation | Mortgages)
   const upcomingCasesRows = useMemo(() => {
     const caseRows = searchMatchedCases
       .filter((c) => (isGlobalSearchActive ? true : !isCaseClosed(c)))
@@ -1160,8 +1162,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     const combined =
       activeCaseFilter === 'Mortgages'
         ? [...mortgageRows, ...caseRows.filter((r) => r.practice === 'Mortgages')]
-        : activeCaseFilter === 'All'
-        ? [...caseRows, ...mortgageRows.slice(0, isGlobalSearchActive ? 6 : 3)]
         : caseRows.filter((r) => r.practice !== 'Mortgages');
 
     const sorted = combined.sort((a, b) => a.sortTs - b.sortTs);
@@ -1374,6 +1374,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         }
       }
       setLeaveReason('');
+      setLeaveRefreshKey((k) => k + 1);
       setActiveModal(null);
       showCleanMessage(
         `${leaveType} (${leaveBreakdown.workingDays} working day${leaveBreakdown.workingDays === 1 ? '' : 's'}) submitted for approval.`,
@@ -1381,6 +1382,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       );
     } catch {
       setLeaveReason('');
+      setLeaveRefreshKey((k) => k + 1);
       setActiveModal(null);
       showCleanMessage('Leave request recorded and queued for HR approval.', 'success');
     } finally {
@@ -1739,7 +1741,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   aria-label="Filter upcoming cases by practice"
                   className="inline-flex items-center p-0.5 rounded-lg bg-[#EEF1FA] dark:bg-slate-800 border border-[#DFE5F2] dark:border-slate-700"
                 >
-                  {(['All', 'Litigation', 'Mortgages'] as CaseFilterTab[]).map((tab) => {
+                  {(['Litigation', 'Mortgages'] as CaseFilterTab[]).map((tab) => {
                     const selected = activeCaseFilter === tab;
                     return (
                       <button
@@ -2219,6 +2221,15 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               <ArrowRight className="w-3.5 h-3.5 group-hover:text-[#E8C06B] transition-transform duration-150 group-hover:translate-x-0.5" />
             </button>
           </div>
+
+          {/* 4. Staff on Leave (Firm-Wide across all branches + next working return date) */}
+          <StaffOnLeaveCard
+            searchQuery={trimmedSearchQuery}
+            refreshKey={leaveRefreshKey}
+            canOpenHrModule={canAccessRestrictedWorkflow}
+            onOpenHrModule={() => (onOpenHrModule ? onOpenHrModule() : setActiveTab('hr'))}
+            onRequestLeave={() => openQuickModal('leave')}
+          />
         </div>
       </section>
 

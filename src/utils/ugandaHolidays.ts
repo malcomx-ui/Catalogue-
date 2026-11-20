@@ -298,3 +298,38 @@ export function formatHolidayShortDate(isoDate: string): string {
   if (!dt) return isoDate;
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
+/**
+ * Computes the next working business day (YYYY-MM-DD) after a leave `endDate`,
+ * skipping Saturdays, Sundays, and any configured Uganda Public Holidays.
+ */
+export function getNextWorkingReturnDate(
+  endDate?: string | null,
+  configuredHolidays?: PublicHolidayConfig[]
+): string | null {
+  const end = parseLocalDate(endDate);
+  if (!end) return null;
+
+  const yearMapCache = new Map<number, Map<string, string>>();
+  const getYearMap = (y: number) => {
+    let m = yearMapCache.get(y);
+    if (!m) {
+      m = getUgandaHolidayMap(y, configuredHolidays);
+      yearMapCache.set(y, m);
+    }
+    return m;
+  };
+
+  let candidate = addDays(end, 1);
+  for (let i = 0; i < 30; i++) {
+    const dow = candidate.getDay();
+    const iso = formatDateIso(candidate);
+    const isHoliday = getYearMap(candidate.getFullYear()).has(iso);
+    if (dow !== 0 && dow !== 6 && !isHoliday) {
+      return iso;
+    }
+    candidate = addDays(candidate, 1);
+  }
+  return formatDateIso(addDays(end, 1));
+}
+
