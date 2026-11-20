@@ -513,8 +513,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <p className="font-display text-sm font-bold text-white tracking-tight truncate leading-tight">
                 MK Case Catalogue
               </p>
-              <p className="text-[11px] text-[#E8C06B] font-medium truncate leading-tight mt-0.5">
-                Muhumuza - Kiiza Advocates
+              <p className="text-[10px] text-white uppercase font-semibold tracking-wider truncate leading-tight mt-0.5">
+                MUHUMUZA - KIIZA ADVOCATES
               </p>
             </div>
           )}
