@@ -75,7 +75,7 @@ interface SidebarNavGroup {
 }
 
 const VIEW_TITLES: Record<NavigationTab, string> = {
-  dashboard: 'Executive Workspace',
+  dashboard: 'Firm Workspace',
   catalogue: 'Cases & Matters',
   clients: 'Clients Directory',
   causelist: 'Calendar & Deadlines',
@@ -354,7 +354,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     return effectiveUser?.branchName || 'Kampala Central (Head Office)';
   }, [branchOptions, selectedBranchFilter, effectiveUser?.branchName]);
 
-  const activeViewTitle = VIEW_TITLES[activeTab] || 'Executive Workspace';
+  const activeViewTitle = VIEW_TITLES[activeTab] || 'Firm Workspace';
 
   // Clio Manage Grouped Navigation: PRACTICE | FINANCE & SECURITIES | OPERATIONS & HR
   const navGroups: SidebarNavGroup[] = useMemo(() => {

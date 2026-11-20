@@ -9,6 +9,7 @@ import {
 } from '../lib/hrSupabase';
 import { useApp } from '../context/AppContext';
 import { showCleanMessage } from '../utils/notification';
+import { emitStaffBirthdaysUpdated } from '../utils/birthdayAlerts';
 import {
   calculateUgandaWorkingDays,
   calculateUgandaLeaveBreakdown,
@@ -1063,6 +1064,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
               )
             );
             setIsEmpModalOpen(false);
+            emitStaffBirthdaysUpdated();
             showCleanMessage(
               `Saved HR details for ${payload.first_name} ${payload.last_name} locally (Supabase employees RLS requires write policy for cloud sync).`,
               'warning'
@@ -1083,6 +1085,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
         if (error) throw error;
         showCleanMessage(`Added ${payload.first_name} ${payload.last_name} to the HR directory.`, 'success');
       }
+      emitStaffBirthdaysUpdated();
       setIsEmpModalOpen(false);
       await loadHrData();
     } catch (err: any) {

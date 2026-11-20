@@ -8,6 +8,10 @@ import { MortgageService, getVisibleBanksForUser } from '../services/mortgageSer
 import { calculateUgandaLeaveBreakdown } from '../utils/ugandaHolidays';
 import { showCleanMessage } from '../utils/notification';
 import {
+  computeBirthdayProximity,
+  STAFF_BIRTHDAYS_UPDATED_EVENT,
+} from '../utils/birthdayAlerts';
+import {
   dedupeBranches,
   getBranchCode,
   getBranchSearchTokens,
@@ -93,6 +97,7 @@ export interface BirthdayCelebrant {
   role: string;
   dateLabel: string;
   isToday?: boolean;
+  isWithinThreeDays?: boolean;
   isUuid?: boolean;
   wishes: Array<{ id: string; sender: string; message: string; createdAt: string }>;
 }
@@ -206,20 +211,19 @@ function getNextTaskStatus(current: TaskStatus): TaskStatus {
   return 'Todo';
 }
 
-function formatBirthdayDate(dob?: string | null): { label: string; isToday: boolean; daysUntil: number } {
-  if (!dob) return { label: 'Upcoming', isToday: false, daysUntil: 365 };
-  const parts = String(dob).slice(0, 10).split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
-    return { label: String(dob), isToday: false, daysUntil: 365 };
-  }
-  const [, month, day] = parts;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  let next = new Date(now.getFullYear(), month - 1, day);
-  if (next < today) next = new Date(now.getFullYear() + 1, month - 1, day);
-  const diffDays = Math.round((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const label = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-  return { label: diffDays === 0 ? `${label} (Today)` : label, isToday: diffDays === 0, daysUntil: diffDays };
+function formatBirthdayDate(dob?: string | null): {
+  label: string;
+  isToday: boolean;
+  isWithinThreeDays: boolean;
+  daysUntil: number;
+} {
+  const prox = computeBirthdayProximity(dob);
+  return {
+    label: prox.label,
+    isToday: prox.isToday,
+    isWithinThreeDays: prox.isWithinWindow,
+    daysUntil: prox.daysUntil,
+  };
 }
 
 function readLocalWishes(): Record<string, Array<{ id: string; sender: string; message: string; createdAt: string }>> {
@@ -797,6 +801,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             role: item.role,
             dateLabel: meta.label,
             isToday: meta.isToday,
+            isWithinThreeDays: meta.isWithinThreeDays,
             isUuid: UUID_REGEX.test(item.id),
             wishes: mergedWishes,
             _daysUntil: meta.daysUntil,
@@ -882,6 +887,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
   useEffect(() => {
     loadBirthdayCelebrants();
+    if (typeof window === 'undefined') return;
+    const handleUpdated = () => {
+      void loadBirthdayCelebrants();
+    };
+    window.addEventListener(STAFF_BIRTHDAYS_UPDATED_EVENT, handleUpdated);
+    return () => {
+      window.removeEventListener(STAFF_BIRTHDAYS_UPDATED_EVENT, handleUpdated);
+    };
   }, [loadBirthdayCelebrants]);
 
   const handleSendBirthdayWish = async (celebrant: BirthdayCelebrant) => {
@@ -2079,7 +2092,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                             {celebrant.name}
                           </p>
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            <span className={celebrant.isToday ? 'font-semibold text-[#B57E1A] dark:text-[#D99B26]' : ''}>
+                            <span
+                              className={
+                                celebrant.isToday || celebrant.isWithinThreeDays
+                                  ? 'font-semibold text-[#B57E1A] dark:text-[#D99B26]'
+                                  : ''
+                              }
+                            >
                               {celebrant.dateLabel}
                             </span>
                             {' · '}

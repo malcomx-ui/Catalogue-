@@ -62,6 +62,10 @@ import {
 } from './lib/hrSupabase';
 import { LockedHrModule } from './components/LockedHrComponents';
 import { showCleanMessage } from './utils/notification';
+import {
+  checkAndTriggerUpcomingBirthdayToasts,
+  STAFF_BIRTHDAYS_UPDATED_EVENT,
+} from './utils/birthdayAlerts';
 import './utils/testRls';
 import './services/caseService';
 import './services/reportService';
@@ -75,6 +79,7 @@ const MainLayout: React.FC = () => {
     setIsCpanelMigrationModalOpen,
     setIsNewCaseModalOpen,
     currentUser,
+    availableUsers,
     fetchFreshDataFromSupabase,
   } = useApp();
 
@@ -250,6 +255,35 @@ const MainLayout: React.FC = () => {
 
   const isSuperAdmin = isSuperAdminUser(effectiveUser);
   const canAccessRestrictedWorkflow = canAccessRestrictedWorkflowNav(effectiveUser);
+
+  // System-wide 3-day staff birthday alert toasts (targets HR Manager & the birthday person)
+  useEffect(() => {
+    if (!isAuthenticated || !effectiveUser?.id) return;
+
+    const runCheck = () => {
+      void checkAndTriggerUpcomingBirthdayToasts({
+        currentUser: effectiveUser,
+        availableUsers,
+      });
+    };
+
+    runCheck();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener(STAFF_BIRTHDAYS_UPDATED_EVENT, runCheck);
+      return () => {
+        window.removeEventListener(STAFF_BIRTHDAYS_UPDATED_EVENT, runCheck);
+      };
+    }
+    return undefined;
+  }, [
+    isAuthenticated,
+    effectiveUser?.id,
+    effectiveUser?.email,
+    effectiveUser?.role,
+    effectiveUser?.roleTitle,
+    availableUsers,
+  ]);
   const effectiveUserName = effectiveUser?.name || 'Managing Partner';
   const effectiveUserRole = effectiveUser?.roleTitle || effectiveUser?.role || 'Senior Approver';
   const effectiveBranchName = effectiveUser?.branchName || 'Kampala Central (Head Office)';

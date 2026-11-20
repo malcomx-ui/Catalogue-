@@ -1,9 +1,10 @@
-export type NotificationType = 'success' | 'error' | 'warning' | 'info';
+export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'birthday';
 
 export interface AppNotification {
   id: string;
   message: string;
   type: NotificationType;
+  durationMs?: number;
 }
 
 type NotificationListener = (notification: AppNotification) => void;
@@ -13,11 +14,16 @@ const listeners = new Set<NotificationListener>();
  * Clean UI notification helper function
  * Replaces window.alert with an in-app animated toast notification banner.
  */
-export function showCleanMessage(message: string, type: NotificationType = 'info'): void {
+export function showCleanMessage(
+  message: string,
+  type: NotificationType = 'info',
+  options?: { durationMs?: number }
+): void {
   const notification: AppNotification = {
     id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     message,
     type,
+    durationMs: options?.durationMs,
   };
 
   listeners.forEach((listener) => {
