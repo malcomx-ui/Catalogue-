@@ -205,7 +205,7 @@ export const UserEditForm: React.FC<UserEditFormProps> = ({ initialData, branche
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-white bg-[#0B132B] rounded-xl hover:bg-[#000065] disabled:opacity-50 transition-colors"
         >
           {loading ? 'Saving Permissions...' : 'Save Permissions'}
         </button>

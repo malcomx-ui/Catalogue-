@@ -236,7 +236,7 @@ export const ClientsDirectory: React.FC = () => {
                 onClick={() => setStatusScope(mode)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap shrink-0 cursor-pointer ${
                   statusScope === mode
-                    ? 'bg-slate-900 dark:bg-blue-600 text-white'
+                    ? 'bg-[#0B132B] dark:bg-[#000065] text-white'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -259,7 +259,7 @@ export const ClientsDirectory: React.FC = () => {
             <button
               type="button"
               onClick={() => navigateToRoute('catalogue')}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-blue-600 text-white text-xs font-semibold rounded-xl hover:bg-slate-800 dark:hover:bg-blue-700 transition whitespace-nowrap shrink-0 cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-[#0B132B] dark:bg-[#000065] text-white text-xs font-semibold rounded-xl hover:bg-[#000065] dark:hover:bg-[#131C42] transition whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Go to Cases</span>

@@ -322,7 +322,7 @@ export const AddDiaryEntryModal: React.FC<AddDiaryEntryModalProps> = ({
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors whitespace-nowrap shrink-0"
+              className="px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] disabled:opacity-60 text-white rounded-xl font-semibold transition-colors whitespace-nowrap shrink-0"
             >
               {saving ? 'Saving...' : 'Save Diary Entry'}
             </button>

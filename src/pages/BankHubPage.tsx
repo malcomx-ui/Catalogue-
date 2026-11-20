@@ -88,9 +88,9 @@ export const BankHubPage: React.FC<{
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5 text-[#C5A880]" />
             <span>Add New Mortgage</span>
           </button>
 

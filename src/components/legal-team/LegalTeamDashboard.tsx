@@ -1114,12 +1114,12 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
   };
 
   const avatarGradients = [
-    'from-blue-600 to-indigo-600',
-    'from-emerald-600 to-teal-600',
-    'from-slate-800 to-slate-950',
-    'from-indigo-600 to-violet-600',
-    'from-amber-600 to-orange-600',
-    'from-cyan-600 to-blue-700',
+    'from-[#0B132B] to-[#000065]',
+    'from-emerald-700 to-teal-800',
+    'from-[#131C42] to-[#0B132B]',
+    'from-[#9E7B46] to-[#7A5D32]',
+    'from-[#000065] to-[#1E2B58]',
+    'from-slate-800 to-[#0B132B]',
   ];
 
   const selectedStaff = useMemo(
@@ -1197,7 +1197,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
       {/* 1. MODULE HEADER & ACTION BUTTONS */}
       <header className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#0B132B] dark:text-white tracking-tight">
             Staff Management &amp; Workflow Delegation
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -1211,16 +1211,16 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
             onClick={() => openApplyLeaveModal()}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap shadow-xs"
           >
-            <CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <CalendarDays className="w-4 h-4 text-[#000065] dark:text-[#C5A880] shrink-0" />
             <span>Apply for Leave</span>
           </button>
 
           <button
             type="button"
             onClick={() => openDelegateTaskModal()}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap shadow-xs"
           >
-            <Plus className="w-4 h-4 shrink-0" />
+            <Plus className="w-4 h-4 text-[#C5A880] shrink-0" />
             <span>+ Delegate Task</span>
           </button>
         </div>
@@ -1231,14 +1231,14 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5">
           {selectedBranchFilter && selectedBranchFilter !== 'all' && (
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <Building2 className="w-3.5 h-3.5 text-blue-600" />
+              <Building2 className="w-3.5 h-3.5 text-[#000065] dark:text-[#C5A880]" />
               Branch Scope: <strong className="text-slate-900 dark:text-white">{activeBranchObj?.name || selectedBranchFilter}</strong>
             </span>
           )}
           {searchQuery.trim() && selectedBranchFilter && selectedBranchFilter !== 'all' && <span aria-hidden="true">·</span>}
           {searchQuery.trim() && (
             <span className="inline-flex items-center gap-1.5 font-medium">
-              <Search className="w-3.5 h-3.5 text-blue-600" />
+              <Search className="w-3.5 h-3.5 text-[#000065] dark:text-[#C5A880]" />
               Filtering by &ldquo;{searchQuery.trim()}&rdquo;
             </span>
           )}
@@ -1252,7 +1252,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           onClick={() => setActiveSubTab('directory')}
           className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeSubTab === 'directory'
-              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              ? 'border-[#000065] dark:border-[#C5A880] text-[#000065] dark:text-[#E2CFAF]'
               : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -1265,7 +1265,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           onClick={() => setActiveSubTab('tasks')}
           className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeSubTab === 'tasks'
-              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              ? 'border-[#000065] dark:border-[#C5A880] text-[#000065] dark:text-[#E2CFAF]'
               : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -1278,7 +1278,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           onClick={() => setActiveSubTab('leaves')}
           className={`inline-flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold border-b-2 transition cursor-pointer whitespace-nowrap shrink-0 ${
             activeSubTab === 'leaves'
-              ? 'border-blue-600 text-blue-700 dark:text-blue-400'
+              ? 'border-[#000065] dark:border-[#C5A880] text-[#000065] dark:text-[#E2CFAF]'
               : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
@@ -1855,13 +1855,13 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                     const pct = s.leaveRemainingPercent;
                     const barColor =
                       pct >= 50
-                        ? 'bg-blue-600 dark:bg-blue-500'
+                        ? 'bg-[#000065] dark:bg-[#C5A880]'
                         : pct >= 20
                         ? 'bg-amber-500 dark:bg-amber-400'
                         : 'bg-rose-600 dark:bg-rose-500';
                     const textAccent =
                       pct >= 50
-                        ? 'text-blue-600 dark:text-blue-400'
+                        ? 'text-[#000065] dark:text-[#E2CFAF]'
                         : pct >= 20
                         ? 'text-amber-600 dark:text-amber-400'
                         : 'text-rose-600 dark:text-rose-400';
@@ -1884,7 +1884,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedStaffId(s.id)}
-                                className="text-xs font-bold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 hover:underline truncate block text-left cursor-pointer"
+                                className="text-xs font-bold text-slate-900 dark:text-white hover:text-[#000065] dark:hover:text-[#C5A880] hover:underline truncate block text-left cursor-pointer"
                               >
                                 {s.name}
                               </button>
@@ -1946,7 +1946,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => openApplyLeaveModal(s.id)}
-                              className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                              className="text-[11px] font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer shrink-0"
                             >
                               Apply
                             </button>
@@ -1973,9 +1973,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => openApplyLeaveModal()}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 text-[#C5A880]" />
                   New Application
                 </button>
               </div>
@@ -2225,7 +2225,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                       <button
                         type="submit"
                         disabled={submittingLeave || !breakdown.isValidRange || breakdown.workingDays <= 0}
-                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {submittingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>Submit Leave Request</span>
@@ -2250,7 +2250,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-blue-600" />
+                <Briefcase className="w-5 h-5 text-[#000065] dark:text-[#C5A880]" />
                 <h2 id="delegate-task-modal-title" className="text-base font-bold text-slate-900 dark:text-white">
                   Delegate Workflow Task
                 </h2>
@@ -2276,7 +2276,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                   value={taskForm.title}
                   onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Draft Affidavit in Reply & File Commercial Court Bundle"
-                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                 />
               </div>
 
@@ -2288,7 +2288,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                   <select
                     value={taskForm.assignee}
                     onChange={(e) => setTaskForm((f) => ({ ...f, assignee: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                   >
                     {allStaffCards.map((s) => (
                       <option key={s.id} value={s.name}>
@@ -2305,7 +2305,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                   <select
                     value={taskForm.priority}
                     onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                   >
                     <option value="URGENT">URGENT</option>
                     <option value="HIGH">HIGH</option>
@@ -2324,7 +2324,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                     value={taskForm.caseCode}
                     onChange={(e) => setTaskForm((f) => ({ ...f, caseCode: e.target.value }))}
                     placeholder="e.g. LF-2026-0142"
-                    className="w-full px-3.5 py-2.5 text-sm font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2.5 text-sm font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                   />
                 </div>
 
@@ -2337,7 +2337,7 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                     required
                     value={taskForm.dueDate}
                     onChange={(e) => setTaskForm((f) => ({ ...f, dueDate: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                   />
                 </div>
               </div>
@@ -2352,9 +2352,9 @@ export const LegalTeamDashboard: React.FC<LegalTeamDashboardProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3.5 h-3.5 text-[#C5A880]" />
                   <span>Delegate Task</span>
                 </button>
               </div>

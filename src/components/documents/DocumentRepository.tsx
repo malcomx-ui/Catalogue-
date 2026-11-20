@@ -92,7 +92,7 @@ export const DocumentRepository: React.FC = () => {
 
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs min-h-[38px] sm:min-h-0"
+          className="flex items-center gap-1.5 px-3 py-2 sm:py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl text-xs font-medium transition-colors shadow-2xs min-h-[38px] sm:min-h-0"
         >
           <Upload className="w-3.5 h-3.5" />
           <span>Upload Document</span>
@@ -319,7 +319,7 @@ export const DocumentRepository: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-medium"
+                  className="px-4 py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl font-medium"
                 >
                   Save Document
                 </button>

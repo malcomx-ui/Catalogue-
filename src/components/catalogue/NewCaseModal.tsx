@@ -746,9 +746,9 @@ export const NewCaseModal: React.FC = () => {
                     ? `View-Only Mode: Creating cases is restricted to ${effectiveUser?.branchName || currentUser?.branchName || 'your assigned branch'}`
                     : 'Register new case'
                 }
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-[#0B132B] hover:bg-[#000065] dark:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-lg font-medium shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4 text-amber-400" />
+                <Save className="w-4 h-4 text-[#C5A880]" />
                 <span>
                   {!isActiveBranchValid
                     ? 'Active Branch Required'

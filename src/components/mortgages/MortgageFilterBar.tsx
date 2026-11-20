@@ -223,7 +223,7 @@ export const MortgageFilterBar: React.FC<MortgageFilterBarProps> = ({
               onClick={onOpenAddModal}
               disabled={!canAdd}
               title={!canAdd ? addDisabledReason : 'Register a new mortgage file'}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition shrink-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+              className="px-3 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition shrink-0 disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
             >
               <span>+</span>
               <span>{canAdd ? 'New File' : 'New File (View-Only)'}</span>

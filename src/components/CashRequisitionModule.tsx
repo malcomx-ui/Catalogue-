@@ -305,7 +305,7 @@ export default function CashRequisitionModule({
       case 'Approved':
         return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
       case 'Level 1 Approved':
-        return 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+        return 'bg-[#000065]/8 dark:bg-[#000065]/40 text-[#000065] dark:text-[#E2CFAF] border-[#000065]/20 dark:border-[#C5A880]/40';
       case 'Denied':
         return 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
       default:
@@ -319,16 +319,16 @@ export default function CashRequisitionModule({
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
               <Banknote className="w-5 h-5" />
             </div>
             <div>
               {compactHeader ? (
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-base sm:text-lg font-bold text-[#0B132B] dark:text-white tracking-tight">
                   Cash Requisitions — Multi-Level Review &amp; Approval
                 </h2>
               ) : (
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h1 className="text-lg sm:text-xl font-bold text-[#0B132B] dark:text-white tracking-tight">
                   Cash Requisition &amp; Multi-Level Approval Workflow
                 </h1>
               )}
@@ -339,8 +339,8 @@ export default function CashRequisitionModule({
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 tabular-nums">
-              <Bell className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border border-[#C5A880]/50 dark:border-[#C5A880]/40 tabular-nums">
+              <Bell className="w-3.5 h-3.5 text-[#9E7B46] dark:text-[#C5A880]" />
               {unreadCount} Unread Notice{unreadCount === 1 ? '' : 's'}
             </span>
             {unreadCount > 0 && (
@@ -370,7 +370,7 @@ export default function CashRequisitionModule({
                   key={n.id}
                   onClick={() => n.unread && markSingleNotificationRead(n.id)}
                   className={`p-3 rounded-xl border text-xs space-y-1 transition ${
-                    n.unread ? 'cursor-pointer ring-1 ring-blue-500/20' : 'opacity-85'
+                    n.unread ? 'cursor-pointer ring-1 ring-[#C5A880]/50' : 'opacity-85'
                   } ${
                     n.status === 'Denied'
                       ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 text-rose-950 dark:text-rose-100'
@@ -383,7 +383,7 @@ export default function CashRequisitionModule({
                     <span className="inline-flex items-center gap-1.5 font-mono">
                       {n.unread && (
                         <span
-                          className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400 shrink-0"
+                          className="w-2 h-2 rounded-full bg-[#000065] dark:bg-[#C5A880] shrink-0"
                           title="Unread decision notice"
                         />
                       )}
@@ -444,7 +444,7 @@ export default function CashRequisitionModule({
               value={purpose}
               onChange={(e) => setPurpose(e.target.value)}
               placeholder="e.g., Court filing fees, witness travel, registry stamps..."
-              className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
             />
           </div>
 
@@ -465,7 +465,7 @@ export default function CashRequisitionModule({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="250000"
-                className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-3 py-2 text-xs font-mono tabular-nums bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
               />
             </div>
 
@@ -480,7 +480,7 @@ export default function CashRequisitionModule({
                 id="req-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as 'UGX' | 'USD')}
-                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
               >
                 <option value="UGX">UGX</option>
                 <option value="USD">USD</option>
@@ -499,7 +499,7 @@ export default function CashRequisitionModule({
               id="req-branch"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
             >
               {branchChoices.map((b) => (
                 <option key={b} value={b}>
@@ -523,7 +523,7 @@ export default function CashRequisitionModule({
               value={caseRef}
               onChange={(e) => setCaseRef(e.target.value)}
               placeholder="e.g., HC-2026-CV-019"
-              className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
             />
             {caseSuggestions.length > 0 && (
               <datalist id="mk-cash-req-case-suggestions">
@@ -538,9 +538,9 @@ export default function CashRequisitionModule({
 
           <button
             type="submit"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition cursor-pointer shadow-xs"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold transition cursor-pointer shadow-xs"
           >
-            <Send className="w-3.5 h-3.5" />
+            <Send className="w-3.5 h-3.5 text-[#C5A880]" />
             <span>Submit Cash Requisition</span>
           </button>
         </form>
@@ -594,7 +594,7 @@ export default function CashRequisitionModule({
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="space-y-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className="font-mono font-bold text-blue-700 dark:text-blue-400">
+                          <span className="font-mono font-bold text-[#000065] dark:text-[#E2CFAF]">
                             {req.referenceCode}
                           </span>
                           <span
@@ -690,7 +690,7 @@ export default function CashRequisitionModule({
                               : req.stage === 'Denied'
                               ? 'text-rose-600 dark:text-rose-400'
                               : req.stage === 'Level 1 Approved'
-                              ? 'text-blue-700 dark:text-blue-400'
+                              ? 'text-[#000065] dark:text-[#E2CFAF]'
                               : 'text-slate-400 dark:text-slate-500'
                           }`}
                         >
@@ -732,7 +732,7 @@ export default function CashRequisitionModule({
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                               isDeciding
                                 ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                : 'bg-[#0B132B] hover:bg-[#000065] text-white'
                             }`}
                           >
                             {isDeciding
@@ -769,7 +769,7 @@ export default function CashRequisitionModule({
                           value={decisionReason}
                           onChange={(e) => setDecisionReason(e.target.value)}
                           placeholder="Enter verification notes, budget check, or denial justification (sent in decision notification)..."
-                          className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                          className="w-full px-3 py-2 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                         />
 
                         <div className="flex flex-wrap items-center justify-end gap-2">

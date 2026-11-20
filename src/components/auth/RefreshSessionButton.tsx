@@ -138,7 +138,7 @@ export default function RefreshSessionButton({
       <button
         onClick={handleRefresh}
         disabled={loading}
-        className="w-full bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-xs"
+        className="w-full bg-[#0B132B] text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-[#000065] disabled:opacity-50 flex items-center justify-center gap-2 transition-colors shadow-xs"
       >
         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         <span>{loading ? 'Refreshing Session...' : 'Refresh User Session'}</span>

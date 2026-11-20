@@ -473,7 +473,7 @@ export const CaseList: React.FC = () => {
                           <div className="pt-2 flex items-center justify-center gap-2">
                             <button
                               onClick={() => setSelectedLawyerFilter('all')}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
                             >
                               <span>Show All Counsel</span>
                             </button>

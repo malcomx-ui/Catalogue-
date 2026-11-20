@@ -596,7 +596,7 @@ export const BirthdayWidget: React.FC<BirthdayWidgetProps> = ({
             <button
               type="button"
               onClick={onOpenHrModule}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-500 text-white text-xs font-semibold transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white text-xs font-semibold transition cursor-pointer"
             >
               <span>Open HR Suite</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -1387,19 +1387,19 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
       ) : (
       <>
       {/* Executive Header */}
-      <div className="bg-slate-950 text-white rounded-2xl p-6 border border-slate-900 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[#0B132B] via-[#131C42] to-[#000065] text-white rounded-2xl p-6 border border-[#C5A880]/30 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-300 shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-[#C5A880]/15 border border-[#C5A880]/40 flex items-center justify-center text-[#E2CFAF] shrink-0">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight">HR &amp; People Operations</h1>
-              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/30 font-semibold">
+              <h1 className="text-xl font-bold tracking-tight font-serif-legal">HR &amp; People Operations</h1>
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#C5A880]/20 text-[#E2CFAF] border border-[#C5A880]/40 font-semibold">
                 Super Admin
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-300 mt-1">
               Centralized staff directory, leave approvals, and birthday milestone tracking across MK Advocates
             </p>
           </div>
@@ -1410,25 +1410,25 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
             type="button"
             onClick={loadHrData}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-200 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-[#C5A880]/30 text-xs font-medium text-white transition cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#C5A880] ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
           <button
             type="button"
             onClick={handleSyncFromFirmUsers}
             disabled={syncingStaff}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-xs font-medium text-slate-200 transition cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-[#C5A880]/30 text-xs font-medium text-white transition cursor-pointer disabled:opacity-50"
             title="Import existing MK Firm user profiles into the HR employees directory"
           >
-            {syncingStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+            {syncingStaff ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C5A880]" /> : <Download className="w-3.5 h-3.5 text-[#C5A880]" />}
             <span>Sync Firm Staff</span>
           </button>
           <button
             type="button"
             onClick={openAddEmployee}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C5A880] hover:bg-[#D4BA94] text-[#0B132B] text-xs font-bold shadow-xs transition cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>Add Employee</span>
@@ -1531,7 +1531,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
           onClick={() => setActiveSubTab('employees')}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
             activeSubTab === 'employees'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xs'
+              ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
               : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
           }`}
         >
@@ -1544,14 +1544,14 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
           onClick={() => setActiveSubTab('leaves')}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
             activeSubTab === 'leaves'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xs'
+              ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
               : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
           }`}
         >
           <CalendarClock className="w-4 h-4" />
           <span>Leave Requests ({leaveRequests.length})</span>
           {pendingLeaveCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950 tabular-nums">
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#C5A880] text-[#0B132B] tabular-nums">
               {pendingLeaveCount}
             </span>
           )}
@@ -1562,7 +1562,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
           onClick={() => setActiveSubTab('birthdays')}
           className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
             activeSubTab === 'birthdays'
-              ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xs'
+              ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
               : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
           }`}
         >
@@ -1582,7 +1582,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, email, role, or department..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] focus:outline-none"
               />
             </div>
 
@@ -1647,7 +1647,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                   <button
                     type="button"
                     onClick={openAddEmployee}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold transition cursor-pointer"
                   >
                     + Add First Employee
                   </button>
@@ -1678,7 +1678,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedEmployeeId(emp.id)}
-                            className="w-9 h-9 rounded-full bg-slate-900 dark:bg-blue-600/20 text-white dark:text-blue-300 border border-slate-800 dark:border-blue-500/30 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer hover:ring-2 hover:ring-blue-500 transition"
+                            className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0B132B] to-[#000065] text-[#E2CFAF] border border-[#C5A880]/50 flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer hover:ring-2 hover:ring-[#C5A880] transition"
                             title="Open Staff Member Workspace"
                           >
                             {getInitials(emp.first_name, emp.last_name)}
@@ -1688,7 +1688,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setSelectedEmployeeId(emp.id)}
-                                className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline transition text-left cursor-pointer"
+                                className="hover:text-[#000065] dark:hover:text-[#C5A880] hover:underline transition text-left cursor-pointer"
                               >
                                 {emp.first_name} {emp.last_name}
                               </button>
@@ -1817,7 +1817,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                   onClick={() => setLeaveStatusFilter(st)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     leaveStatusFilter === st
-                      ? 'bg-slate-900 dark:bg-blue-600 text-white'
+                      ? 'bg-[#0B132B] dark:bg-[#000065] text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
@@ -1830,9 +1830,9 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
               type="button"
               onClick={() => openNewLeaveModal()}
               disabled={employees.length === 0}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold transition disabled:opacity-50 cursor-pointer"
             >
-              <CalendarClock className="w-3.5 h-3.5" />
+              <CalendarClock className="w-3.5 h-3.5 text-[#C5A880]" />
               <span>Log Leave Request</span>
             </button>
           </div>
@@ -2098,7 +2098,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                 <button
                   type="submit"
                   disabled={savingEmployee}
-                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 rounded-lg bg-[#0B132B] hover:bg-[#000065] text-white font-semibold disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingEmployee && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{editingEmployee ? 'Save Changes' : 'Create Employee'}</span>
@@ -2220,11 +2220,11 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                       className={`p-3 rounded-xl border text-xs space-y-1 ${
                         zeroWorkingDays
                           ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-                          : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/50 text-slate-700 dark:text-slate-200'
+                          : 'bg-[#F7F1E7]/70 dark:bg-[#000065]/30 border-[#C5A880]/40 dark:border-[#C5A880]/30 text-slate-700 dark:text-slate-200'
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-bold text-blue-700 dark:text-blue-400 tabular-nums">
+                        <span className="font-bold text-[#000065] dark:text-[#E2CFAF] tabular-nums">
                           Duration: {breakdown.workingDays} working day
                           {breakdown.workingDays === 1 ? '' : 's'}
                         </span>
@@ -2273,7 +2273,7 @@ export const HrModuleEntry: React.FC<HrModuleEntryProps> = ({
                       <button
                         type="submit"
                         disabled={savingLeave || !breakdown.isValidRange || breakdown.workingDays <= 0}
-                        className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5 cursor-pointer"
+                        className="px-5 py-2 rounded-lg bg-[#0B132B] hover:bg-[#000065] text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         {savingLeave && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         <span>Submit Leave Request</span>

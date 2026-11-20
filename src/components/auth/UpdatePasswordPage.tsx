@@ -90,7 +90,7 @@ export default function UpdatePasswordPage({ onPasswordUpdated, onCancel, router
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none disabled:opacity-50 cursor-pointer"
+            className="w-full rounded-xl bg-[#0B132B] px-3 py-2 text-sm font-medium text-white hover:bg-[#000065] focus:outline-none disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Updating...' : 'Update Password'}
           </button>

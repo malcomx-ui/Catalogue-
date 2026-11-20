@@ -835,7 +835,7 @@ export const CaseDetailModal: React.FC = () => {
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 disabled:border-slate-200 dark:disabled:border-slate-700 ${
                   isEditing
-                    ? 'bg-blue-600 text-white border-blue-600'
+                    ? 'bg-[#0B132B] dark:bg-[#000065] text-white border-[#0B132B] dark:border-[#C5A880]/50'
                     : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-700'
                 }`}
               >
@@ -1586,7 +1586,7 @@ export const CaseDetailModal: React.FC = () => {
                                 setActiveTab('movement');
                                 setIsRecordingMovement(true);
                               }}
-                              className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors flex items-center gap-1"
+                              className="text-[10px] px-2 py-0.5 bg-[#0B132B] hover:bg-[#000065] text-white rounded-md font-medium transition-colors flex items-center gap-1"
                             >
                               <ArrowRightLeft className="w-2.5 h-2.5" />
                               <span>Log Movement</span>
@@ -1892,7 +1892,7 @@ export const CaseDetailModal: React.FC = () => {
                           onClick={() => setSelectedNoteFilter(chip.id)}
                           className={`text-[11px] px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition-colors border ${
                             selectedNoteFilter === chip.id
-                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              ? 'bg-[#0B132B] dark:bg-[#000065] text-white border-[#0B132B] dark:border-[#C5A880]/50'
                               : 'bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                           }`}
                         >
@@ -1947,7 +1947,7 @@ export const CaseDetailModal: React.FC = () => {
                                 setNoteSearch('');
                                 setIsAddingNote(true);
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-medium transition-colors"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Add First Progressive Note</span>
@@ -2554,7 +2554,7 @@ export const CaseDetailModal: React.FC = () => {
                     <div className="flex justify-end">
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium flex items-center gap-1.5"
+                        className="px-4 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-xl font-medium flex items-center gap-1.5"
                       >
                         <ArrowRightLeft className="w-3.5 h-3.5" />
                         <span>Transfer Matter</span>

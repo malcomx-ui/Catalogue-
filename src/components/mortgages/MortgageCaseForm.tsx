@@ -466,7 +466,7 @@ export default function MortgageCaseForm({ onSuccess, onClose, defaultBank = 'Ce
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
+            className="w-full bg-[#0B132B] text-white font-semibold py-3 rounded-xl hover:bg-[#000065] transition-colors shadow-md disabled:opacity-50"
           >
             {loading ? 'Saving Record...' : 'Save Mortgage Case'}
           </button>

@@ -1007,8 +1007,8 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
                       UGX {vat.toLocaleString()}
                     </span>
                   </div>
-                  <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/40">
-                    <span className="text-[11px] text-blue-200 block mb-1">Grand Total</span>
+                  <div className="p-3 bg-[#C5A880]/15 rounded-xl border border-[#C5A880]/40">
+                    <span className="text-[11px] text-[#E2CFAF] block mb-1">Grand Total</span>
                     <span className="font-mono tabular-nums font-bold text-base text-white">
                       UGX {grandTotal.toLocaleString()}
                     </span>
@@ -1033,7 +1033,7 @@ export const EditMortgageModal: React.FC<EditMortgageModalProps> = ({
             <button
               type="submit"
               disabled={loading || !canModifyRecord}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition inline-flex items-center gap-1.5"
+              className="px-6 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 disabled:cursor-not-allowed transition inline-flex items-center gap-1.5"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>

@@ -45,7 +45,7 @@ export const BranchSyncHub: React.FC = () => {
         </p>
         <button
           onClick={() => setActiveTab('dashboard')}
-          className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
+          className="px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
         >
           Return to Dashboard
         </button>
@@ -164,7 +164,7 @@ export const BranchSyncHub: React.FC = () => {
           <button
             onClick={() => triggerManualSync()}
             disabled={isSyncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Syncing...' : 'Sync All Branches'}</span>

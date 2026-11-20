@@ -371,7 +371,7 @@ export const ImportExcelModal: React.FC = () => {
                   </div>
                   <div className="w-full bg-blue-200/60 dark:bg-blue-900/60 rounded-full h-2 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      className="bg-[#000065] dark:bg-[#C5A880] h-2 rounded-full transition-all duration-300 ease-out"
                       style={{
                         width: `${Math.round((batchProgress.processed / (batchProgress.total || 1)) * 100)}%`,
                       }}
@@ -514,7 +514,7 @@ export const ImportExcelModal: React.FC = () => {
                 type="button"
                 disabled={parsedRows.length === 0 || isProcessing}
                 onClick={handleConfirmImport}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#0B132B] hover:bg-[#000065] disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition-colors"
               >
                 {isProcessing ? (
                   <>

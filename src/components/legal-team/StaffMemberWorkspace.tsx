@@ -518,13 +518,13 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
   const leavePct = Math.min(100, Math.max(0, staff.leaveRemainingPercent));
   const leaveBarColor =
     leavePct >= 50
-      ? 'bg-blue-600 dark:bg-blue-500'
+      ? 'bg-[#000065] dark:bg-[#C5A880]'
       : leavePct >= 20
       ? 'bg-amber-500 dark:bg-amber-400'
       : 'bg-rose-600 dark:bg-rose-500';
   const leaveAccentColor =
     leavePct >= 50
-      ? 'text-blue-600 dark:text-blue-400'
+      ? 'text-[#000065] dark:text-[#E2CFAF]'
       : leavePct >= 20
       ? 'text-amber-600 dark:text-amber-400'
       : 'text-rose-600 dark:text-rose-400';
@@ -601,7 +601,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
               onClick={() => onApplyLeave(staff.id)}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
             >
-              <CalendarDays className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <CalendarDays className="w-4 h-4 text-[#000065] dark:text-[#C5A880] shrink-0" />
               <span>Apply for Leave</span>
             </button>
           )}
@@ -610,9 +610,9 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
             <button
               type="button"
               onClick={() => onDelegateTask(staff.name)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#0B132B] hover:bg-[#000065] text-white text-xs font-semibold transition cursor-pointer whitespace-nowrap"
             >
-              <Plus className="w-4 h-4 shrink-0" />
+              <Plus className="w-4 h-4 text-[#C5A880] shrink-0" />
               <span>Delegate Task</span>
             </button>
           )}
@@ -628,10 +628,10 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
                 src={staff.avatarUrl}
                 alt={staff.name}
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-700"
+                className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-[#C5A880]/50 dark:border-[#C5A880]/30"
               />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold text-lg flex items-center justify-center shrink-0">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0B132B] to-[#000065] ring-1 ring-[#C5A880]/50 text-[#E2CFAF] font-bold text-lg flex items-center justify-center shrink-0">
                 {getInitials(staff.name)}
               </div>
             )}
@@ -676,7 +676,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5 text-xs text-slate-500 dark:text-slate-400">
                 <a
                   href={`mailto:${staff.email}`}
-                  className="inline-flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition"
+                  className="inline-flex items-center gap-1.5 hover:text-[#000065] dark:hover:text-[#C5A880] transition"
                 >
                   <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="truncate">{staff.email}</span>
@@ -695,24 +695,24 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800 shrink-0">
             <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 min-w-[105px]">
               <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Assigned Cases</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              <p className="text-lg font-bold text-[#0B132B] dark:text-white mt-0.5 tabular-nums">
                 {staffCases.length}
               </p>
             </div>
             <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 min-w-[105px]">
               <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Upcoming Dates</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              <p className="text-lg font-bold text-[#0B132B] dark:text-white mt-0.5 tabular-nums">
                 {upcomingHearings.length}
               </p>
             </div>
             <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 min-w-[105px]">
               <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Open Tasks</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-white mt-0.5 tabular-nums">
+              <p className="text-lg font-bold text-[#0B132B] dark:text-white mt-0.5 tabular-nums">
                 {openTasksCount}
               </p>
             </div>
-            <div className="px-3.5 py-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/60 min-w-[105px]">
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Leave Remaining</p>
+            <div className="px-3.5 py-2.5 rounded-xl bg-[#F7F1E7] dark:bg-[#C5A880]/15 border border-[#C5A880]/50 dark:border-[#C5A880]/35 min-w-[105px]">
+              <p className="text-[11px] font-medium text-slate-600 dark:text-[#E2CFAF]">Leave Remaining</p>
               <p className={`text-lg font-bold mt-0.5 tabular-nums ${leaveAccentColor}`}>
                 {staff.leaveRemaining}d
               </p>
@@ -843,7 +843,7 @@ export const StaffMemberWorkspace: React.FC<StaffMemberWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={() => onApplyLeave(staff.id)}
-                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
+                  className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white text-xs font-semibold cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Submit Leave Request

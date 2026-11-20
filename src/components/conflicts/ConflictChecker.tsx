@@ -43,7 +43,7 @@ export const ConflictChecker: React.FC = () => {
         </p>
         <button
           onClick={() => setActiveTab('dashboard')}
-          className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
+          className="px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white text-xs font-semibold rounded-xl transition-colors shadow-2xs"
         >
           Return to Dashboard
         </button>
@@ -198,7 +198,7 @@ export const ConflictChecker: React.FC = () => {
                           {originalCase && (
                             <button
                               onClick={() => setSelectedCase(originalCase)}
-                              className="mt-1 px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-lg text-[11px] font-medium transition-colors"
+                              className="mt-1 px-3 py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-lg text-[11px] font-medium transition-colors"
                             >
                               Inspect Docket
                             </button>

@@ -216,7 +216,7 @@ export const FirstLoginPasswordModal: React.FC<FirstLoginPasswordModalProps> = (
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full sm:flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full sm:flex-1 py-2.5 px-4 bg-[#0B132B] hover:bg-[#000065] disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Lock className="w-3.5 h-3.5" />
                   <span>{loading ? 'Securing Password...' : 'Save & Secure Account'}</span>

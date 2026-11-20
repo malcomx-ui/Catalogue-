@@ -758,7 +758,7 @@ export const CauseListCalendar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedHearingForOutcome(ev.hearingItem!)}
-                className="px-2.5 py-1 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap shrink-0"
+                className="px-2.5 py-1 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap shrink-0"
               >
                 Record Outcome
               </button>
@@ -855,7 +855,7 @@ export const CauseListCalendar: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsScheduleOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition-colors min-h-[34px] whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl text-xs font-semibold transition-colors min-h-[34px] whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Schedule Hearing</span>
@@ -1071,7 +1071,7 @@ export const CauseListCalendar: React.FC = () => {
                             isToday
                               ? 'bg-red-600 text-white'
                               : isSelected
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-[#0B132B] dark:bg-[#C5A880] text-white dark:text-[#0B132B]'
                               : 'text-slate-800 dark:text-slate-200'
                           }`}
                         >
@@ -1217,7 +1217,7 @@ export const CauseListCalendar: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setPrintableCauseDate(selectedDateStr)}
-                      className="px-2.5 py-1 text-xs font-medium bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
+                      className="px-2.5 py-1 text-xs font-medium bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-lg transition-colors flex items-center gap-1 whitespace-nowrap"
                     >
                       <Printer className="w-3.5 h-3.5" />
                       <span>Print Day Sheet</span>

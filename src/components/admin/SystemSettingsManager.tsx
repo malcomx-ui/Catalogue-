@@ -987,7 +987,7 @@ export const SystemSettingsManager: React.FC = () => {
               />
               <button
                 type="submit"
-                className="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors shrink-0 flex items-center gap-1"
+                className="px-3.5 py-1.5 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors shrink-0 flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Court</span>

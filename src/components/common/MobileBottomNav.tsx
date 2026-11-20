@@ -51,8 +51,8 @@ export const MobileBottomNav: React.FC = () => {
         onClick={() => setActiveTab('dashboard')}
         className={`flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors ${
           activeTab === 'dashboard'
-            ? 'text-slate-900 font-bold'
-            : 'text-slate-500 hover:text-slate-800'
+            ? 'text-[#0B132B] dark:text-[#C5A880] font-bold'
+            : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
         }`}
       >
         <LayoutDashboard className="w-5 h-5 mb-0.5" />
@@ -64,14 +64,14 @@ export const MobileBottomNav: React.FC = () => {
         onClick={() => setActiveTab('catalogue')}
         className={`flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors relative ${
           activeTab === 'catalogue'
-            ? 'text-slate-900 font-bold'
-            : 'text-slate-500 hover:text-slate-800'
+            ? 'text-[#0B132B] dark:text-[#C5A880] font-bold'
+            : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
         }`}
       >
         <Briefcase className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Cases</span>
         {branchScopedCasesCount > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-slate-900 text-white rounded-full px-1.5 min-w-[16px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-[#0B132B] text-[#C5A880] rounded-full px-1.5 min-w-[16px] text-center">
             {branchScopedCasesCount}
           </span>
         )}
@@ -82,14 +82,14 @@ export const MobileBottomNav: React.FC = () => {
         onClick={() => setActiveTab('causelist')}
         className={`flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors relative ${
           activeTab === 'causelist'
-            ? 'text-slate-900 font-bold'
-            : 'text-slate-500 hover:text-slate-800'
+            ? 'text-[#0B132B] dark:text-[#C5A880] font-bold'
+            : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
         }`}
       >
         <CalendarDays className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Diary</span>
         {scheduledHearingsCount > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-blue-600 text-white rounded-full px-1.5 min-w-[16px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-[#C5A880] text-[#0B132B] font-bold rounded-full px-1.5 min-w-[16px] text-center">
             {scheduledHearingsCount}
           </span>
         )}
@@ -100,14 +100,14 @@ export const MobileBottomNav: React.FC = () => {
         onClick={() => setActiveTab('documents')}
         className={`flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors relative ${
           activeTab === 'documents'
-            ? 'text-slate-900 font-bold'
-            : 'text-slate-500 hover:text-slate-800'
+            ? 'text-[#0B132B] dark:text-[#C5A880] font-bold'
+            : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
         }`}
       >
         <FolderOpen className="w-5 h-5 mb-0.5" />
         <span className="text-[10px] leading-tight">Docs</span>
         {documents.length > 0 && (
-          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-emerald-600 text-white rounded-full px-1.5 min-w-[16px] text-center">
+          <span className="absolute top-1 right-1/4 translate-x-2 text-[9px] font-mono tabular-nums bg-emerald-700 text-white rounded-full px-1.5 min-w-[16px] text-center">
             {documents.length}
           </span>
         )}
@@ -119,8 +119,8 @@ export const MobileBottomNav: React.FC = () => {
           onClick={() => setActiveTab('synchub')}
           className={`hidden sm:flex flex-1 py-1 px-1 flex-col items-center justify-center min-h-[44px] rounded-lg transition-colors ${
             activeTab === 'synchub'
-              ? 'text-slate-900 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-[#0B132B] dark:text-[#C5A880] font-bold'
+              : 'text-slate-500 hover:text-[#0B132B] dark:hover:text-white'
           }`}
         >
           <Network className="w-5 h-5 mb-0.5" />
@@ -131,9 +131,9 @@ export const MobileBottomNav: React.FC = () => {
       {/* Full Menu Drawer Trigger */}
       <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
+        className="flex-1 py-1 px-1 flex flex-col items-center justify-center min-h-[44px] rounded-lg text-slate-500 hover:text-[#0B132B] dark:hover:text-[#C5A880] transition-colors"
       >
-        <Menu className="w-5 h-5 mb-0.5 text-slate-700" />
+        <Menu className="w-5 h-5 mb-0.5 text-slate-700 dark:text-slate-300" />
         <span className="text-[10px] leading-tight font-medium">Menu</span>
       </button>
     </nav>

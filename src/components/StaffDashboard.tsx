@@ -867,7 +867,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search Case File # (e.g. LF-2026), Doc Code (e.g. DOC-PLD), or Client..."
-              className="w-full pl-10 pr-9 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full pl-10 pr-9 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
             />
             {searchQuery && (
               <button
@@ -888,7 +888,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 aria-label="Active branch context"
                 value={activeBranchId}
                 onChange={(e) => handleBranchSelect(e.target.value)}
-                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer"
+                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] cursor-pointer"
               >
                 {resolvedBranchOptions.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -903,9 +903,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
       {/* Live Search Matters Bar (only appears when user types into the top search bar) */}
       {searchQuery.trim() && (
-        <section className="bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-900/60 rounded-2xl p-4 space-y-3">
+        <section className="bg-white dark:bg-slate-900 border border-[#C5A880]/60 dark:border-[#C5A880]/40 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-400">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#000065] dark:text-[#E2CFAF]">
               <Search className="w-3.5 h-3.5" />
               <span>
                 Live filter active for &ldquo;{searchQuery.trim()}&rdquo; — {matchingCases.length} matter(s),{' '}
@@ -927,10 +927,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedCase(c)}
-                  className="text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-blue-50/70 dark:hover:bg-blue-950/40 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer flex items-center justify-between gap-3"
+                  className="text-left p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 hover:bg-[#F7F1E7]/70 dark:hover:bg-[#000065]/30 border border-slate-200/80 dark:border-slate-700 transition cursor-pointer flex items-center justify-between gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400 truncate">
+                    <p className="text-xs font-mono font-semibold text-[#000065] dark:text-[#E2CFAF] truncate">
                       {c.suitNumber || c.firmRefNumber || c.case_number}
                     </p>
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
@@ -948,40 +948,40 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </section>
       )}
 
-      {/* 3. HERO BANNER (Blue-to-Indigo Gradient) */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 text-white p-6 sm:p-7 shadow-xs">
+      {/* 3. HERO BANNER (Muhumuza-Kiiza Firm Midnight Navy & Legal Gold) */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B132B] via-[#131C42] to-[#000065] border border-[#C5A880]/30 text-white p-6 sm:p-7 shadow-sm">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-12 -top-12 w-64 h-64 rounded-full bg-white/10 blur-2xl"
+          className="pointer-events-none absolute -right-12 -top-12 w-72 h-72 rounded-full bg-[#C5A880]/15 blur-3xl"
         />
         <div className="relative z-10 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
           <div className="space-y-2.5 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-blue-100 font-medium">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[#E2CFAF] font-medium">
               <span className="inline-flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-blue-200" />
+                <MapPin className="w-3.5 h-3.5 text-[#C5A880]" />
                 {activeBranchLabel}
               </span>
-              <span aria-hidden="true">·</span>
-              <span>{departmentLabel}</span>
-              <span aria-hidden="true">·</span>
-              <span className="tabular-nums">{formattedDateTime}</span>
+              <span aria-hidden="true" className="text-[#C5A880]/60">·</span>
+              <span className="text-slate-200">{departmentLabel}</span>
+              <span aria-hidden="true" className="text-[#C5A880]/60">·</span>
+              <span className="tabular-nums text-slate-300">{formattedDateTime}</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white" style={{ textWrap: 'balance' }}>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-serif-legal" style={{ textWrap: 'balance' }}>
               Good day, {firstName}
             </h1>
 
-            <p className="text-sm text-blue-100 leading-relaxed">
+            <p className="text-sm text-slate-200/90 leading-relaxed">
               You have{' '}
-              <span className="font-semibold text-white tabular-nums">{kpiMetrics.pendingCases} active case matters</span>
+              <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.pendingCases} active case matters</span>
               {canAccessRestrictedWorkflowNav(effectiveUser) ? (
                 <>
                   ,{' '}
-                  <span className="font-semibold text-white tabular-nums">{kpiMetrics.approvals} pending approvals</span>,
+                  <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.approvals} pending approvals</span>,
                 </>
               ) : null}{' '}
               and{' '}
-              <span className="font-semibold text-white tabular-nums">{kpiMetrics.vaultCustody} files in physical custody</span>{' '}
+              <span className="font-semibold text-[#E2CFAF] tabular-nums">{kpiMetrics.vaultCustody} files in physical custody</span>{' '}
               under {activeBranchLabel}.
             </p>
           </div>
@@ -991,7 +991,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <button
               type="button"
               onClick={triggerNewCase}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 text-xs sm:text-sm font-semibold shadow-xs transition cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C5A880] hover:bg-[#D4BA94] text-[#0B132B] text-xs sm:text-sm font-bold shadow-xs transition cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span>+ New Case File</span>
@@ -1000,9 +1000,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <button
               type="button"
               onClick={triggerLitigationForm}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/25 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-[#C5A880]/40 text-xs sm:text-sm font-semibold transition cursor-pointer whitespace-nowrap"
             >
-              <Gavel className="w-4 h-4 shrink-0" />
+              <Gavel className="w-4 h-4 text-[#C5A880] shrink-0" />
               <span>Branch Litigation Form</span>
             </button>
           </div>
@@ -1018,16 +1018,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenCases ? onOpenCases() : setActiveTab('catalogue'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#000065]/40 dark:hover:border-[#C5A880]/50 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pending Case Files</p>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
+              <p className="text-3xl font-bold text-[#0B132B] dark:text-white tabular-nums tracking-tight">
                 {kpiMetrics.pendingCases}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
               <FolderClock className="w-5 h-5" />
             </div>
           </div>
@@ -1073,21 +1073,21 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         <button
           type="button"
           onClick={() => (onOpenDocuments ? onOpenDocuments() : setActiveTab('documents'))}
-          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
+          className="text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[#C5A880] dark:hover:border-[#C5A880]/60 rounded-2xl p-5 transition cursor-pointer group flex flex-col justify-between"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Vault File Custody</p>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
+              <p className="text-3xl font-bold text-[#0B132B] dark:text-white tabular-nums tracking-tight">
                 {kpiMetrics.vaultCustody}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#9E7B46] dark:text-[#C5A880] flex items-center justify-center shrink-0">
               <Lock className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span className="font-semibold text-indigo-700 dark:text-indigo-400">Secured in registry</span>
+            <span className="font-semibold text-[#9E7B46] dark:text-[#C5A880]">Secured in registry</span>
             <span className="text-slate-500 dark:text-slate-400">Titles &amp; original deeds</span>
           </div>
         </button>
@@ -1121,7 +1121,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
               <Megaphone className="w-4 h-4" />
             </div>
             <div>
@@ -1133,7 +1133,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               </p>
             </div>
           </div>
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800 tabular-nums">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border border-[#C5A880]/50 dark:border-[#C5A880]/35 tabular-nums">
             {INITIAL_NOTICES.length} Active Broadcasts
           </span>
         </div>
@@ -1148,7 +1148,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     PINNED
                   </span>
                 )}
-                <span className="font-semibold text-blue-700 dark:text-blue-400">{notice.category}</span>
+                <span className="font-semibold text-[#000065] dark:text-[#C5A880]">{notice.category}</span>
               </div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{notice.title}</h3>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{notice.body}</p>
@@ -1200,7 +1200,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
 
         {loadingBirthdays ? (
           <div className="py-8 flex items-center justify-center gap-2 text-xs text-slate-500">
-            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+            <Loader2 className="w-4 h-4 animate-spin text-[#000065] dark:text-[#C5A880]" />
             <span>Loading staff celebrations...</span>
           </div>
         ) : (
@@ -1214,7 +1214,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#0B132B] to-[#000065] ring-1 ring-[#C5A880]/50 text-[#E2CFAF] font-bold text-xs flex items-center justify-center shrink-0">
                         {getInitials(celebrant.name)}
                       </div>
                       <div className="min-w-0">
@@ -1260,13 +1260,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                           }
                         }}
                         placeholder={`Write a birthday wish for ${celebrant.name}...`}
-                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                        className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880]"
                       />
                       <button
                         type="button"
                         disabled={sendingWishId === celebrant.id || !wishDraft.trim()}
                         onClick={() => handleSendBirthdayWish(celebrant)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer shrink-0"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0B132B] hover:bg-[#000065] disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer shrink-0"
                       >
                         {sendingWishId === celebrant.id ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1310,7 +1310,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#000065]/8 dark:bg-[#000065]/50 text-[#000065] dark:text-[#E2CFAF] flex items-center justify-center shrink-0">
               <ListChecks className="w-4 h-4" />
             </div>
             <div>
@@ -1327,7 +1327,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <button
               type="button"
               onClick={() => (onOpenWorkload ? onOpenWorkload() : setActiveTab('legal_team'))}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-950 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0B132B] dark:bg-[#C5A880] hover:bg-[#000065] dark:hover:bg-[#D4BA94] text-white dark:text-[#0B132B] text-xs font-semibold transition cursor-pointer whitespace-nowrap"
             >
               <span>Manage Workload</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -1347,13 +1347,13 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                   : task.priority === 'HIGH'
                   ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
-                  : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+                  : 'bg-[#000065]/8 dark:bg-[#000065]/40 text-[#000065] dark:text-[#E2CFAF] border-[#000065]/20 dark:border-[#C5A880]/30';
 
               const statusStyle =
                 task.status === 'Completed'
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
                   : task.status === 'In Progress'
-                  ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                  ? 'bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border-[#C5A880]/60 dark:border-[#C5A880]/40 hover:bg-[#EFE4D2]'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200';
 
               return (
@@ -1378,7 +1378,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         {task.title}
                       </p>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="font-mono font-semibold text-blue-700 dark:text-blue-400">{task.caseCode}</span>
+                        <span className="font-mono font-semibold text-[#000065] dark:text-[#E2CFAF]">{task.caseCode}</span>
                         <span aria-hidden="true">·</span>
                         <span>{task.assignee}</span>
                         <span aria-hidden="true">·</span>
@@ -1423,7 +1423,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <button
             type="button"
             onClick={() => (onOpenHearings ? onOpenHearings() : setActiveTab('causelist'))}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer whitespace-nowrap"
           >
             <span>View All</span>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -1445,11 +1445,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   else if (onOpenHearings) onOpenHearings();
                   else setActiveTab('causelist');
                 }}
-                className="text-left p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 hover:border-blue-300 dark:hover:border-blue-700 transition cursor-pointer space-y-2"
+                className="text-left p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 hover:border-[#C5A880] dark:hover:border-[#C5A880]/60 transition cursor-pointer space-y-2"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400">
-                    <Gavel className="w-3.5 h-3.5 shrink-0" />
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#000065] dark:text-[#E2CFAF]">
+                    <Gavel className="w-3.5 h-3.5 text-[#9E7B46] dark:text-[#C5A880] shrink-0" />
                     {item.badge}
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 tabular-nums">

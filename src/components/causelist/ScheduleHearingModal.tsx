@@ -228,7 +228,7 @@ export const ScheduleHearingModal: React.FC<ScheduleHearingModalProps> = ({ isOp
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-medium shadow-xs transition-colors"
+              className="px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl font-medium shadow-xs transition-colors"
             >
               Fixture Hearing
             </button>

@@ -903,7 +903,7 @@ export const AddMortgageModal: React.FC<AddMortgageModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition flex items-center gap-1.5"
+              className="px-6 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg font-semibold shadow-xs disabled:opacity-50 transition flex items-center gap-1.5"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{loading ? 'Saving Record...' : 'Save Mortgage Record'}</span>

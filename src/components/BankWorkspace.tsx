@@ -836,8 +836,8 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
           </button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">{bankName}</h1>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/80 font-medium whitespace-nowrap tabular-nums">
+              <h1 className="text-lg sm:text-xl font-bold text-[#0B132B] dark:text-slate-100 truncate">{bankName}</h1>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#F7F1E7] dark:bg-[#C5A880]/15 text-[#0B132B] dark:text-[#E2CFAF] border border-[#C5A880]/60 dark:border-[#C5A880]/40 font-medium whitespace-nowrap tabular-nums">
                 {useServerCentenaryPagination
                   ? `${totalCount.toLocaleString()} Total Records`
                   : `${mortgages.length.toLocaleString()} Files Loaded`}
@@ -855,7 +855,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto lg:justify-end">
           <div className="text-left sm:text-right sm:border-r sm:border-slate-200 dark:sm:border-slate-800 sm:pr-4 mr-auto lg:mr-0">
             <span className="text-xs text-slate-500 dark:text-slate-400 block">Total Portfolio Value</span>
-            <span className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono tabular-nums whitespace-nowrap">
+            <span className="text-sm font-bold text-[#000065] dark:text-[#E2CFAF] font-mono tabular-nums whitespace-nowrap">
               {totalValue > 0 ? `UGX ${(totalValue / 1e9).toFixed(2)}B` : 'UGX 0'}
             </span>
           </div>
@@ -863,9 +863,9 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
           <button
             type="button"
             onClick={handlePrint}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer"
+            className="px-3.5 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap cursor-pointer"
           >
-            <Printer className="w-3.5 h-3.5" />
+            <Printer className="w-3.5 h-3.5 text-[#C5A880]" />
             <span>Print Monthly Report</span>
           </button>
 
@@ -873,7 +873,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             <button
               type="button"
               onClick={() => setIsImportModalOpen(true)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Import Excel</span>
@@ -885,7 +885,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
             disabled={!canAddInActiveBranchView}
             title={addDisabledTooltip}
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+            className="px-4 py-2 bg-[#C5A880] hover:bg-[#D4BA94] text-[#0B132B] rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
           >
             <span>+</span>
             <span>{canAddInActiveBranchView ? 'Add Mortgage File' : 'Add Mortgage (View-Only)'}</span>
@@ -1072,7 +1072,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   onClick={() => setViewMode('table')}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
                     viewMode === 'table'
-                      ? 'bg-blue-600 text-white shadow-2xs'
+                      ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-2xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -1084,7 +1084,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                   onClick={() => setViewMode('cards')}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
                     viewMode === 'cards'
-                      ? 'bg-blue-600 text-white shadow-2xs'
+                      ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-2xs'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -1175,7 +1175,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                       disabled={!canAddInActiveBranchView}
                       title={addDisabledTooltip}
                       onClick={() => setIsModalOpen(true)}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed"
                     >
                       {canAddInActiveBranchView ? '+ Add Mortgage File' : 'Add Mortgage (View-Only)'}
                     </button>
@@ -1223,7 +1223,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                 disabled={!canAddInActiveBranchView}
                 title={addDisabledTooltip}
                 onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                className="px-4 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-lg text-xs font-semibold disabled:opacity-45 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
               >
                 {canAddInActiveBranchView ? '+ Add Mortgage File' : 'Add Mortgage (View-Only)'}
               </button>
@@ -2023,7 +2023,7 @@ export const BankWorkspace: React.FC<BankWorkspaceProps> = ({
                           setSelectedRecordForView(null);
                           handleEditRequest(rec);
                         }}
-                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-semibold transition bg-blue-600 hover:bg-blue-700 text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-semibold transition bg-[#0B132B] hover:bg-[#000065] text-white disabled:bg-slate-200 disabled:text-slate-500 disabled:opacity-70 disabled:cursor-not-allowed"
                       >
                         {!canModifySelected && <Lock className="w-3.5 h-3.5" />}
                         <span>{canModifySelected ? 'Edit / Transfer File' : 'View-Only (External Branch)'}</span>

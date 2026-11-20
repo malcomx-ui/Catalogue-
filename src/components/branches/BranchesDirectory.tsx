@@ -170,7 +170,7 @@ export const BranchesDirectory: React.FC = () => {
             <button
               type="button"
               onClick={openAddModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Branch Location</span>
@@ -294,7 +294,7 @@ export const BranchesDirectory: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleOpenBranchDocket(branch.id)}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:bg-slate-900 dark:hover:bg-blue-600 hover:text-white hover:border-slate-900 dark:hover:border-blue-600 text-slate-700 dark:text-slate-200 text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200/80 dark:border-slate-700 hover:bg-[#0B132B] dark:hover:bg-[#000065] hover:text-white hover:border-[#0B132B] dark:hover:border-[#C5A880]/50 text-slate-700 dark:text-slate-200 text-xs font-semibold transition whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Briefcase className="w-3.5 h-3.5" />
                 <span>Open Docket</span>
@@ -415,7 +415,7 @@ export const BranchesDirectory: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl font-semibold cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl font-semibold cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>{editingBranchId ? 'Save Changes' : 'Create Branch'}</span>

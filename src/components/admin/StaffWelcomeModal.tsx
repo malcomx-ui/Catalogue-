@@ -245,7 +245,7 @@ MK Advocates & Solicitors`;
           <button
             type="button"
             onClick={handleOpenMailClient}
-            className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#0B132B] hover:bg-[#000065] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Open in Email App (Send to {user.email})</span>

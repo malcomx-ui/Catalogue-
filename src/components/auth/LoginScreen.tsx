@@ -179,17 +179,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen w-full font-sans bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 lg:grid lg:grid-cols-12">
       {/* Left Panel: Corporate Law Firm Identity & Architectural Hero */}
-      <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col justify-between bg-slate-950 text-white px-12 py-12 xl:px-16 xl:py-14 overflow-hidden select-none">
+      <aside className="relative hidden lg:flex lg:col-span-6 xl:col-span-7 flex-col justify-between bg-gradient-to-br from-[#0B132B] via-[#0F183B] to-[#000065] text-white px-12 py-12 xl:px-16 xl:py-14 overflow-hidden select-none">
         {/* Subtle Architectural Grid & Classical Columns Linework */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage: `
-              radial-gradient(circle at 18% 22%, rgba(30, 58, 138, 0.28) 0%, transparent 52%),
-              radial-gradient(circle at 85% 82%, rgba(15, 23, 42, 0.9) 0%, transparent 60%),
-              linear-gradient(to right, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(148, 163, 184, 0.05) 1px, transparent 1px)
+              radial-gradient(circle at 18% 22%, rgba(197, 168, 128, 0.16) 0%, transparent 52%),
+              radial-gradient(circle at 85% 82%, rgba(0, 0, 101, 0.75) 0%, transparent 60%),
+              linear-gradient(to right, rgba(197, 168, 128, 0.06) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(197, 168, 128, 0.06) 1px, transparent 1px)
             `,
             backgroundSize: '100% 100%, 100% 100%, 64px 64px, 64px 64px',
           }}
@@ -197,12 +197,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         {/* Architectural Vertical Fluting Accent on Right Edge */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-slate-700/60 to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[#C5A880]/50 to-transparent"
         />
 
         {/* Top Firm Crest & Brand Lockup */}
         <header className="relative z-10 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/95 p-1.5 flex items-center justify-center shrink-0 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-white/95 p-1.5 border border-[#C5A880]/60 flex items-center justify-center shrink-0 shadow-sm">
             {logoSrc ? (
               <img
                 src={logoSrc}
@@ -212,14 +212,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 className="w-full h-full object-contain"
               />
             ) : (
-              <Scale className="w-6 h-6 text-slate-900" />
+              <Scale className="w-6 h-6 text-[#000065]" />
             )}
           </div>
           <div className="min-w-0">
             <p className="text-base font-semibold tracking-tight text-white truncate">
               Muhumuza - Kiiza Advocates
             </p>
-            <p className="text-xs text-slate-400 tracking-wide">
+            <p className="text-xs text-[#E2CFAF]/80 tracking-wide">
               Advocates &amp; Legal Consultants
             </p>
           </div>
@@ -229,12 +229,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
         <div className="relative z-10 max-w-xl my-auto py-12 space-y-5">
           <div className="space-y-2">
             <h1
-              className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-[1.15]"
+              className="text-3xl xl:text-4xl font-semibold tracking-tight text-white leading-[1.15] font-serif-legal"
               style={{ textWrap: 'balance' }}
             >
               MK Case Catalogue
             </h1>
-            <p className="text-base xl:text-lg font-medium text-amber-300/95 tracking-tight">
+            <p className="text-base xl:text-lg font-medium text-[#C5A880] tracking-tight">
               Centralized Practice Management Hub
             </p>
           </div>
@@ -418,7 +418,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-slate-900 hover:bg-slate-800 active:bg-slate-950 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-950 text-white font-semibold py-3 px-5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-55 cursor-pointer min-h-[46px] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+                  className="w-full bg-[#0B132B] hover:bg-[#000065] active:bg-[#080E20] dark:bg-[#C5A880] dark:hover:bg-[#D4BA94] dark:text-[#0B132B] text-white font-semibold py-3 px-5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-55 cursor-pointer min-h-[46px] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#000065] focus-visible:ring-offset-2"
                 >
                   {isLoading ? (
                     <>

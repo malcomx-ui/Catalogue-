@@ -258,7 +258,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           }}
           className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left"
         >
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-950 p-1 border border-slate-200 dark:border-slate-800 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-950 p-1 border border-[#C5A880]/60 dark:border-[#C5A880]/40 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
@@ -268,15 +268,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 className="w-full h-full object-contain"
               />
             ) : (
-              <Scale className="w-5 h-5 text-blue-600" />
+              <Scale className="w-5 h-5 text-[#000065] dark:text-[#C5A880]" />
             )}
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate">
+              <p className="text-sm font-bold text-[#0B132B] dark:text-white tracking-tight truncate">
                 MK Case Catalogue
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              <p className="text-[11px] text-[#9E7B46] dark:text-[#C5A880] font-medium truncate">
                 Muhumuza - Kiiza Advocates
               </p>
             </div>
@@ -309,16 +309,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 compact ? 'justify-center px-2' : 'justify-between px-3'
               } py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer group ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-[#0B132B] dark:hover:text-white'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <Icon
                   className={`w-4 h-4 shrink-0 ${
                     isActive
-                      ? 'text-white'
-                      : 'text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                      ? 'text-[#C5A880]'
+                      : 'text-slate-400 group-hover:text-[#000065] dark:group-hover:text-[#C5A880]'
                   }`}
                 />
                 {!compact && <span className="truncate">{item.label}</span>}
@@ -328,8 +328,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 <span
                   className={`px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums shrink-0 ${
                     isActive
-                      ? 'bg-white/20 text-white'
-                      : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                      ? 'bg-[#C5A880]/20 text-[#E2CFAF]'
+                      : 'bg-[#000065]/8 dark:bg-[#C5A880]/15 text-[#000065] dark:text-[#E2CFAF]'
                   }`}
                 >
                   {item.badge}
@@ -342,7 +342,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         {adminNavItems.length > 0 && (
           <div className="pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 space-y-1">
             {!compact && (
-              <p className="px-3 pb-1 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#9E7B46] dark:text-[#C5A880]/80">
                 Administration
               </p>
             )}
@@ -359,16 +359,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     compact ? 'justify-center px-2' : 'justify-between px-3'
                   } py-2.5 rounded-xl text-xs font-semibold transition cursor-pointer group ${
                     isActive
-                      ? 'bg-slate-900 dark:bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
+                      ? 'bg-[#0B132B] dark:bg-[#000065] text-white shadow-xs ring-1 ring-[#C5A880]/40'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 hover:text-[#0B132B] dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Icon
                       className={`w-4 h-4 shrink-0 ${
                         isActive
-                          ? 'text-blue-300'
-                          : 'text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200'
+                          ? 'text-[#C5A880]'
+                          : 'text-slate-400 group-hover:text-[#000065] dark:group-hover:text-[#C5A880]'
                       }`}
                     />
                     {!compact && <span className="truncate">{item.label}</span>}
@@ -388,7 +388,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           } p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0B132B] to-[#000065] ring-1 ring-[#C5A880]/50 text-[#E2CFAF] text-xs font-bold flex items-center justify-center shrink-0">
               {getUserInitials(effectiveUser?.name)}
             </div>
             {!compact && (
@@ -474,7 +474,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder="Search Case File # (e.g. LF-2026), Doc Code (e.g. DOC-PLD), or Client..."
-                className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
+                className="w-full pl-10 pr-8 py-2 text-xs sm:text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] transition"
               />
               {searchQuery && (
                 <button
@@ -502,7 +502,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               >
                 <Bell className="w-4 h-4" />
                 {unreadDecisionCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center tabular-nums shadow-xs">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#000065] text-[#E2CFAF] ring-1 ring-[#C5A880]/60 text-[10px] font-bold flex items-center justify-center tabular-nums shadow-xs">
                     {unreadDecisionCount > 9 ? '9+' : unreadDecisionCount}
                   </span>
                 )}
@@ -523,7 +523,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                       <button
                         type="button"
                         onClick={onMarkAllDecisionNotificationsRead}
-                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer shrink-0"
+                        className="text-[11px] font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer shrink-0"
                       >
                         Mark all read
                       </button>
@@ -546,13 +546,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             setNotifPopoverOpen(false);
                           }}
                           className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition cursor-pointer space-y-1 ${
-                            n.unread ? 'bg-blue-50/40 dark:bg-blue-950/20' : ''
+                            n.unread ? 'bg-[#F7F1E7]/50 dark:bg-[#000065]/25' : ''
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 text-xs">
                             <span className="font-mono font-bold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
                               {n.unread && (
-                                <span className="w-2 h-2 rounded-full bg-blue-600 shrink-0" />
+                                <span className="w-2 h-2 rounded-full bg-[#000065] dark:bg-[#C5A880] shrink-0" />
                               )}
                               {n.referenceCode}
                             </span>
@@ -598,7 +598,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                         setActiveTab('cash_requisitions');
                         setNotifPopoverOpen(false);
                       }}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                      className="text-xs font-semibold text-[#000065] dark:text-[#C5A880] hover:underline cursor-pointer"
                     >
                       Open Cash Requisitions →
                     </button>
@@ -609,12 +609,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             )}
 
             <div className="relative flex items-center">
-              <Building2 className="w-3.5 h-3.5 text-slate-500 absolute left-3 pointer-events-none" />
+              <Building2 className="w-3.5 h-3.5 text-[#000065] dark:text-[#C5A880] absolute left-3 pointer-events-none" />
               <select
                 aria-label="Select active branch"
                 value={selectedBranchFilter || 'all'}
                 onChange={(e) => setSelectedBranchFilter(e.target.value)}
-                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 cursor-pointer max-w-[210px] truncate"
+                className="pl-8 pr-7 py-2 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#000065] dark:focus:ring-[#C5A880] cursor-pointer max-w-[210px] truncate"
               >
                 {branchOptions.map((b) => (
                   <option key={b.id} value={b.id}>

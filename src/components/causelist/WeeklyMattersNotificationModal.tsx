@@ -309,7 +309,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
                       <button
                         type="button"
                         onClick={() => handleOpenCase(m)}
-                        className="px-3 py-1.5 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
+                        className="px-3 py-1.5 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors shadow-2xs"
                       >
                         <span>View Case</span>
                         <ChevronRight className="w-3.5 h-3.5" />
@@ -341,7 +341,7 @@ export const WeeklyMattersNotificationModal: React.FC<WeeklyMattersNotificationM
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-2xs"
+              className="px-4 py-2 bg-[#0B132B] dark:bg-[#000065] hover:bg-[#000065] dark:hover:bg-[#131C42] text-white font-semibold rounded-xl transition-colors shadow-2xs"
             >
               Acknowledge
             </button>
