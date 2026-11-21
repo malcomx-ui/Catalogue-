@@ -44,6 +44,7 @@ import {
   ChevronDown,
   Check,
   ArrowRight,
+  Clock,
 } from 'lucide-react';
 
 export interface DashboardLayoutProps {
@@ -180,6 +181,37 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   useEffect(() => {
     setReadAlertIds(loadReadAlertIds(alertReadStorageKey));
   }, [alertReadStorageKey]);
+
+  const [currentDateTime, setCurrentDateTime] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const formattedDate = useMemo(
+    () =>
+      currentDateTime.toLocaleDateString('en-GB', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    [currentDateTime]
+  );
+
+  const formattedTime24 = useMemo(
+    () =>
+      currentDateTime.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
+    [currentDateTime]
+  );
 
   const [firmAnnouncements, setFirmAnnouncements] = useState<FirmAnnouncement[]>(() =>
     loadLocalAnnouncements()
@@ -723,10 +755,30 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             </div>
           </div>
 
+          {/* Center: Live Current Date (Day, Month, Year) & 24-Hour Clock */}
+          <div
+            className="hidden md:flex items-center gap-2.5 h-9 px-3 rounded-lg bg-[#F5F7FB] dark:bg-slate-800/80 border border-[#DFE5F2] dark:border-slate-700/80 shrink-0 tabular-nums"
+            aria-label={`Current date and time: ${formattedDate}, ${formattedTime24}`}
+          >
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#000065] dark:text-[#E8C06B] shrink-0" />
+              <span className="text-xs font-semibold text-[#0F1336] dark:text-slate-200 whitespace-nowrap">
+                {formattedDate}
+              </span>
+            </div>
+            <span aria-hidden="true" className="h-3.5 w-px bg-[#DFE5F2] dark:bg-slate-700 shrink-0" />
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#D99B26] shrink-0" />
+              <span className="font-mono text-xs font-bold text-[#000065] dark:text-[#E8C06B] tracking-tight whitespace-nowrap">
+                {formattedTime24}
+              </span>
+            </div>
+          </div>
+
           {/* Right: Global Search Input, Notification Bell, and Logged-In User Display on one baseline */}
           <div className="flex items-center gap-2.5 shrink-0">
             {/* Global Search Input (Case ID, Client Name, Branch Code) */}
-            <div className="relative hidden sm:block w-52 md:w-64 lg:w-72 xl:w-80">
+            <div className="relative hidden sm:block w-44 md:w-52 lg:w-64 xl:w-72">
               <Search
                 className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
                   searchQuery ? 'text-[#D99B26]' : 'text-slate-400'
