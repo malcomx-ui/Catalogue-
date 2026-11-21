@@ -65,6 +65,10 @@
   font-family: var(--font-display);
 }
 
+.font-nav {
+  font-family: 'Source Sans 3', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
 .font-sans-legal {
   font-family: var(--font-sans);
 }

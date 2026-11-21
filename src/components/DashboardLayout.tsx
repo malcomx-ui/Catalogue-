@@ -42,6 +42,8 @@ import {
   Banknote,
   Bell,
   ChevronDown,
+  ChevronLeft,
+  Circle,
   Check,
   ArrowRight,
   Clock,
@@ -69,10 +71,14 @@ interface SidebarNavItem {
   action?: () => void;
 }
 
-interface SidebarNavGroup {
+interface SidebarNavEntry {
   id: string;
   label: string;
-  items: SidebarNavItem[];
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  tab?: NavigationTab;
+  badge?: number;
+  action?: () => void;
+  children?: SidebarNavItem[];
 }
 
 const VIEW_TITLES: Record<NavigationTab, string> = {
@@ -388,10 +394,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const activeViewTitle = VIEW_TITLES[activeTab] || 'Firm Workspace';
 
-  // Clio Manage Grouped Navigation: PRACTICE | FINANCE & SECURITIES | OPERATIONS & HR
-  const navGroups: SidebarNavGroup[] = useMemo(() => {
-    const practiceItems: SidebarNavItem[] = [
-      { id: 'workspace', label: 'Workspace', icon: LayoutGrid, tab: 'dashboard' },
+  // SchoolPay-inspired structured sidebar navigation with collapsible accordion groups
+  const navEntries: SidebarNavEntry[] = useMemo(() => {
+    const practiceChildren: SidebarNavItem[] = [
       { id: 'cases', label: 'Cases & Matters', icon: Briefcase, tab: 'catalogue' },
       {
         id: 'litigation_form',
@@ -406,12 +411,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       { id: 'documents', label: 'Documents & Custody', icon: FolderLock, tab: 'documents' },
     ];
 
-    const financeItems: SidebarNavItem[] = [
+    const financeChildren: SidebarNavItem[] = [
       { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' },
     ];
 
     if (canAccessRestrictedWorkflow) {
-      financeItems.push(
+      financeChildren.push(
         {
           id: 'cash_requisitions',
           label: 'Cash Requisitions',
@@ -429,7 +434,74 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       );
     }
 
-    const operationsItems: SidebarNavItem[] = [
+    const financeTotalBadge =
+      (canAccessRestrictedWorkflow ? cashRequisitionsBadgeCount + approvalsBadgeCount : 0) ||
+      undefined;
+
+    const operationsChildren: SidebarNavItem[] = [
+      {
+        id: 'branches',
+        label: 'Branches',
+        icon: Building2,
+        tab: 'branches',
+      },
+    ];
+
+    if (canAccessRestrictedWorkflow) {
+      operationsChildren.push(
+        {
+          id: 'staff_workflow',
+          label: 'Staff & Workflow',
+          icon: Users,
+          tab: 'legal_team',
+        },
+        {
+          id: 'audit',
+          label: 'Audit Trail & Security',
+          icon: ShieldCheck,
+          tab: 'audit_trail',
+        }
+      );
+    }
+
+    if (isSuperAdmin) {
+      operationsChildren.push({
+        id: 'hr_admin',
+        label: 'HR Management',
+        icon: UserCog,
+        tab: 'hr',
+      });
+    }
+
+    if (isAdmin) {
+      operationsChildren.push({
+        id: 'settings',
+        label: 'System Settings',
+        icon: Sliders,
+        tab: 'settings',
+      });
+    }
+
+    return [
+      {
+        id: 'workspace',
+        label: 'Firm Workspace',
+        icon: LayoutGrid,
+        tab: 'dashboard',
+      },
+      {
+        id: 'practice',
+        label: 'Cases & Litigation',
+        icon: Briefcase,
+        children: practiceChildren,
+      },
+      {
+        id: 'finance',
+        label: 'Finance & Securities',
+        icon: Landmark,
+        badge: financeTotalBadge,
+        children: financeChildren,
+      },
       {
         id: 'messenger',
         label: 'Team Messenger',
@@ -444,55 +516,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'announcements',
         badge: unreadAnnouncementsCount > 0 ? unreadAnnouncementsCount : undefined,
       },
-    ];
-
-    if (canAccessRestrictedWorkflow) {
-      operationsItems.push({
-        id: 'staff_workflow',
-        label: 'Staff & Workflow',
-        icon: Users,
-        tab: 'legal_team',
-      });
-    }
-
-    operationsItems.push({
-      id: 'branches',
-      label: 'Branches',
-      icon: Building2,
-      tab: 'branches',
-    });
-
-    if (canAccessRestrictedWorkflow) {
-      operationsItems.push({
-        id: 'audit',
-        label: 'Audit Trail & Security',
-        icon: ShieldCheck,
-        tab: 'audit_trail',
-      });
-    }
-
-    if (isSuperAdmin) {
-      operationsItems.push({
-        id: 'hr_admin',
-        label: 'HR Management',
-        icon: UserCog,
-        tab: 'hr',
-      });
-    }
-
-    if (isAdmin) {
-      operationsItems.push({
-        id: 'settings',
-        label: 'System Settings',
-        icon: Sliders,
-        tab: 'settings',
-      });
-    }
-
-    return [
-      { id: 'practice', label: 'PRACTICE', items: practiceItems },
-      { id: 'finance', label: 'FINANCE & SECURITIES', items: financeItems },
-      { id: 'operations', label: 'OPERATIONS & HR', items: operationsItems },
+      {
+        id: 'operations',
+        label: 'Operations & HR',
+        icon: Building2,
+        children: operationsChildren,
+      },
     ];
   }, [
     canAccessRestrictedWorkflow,
@@ -506,6 +535,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setIsNewCaseModalOpen,
   ]);
 
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>('practice');
+
+  // Keep the group containing the active tab automatically expanded
+  useEffect(() => {
+    const ownerGroup = navEntries.find(
+      (entry) => entry.children && entry.children.some((child) => child.tab === activeTab)
+    );
+    if (ownerGroup) {
+      setExpandedGroupId(ownerGroup.id);
+    }
+  }, [activeTab, navEntries]);
+
   const handleNavClick = (item: SidebarNavItem) => {
     if (item.action) {
       item.action();
@@ -515,10 +556,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setMobileDrawerOpen(false);
   };
 
+  const handleParentGroupClick = (entry: SidebarNavEntry, compact: boolean) => {
+    if (compact) {
+      setSidebarCollapsed(false);
+      setExpandedGroupId(entry.id);
+      return;
+    }
+    setExpandedGroupId((prev) => (prev === entry.id ? null : entry.id));
+  };
+
   const renderSidebarContent = (compact: boolean) => (
-    <div className="flex flex-col h-full bg-gradient-to-b from-[#000065] via-[#00005B] to-[#000048] text-slate-200 select-none">
+    <div className="flex flex-col h-full bg-[#000065] text-white select-none font-nav">
       {/* Brand Header */}
-      <div className="min-h-[72px] px-4 py-3 border-b border-white/[0.10] flex items-center justify-between gap-2 shrink-0">
+      <div className="min-h-[70px] px-4 py-3 border-b border-white/[0.12] flex items-center justify-between gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -527,7 +577,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           }}
           className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none group"
         >
-          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/65 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-200">
+          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/65 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-150">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
@@ -542,10 +592,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="font-display text-[14.5px] font-semibold text-white tracking-[-0.01em] truncate leading-snug">
+              <p className="font-nav text-[15px] font-bold text-white tracking-[-0.01em] truncate leading-tight">
                 MK Case Catalogue
               </p>
-              <p className="font-display text-[9.5px] font-semibold text-white uppercase tracking-[0.065em] leading-tight mt-0.5 whitespace-nowrap">
+              <p className="font-nav text-[9.5px] font-semibold text-white uppercase tracking-[0.06em] leading-tight mt-0.5 whitespace-nowrap">
                 MUHUMUZA - KIIZA ADVOCATES
               </p>
             </div>
@@ -556,81 +606,117 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-blue-200 hover:bg-white/12 hover:text-white transition-colors duration-150 cursor-pointer"
+          className="lg:hidden p-1.5 rounded-lg text-white/80 hover:bg-white/15 hover:text-white transition-colors duration-150 cursor-pointer"
           aria-label="Close navigation menu"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Grouped Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-4 font-sans">
-        {navGroups.map((group, groupIdx) => (
-          <div
-            key={group.id}
-            className={groupIdx > 0 ? 'pt-3.5 border-t border-white/[0.08] space-y-1' : 'space-y-1'}
-          >
-            {!compact ? (
-              <p className="px-3 pb-1.5 font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#E8C06B]/75">
-                {group.label}
-              </p>
-            ) : null}
+      {/* Main Navigation (SchoolPay-grade full-width crisp rows + ice-blue sub-menu drawer) */}
+      <nav className="flex-1 overflow-y-auto py-3">
+        {!compact && (
+          <p className="px-4 pt-1 pb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[#9BB0D9]">
+            MAIN NAVIGATION
+          </p>
+        )}
 
-            <div className="space-y-1">
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = Boolean(item.tab && activeTab === item.tab);
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={compact ? item.label : undefined}
-                    onClick={() => handleNavClick(item)}
-                    className={`relative w-full flex items-center ${
-                      compact ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'
-                    } rounded-lg font-sans text-sm font-medium tracking-wide leading-5 transition-all duration-150 cursor-pointer group ${
-                      isActive
-                        ? 'bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                        : 'text-white/[0.84] hover:bg-white/[0.08] hover:text-white'
-                    }`}
-                  >
-                    {/* Warm Gold Active Left Indicator Bar */}
-                    {isActive && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-[#E8C06B]"
-                      />
-                    )}
+        <div className="divide-y divide-white/[0.04]">
+          {navEntries.map((entry) => {
+            const Icon = entry.icon;
+            const hasChildren = Boolean(entry.children && entry.children.length > 0);
+            const hasActiveChild = Boolean(
+              entry.children?.some((child) => child.tab && child.tab === activeTab)
+            );
+            const isDirectActive = Boolean(!hasChildren && entry.tab && activeTab === entry.tab);
+            const isExpanded = !compact && hasChildren && expandedGroupId === entry.id;
+            const isBarHighlighted = isDirectActive || isExpanded || (compact && hasActiveChild);
 
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon
-                        strokeWidth={isActive ? 2 : 1.75}
-                        className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
-                          isActive
-                            ? 'text-[#E8C06B]'
-                            : 'text-blue-200/75 group-hover:text-[#E8C06B]'
-                        }`}
-                      />
-                      {!compact && <span className="truncate leading-5">{item.label}</span>}
-                    </div>
-
-                    {!compact && item.badge !== undefined && (
-                      <span
-                        className={`inline-flex items-center justify-center px-1.5 h-5 min-w-[20px] text-center rounded text-[10px] font-semibold tracking-normal tabular-nums shrink-0 transition-colors duration-150 ${
-                          isActive
-                            ? 'bg-[#E8C06B] text-[#000065]'
-                            : 'bg-white/[0.12] text-white/90 group-hover:bg-white/[0.20] group-hover:text-white'
-                        }`}
-                      >
-                        {item.badge}
+            return (
+              <div key={entry.id}>
+                <button
+                  type="button"
+                  title={compact ? entry.label : undefined}
+                  aria-expanded={hasChildren ? isExpanded : undefined}
+                  onClick={() =>
+                    hasChildren
+                      ? handleParentGroupClick(entry, compact)
+                      : handleNavClick(entry)
+                  }
+                  className={`w-full flex items-center ${
+                    compact ? 'justify-center px-2 py-3' : 'justify-between px-4 py-2.5'
+                  } text-[13.5px] font-semibold tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
+                    isBarHighlighted
+                      ? 'bg-[#1A56DB] text-white'
+                      : 'text-white hover:bg-[#0D1E7A]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon
+                      strokeWidth={2}
+                      className="w-[16px] h-[16px] shrink-0 text-white"
+                    />
+                    {!compact && <span className="truncate">{entry.label}</span>}
+                    {!compact && entry.badge !== undefined && !isExpanded && (
+                      <span className="inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-xs bg-[#D99B26] text-white text-[10px] font-bold tabular-nums leading-none shrink-0">
+                        {entry.badge}
                       </span>
                     )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+                  </div>
+
+                  {!compact && hasChildren && (
+                    <span className="shrink-0 text-white/85">
+                      {isExpanded ? (
+                        <ChevronDown className="w-3.5 h-3.5" strokeWidth={2.25} />
+                      ) : (
+                        <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.25} />
+                      )}
+                    </span>
+                  )}
+                </button>
+
+                {/* SchoolPay-style Soft Ice-Blue Sub-Menu Drawer */}
+                {isExpanded && entry.children && (
+                  <div className="bg-[#E8F0FC] py-1.5 border-b border-[#00004A]/20">
+                    {entry.children.map((child) => {
+                      const isChildActive = Boolean(child.tab && activeTab === child.tab);
+                      return (
+                        <button
+                          key={child.id}
+                          type="button"
+                          onClick={() => handleNavClick(child)}
+                          className={`w-full flex items-center justify-between pl-6 pr-4 py-2 text-[13px] tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
+                            isChildActive
+                              ? 'bg-[#D6E4FA] text-[#000065] font-bold'
+                              : 'text-[#000065]/90 font-medium hover:bg-[#DCE8FB] hover:text-[#000065]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Circle
+                              className={`w-2.5 h-2.5 shrink-0 ${
+                                isChildActive
+                                  ? 'fill-[#1A56DB] text-[#1A56DB]'
+                                  : 'text-[#000065]/65'
+                              }`}
+                              strokeWidth={2}
+                            />
+                            <span className="truncate">{child.label}</span>
+                          </div>
+
+                          {child.badge !== undefined && (
+                            <span className="inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-xs bg-[#D99B26] text-white text-[10px] font-bold tabular-nums leading-none shrink-0">
+                              {child.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Compact Anchored Staff Profile Card */}
