@@ -42,8 +42,6 @@ import {
   Banknote,
   Bell,
   ChevronDown,
-  ChevronLeft,
-  Circle,
   Check,
   ArrowRight,
   Clock,
@@ -71,14 +69,10 @@ interface SidebarNavItem {
   action?: () => void;
 }
 
-interface SidebarNavEntry {
+interface SidebarNavGroup {
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  tab?: NavigationTab;
-  badge?: number;
-  action?: () => void;
-  children?: SidebarNavItem[];
+  items: SidebarNavItem[];
 }
 
 const VIEW_TITLES: Record<NavigationTab, string> = {
@@ -394,9 +388,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
   const activeViewTitle = VIEW_TITLES[activeTab] || 'Firm Workspace';
 
-  // SchoolPay-inspired structured sidebar navigation with collapsible accordion groups
-  const navEntries: SidebarNavEntry[] = useMemo(() => {
-    const practiceChildren: SidebarNavItem[] = [
+  // Flat, always-visible SchoolPay-styled navigation (no collapsible sub-menus)
+  const navGroups: SidebarNavGroup[] = useMemo(() => {
+    const practiceItems: SidebarNavItem[] = [
+      { id: 'workspace', label: 'Firm Workspace', icon: LayoutGrid, tab: 'dashboard' },
       { id: 'cases', label: 'Cases & Matters', icon: Briefcase, tab: 'catalogue' },
       {
         id: 'litigation_form',
@@ -411,12 +406,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       { id: 'documents', label: 'Documents & Custody', icon: FolderLock, tab: 'documents' },
     ];
 
-    const financeChildren: SidebarNavItem[] = [
+    const financeItems: SidebarNavItem[] = [
       { id: 'mortgages', label: 'Mortgages', icon: Landmark, tab: 'mortgages' },
     ];
 
     if (canAccessRestrictedWorkflow) {
-      financeChildren.push(
+      financeItems.push(
         {
           id: 'cash_requisitions',
           label: 'Cash Requisitions',
@@ -434,74 +429,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       );
     }
 
-    const financeTotalBadge =
-      (canAccessRestrictedWorkflow ? cashRequisitionsBadgeCount + approvalsBadgeCount : 0) ||
-      undefined;
-
-    const operationsChildren: SidebarNavItem[] = [
-      {
-        id: 'branches',
-        label: 'Branches',
-        icon: Building2,
-        tab: 'branches',
-      },
-    ];
-
-    if (canAccessRestrictedWorkflow) {
-      operationsChildren.push(
-        {
-          id: 'staff_workflow',
-          label: 'Staff & Workflow',
-          icon: Users,
-          tab: 'legal_team',
-        },
-        {
-          id: 'audit',
-          label: 'Audit Trail & Security',
-          icon: ShieldCheck,
-          tab: 'audit_trail',
-        }
-      );
-    }
-
-    if (isSuperAdmin) {
-      operationsChildren.push({
-        id: 'hr_admin',
-        label: 'HR Management',
-        icon: UserCog,
-        tab: 'hr',
-      });
-    }
-
-    if (isAdmin) {
-      operationsChildren.push({
-        id: 'settings',
-        label: 'System Settings',
-        icon: Sliders,
-        tab: 'settings',
-      });
-    }
-
-    return [
-      {
-        id: 'workspace',
-        label: 'Firm Workspace',
-        icon: LayoutGrid,
-        tab: 'dashboard',
-      },
-      {
-        id: 'practice',
-        label: 'Cases & Litigation',
-        icon: Briefcase,
-        children: practiceChildren,
-      },
-      {
-        id: 'finance',
-        label: 'Finance & Securities',
-        icon: Landmark,
-        badge: financeTotalBadge,
-        children: financeChildren,
-      },
+    const operationsItems: SidebarNavItem[] = [
       {
         id: 'messenger',
         label: 'Team Messenger',
@@ -516,12 +444,55 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         tab: 'announcements',
         badge: unreadAnnouncementsCount > 0 ? unreadAnnouncementsCount : undefined,
       },
-      {
-        id: 'operations',
-        label: 'Operations & HR',
-        icon: Building2,
-        children: operationsChildren,
-      },
+    ];
+
+    if (canAccessRestrictedWorkflow) {
+      operationsItems.push({
+        id: 'staff_workflow',
+        label: 'Staff & Workflow',
+        icon: Users,
+        tab: 'legal_team',
+      });
+    }
+
+    operationsItems.push({
+      id: 'branches',
+      label: 'Branches',
+      icon: Building2,
+      tab: 'branches',
+    });
+
+    if (canAccessRestrictedWorkflow) {
+      operationsItems.push({
+        id: 'audit',
+        label: 'Audit Trail & Security',
+        icon: ShieldCheck,
+        tab: 'audit_trail',
+      });
+    }
+
+    if (isSuperAdmin) {
+      operationsItems.push({
+        id: 'hr_admin',
+        label: 'HR Management',
+        icon: UserCog,
+        tab: 'hr',
+      });
+    }
+
+    if (isAdmin) {
+      operationsItems.push({
+        id: 'settings',
+        label: 'System Settings',
+        icon: Sliders,
+        tab: 'settings',
+      });
+    }
+
+    return [
+      { id: 'practice', label: 'MAIN NAVIGATION', items: practiceItems },
+      { id: 'finance', label: 'FINANCE & SECURITIES', items: financeItems },
+      { id: 'operations', label: 'OPERATIONS & HR', items: operationsItems },
     ];
   }, [
     canAccessRestrictedWorkflow,
@@ -535,18 +506,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setIsNewCaseModalOpen,
   ]);
 
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>('practice');
-
-  // Keep the group containing the active tab automatically expanded
-  useEffect(() => {
-    const ownerGroup = navEntries.find(
-      (entry) => entry.children && entry.children.some((child) => child.tab === activeTab)
-    );
-    if (ownerGroup) {
-      setExpandedGroupId(ownerGroup.id);
-    }
-  }, [activeTab, navEntries]);
-
   const handleNavClick = (item: SidebarNavItem) => {
     if (item.action) {
       item.action();
@@ -554,15 +513,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       setActiveTab(item.tab);
     }
     setMobileDrawerOpen(false);
-  };
-
-  const handleParentGroupClick = (entry: SidebarNavEntry, compact: boolean) => {
-    if (compact) {
-      setSidebarCollapsed(false);
-      setExpandedGroupId(entry.id);
-      return;
-    }
-    setExpandedGroupId((prev) => (prev === entry.id ? null : entry.id));
   };
 
   const renderSidebarContent = (compact: boolean) => (
@@ -613,110 +563,56 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         </button>
       </div>
 
-      {/* Main Navigation (SchoolPay-grade full-width crisp rows + ice-blue sub-menu drawer) */}
-      <nav className="flex-1 overflow-y-auto py-3">
-        {!compact && (
-          <p className="px-4 pt-1 pb-2.5 text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[#9BB0D9]">
-            MAIN NAVIGATION
-          </p>
-        )}
+      {/* Flat Full-Width Navigation (SchoolPay-grade typography & contrast, 1-click access) */}
+      <nav className="flex-1 overflow-y-auto py-3 space-y-3">
+        {navGroups.map((group, groupIdx) => (
+          <div
+            key={group.id}
+            className={groupIdx > 0 ? 'pt-3 border-t border-white/[0.10]' : ''}
+          >
+            {!compact && (
+              <p className="px-4 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[#9BB0D9]">
+                {group.label}
+              </p>
+            )}
 
-        <div className="divide-y divide-white/[0.04]">
-          {navEntries.map((entry) => {
-            const Icon = entry.icon;
-            const hasChildren = Boolean(entry.children && entry.children.length > 0);
-            const hasActiveChild = Boolean(
-              entry.children?.some((child) => child.tab && child.tab === activeTab)
-            );
-            const isDirectActive = Boolean(!hasChildren && entry.tab && activeTab === entry.tab);
-            const isExpanded = !compact && hasChildren && expandedGroupId === entry.id;
-            const isBarHighlighted = isDirectActive || isExpanded || (compact && hasActiveChild);
+            <div className="divide-y divide-white/[0.04]">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = Boolean(item.tab && activeTab === item.tab);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    title={compact ? item.label : undefined}
+                    onClick={() => handleNavClick(item)}
+                    className={`w-full flex items-center ${
+                      compact ? 'justify-center px-2 py-2.5' : 'justify-between px-4 py-2.5'
+                    } text-[13.5px] font-semibold tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
+                      isActive
+                        ? 'bg-[#1A56DB] text-white'
+                        : 'text-white hover:bg-[#0D1E7A]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Icon
+                        strokeWidth={2}
+                        className="w-[16px] h-[16px] shrink-0 text-white"
+                      />
+                      {!compact && <span className="truncate">{item.label}</span>}
+                    </div>
 
-            return (
-              <div key={entry.id}>
-                <button
-                  type="button"
-                  title={compact ? entry.label : undefined}
-                  aria-expanded={hasChildren ? isExpanded : undefined}
-                  onClick={() =>
-                    hasChildren
-                      ? handleParentGroupClick(entry, compact)
-                      : handleNavClick(entry)
-                  }
-                  className={`w-full flex items-center ${
-                    compact ? 'justify-center px-2 py-3' : 'justify-between px-4 py-2.5'
-                  } text-[13.5px] font-semibold tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
-                    isBarHighlighted
-                      ? 'bg-[#1A56DB] text-white'
-                      : 'text-white hover:bg-[#0D1E7A]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon
-                      strokeWidth={2}
-                      className="w-[16px] h-[16px] shrink-0 text-white"
-                    />
-                    {!compact && <span className="truncate">{entry.label}</span>}
-                    {!compact && entry.badge !== undefined && !isExpanded && (
+                    {!compact && item.badge !== undefined && (
                       <span className="inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-xs bg-[#D99B26] text-white text-[10px] font-bold tabular-nums leading-none shrink-0">
-                        {entry.badge}
+                        {item.badge}
                       </span>
                     )}
-                  </div>
-
-                  {!compact && hasChildren && (
-                    <span className="shrink-0 text-white/85">
-                      {isExpanded ? (
-                        <ChevronDown className="w-3.5 h-3.5" strokeWidth={2.25} />
-                      ) : (
-                        <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2.25} />
-                      )}
-                    </span>
-                  )}
-                </button>
-
-                {/* SchoolPay-style Soft Ice-Blue Sub-Menu Drawer */}
-                {isExpanded && entry.children && (
-                  <div className="bg-[#E8F0FC] py-1.5 border-b border-[#00004A]/20">
-                    {entry.children.map((child) => {
-                      const isChildActive = Boolean(child.tab && activeTab === child.tab);
-                      return (
-                        <button
-                          key={child.id}
-                          type="button"
-                          onClick={() => handleNavClick(child)}
-                          className={`w-full flex items-center justify-between pl-6 pr-4 py-2 text-[13px] tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
-                            isChildActive
-                              ? 'bg-[#D6E4FA] text-[#000065] font-bold'
-                              : 'text-[#000065]/90 font-medium hover:bg-[#DCE8FB] hover:text-[#000065]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Circle
-                              className={`w-2.5 h-2.5 shrink-0 ${
-                                isChildActive
-                                  ? 'fill-[#1A56DB] text-[#1A56DB]'
-                                  : 'text-[#000065]/65'
-                              }`}
-                              strokeWidth={2}
-                            />
-                            <span className="truncate">{child.label}</span>
-                          </div>
-
-                          {child.badge !== undefined && (
-                            <span className="inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-xs bg-[#D99B26] text-white text-[10px] font-bold tabular-nums leading-none shrink-0">
-                              {child.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Compact Anchored Staff Profile Card */}
