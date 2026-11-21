@@ -63,7 +63,7 @@ export interface DashboardLayoutProps {
 interface SidebarNavItem {
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   tab?: NavigationTab;
   badge?: number;
   action?: () => void;
@@ -518,7 +518,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const renderSidebarContent = (compact: boolean) => (
     <div className="flex flex-col h-full bg-gradient-to-b from-[#000065] via-[#00005B] to-[#000048] text-slate-200 select-none">
       {/* Brand Header */}
-      <div className="h-16 px-4 border-b border-white/[0.10] flex items-center justify-between gap-2 shrink-0">
+      <div className="min-h-[72px] px-4 py-3 border-b border-white/[0.10] flex items-center justify-between gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -527,7 +527,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           }}
           className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none group"
         >
-          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/60 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-200">
+          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/65 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-200">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
@@ -542,10 +542,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="font-display text-sm font-bold text-white tracking-tight truncate leading-tight">
+              <p className="font-display text-[14.5px] font-semibold text-white tracking-[-0.01em] truncate leading-snug">
                 MK Case Catalogue
               </p>
-              <p className="text-[10px] text-white uppercase font-semibold tracking-wider truncate leading-tight mt-0.5">
+              <p className="font-display text-[9.5px] font-semibold text-white uppercase tracking-[0.065em] leading-tight mt-0.5 whitespace-nowrap">
                 MUHUMUZA - KIIZA ADVOCATES
               </p>
             </div>
@@ -564,18 +564,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </div>
 
       {/* Grouped Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-5">
-        {navGroups.map((group) => (
-          <div key={group.id} className="space-y-1">
+      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-4">
+        {navGroups.map((group, groupIdx) => (
+          <div
+            key={group.id}
+            className={groupIdx > 0 ? 'pt-3.5 border-t border-white/[0.08] space-y-1' : 'space-y-1'}
+          >
             {!compact ? (
-              <p className="px-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-200/65">
+              <p className="px-3 pb-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E8C06B]/75">
                 {group.label}
               </p>
-            ) : (
-              <div className="mx-3 mb-2 border-t border-white/10 first:hidden" />
-            )}
+            ) : null}
 
-            <div className="space-y-0.5 px-2.5">
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = Boolean(item.tab && activeTab === item.tab);
@@ -585,28 +586,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     type="button"
                     title={compact ? item.label : undefined}
                     onClick={() => handleNavClick(item)}
-                    className={`relative w-full flex items-center ${
+                    className={`relative w-full h-9 flex items-center ${
                       compact ? 'justify-center px-2' : 'justify-between px-3'
-                    } py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 cursor-pointer group ${
+                    } rounded-lg font-display text-[13.5px] font-medium tracking-[-0.005em] leading-none transition-all duration-150 cursor-pointer group ${
                       isActive
-                        ? 'bg-white/[0.15] text-white font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                        : 'text-blue-100/80 hover:bg-white/[0.09] hover:text-white'
+                        ? 'bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
+                        : 'text-white/[0.82] hover:bg-white/[0.08] hover:text-white'
                     }`}
                   >
                     {/* Warm Gold Active Left Indicator Bar */}
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-[#E8C06B]"
+                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#E8C06B]"
                       />
                     )}
 
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon
-                        className={`w-4 h-4 shrink-0 transition-colors duration-200 ${
+                        strokeWidth={isActive ? 2 : 1.75}
+                        className={`w-4 h-4 shrink-0 transition-colors duration-150 ${
                           isActive
                             ? 'text-[#E8C06B]'
-                            : 'text-blue-200/70 group-hover:text-[#E8C06B]'
+                            : 'text-blue-200/75 group-hover:text-[#E8C06B]'
                         }`}
                       />
                       {!compact && <span className="truncate">{item.label}</span>}
@@ -614,10 +616,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
                     {!compact && item.badge !== undefined && (
                       <span
-                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-bold tabular-nums shrink-0 transition-colors duration-200 ${
+                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-semibold tabular-nums shrink-0 transition-colors duration-150 ${
                           isActive
-                            ? 'bg-[#D99B26] text-[#000065]'
-                            : 'bg-white/12 text-blue-100 group-hover:bg-white/20 group-hover:text-white'
+                            ? 'bg-[#E8C06B] text-[#000065]'
+                            : 'bg-white/[0.12] text-white/90 group-hover:bg-white/[0.20] group-hover:text-white'
                         }`}
                       >
                         {item.badge}
