@@ -289,7 +289,24 @@ function isCaseClosed(c: CaseItem): boolean {
     s.includes('judgment') ||
     stage.includes('disposed') ||
     stage.includes('closed') ||
+    stage.includes('concluded') ||
     Boolean(c.year_of_closure)
+  );
+}
+
+function isCaseConcluded(c: CaseItem): boolean {
+  const s = String(c.status || '').trim().toLowerCase();
+  const stage = String(c.stage || '').trim().toLowerCase();
+  if (s === 'closed' || s === 'archived') return false;
+  return (
+    s === 'concluded' ||
+    s === 'disposed' ||
+    s === 'completed' ||
+    s.includes('concluded') ||
+    s.includes('disposed') ||
+    s.includes('judgment') ||
+    stage.includes('concluded') ||
+    stage.includes('disposed')
   );
 }
 
@@ -530,10 +547,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
     let activePendingCount = 0;
     let inactivePendingCount = 0;
     let accomplishedCount = 0;
+    let concludedCount = 0;
+    let closedCount = 0;
 
     searchMatchedCases.forEach((c) => {
       if (isCaseClosed(c)) {
         accomplishedCount += 1;
+        if (isCaseConcluded(c)) concludedCount += 1;
+        else closedCount += 1;
       } else {
         pendingCount += 1;
         if (isCaseInactive(c)) inactivePendingCount += 1;
@@ -553,6 +574,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
       activePendingCases: activePendingCount,
       inactivePendingCases: inactivePendingCount,
       accomplishedCases: accomplishedCount,
+      concludedCases: concludedCount,
+      closedCases: closedCount,
       vaultCustody: vaultCustodyCount,
       approvals: pendingApprovalsCount,
       mortgagesCount: searchMatchedMortgages.length,
@@ -1642,9 +1665,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <span className="font-display text-3xl font-bold text-[#000065] dark:text-white tabular-nums tracking-tight leading-none">
               {kpiMetrics.accomplishedCases}
             </span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold border border-emerald-200/70 dark:border-emerald-800/50">
-              Concluded &amp; closed
-            </span>
+            <div className="flex items-center gap-1.5 text-[11px] tabular-nums flex-wrap justify-end">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200/70 dark:border-emerald-800/50">
+                Concluded: {kpiMetrics.concludedCases}
+              </span>
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[#000065] dark:text-slate-200 font-semibold border border-[#DFE5F2] dark:border-slate-700">
+                Closed: {kpiMetrics.closedCases}
+              </span>
+            </div>
           </div>
         </button>
 
