@@ -564,19 +564,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </div>
 
       {/* Grouped Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-4">
+      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-4 font-sans">
         {navGroups.map((group, groupIdx) => (
           <div
             key={group.id}
             className={groupIdx > 0 ? 'pt-3.5 border-t border-white/[0.08] space-y-1' : 'space-y-1'}
           >
             {!compact ? (
-              <p className="px-3 pb-1.5 font-display text-[10px] font-semibold uppercase tracking-[0.14em] text-[#E8C06B]/75">
+              <p className="px-3 pb-1.5 font-sans text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#E8C06B]/75">
                 {group.label}
               </p>
             ) : null}
 
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = Boolean(item.tab && activeTab === item.tab);
@@ -586,19 +586,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                     type="button"
                     title={compact ? item.label : undefined}
                     onClick={() => handleNavClick(item)}
-                    className={`relative w-full h-9 flex items-center ${
-                      compact ? 'justify-center px-2' : 'justify-between px-3'
-                    } rounded-lg font-display text-[13.5px] font-medium tracking-[-0.005em] leading-none transition-all duration-150 cursor-pointer group ${
+                    className={`relative w-full flex items-center ${
+                      compact ? 'justify-center px-2 py-2.5' : 'justify-between px-3 py-2.5'
+                    } rounded-lg font-sans text-sm font-medium tracking-wide leading-5 transition-all duration-150 cursor-pointer group ${
                       isActive
                         ? 'bg-white/[0.14] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-                        : 'text-white/[0.82] hover:bg-white/[0.08] hover:text-white'
+                        : 'text-white/[0.84] hover:bg-white/[0.08] hover:text-white'
                     }`}
                   >
                     {/* Warm Gold Active Left Indicator Bar */}
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-[#E8C06B]"
+                        className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-[#E8C06B]"
                       />
                     )}
 
@@ -611,12 +611,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                             : 'text-blue-200/75 group-hover:text-[#E8C06B]'
                         }`}
                       />
-                      {!compact && <span className="truncate">{item.label}</span>}
+                      {!compact && <span className="truncate leading-5">{item.label}</span>}
                     </div>
 
                     {!compact && item.badge !== undefined && (
                       <span
-                        className={`px-1.5 py-0.5 min-w-[20px] text-center rounded text-[10px] font-semibold tabular-nums shrink-0 transition-colors duration-150 ${
+                        className={`inline-flex items-center justify-center px-1.5 h-5 min-w-[20px] text-center rounded text-[10px] font-semibold tracking-normal tabular-nums shrink-0 transition-colors duration-150 ${
                           isActive
                             ? 'bg-[#E8C06B] text-[#000065]'
                             : 'bg-white/[0.12] text-white/90 group-hover:bg-white/[0.20] group-hover:text-white'
