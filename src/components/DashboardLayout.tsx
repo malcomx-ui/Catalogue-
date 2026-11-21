@@ -490,9 +490,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     }
 
     return [
-      { id: 'practice', label: 'MAIN NAVIGATION', items: practiceItems },
-      { id: 'finance', label: 'FINANCE & SECURITIES', items: financeItems },
-      { id: 'operations', label: 'OPERATIONS & HR', items: operationsItems },
+      { id: 'practice', label: 'Practice', items: practiceItems },
+      { id: 'finance', label: 'Finance & Securities', items: financeItems },
+      { id: 'operations', label: 'Firm & Operations', items: operationsItems },
     ];
   }, [
     canAccessRestrictedWorkflow,
@@ -516,18 +516,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const renderSidebarContent = (compact: boolean) => (
-    <div className="flex flex-col h-full bg-[#000065] text-white select-none font-nav">
-      {/* Brand Header */}
-      <div className="min-h-[70px] px-4 py-3 border-b border-white/[0.12] flex items-center justify-between gap-2 shrink-0">
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#000065] via-[#00005B] to-[#000049] text-white select-none font-sans">
+      {/* Executive Firm Brand Lockup */}
+      <div className="h-[72px] px-4 border-b border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
         <button
           type="button"
           onClick={() => {
             setActiveTab('dashboard');
             setMobileDrawerOpen(false);
           }}
-          className="flex items-center gap-2.5 min-w-0 cursor-pointer text-left focus:outline-none group"
+          className="flex items-center gap-3 min-w-0 cursor-pointer text-left focus:outline-none group"
         >
-          <div className="w-9 h-9 rounded-lg bg-white p-1 border border-[#D99B26]/65 group-hover:border-[#E8C06B] flex items-center justify-center shrink-0 overflow-hidden shadow-xs transition-colors duration-150">
+          <div className="w-9 h-9 rounded-[10px] bg-white p-1.5 ring-1 ring-white/25 group-hover:ring-[#E8C06B]/70 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.22)] transition-all duration-200">
             {firmLogoSrc ? (
               <img
                 src={firmLogoSrc}
@@ -542,10 +542,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
           {!compact && (
             <div className="min-w-0">
-              <p className="font-nav text-[15px] font-bold text-white tracking-[-0.01em] truncate leading-tight">
+              <p className="font-display text-[14.5px] font-bold text-white tracking-[-0.015em] truncate leading-tight">
                 MK Case Catalogue
               </p>
-              <p className="font-nav text-[9.5px] font-semibold text-white uppercase tracking-[0.06em] leading-tight mt-0.5 whitespace-nowrap">
+              <p className="font-sans text-[9px] font-semibold text-white uppercase tracking-[0.085em] leading-none mt-1.5 whitespace-nowrap">
                 MUHUMUZA - KIIZA ADVOCATES
               </p>
             </div>
@@ -556,57 +556,88 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <button
           type="button"
           onClick={() => setMobileDrawerOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg text-white/80 hover:bg-white/15 hover:text-white transition-colors duration-150 cursor-pointer"
+          className="lg:hidden p-1.5 rounded-lg text-indigo-200/80 hover:bg-white/[0.10] hover:text-white transition-colors duration-150 cursor-pointer"
           aria-label="Close navigation menu"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Flat Full-Width Navigation (SchoolPay-grade typography & contrast, 1-click access) */}
-      <nav className="flex-1 overflow-y-auto py-3 space-y-3">
+      {/* Enterprise Legal Portal Navigation (Clean, flat 1-click hierarchy) */}
+      <nav className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4 space-y-5">
         {navGroups.map((group, groupIdx) => (
-          <div
-            key={group.id}
-            className={groupIdx > 0 ? 'pt-3 border-t border-white/[0.10]' : ''}
-          >
-            {!compact && (
-              <p className="px-4 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.10em] text-[#9BB0D9]">
+          <div key={group.id} className="space-y-1">
+            {!compact ? (
+              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-200/50">
                 {group.label}
               </p>
-            )}
+            ) : groupIdx > 0 ? (
+              <div className="mx-2 my-2 border-t border-white/[0.08]" />
+            ) : null}
 
-            <div className="divide-y divide-white/[0.04]">
+            <div className="space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = Boolean(item.tab && activeTab === item.tab);
+                const isActionItem = Boolean(item.action && !item.tab);
+
                 return (
                   <button
                     key={item.id}
                     type="button"
                     title={compact ? item.label : undefined}
                     onClick={() => handleNavClick(item)}
-                    className={`w-full flex items-center ${
-                      compact ? 'justify-center px-2 py-2.5' : 'justify-between px-4 py-2.5'
-                    } text-[13.5px] font-semibold tracking-[0.005em] leading-5 transition-colors duration-150 cursor-pointer ${
+                    className={`relative w-full h-9 flex items-center ${
+                      compact ? 'justify-center px-2' : 'justify-between px-2.5'
+                    } rounded-[8px] text-[13px] font-medium tracking-[-0.006em] transition-all duration-150 cursor-pointer group ${
                       isActive
-                        ? 'bg-[#1A56DB] text-white'
-                        : 'text-white hover:bg-[#0D1E7A]'
+                        ? 'bg-white/[0.13] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_3px_rgba(0,0,28,0.22)] ring-1 ring-white/[0.12]'
+                        : 'text-indigo-100/[0.78] hover:bg-white/[0.07] hover:text-white'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Icon
-                        strokeWidth={2}
-                        className="w-[16px] h-[16px] shrink-0 text-white"
+                    {/* Restrained Champagne Gold Active Rail */}
+                    {isActive && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-0 top-2 bottom-2 w-[2.5px] rounded-r-full bg-[#E8C06B]"
                       />
-                      {!compact && <span className="truncate">{item.label}</span>}
+                    )}
+
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon
+                        strokeWidth={isActive ? 2 : 1.7}
+                        className={`w-[16px] h-[16px] shrink-0 transition-colors duration-150 ${
+                          isActive
+                            ? 'text-[#E8C06B]'
+                            : 'text-indigo-200/65 group-hover:text-white'
+                        }`}
+                      />
+                      {!compact && (
+                        <span
+                          className={`truncate leading-none ${
+                            isActive ? 'font-semibold text-white' : 'font-medium'
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      )}
                     </div>
 
-                    {!compact && item.badge !== undefined && (
-                      <span className="inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-xs bg-[#D99B26] text-white text-[10px] font-bold tabular-nums leading-none shrink-0">
+                    {!compact && item.badge !== undefined ? (
+                      <span
+                        className={`inline-flex items-center justify-center px-1.5 h-[18px] min-w-[20px] rounded-full text-[10px] font-semibold tabular-nums leading-none shrink-0 transition-colors duration-150 ${
+                          isActive
+                            ? 'bg-[#E8C06B] text-[#000065]'
+                            : 'bg-white/[0.13] text-indigo-100 group-hover:bg-white/[0.20] group-hover:text-white'
+                        }`}
+                      >
                         {item.badge}
                       </span>
-                    )}
+                    ) : !compact && isActionItem ? (
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-200/45 group-hover:text-[#E8C06B] transition-colors shrink-0">
+                        + New
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -615,23 +646,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         ))}
       </nav>
 
-      {/* Compact Anchored Staff Profile Card */}
-      <div className="p-3 border-t border-white/[0.10] shrink-0">
+      {/* Anchored Executive Staff Profile Footer */}
+      <div className="p-3 border-t border-white/[0.08] bg-[#000046]/45 shrink-0">
         <div
           className={`flex items-center ${
             compact ? 'justify-center' : 'justify-between gap-2.5'
-          } p-2 rounded-xl bg-white/[0.07] hover:bg-white/[0.10] border border-white/[0.10] transition-colors duration-200`}
+          } p-2 rounded-[10px] bg-white/[0.05] hover:bg-white/[0.09] ring-1 ring-white/[0.08] transition-colors duration-150`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-[#D99B26]/20 border border-[#E8C06B]/55 text-[#E8C06B] text-xs font-display font-bold flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.10] ring-1 ring-[#E8C06B]/45 text-[#E8C06B] text-[11px] font-display font-bold flex items-center justify-center shrink-0">
               {getUserInitials(effectiveUser?.name)}
             </div>
             {!compact && (
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-white truncate leading-tight">
+                <p className="text-[12.5px] font-semibold text-white truncate leading-tight">
                   {effectiveUser?.name || 'Firm Staff'}
                 </p>
-                <p className="text-[11px] text-blue-200/75 truncate leading-tight mt-0.5">
+                <p className="text-[11px] text-indigo-200/65 truncate leading-tight mt-0.5">
                   {effectiveUser?.roleTitle || effectiveUser?.role || 'Advocate'}
                 </p>
               </div>
@@ -644,9 +675,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               onClick={logout}
               title="Sign Out"
               aria-label="Sign Out"
-              className="p-1.5 rounded-lg text-blue-200/75 hover:text-rose-200 hover:bg-rose-500/20 transition-colors duration-150 cursor-pointer shrink-0"
+              className="p-1.5 rounded-lg text-indigo-200/65 hover:text-rose-200 hover:bg-rose-500/20 transition-colors duration-150 cursor-pointer shrink-0"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" strokeWidth={1.75} />
             </button>
           )}
         </div>
