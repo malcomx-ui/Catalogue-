@@ -29,6 +29,7 @@ import {
 import { DEFAULT_SYSTEM_SETTINGS } from '../data/defaultSettings';
 import { DEFAULT_UGANDA_HOLIDAYS, setConfiguredPublicHolidays } from '../utils/ugandaHolidays';
 import { cleanCaseNumber } from '../utils/caseNumber';
+import { recordCurrentUserSession } from '../services/sessionService';
 import {
   SupabaseService,
   isSupabaseConfigured,
@@ -840,6 +841,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSupabaseConfigured) {
       ensureAuthUserProfileBranch(branchMeta.id, branchMeta.name).catch(() => {});
     }
+
+    void recordCurrentUserSession(loggedInUser, { force: true });
 
     return loggedInUser;
   };

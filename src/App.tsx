@@ -69,6 +69,7 @@ import {
 import './utils/testRls';
 import './services/caseService';
 import './services/reportService';
+import { recordCurrentUserSession } from './services/sessionService';
 
 const MainLayout: React.FC = () => {
   const {
@@ -255,6 +256,12 @@ const MainLayout: React.FC = () => {
 
   const isSuperAdmin = isSuperAdminUser(effectiveUser);
   const canAccessRestrictedWorkflow = canAccessRestrictedWorkflowNav(effectiveUser);
+
+  // Record active authenticated session metadata (deduplicated per browser session)
+  useEffect(() => {
+    if (!isAuthenticated || !effectiveUser?.id) return;
+    void recordCurrentUserSession(effectiveUser);
+  }, [isAuthenticated, effectiveUser?.id, effectiveUser?.email]);
 
   // System-wide 3-day staff birthday alert toasts (targets HR Manager & the birthday person)
   useEffect(() => {

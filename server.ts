@@ -50,6 +50,7 @@ const DEFAULT_DATABASE = {
   hearings: [] as any[],
   documents: [] as any[],
   mortgages: [] as any[],
+  loginSessions: [] as any[],
   branches: [
     {
       id: 'kla-hq',
@@ -405,6 +406,7 @@ function readDatabase(): typeof DEFAULT_DATABASE {
         hearings: Array.isArray(parsed.hearings) ? parsed.hearings : [],
         documents: Array.isArray(parsed.documents) ? parsed.documents : [],
         mortgages: Array.isArray(parsed.mortgages) ? parsed.mortgages : [],
+        loginSessions: Array.isArray(parsed.loginSessions) ? parsed.loginSessions : [],
         branches: Array.isArray(parsed.branches) && parsed.branches.length > 0 ? parsed.branches : DEFAULT_DATABASE.branches,
         users: Array.isArray(parsed.users) && parsed.users.length > 0 ? parsed.users : DEFAULT_DATABASE.users,
         roles: mergedRoles,
@@ -2740,6 +2742,16 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
       mustChangePassword: Boolean(sbProfile?.must_change_password ?? dbUser?.mustChangePassword ?? false),
     };
 
+    await recordLoginSessionEvent(req, {
+      userId: userPayload.id,
+      userName: userPayload.name,
+      userEmail: userPayload.email,
+      userRole: userPayload.roleTitle || userPayload.role,
+      branch: userPayload.branchName,
+    }).catch((sessionErr) => {
+      console.warn('[/api/auth/login] Non-blocking session log error:', sessionErr?.message || sessionErr);
+    });
+
     return res.json({
       success: true,
       user: userPayload,
@@ -3221,6 +3233,792 @@ app.post('/api/hr/sync-users', async (req: Request, res: Response) => {
       upsertedCount: 0,
       employees: [],
       error: err?.message || 'Failed to sync firm users to HR employees table.',
+    });
+  }
+});
+
+// ============================================================================
+// SESSION MANAGEMENT & LOGIN METADATA AUDIT ENDPOINTS
+// ============================================================================
+
+const SESSION_ID_REGEX = /^[a-zA-Z0-9._:@-]{1,128}$/;
+
+function extractClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  let rawIp = '';
+
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    rawIp = String(forwarded[0] || '').split(',')[0].trim();
+  } else if (typeof forwarded === 'string' && forwarded.trim()) {
+    rawIp = forwarded.split(',')[0].trim();
+  } else if (typeof req.headers['x-real-ip'] === 'string' && req.headers['x-real-ip'].trim()) {
+    rawIp = req.headers['x-real-ip'].trim();
+  } else {
+    rawIp = String(req.socket?.remoteAddress || req.ip || '').trim();
+  }
+
+  if (rawIp.startsWith('::ffff:')) {
+    rawIp = rawIp.slice(7);
+  }
+  if (rawIp === '::1') {
+    rawIp = '127.0.0.1';
+  }
+
+  const sanitized = rawIp.replace(/[^0-9a-fA-F:., ]/g, '').slice(0, 64).trim();
+  return sanitized || 'Unknown IP';
+}
+
+function parseUserAgentDeviceInfo(rawUa: string): {
+  browser: string;
+  os: string;
+  deviceType: 'Desktop' | 'Mobile' | 'Tablet' | 'Unknown';
+  deviceLabel: string;
+  userAgent: string;
+} {
+  const ua = String(rawUa || '').trim().slice(0, 360);
+  const lower = ua.toLowerCase();
+
+  if (!ua) {
+    return {
+      browser: 'Unknown Browser',
+      os: 'Unknown OS',
+      deviceType: 'Unknown',
+      deviceLabel: 'Unknown Device',
+      userAgent: '',
+    };
+  }
+
+  // Safe substring-based browser detection (no catastrophic regex backtracking)
+  let browser = 'Web Browser';
+  if (lower.includes('edg/') || lower.includes('edga/') || lower.includes('edgios/')) {
+    browser = 'Microsoft Edge';
+  } else if (lower.includes('opr/') || lower.includes('opera')) {
+    browser = 'Opera';
+  } else if (lower.includes('firefox/') || lower.includes('fxios/')) {
+    browser = 'Mozilla Firefox';
+  } else if (lower.includes('samsungbrowser/')) {
+    browser = 'Samsung Internet';
+  } else if (lower.includes('chrome/') || lower.includes('crios/')) {
+    browser = 'Google Chrome';
+  } else if (lower.includes('safari/') && !lower.includes('chrome/')) {
+    browser = 'Apple Safari';
+  }
+
+  // Safe substring-based OS detection
+  let os = 'Unknown OS';
+  if (lower.includes('windows nt 10.0') || lower.includes('windows nt 11.0')) {
+    os = 'Windows 10/11';
+  } else if (lower.includes('windows')) {
+    os = 'Windows';
+  } else if (lower.includes('ipad')) {
+    os = 'iPadOS';
+  } else if (lower.includes('iphone') || lower.includes('ios')) {
+    os = 'iOS';
+  } else if (lower.includes('android')) {
+    os = 'Android';
+  } else if (lower.includes('cros')) {
+    os = 'ChromeOS';
+  } else if (lower.includes('mac os x') || lower.includes('macintosh')) {
+    os = 'macOS';
+  } else if (lower.includes('linux')) {
+    os = 'Linux';
+  }
+
+  // Device form-factor detection
+  let deviceType: 'Desktop' | 'Mobile' | 'Tablet' | 'Unknown' = 'Desktop';
+  if (lower.includes('ipad') || lower.includes('tablet') || (lower.includes('android') && !lower.includes('mobile'))) {
+    deviceType = 'Tablet';
+  } else if (lower.includes('mobi') || lower.includes('iphone') || lower.includes('android')) {
+    deviceType = 'Mobile';
+  } else if (os === 'Unknown OS' && browser === 'Web Browser') {
+    deviceType = 'Unknown';
+  }
+
+  return {
+    browser,
+    os,
+    deviceType,
+    deviceLabel: `${browser} on ${os}`,
+    userAgent: ua,
+  };
+}
+
+interface VerifiedSessionCaller {
+  verified: boolean;
+  userId: string;
+  email: string;
+  name: string;
+  role: string;
+  roleTitle: string;
+  branch: string;
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+  isPilotTester: boolean;
+  canAccessSessionMonitor: boolean;
+  isSuspended: boolean;
+}
+
+async function resolveVerifiedSessionCaller(req: Request): Promise<VerifiedSessionCaller | null> {
+  const sb = getSupabaseClientForRequest(req);
+  const authHeader = String(req.headers.authorization || (req.headers as any)['Authorization'] || '');
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  let verifiedEmail = '';
+  let verifiedUserId = '';
+  let tokenDisplayName = '';
+
+  // 1. Prefer cryptographically verified Supabase JWT when provided
+  if (bearerToken) {
+    try {
+      const { data: userRes, error: userErr } = await supabaseAdmin.auth.getUser(bearerToken);
+      if (!userErr && userRes?.user) {
+        verifiedUserId = String(userRes.user.id || '').trim();
+        verifiedEmail = String(userRes.user.email || '').trim().toLowerCase();
+        tokenDisplayName = String(
+          userRes.user.user_metadata?.full_name || userRes.user.user_metadata?.name || ''
+        ).trim();
+      }
+    } catch {
+      // Fall through to directory lookup if token validation fails on anon-key environments
+    }
+  }
+
+  // 2. Fallback identity lookup for backend-authenticated portal accounts (/api/auth/login)
+  const headerEmail = String(req.headers['x-user-email'] || '').trim().toLowerCase();
+  const headerUserId = String(req.headers['x-user-id'] || '').trim();
+  const lookupEmail = verifiedEmail || headerEmail;
+  const lookupId = verifiedUserId || headerUserId;
+
+  if (!lookupEmail && !lookupId) {
+    return null;
+  }
+
+  const db = readDatabase();
+  const dbUser: any = (db.users || []).find(
+    (u: any) =>
+      (lookupEmail && String(u?.email || '').trim().toLowerCase() === lookupEmail) ||
+      (lookupId && String(u?.id || '').trim() === lookupId)
+  );
+
+  let sbProfile: any = null;
+  let sbFirmUser: any = null;
+
+  try {
+    if (lookupEmail) {
+      const [profRes, firmRes] = await Promise.all([
+        sb
+          .from('profiles')
+          .select('id, email, full_name, role, role_id, role_title, branch_id, branch_name, branch, is_super_admin, is_branch_admin, is_suspended')
+          .ilike('email', lookupEmail)
+          .maybeSingle(),
+        sb
+          .from('firm_users')
+          .select('id, email, name, full_name, role, role_id, role_title, branch_id, branch_name, is_super_admin, is_branch_admin, is_suspended')
+          .ilike('email', lookupEmail)
+          .maybeSingle(),
+      ]);
+      if (!profRes.error && profRes.data) sbProfile = profRes.data;
+      if (!firmRes.error && firmRes.data) sbFirmUser = firmRes.data;
+    } else if (lookupId && isUuidString(lookupId)) {
+      const { data, error } = await sb
+        .from('profiles')
+        .select('id, email, full_name, role, role_id, role_title, branch_id, branch_name, branch, is_super_admin, is_branch_admin, is_suspended')
+        .eq('id', lookupId)
+        .maybeSingle();
+      if (!error && data) sbProfile = data;
+    }
+  } catch {
+    // Non-blocking fallback to central database directory
+  }
+
+  const hasAuthoritativeRecord = Boolean(verifiedEmail || verifiedUserId || sbProfile || sbFirmUser || dbUser);
+  if (!hasAuthoritativeRecord) {
+    return null;
+  }
+
+  const isSuspended = Boolean(
+    sbProfile?.is_suspended || sbFirmUser?.is_suspended || dbUser?.isSuspended || dbUser?.is_suspended
+  );
+  if (isSuspended) {
+    return null;
+  }
+
+  const canonicalEmail = String(
+    verifiedEmail || sbProfile?.email || sbFirmUser?.email || dbUser?.email || ''
+  )
+    .trim()
+    .toLowerCase();
+  const canonicalId = String(
+    verifiedUserId || sbProfile?.id || sbFirmUser?.id || dbUser?.id || canonicalEmail
+  ).trim();
+  const canonicalName = String(
+    sbProfile?.full_name ||
+      sbFirmUser?.full_name ||
+      sbFirmUser?.name ||
+      dbUser?.name ||
+      tokenDisplayName ||
+      canonicalEmail.split('@')[0] ||
+      'Firm Staff'
+  ).trim();
+
+  // Derive roles strictly from authoritative database/directory records — never from client-supplied headers
+  const canonicalRole = String(
+    sbProfile?.role || sbFirmUser?.role || dbUser?.role || 'staff'
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canonicalRoleId = String(
+    sbProfile?.role_id || sbFirmUser?.role_id || dbUser?.roleId || dbUser?.role_id || ''
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  const canonicalRoleTitle = String(
+    sbProfile?.role_title || sbFirmUser?.role_title || dbUser?.roleTitle || dbUser?.role_title || canonicalRole
+  ).trim();
+  const canonicalBranch = String(
+    sbProfile?.branch_name ||
+      sbProfile?.branch ||
+      sbFirmUser?.branch_name ||
+      dbUser?.branchName ||
+      dbUser?.branch ||
+      'Kampala Central (Head Office)'
+  ).trim();
+
+  const emailPrefix = canonicalEmail.split('@')[0] || '';
+  const isSuperAdmin = Boolean(
+    sbProfile?.is_super_admin === true ||
+      sbFirmUser?.is_super_admin === true ||
+      dbUser?.isSuperAdmin === true ||
+      dbUser?.is_super_admin === true ||
+      canonicalRole === 'super_admin' ||
+      canonicalRole === 'superadmin' ||
+      canonicalRoleId === 'role_super_admin' ||
+      canonicalRoleId === 'super_admin'
+  );
+  const isAdmin = Boolean(
+    isSuperAdmin ||
+      sbProfile?.is_branch_admin === true ||
+      sbFirmUser?.is_branch_admin === true ||
+      dbUser?.isBranchAdmin === true ||
+      canonicalRole === 'managing_partner' ||
+      canonicalRole === 'partner' ||
+      canonicalRole === 'admin' ||
+      canonicalRole === 'branch_admin' ||
+      canonicalRole === 'administrator' ||
+      canonicalRoleId === 'role_managing_partner' ||
+      canonicalRoleId === 'role_branch_admin'
+  );
+  const isPilotTester = Boolean(
+    canonicalEmail === 'clerk.fortportal' ||
+      emailPrefix === 'clerk.fortportal' ||
+      canonicalEmail.startsWith('clerk.fortportal@') ||
+      canonicalId.toLowerCase() === 'user-clerk-ftp'
+  );
+
+  return {
+    verified: true,
+    userId: canonicalId,
+    email: canonicalEmail,
+    name: canonicalName,
+    role: canonicalRole,
+    roleTitle: canonicalRoleTitle,
+    branch: canonicalBranch,
+    isSuperAdmin,
+    isAdmin,
+    isPilotTester,
+    canAccessSessionMonitor: isSuperAdmin || isAdmin || isPilotTester,
+    isSuspended: false,
+  };
+}
+
+interface LoginSessionRecordInput {
+  sessionId?: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: string;
+  branch: string;
+}
+
+async function recordLoginSessionEvent(req: Request, input: LoginSessionRecordInput) {
+  const nowIso = new Date().toISOString();
+  const ipAddress = extractClientIp(req);
+  const device = parseUserAgentDeviceInfo(String(req.headers['user-agent'] || ''));
+
+  const requestedId = String(input.sessionId || '').trim();
+  const sessionId =
+    requestedId && SESSION_ID_REGEX.test(requestedId)
+      ? requestedId
+      : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  const cleanUserId = String(input.userId || '').trim().slice(0, 128) || 'unknown-user';
+  const cleanUserName = String(input.userName || '').trim().slice(0, 120) || 'Firm Staff';
+  const cleanUserEmail = String(input.userEmail || '').trim().toLowerCase().slice(0, 160);
+  const cleanUserRole = String(input.userRole || '').trim().slice(0, 80) || 'Staff';
+  const cleanBranch = String(input.branch || '').trim().slice(0, 120) || 'Kampala Central (Head Office)';
+
+  const db = readDatabase();
+  const existingSessions: any[] = Array.isArray(db.loginSessions) ? [...db.loginSessions] : [];
+  let effectiveSessionId = sessionId;
+  let existingIndex = existingSessions.findIndex((s: any) => String(s?.id || '') === effectiveSessionId);
+
+  // Prevent cross-user session overwrite if a requested sessionId belongs to a different user
+  if (existingIndex >= 0) {
+    const existingOwnerEmail = String(existingSessions[existingIndex]?.userEmail || '').trim().toLowerCase();
+    const existingOwnerId = String(existingSessions[existingIndex]?.userId || '').trim();
+    const sameOwner =
+      (cleanUserEmail && existingOwnerEmail && existingOwnerEmail === cleanUserEmail) ||
+      (cleanUserId && existingOwnerId && existingOwnerId === cleanUserId);
+    if (!sameOwner) {
+      effectiveSessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      existingIndex = -1;
+    }
+  }
+
+  const sessionRecord = {
+    id: effectiveSessionId,
+    userId: cleanUserId,
+    userName: cleanUserName,
+    userEmail: cleanUserEmail,
+    userRole: cleanUserRole,
+    branch: cleanBranch,
+    ipAddress,
+    deviceType: device.deviceType,
+    browser: device.browser,
+    os: device.os,
+    deviceLabel: device.deviceLabel,
+    userAgent: device.userAgent,
+    loginAt: existingIndex >= 0 && existingSessions[existingIndex]?.loginAt ? existingSessions[existingIndex].loginAt : nowIso,
+    lastActiveAt: nowIso,
+    status: existingIndex >= 0 && existingSessions[existingIndex]?.status === 'Revoked' ? 'Revoked' : 'Active',
+    source: 'central_db',
+  };
+
+  if (existingIndex >= 0) {
+    existingSessions[existingIndex] = { ...existingSessions[existingIndex], ...sessionRecord };
+  } else {
+    existingSessions.unshift(sessionRecord);
+  }
+
+  db.loginSessions = existingSessions.slice(0, 500);
+  writeDatabase(db);
+
+  // Also persist into Supabase audit_logs (USER_LOGIN) and best-effort user_sessions table
+  const sb = getSupabaseClientForRequest(req);
+  try {
+    const metadataChanges = {
+      session_id: sessionRecord.id,
+      ip_address: sessionRecord.ipAddress,
+      device_type: sessionRecord.deviceType,
+      browser: sessionRecord.browser,
+      os: sessionRecord.os,
+      device_label: sessionRecord.deviceLabel,
+      user_agent: sessionRecord.userAgent,
+      status: sessionRecord.status,
+      login_at: sessionRecord.loginAt,
+      last_active_at: sessionRecord.lastActiveAt,
+    };
+
+    if (existingIndex < 0) {
+      await sb.from('audit_logs').insert([
+        {
+          case_id: null,
+          case_number: null,
+          action: 'USER_LOGIN',
+          performed_by: cleanUserName,
+          user_id: isUuidString(cleanUserId) ? cleanUserId : null,
+          user_email: cleanUserEmail || null,
+          user_role: cleanUserRole,
+          branch: cleanBranch,
+          changes: metadataChanges,
+          created_at: nowIso,
+        },
+      ]);
+    }
+  } catch {
+    // Non-blocking if Supabase audit_logs is unavailable
+  }
+
+  try {
+    await sb.from('user_sessions').upsert(
+      [
+        {
+          id: sessionRecord.id,
+          user_id: isUuidString(cleanUserId) ? cleanUserId : null,
+          user_name: cleanUserName,
+          user_email: cleanUserEmail,
+          user_role: cleanUserRole,
+          branch: cleanBranch,
+          ip_address: sessionRecord.ipAddress,
+          device_type: sessionRecord.deviceType,
+          browser: sessionRecord.browser,
+          os: sessionRecord.os,
+          device_label: sessionRecord.deviceLabel,
+          user_agent: sessionRecord.userAgent,
+          login_at: sessionRecord.loginAt,
+          last_active_at: sessionRecord.lastActiveAt,
+          status: sessionRecord.status,
+        },
+      ],
+      { onConflict: 'id' }
+    );
+  } catch {
+    // Best-effort: user_sessions table may not be provisioned in all Supabase instances
+  }
+
+  return sessionRecord;
+}
+
+// Record authenticated user's current login session (server resolves real IP & User-Agent)
+app.post('/api/security/sessions/record', async (req: Request, res: Response) => {
+  try {
+    const caller = await resolveVerifiedSessionCaller(req);
+    if (!caller) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required to record session metadata.',
+      });
+    }
+
+    const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId.trim() : undefined;
+    const session = await recordLoginSessionEvent(req, {
+      sessionId,
+      userId: caller.userId,
+      userName: caller.name,
+      userEmail: caller.email,
+      userRole: caller.roleTitle || caller.role,
+      branch: caller.branch,
+    });
+
+    return res.json({
+      success: true,
+      session,
+    });
+  } catch (err: any) {
+    console.error('[/api/security/sessions/record] Error:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to record login session metadata.',
+    });
+  }
+});
+
+// Query database for user login metadata (IP address, timestamp, device info)
+app.get('/api/security/sessions', async (req: Request, res: Response) => {
+  try {
+    const caller = await resolveVerifiedSessionCaller(req);
+    if (!caller) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required to access session metadata.',
+      });
+    }
+    if (!caller.canAccessSessionMonitor) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access Denied: Insufficient permissions to view Session Management records.',
+      });
+    }
+
+    const sb = getSupabaseClientForRequest(req);
+    const sourcesChecked: string[] = [];
+    const sessionMap = new Map<string, any>();
+    const revokedIds = new Set<string>();
+
+    const upsertMerged = (rec: any) => {
+      if (!rec?.id) return;
+      const key = String(rec.id);
+      const prev = sessionMap.get(key);
+      if (!prev) {
+        sessionMap.set(key, rec);
+        return;
+      }
+      const mergedStatus =
+        prev.status === 'Revoked' || rec.status === 'Revoked'
+          ? 'Revoked'
+          : rec.status || prev.status || 'Active';
+      sessionMap.set(key, {
+        ...prev,
+        ...rec,
+        ipAddress: rec.ipAddress && rec.ipAddress !== 'Unknown IP' ? rec.ipAddress : prev.ipAddress,
+        deviceLabel:
+          rec.deviceLabel && rec.deviceLabel !== 'Unknown Device' ? rec.deviceLabel : prev.deviceLabel,
+        userAgent: rec.userAgent || prev.userAgent,
+        loginAt: prev.loginAt && rec.loginAt ? (prev.loginAt < rec.loginAt ? prev.loginAt : rec.loginAt) : rec.loginAt || prev.loginAt,
+        lastActiveAt:
+          prev.lastActiveAt && rec.lastActiveAt
+            ? prev.lastActiveAt > rec.lastActiveAt
+              ? prev.lastActiveAt
+              : rec.lastActiveAt
+            : rec.lastActiveAt || prev.lastActiveAt,
+        status: mergedStatus,
+      });
+    };
+
+    // 1. Central database loginSessions
+    const db = readDatabase();
+    sourcesChecked.push('firm_database.loginSessions');
+    if (Array.isArray(db.loginSessions)) {
+      db.loginSessions.forEach((row: any) => {
+        if (!row?.id) return;
+        if (row.status === 'Revoked') revokedIds.add(String(row.id));
+        upsertMerged({
+          id: String(row.id),
+          userId: String(row.userId || ''),
+          userName: String(row.userName || 'Firm Staff'),
+          userEmail: String(row.userEmail || ''),
+          userRole: String(row.userRole || 'Staff'),
+          branch: String(row.branch || 'Kampala Central (Head Office)'),
+          ipAddress: String(row.ipAddress || 'Unknown IP'),
+          deviceType: row.deviceType || 'Unknown',
+          browser: String(row.browser || 'Unknown Browser'),
+          os: String(row.os || 'Unknown OS'),
+          deviceLabel: String(row.deviceLabel || 'Unknown Device'),
+          userAgent: String(row.userAgent || ''),
+          loginAt: String(row.loginAt || row.lastActiveAt || new Date().toISOString()),
+          lastActiveAt: String(row.lastActiveAt || row.loginAt || new Date().toISOString()),
+          status: row.status === 'Revoked' ? 'Revoked' : row.status === 'Ended' ? 'Ended' : 'Active',
+          source: 'Central Database',
+        });
+      });
+    }
+
+    // 2. Supabase `user_sessions` table (if provisioned)
+    try {
+      const { data: userSessionsRows, error: userSessionsErr } = await sb
+        .from('user_sessions')
+        .select('*')
+        .order('login_at', { ascending: false })
+        .limit(250);
+
+      if (!userSessionsErr && Array.isArray(userSessionsRows)) {
+        sourcesChecked.push('supabase.user_sessions');
+        userSessionsRows.forEach((row: any) => {
+          const parsedUa = parseUserAgentDeviceInfo(String(row.user_agent || ''));
+          const id = String(row.id || '');
+          if (!id) return;
+          if (row.status === 'Revoked') revokedIds.add(id);
+          upsertMerged({
+            id,
+            userId: String(row.user_id || ''),
+            userName: String(row.user_name || row.user_email || 'Firm Staff'),
+            userEmail: String(row.user_email || ''),
+            userRole: String(row.user_role || 'Staff'),
+            branch: String(row.branch || 'Kampala Central (Head Office)'),
+            ipAddress: String(row.ip_address || 'Unknown IP'),
+            deviceType: row.device_type || parsedUa.deviceType,
+            browser: String(row.browser || parsedUa.browser),
+            os: String(row.os || parsedUa.os),
+            deviceLabel: String(row.device_label || parsedUa.deviceLabel),
+            userAgent: String(row.user_agent || ''),
+            loginAt: String(row.login_at || row.created_at || new Date().toISOString()),
+            lastActiveAt: String(row.last_active_at || row.login_at || row.created_at || new Date().toISOString()),
+            status: row.status === 'Revoked' ? 'Revoked' : row.status === 'Ended' ? 'Ended' : 'Active',
+            source: 'Supabase Sessions',
+          });
+        });
+      }
+    } catch {
+      // Optional table
+    }
+
+    // 3. Supabase `audit_logs` (`USER_LOGIN` & `SESSION_REVOKED`)
+    try {
+      const { data: auditRows, error: auditErr } = await sb
+        .from('audit_logs')
+        .select('id, action, performed_by, user_id, user_email, user_role, branch, changes, created_at')
+        .in('action', ['USER_LOGIN', 'SESSION_REVOKED'])
+        .order('created_at', { ascending: false })
+        .limit(300);
+
+      if (!auditErr && Array.isArray(auditRows)) {
+        sourcesChecked.push('supabase.audit_logs');
+        auditRows.forEach((row: any) => {
+          const meta = row?.changes && typeof row.changes === 'object' ? row.changes : {};
+          if (row.action === 'SESSION_REVOKED') {
+            if (meta.session_id) revokedIds.add(String(meta.session_id));
+            return;
+          }
+          const id = String(meta.session_id || `audit_${row.id}`);
+          const parsedUa = parseUserAgentDeviceInfo(String(meta.user_agent || ''));
+          upsertMerged({
+            id,
+            userId: String(row.user_id || ''),
+            userName: String(row.performed_by || row.user_email || 'Firm Staff'),
+            userEmail: String(row.user_email || ''),
+            userRole: String(row.user_role || 'Staff'),
+            branch: String(row.branch || 'Kampala Central (Head Office)'),
+            ipAddress: String(meta.ip_address || 'Unknown IP'),
+            deviceType: meta.device_type || parsedUa.deviceType,
+            browser: String(meta.browser || parsedUa.browser),
+            os: String(meta.os || parsedUa.os),
+            deviceLabel: String(meta.device_label || parsedUa.deviceLabel),
+            userAgent: String(meta.user_agent || ''),
+            loginAt: String(meta.login_at || row.created_at || new Date().toISOString()),
+            lastActiveAt: String(meta.last_active_at || row.created_at || new Date().toISOString()),
+            status: meta.status === 'Revoked' ? 'Revoked' : 'Active',
+            source: 'Audit Log',
+          });
+        });
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+
+    // 4. Best-effort Supabase Auth directory (`last_sign_in_at`) for accounts without detailed session rows yet
+    if (hasRealServiceRoleKey()) {
+      try {
+        const { data: authList, error: authListErr } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 200,
+        });
+        if (!authListErr && Array.isArray(authList?.users)) {
+          sourcesChecked.push('supabase.auth.users');
+          const emailsAlreadyTracked = new Set(
+            Array.from(sessionMap.values())
+              .map((s) => String(s.userEmail || '').toLowerCase())
+              .filter(Boolean)
+          );
+          authList.users.forEach((au: any) => {
+            if (!au?.last_sign_in_at) return;
+            const email = String(au.email || '').trim().toLowerCase();
+            if (email && emailsAlreadyTracked.has(email)) return;
+            const syntheticId = `auth_${au.id}`;
+            upsertMerged({
+              id: syntheticId,
+              userId: String(au.id || ''),
+              userName: String(
+                au.user_metadata?.full_name || au.user_metadata?.name || email.split('@')[0] || 'Firm Staff'
+              ),
+              userEmail: email,
+              userRole: String(au.user_metadata?.role_title || au.user_metadata?.role || 'Staff'),
+              branch: String(au.user_metadata?.branch_name || 'Kampala Central (Head Office)'),
+              ipAddress: 'Recorded via Auth',
+              deviceType: 'Unknown',
+              browser: 'Supabase Auth',
+              os: 'Directory Sign-In',
+              deviceLabel: 'Supabase Auth Sign-In',
+              userAgent: '',
+              loginAt: String(au.last_sign_in_at),
+              lastActiveAt: String(au.last_sign_in_at),
+              status: 'Active',
+              source: 'Auth Directory',
+            });
+          });
+        }
+      } catch {
+        // Non-blocking if Admin Auth API unavailable
+      }
+    }
+
+    const sessions = Array.from(sessionMap.values())
+      .map((s) => (revokedIds.has(String(s.id)) ? { ...s, status: 'Revoked' } : s))
+      .sort((a, b) => new Date(b.loginAt || 0).getTime() - new Date(a.loginAt || 0).getTime());
+
+    return res.json({
+      success: true,
+      sessions,
+      sourcesChecked,
+      serverTimestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('[/api/security/sessions] Error:', err);
+    return res.status(500).json({
+      success: false,
+      sessions: [],
+      sourcesChecked: [],
+      error: 'Unable to query login session records.',
+    });
+  }
+});
+
+// Revoke an active user session (Admin / Super Admin only)
+app.post('/api/security/sessions/:id/revoke', async (req: Request, res: Response) => {
+  try {
+    const caller = await resolveVerifiedSessionCaller(req);
+    if (!caller) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required to revoke sessions.',
+      });
+    }
+    if (!caller.isAdmin && !caller.isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access Denied: Only Administrators or Managing Partners can revoke user sessions.',
+      });
+    }
+
+    const targetSessionId = String(req.params.id || '').trim();
+    if (!targetSessionId || !SESSION_ID_REGEX.test(targetSessionId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid session identifier.',
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const db = readDatabase();
+    const sessions: any[] = Array.isArray(db.loginSessions) ? [...db.loginSessions] : [];
+    const idx = sessions.findIndex((s: any) => String(s?.id || '') === targetSessionId);
+    if (idx >= 0) {
+      sessions[idx] = {
+        ...sessions[idx],
+        status: 'Revoked',
+        revokedAt: nowIso,
+        revokedBy: caller.email || caller.name,
+      };
+      db.loginSessions = sessions;
+      writeDatabase(db);
+    }
+
+    const sb = getSupabaseClientForRequest(req);
+    try {
+      await sb
+        .from('user_sessions')
+        .update({ status: 'Revoked', last_active_at: nowIso })
+        .eq('id', targetSessionId);
+    } catch {
+      // Best-effort
+    }
+
+    try {
+      await sb.from('audit_logs').insert([
+        {
+          case_id: null,
+          case_number: null,
+          action: 'SESSION_REVOKED',
+          performed_by: caller.name,
+          user_id: isUuidString(caller.userId) ? caller.userId : null,
+          user_email: caller.email || null,
+          user_role: caller.roleTitle || caller.role,
+          branch: caller.branch,
+          changes: {
+            session_id: targetSessionId,
+            revoked_at: nowIso,
+            revoked_by: caller.email || caller.name,
+            actor_ip: extractClientIp(req),
+          },
+          created_at: nowIso,
+        },
+      ]);
+    } catch {
+      // Non-blocking audit insert
+    }
+
+    return res.json({
+      success: true,
+      sessionId: targetSessionId,
+      status: 'Revoked',
+      revokedAt: nowIso,
+    });
+  } catch (err: any) {
+    console.error('[/api/security/sessions/:id/revoke] Error:', err);
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to revoke the selected session.',
     });
   }
 });
